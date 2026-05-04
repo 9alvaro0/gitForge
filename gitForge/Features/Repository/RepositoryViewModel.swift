@@ -22,6 +22,17 @@ final class RepositoryViewModel {
     private(set) var detailCache: [String: CommitDetail] = [:]
     private(set) var loadingDetailFor: String?
 
+    private(set) var refs: [GitRef] = []
+    private(set) var currentBranchName: String?
+
+    /// `nil` filter shows the current HEAD branch.
+    var selectedFilterBranch: String? {
+        didSet {
+            guard oldValue != selectedFilterBranch else { return }
+            Task { await reloadAfterFilterChange() }
+        }
+    }
+
     private let cli: GitCLI
 
     init(repository: Repository) {
@@ -34,7 +45,7 @@ final class RepositoryViewModel {
         isLoadingInitial = true
         defer { isLoadingInitial = false }
         do {
-            let page = try await cli.log(limit: Self.pageSize, skip: 0)
+            let page = try await cli.log(branch: filterBranchForLog, limit: Self.pageSize, skip: 0)
             commits = page
             hasMore = page.count == Self.pageSize
             selectedCommitId = page.first?.id
@@ -50,12 +61,23 @@ final class RepositoryViewModel {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let next = try await cli.log(limit: Self.pageSize, skip: commits.count)
+            let next = try await cli.log(branch: filterBranchForLog, limit: Self.pageSize, skip: commits.count)
             commits.append(contentsOf: next)
             hasMore = next.count == Self.pageSize
         } catch {
             Self.logger.error("Failed to load more: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func loadRefs() async {
+        async let refsTask: [GitRef]? = try? cli.refs()
+        async let currentTask: String? = cli.currentBranchName()
+        if let refs = await refsTask {
+            self.refs = refs
+        }
+        if let current = await currentTask {
+            self.currentBranchName = current
         }
     }
 
@@ -77,6 +99,40 @@ final class RepositoryViewModel {
         guard let id = selectedCommitId else { return nil }
         return commits.first { $0.id == id }
     }
+
+    var refsBySha: [String: [GitRef]] {
+        Dictionary(grouping: refs) { $0.targetSha }
+    }
+
+    var localBranches: [GitRef] {
+        refs.filter(\.isLocalBranch).sorted { $0.name < $1.name }
+    }
+
+    var remoteBranches: [GitRef] {
+        refs.filter(\.isRemoteBranch).sorted { $0.name < $1.name }
+    }
+
+    var tags: [GitRef] {
+        refs.filter(\.isTag).sorted { $0.name < $1.name }
+    }
+
+    /// Branch name passed to `git log`. `--all` is special-cased.
+    private var filterBranchForLog: String? {
+        switch selectedFilterBranch {
+        case nil: nil
+        case "ALL": "--all"
+        case .some(let value): value
+        }
+    }
+
+    /// Resets commits and reloads with the new filter.
+    private func reloadAfterFilterChange() async {
+        commits = []
+        hasMore = true
+        selectedCommitId = nil
+        loadError = nil
+        await loadInitial()
+    }
 }
 
 extension RepositoryViewModel {
@@ -85,6 +141,8 @@ extension RepositoryViewModel {
         vm.commits = Commit.previewSamples
         vm.selectedCommitId = Commit.previewSamples.first?.id
         vm.detailCache[Commit.preview.sha] = CommitDetail.preview
+        vm.refs = GitRef.previewSamples
+        vm.currentBranchName = "main"
         return vm
     }
 }
