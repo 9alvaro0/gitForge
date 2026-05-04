@@ -1,5 +1,26 @@
 import SwiftUI
 
+enum RepositoryTab: String, CaseIterable, Identifiable {
+    case history
+    case changes
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .history: "History"
+        case .changes: "Changes"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .history: "clock.arrow.circlepath"
+        case .changes: "pencil.line"
+        }
+    }
+}
+
 struct RepositoryView: View {
     let repository: Repository
     @Environment(AppState.self) private var appState
@@ -19,6 +40,7 @@ struct RepositoryView: View {
             guard let viewModel = appState.activeViewModel else { return }
             await viewModel.loadInitial()
             await viewModel.loadRefs()
+            await viewModel.refreshStatus()
         }
     }
 }
@@ -26,16 +48,22 @@ struct RepositoryView: View {
 private struct RepositoryContentView: View {
     let repository: Repository
     @Bindable var viewModel: RepositoryViewModel
+    @State private var tab: RepositoryTab = .history
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            HSplitView {
-                CommitLogView(viewModel: viewModel)
-                    .frame(minWidth: 320, idealWidth: 460)
-                detailPane
-                    .frame(minWidth: 320)
+            switch tab {
+            case .history:
+                HSplitView {
+                    CommitLogView(viewModel: viewModel)
+                        .frame(minWidth: 360, idealWidth: 480)
+                    detailPane
+                        .frame(minWidth: 320)
+                }
+            case .changes:
+                ChangesView(viewModel: viewModel)
             }
         }
     }
@@ -55,10 +83,40 @@ private struct RepositoryContentView: View {
                     .truncationMode(.head)
             }
             Spacer()
-            BranchFilterMenu(viewModel: viewModel)
+            Picker("", selection: $tab) {
+                ForEach(RepositoryTab.allCases) { kind in
+                    Label(kind.title, systemImage: kind.systemImage)
+                        .tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 220)
+            .labelsHidden()
+            if tab == .history {
+                BranchFilterMenu(viewModel: viewModel)
+            } else {
+                changesBadge
+            }
         }
         .padding()
         .background(.bar)
+    }
+
+    @ViewBuilder
+    private var changesBadge: some View {
+        let total = viewModel.status.files.count
+        if total > 0 {
+            HStack(spacing: 4) {
+                Image(systemName: "circle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption2)
+                Text("\(total)")
+                    .font(.caption.weight(.semibold))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(.background.secondary, in: Capsule())
+        }
     }
 
     @ViewBuilder
@@ -163,5 +221,5 @@ private struct BranchFilterMenu: View {
 #Preview {
     RepositoryView(repository: Repository.preview)
         .environment(AppState.previewWithActive)
-        .frame(width: 1100, height: 640)
+        .frame(width: 1100, height: 680)
 }

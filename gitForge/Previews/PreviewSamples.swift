@@ -114,6 +114,16 @@ extension CommitDetail {
     )
 }
 
+extension WorkingCopyStatus {
+    static let preview = WorkingCopyStatus(files: [
+        WorkingCopyFile(path: "gitForge/Features/Repository/CommitLogView.swift", stagedStatus: .modified, unstagedStatus: .unmodified, originalPath: nil),
+        WorkingCopyFile(path: "gitForge/Models/Commit.swift", stagedStatus: .added, unstagedStatus: .unmodified, originalPath: nil),
+        WorkingCopyFile(path: "gitForge/App/AppState.swift", stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil),
+        WorkingCopyFile(path: "README.md", stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil),
+        WorkingCopyFile(path: "gitForge/Features/NewView.swift", stagedStatus: .unmodified, unstagedStatus: .untracked, originalPath: nil),
+    ])
+}
+
 @MainActor
 extension AppState {
     static var preview: AppState {
@@ -128,6 +138,12 @@ extension AppState {
         let repo = Repository.previewSamples.first!
         state.activeRepository = repo
         state.activeViewModel = RepositoryViewModel.preview
+        return state
+    }
+
+    static var previewMissingGit: AppState {
+        let state = AppState()
+        state.gitStatus = .notFound
         return state
     }
 }
