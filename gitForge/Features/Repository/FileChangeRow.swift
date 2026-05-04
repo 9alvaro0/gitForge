@@ -3,6 +3,8 @@ import SwiftUI
 struct FileChangeRow: View {
     let file: WorkingCopyFile
     let isStagedSection: Bool
+    let isSelected: Bool
+    let onSelect: () -> Void
     let onPrimary: () -> Void
     let onDiscard: () -> Void
 
@@ -48,6 +50,9 @@ struct FileChangeRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+        .background(isSelected ? Color.accentColor.opacity(0.18) : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
         .contextMenu {
             if !isStagedSection {
                 Button("Discard Changes...", role: .destructive) {
@@ -60,9 +65,23 @@ struct FileChangeRow: View {
 
 #Preview {
     VStack(spacing: 0) {
-        FileChangeRow(file: WorkingCopyStatus.preview.files[0], isStagedSection: true, onPrimary: {}, onDiscard: {})
+        FileChangeRow(
+            file: WorkingCopyStatus.preview.files[0],
+            isStagedSection: true,
+            isSelected: true,
+            onSelect: {},
+            onPrimary: {},
+            onDiscard: {}
+        )
         Divider()
-        FileChangeRow(file: WorkingCopyStatus.preview.files[2], isStagedSection: false, onPrimary: {}, onDiscard: {})
+        FileChangeRow(
+            file: WorkingCopyStatus.preview.files[2],
+            isStagedSection: false,
+            isSelected: false,
+            onSelect: {},
+            onPrimary: {},
+            onDiscard: {}
+        )
     }
     .frame(width: 480)
     .padding()

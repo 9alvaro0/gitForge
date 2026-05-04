@@ -46,6 +46,32 @@ final class RepositoryViewModel {
     }
     var commitError: String?
 
+    /// Path of the file selected inside the current commit's detail panel.
+    var selectedCommitFile: String? {
+        didSet {
+            guard oldValue != selectedCommitFile else { return }
+            if let path = selectedCommitFile, let commit = selectedCommit {
+                Task { await loadCommitFileDiff(sha: commit.sha, path: path) }
+            }
+        }
+    }
+    private(set) var commitFileDiff: [DiffHunk] = []
+    private(set) var loadingCommitFileDiff = false
+
+    /// Selected file in the working-copy view (Changes tab).
+    var selectedWorkingCopyFile: WorkingCopyFile? {
+        didSet {
+            guard oldValue != selectedWorkingCopyFile else { return }
+            if let file = selectedWorkingCopyFile {
+                Task { await loadWorkingCopyDiff(file: file) }
+            } else {
+                workingCopyDiff = []
+            }
+        }
+    }
+    private(set) var workingCopyDiff: [DiffHunk] = []
+    private(set) var loadingWorkingCopyDiff = false
+
     /// `nil` filter shows the current HEAD branch.
     var selectedFilterBranch: String? {
         didSet {
@@ -255,6 +281,37 @@ final class RepositoryViewModel {
             hasMore = true
             selectedCommitId = nil
             await loadInitial()
+        }
+    }
+
+    func loadCommitFileDiff(sha: String, path: String) async {
+        loadingCommitFileDiff = true
+        defer { loadingCommitFileDiff = false }
+        do {
+            let raw = try await cli.diff(sha: sha, file: path)
+            commitFileDiff = DiffParser.parse(raw)
+        } catch {
+            Self.logger.error("Failed to load commit diff: \(error.localizedDescription, privacy: .public)")
+            commitFileDiff = []
+        }
+    }
+
+    func loadWorkingCopyDiff(file: WorkingCopyFile) async {
+        loadingWorkingCopyDiff = true
+        defer { loadingWorkingCopyDiff = false }
+        do {
+            let raw: String
+            if file.isStaged {
+                raw = try await cli.diffStaged(file: file.path)
+            } else if file.isUntracked {
+                raw = ""
+            } else {
+                raw = try await cli.diffUnstaged(file: file.path)
+            }
+            workingCopyDiff = DiffParser.parse(raw)
+        } catch {
+            Self.logger.error("Failed to load working-copy diff: \(error.localizedDescription, privacy: .public)")
+            workingCopyDiff = []
         }
     }
 
