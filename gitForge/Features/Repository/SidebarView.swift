@@ -43,15 +43,8 @@ struct SidebarView: View {
         let tagTree = BranchTreeBuilder.build(from: viewModel.tags)
 
         Section {
-            ForEach(localTree) { node in
-                BranchTreeNodeView(
-                    node: node,
-                    viewModel: viewModel,
-                    canModify: true,
-                    onCheckout: { ref in handleCheckout(ref, viewModel: viewModel) },
-                    onRename: { ref in renameTarget = ref },
-                    onDelete: { ref in deleteTarget = ref }
-                )
+            OutlineGroup(localTree, id: \.id, children: \.children) { node in
+                branchNodeView(node, viewModel: viewModel, canModify: true)
             }
         } header: {
             HStack {
@@ -70,23 +63,60 @@ struct SidebarView: View {
 
         if !viewModel.remoteBranches.isEmpty {
             Section("Remote Branches") {
-                ForEach(remoteTree) { node in
-                    BranchTreeNodeView(
-                        node: node,
-                        viewModel: viewModel,
-                        canModify: false,
-                        onCheckout: { ref in handleCheckout(ref, viewModel: viewModel) },
-                        onRename: nil,
-                        onDelete: nil
-                    )
+                OutlineGroup(remoteTree, id: \.id, children: \.children) { node in
+                    branchNodeView(node, viewModel: viewModel, canModify: false)
                 }
             }
         }
         if !viewModel.tags.isEmpty {
             Section("Tags") {
-                ForEach(tagTree) { node in
-                    TagTreeNodeView(node: node)
+                OutlineGroup(tagTree, id: \.id, children: \.children) { node in
+                    tagNodeView(node)
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func branchNodeView(_ node: BranchTreeNode, viewModel: RepositoryViewModel, canModify: Bool) -> some View {
+        switch node {
+        case .folder(_, let name, _):
+            HStack(spacing: 6) {
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondary)
+                Text(name).fontWeight(.medium)
+                Spacer(minLength: 0)
+            }
+        case .ref(let leafName, let ref):
+            BranchRow(
+                ref: ref,
+                leafName: leafName,
+                viewModel: viewModel,
+                onCheckout: { handleCheckout(ref, viewModel: viewModel) },
+                onRename: canModify ? { renameTarget = ref } : nil,
+                onDelete: canModify ? { deleteTarget = ref } : nil
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func tagNodeView(_ node: BranchTreeNode) -> some View {
+        switch node {
+        case .folder(_, let name, _):
+            HStack(spacing: 6) {
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondary)
+                Text(name).fontWeight(.medium)
+                Spacer(minLength: 0)
+            }
+        case .ref(let leafName, _):
+            HStack(spacing: 8) {
+                Image(systemName: "tag")
+                    .foregroundStyle(.secondary)
+                Text(leafName)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
             }
         }
     }
@@ -319,82 +349,6 @@ private struct SidebarRow: View {
         .contextMenu {
             Button("Remove from Recents", role: .destructive) {
                 Task { await appState.removeFromRecents(repository.url) }
-            }
-        }
-    }
-}
-
-private struct BranchTreeNodeView: View {
-    let node: BranchTreeNode
-    @Bindable var viewModel: RepositoryViewModel
-    let canModify: Bool
-    let onCheckout: (GitRef) -> Void
-    let onRename: ((GitRef) -> Void)?
-    let onDelete: ((GitRef) -> Void)?
-
-    var body: some View {
-        switch node {
-        case .folder(_, let name, let children):
-            DisclosureGroup {
-                ForEach(children) { child in
-                    BranchTreeNodeView(
-                        node: child,
-                        viewModel: viewModel,
-                        canModify: canModify,
-                        onCheckout: onCheckout,
-                        onRename: onRename,
-                        onDelete: onDelete
-                    )
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "folder")
-                        .foregroundStyle(.secondary)
-                    Text(name)
-                        .fontWeight(.medium)
-                    Spacer(minLength: 0)
-                }
-            }
-        case .ref(let leafName, let ref):
-            BranchRow(
-                ref: ref,
-                leafName: leafName,
-                viewModel: viewModel,
-                onCheckout: { onCheckout(ref) },
-                onRename: canModify ? { onRename?(ref) } : nil,
-                onDelete: canModify ? { onDelete?(ref) } : nil
-            )
-        }
-    }
-}
-
-private struct TagTreeNodeView: View {
-    let node: BranchTreeNode
-
-    var body: some View {
-        switch node {
-        case .folder(_, let name, let children):
-            DisclosureGroup {
-                ForEach(children) { child in
-                    TagTreeNodeView(node: child)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "folder")
-                        .foregroundStyle(.secondary)
-                    Text(name)
-                        .fontWeight(.medium)
-                    Spacer(minLength: 0)
-                }
-            }
-        case .ref(let leafName, _):
-            HStack(spacing: 8) {
-                Image(systemName: "tag")
-                    .foregroundStyle(.secondary)
-                Text(leafName)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 0)
             }
         }
     }
