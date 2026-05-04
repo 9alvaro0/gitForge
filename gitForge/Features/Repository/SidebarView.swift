@@ -71,7 +71,7 @@ struct SidebarView: View {
         if !viewModel.tags.isEmpty {
             Section("Tags") {
                 OutlineGroup(tagTree, id: \.id, children: \.children) { node in
-                    tagNodeView(node)
+                    branchNodeView(node, viewModel: viewModel, canModify: false)
                 }
             }
         }
@@ -96,28 +96,6 @@ struct SidebarView: View {
                 onRename: canModify ? { renameTarget = ref } : nil,
                 onDelete: canModify ? { deleteTarget = ref } : nil
             )
-        }
-    }
-
-    @ViewBuilder
-    private func tagNodeView(_ node: BranchTreeNode) -> some View {
-        switch node {
-        case .folder(_, let name, _):
-            HStack(spacing: 6) {
-                Image(systemName: "folder")
-                    .foregroundStyle(.secondary)
-                Text(name).fontWeight(.medium)
-                Spacer(minLength: 0)
-            }
-        case .ref(let leafName, _):
-            HStack(spacing: 8) {
-                Image(systemName: "tag")
-                    .foregroundStyle(.secondary)
-                Text(leafName)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 0)
-            }
         }
     }
 
@@ -370,9 +348,17 @@ private struct BranchRow: View {
         viewModel.selectedFilterBranch == ref.name
     }
 
+    private var iconName: String {
+        switch ref.kind {
+        case .localBranch: "point.topleft.down.to.point.bottomright.curvepath"
+        case .remoteBranch: "arrow.triangle.branch"
+        case .tag: "tag"
+        }
+    }
+
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: ref.isRemoteBranch ? "arrow.triangle.branch" : "point.topleft.down.to.point.bottomright.curvepath")
+            Image(systemName: iconName)
                 .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             Text(leafName)
                 .fontWeight(isCurrent ? .semibold : .regular)
