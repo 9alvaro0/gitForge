@@ -56,3 +56,23 @@ private struct MainNavigationView: View {
         }
     }
 }
+
+#Preview("Welcome (no active repo)") {
+    RootView()
+        .environment(AppState.preview)
+        .frame(width: 1100, height: 720)
+}
+
+#Preview("Repository active") {
+    RootView()
+        .environment(AppState.previewWithActive)
+        .frame(width: 1100, height: 720)
+}
+
+#Preview("Git not found") {
+    let state = AppState()
+    state.gitStatus = .notFound
+    return RootView()
+        .environment(state)
+        .frame(width: 1100, height: 720)
+}
