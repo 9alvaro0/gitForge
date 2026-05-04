@@ -9,6 +9,11 @@ struct SidebarView: View {
     @State private var dirtyCheckoutTarget: GitRef?
     @State private var unmergedDeleteTarget: GitRef?
 
+    @AppStorage("sidebar.localBranchesExpanded") private var localExpanded = true
+    @AppStorage("sidebar.remoteBranchesExpanded") private var remoteExpanded = true
+    @AppStorage("sidebar.tagsExpanded") private var tagsExpanded = false
+    @AppStorage("sidebar.stashesExpanded") private var stashesExpanded = true
+
     var body: some View {
         listContent
             .listStyle(.sidebar)
@@ -43,13 +48,13 @@ struct SidebarView: View {
         let tagTree = BranchTreeBuilder.build(from: viewModel.tags)
 
         Section {
-            OutlineGroup(localTree, id: \.id, children: \.children) { node in
-                branchNodeView(node, viewModel: viewModel, canModify: true)
+            if localExpanded {
+                OutlineGroup(localTree, id: \.id, children: \.children) { node in
+                    branchNodeView(node, viewModel: viewModel, canModify: true)
+                }
             }
         } header: {
-            HStack {
-                Text("Local Branches")
-                Spacer()
+            CollapsibleSectionHeader(title: "Local Branches", isExpanded: $localExpanded) {
                 Button {
                     showingCreateBranchSheet = true
                 } label: {
@@ -62,17 +67,36 @@ struct SidebarView: View {
         }
 
         if !viewModel.remoteBranches.isEmpty {
-            Section("Remote Branches") {
-                OutlineGroup(remoteTree, id: \.id, children: \.children) { node in
-                    branchNodeView(node, viewModel: viewModel, canModify: false)
+            Section {
+                if remoteExpanded {
+                    OutlineGroup(remoteTree, id: \.id, children: \.children) { node in
+                        branchNodeView(node, viewModel: viewModel, canModify: false)
+                    }
                 }
+            } header: {
+                CollapsibleSectionHeader(title: "Remote Branches", isExpanded: $remoteExpanded)
             }
         }
         if !viewModel.tags.isEmpty {
-            Section("Tags") {
-                OutlineGroup(tagTree, id: \.id, children: \.children) { node in
-                    branchNodeView(node, viewModel: viewModel, canModify: false)
+            Section {
+                if tagsExpanded {
+                    OutlineGroup(tagTree, id: \.id, children: \.children) { node in
+                        branchNodeView(node, viewModel: viewModel, canModify: false)
+                    }
                 }
+            } header: {
+                CollapsibleSectionHeader(title: "Tags", isExpanded: $tagsExpanded)
+            }
+        }
+        if !viewModel.stashes.isEmpty {
+            Section {
+                if stashesExpanded {
+                    ForEach(viewModel.stashes) { stash in
+                        StashRow(stash: stash, viewModel: viewModel)
+                    }
+                }
+            } header: {
+                CollapsibleSectionHeader(title: "Stashes", isExpanded: $stashesExpanded)
             }
         }
     }
@@ -344,10 +368,6 @@ private struct BranchRow: View {
         ref.isLocalBranch && viewModel.currentBranchName == ref.name
     }
 
-    private var isFiltered: Bool {
-        viewModel.selectedFilterBranch == ref.name
-    }
-
     private var iconName: String {
         switch ref.kind {
         case .localBranch: "point.topleft.down.to.point.bottomright.curvepath"
@@ -372,10 +392,9 @@ private struct BranchRow: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 1)
-        .background(isFiltered ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 4))
         .contentShape(Rectangle())
         .onTapGesture {
-            viewModel.selectedFilterBranch = ref.name
+            viewModel.scrollTargetSha = ref.targetSha
         }
         .onTapGesture(count: 2) {
             if !isCurrent { onCheckout() }
@@ -390,6 +409,75 @@ private struct BranchRow: View {
             if let onDelete, !isCurrent {
                 Divider()
                 Button("Delete...", role: .destructive, action: onDelete)
+            }
+        }
+    }
+}
+
+private struct CollapsibleSectionHeader<Trailing: View>: View {
+    let title: String
+    @Binding var isExpanded: Bool
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(title: String, isExpanded: Binding<Bool>, @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }) {
+        self.title = title
+        self._isExpanded = isExpanded
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    Text(title)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+            trailing()
+        }
+    }
+}
+
+private struct StashRow: View {
+    let stash: Stash
+    @Bindable var viewModel: RepositoryViewModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "tray.full")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(stash.subject)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(stash.reference)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            viewModel.scrollTargetSha = stash.sha
+        }
+        .contextMenu {
+            Button("Apply") {
+                Task { await viewModel.applyStash(stash, drop: false) }
+            }
+            Button("Pop (apply and drop)") {
+                Task { await viewModel.applyStash(stash, drop: true) }
+            }
+            Divider()
+            Button("Drop", role: .destructive) {
+                Task { await viewModel.dropStash(stash) }
             }
         }
     }

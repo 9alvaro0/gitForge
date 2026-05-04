@@ -24,6 +24,7 @@ final class RepositoryViewModel {
 
     private(set) var refs: [GitRef] = []
     private(set) var currentBranchName: String?
+    private(set) var stashes: [Stash] = []
 
     private(set) var graphLayouts: [GraphRowLayout] = []
     private(set) var graphMaxLanes: Int = 1
@@ -72,6 +73,10 @@ final class RepositoryViewModel {
     private(set) var workingCopyDiff: [DiffHunk] = []
     private(set) var loadingWorkingCopyDiff = false
 
+    /// Set to a SHA to nudge the log view to scroll there on the next render.
+    /// Cleared by the view after the scroll happens.
+    var scrollTargetSha: String?
+
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
     var remoteOperation: RemoteOperation?
     var remoteFailure: RemoteFailure?
@@ -79,14 +84,6 @@ final class RepositoryViewModel {
     private(set) var aheadCount: Int = 0
     private(set) var behindCount: Int = 0
     private(set) var lastFetchedAt: Date?
-
-    /// `nil` filter shows the current HEAD branch.
-    var selectedFilterBranch: String? {
-        didSet {
-            guard oldValue != selectedFilterBranch else { return }
-            Task { await reloadAfterFilterChange() }
-        }
-    }
 
     private let cli: GitCLI
 
@@ -100,7 +97,7 @@ final class RepositoryViewModel {
         isLoadingInitial = true
         defer { isLoadingInitial = false }
         do {
-            let page = try await cli.log(branch: filterBranchForLog, limit: Self.pageSize, skip: 0)
+            let page = try await cli.log(limit: Self.pageSize, skip: 0)
             commits = page
             hasMore = page.count == Self.pageSize
             selectedCommitId = page.first?.id
@@ -117,7 +114,7 @@ final class RepositoryViewModel {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let next = try await cli.log(branch: filterBranchForLog, limit: Self.pageSize, skip: commits.count)
+            let next = try await cli.log(limit: Self.pageSize, skip: commits.count)
             commits.append(contentsOf: next)
             hasMore = next.count == Self.pageSize
             recomputeGraph()
@@ -136,13 +133,38 @@ final class RepositoryViewModel {
     func loadRefs() async {
         async let refsTask: [GitRef]? = try? cli.refs()
         async let currentTask: String? = cli.currentBranchName()
+        async let stashTask: [Stash]? = try? cli.stashes()
         if let refs = await refsTask {
             self.refs = refs
         }
         if let current = await currentTask {
             self.currentBranchName = current
         }
+        if let stashes = await stashTask {
+            self.stashes = stashes
+        }
         await loadAheadBehind()
+    }
+
+    func applyStash(_ stash: Stash, drop: Bool) async {
+        do {
+            try await cli.stashApply(index: stash.index, drop: drop)
+            await loadRefs()
+            await refreshStatus()
+        } catch {
+            Self.logger.error("Stash apply failed: \(error.localizedDescription, privacy: .public)")
+            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func dropStash(_ stash: Stash) async {
+        do {
+            try await cli.stashDrop(index: stash.index)
+            await loadRefs()
+        } catch {
+            Self.logger.error("Stash drop failed: \(error.localizedDescription, privacy: .public)")
+            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     func refreshStatus() async {
@@ -425,25 +447,6 @@ final class RepositoryViewModel {
         refs.filter(\.isTag).sorted { $0.name < $1.name }
     }
 
-    /// Branch name passed to `git log`. `--all` is special-cased.
-    private var filterBranchForLog: String? {
-        switch selectedFilterBranch {
-        case nil: nil
-        case "ALL": "--all"
-        case .some(let value): value
-        }
-    }
-
-    /// Resets commits and reloads with the new filter.
-    private func reloadAfterFilterChange() async {
-        commits = []
-        graphLayouts = []
-        graphMaxLanes = 1
-        hasMore = true
-        selectedCommitId = nil
-        loadError = nil
-        await loadInitial()
-    }
 }
 
 extension RepositoryViewModel {

@@ -54,9 +54,15 @@ struct CommitLogView: View {
                         }
                     }
                     .listStyle(.plain)
-                    .onChange(of: viewModel.selectedCommitId) { _, new in
-                        guard let new else { return }
-                        proxy.scrollTo(new, anchor: .center)
+                    .onChange(of: viewModel.scrollTargetSha) { _, target in
+                        guard let target else { return }
+                        if viewModel.commits.contains(where: { $0.sha == target }) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                proxy.scrollTo(target, anchor: .center)
+                            }
+                            viewModel.selectedCommitId = target
+                        }
+                        viewModel.scrollTargetSha = nil
                     }
                 }
             }
