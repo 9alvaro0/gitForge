@@ -3,14 +3,15 @@ import SwiftUI
 struct GraphColumnView: View {
     let row: GraphRowLayout
     let maxLanes: Int
-    var laneWidth: CGFloat = 18
-    var dotRadius: CGFloat = 4.5
+    var laneWidth: CGFloat = 22
+    var dotRadius: CGFloat = 5.5
+    var hoveredBranchId: Int? = nil
 
     var body: some View {
         Canvas { context, size in
             let center = size.height / 2
             let bottom = size.height
-            let baseLineWidth: CGFloat = 1.8
+            let baseLineWidth: CGFloat = 2.4
 
             // Top-half lane segments (one per active lane that's not the commit lane,
             // because the commit lane is drawn explicitly below — full-height — for emphasis).
@@ -19,7 +20,7 @@ struct GraphColumnView: View {
                     context: context,
                     from: CGPoint(x: laneCenter(occ.lane), y: 0),
                     to: CGPoint(x: laneCenter(occ.lane), y: center),
-                    color: Self.color(for: occ.branchId),
+                    color: laneColor(occ.branchId),
                     lineWidth: baseLineWidth
                 )
             }
@@ -30,7 +31,7 @@ struct GraphColumnView: View {
                     context: context,
                     from: CGPoint(x: laneCenter(occ.lane), y: center),
                     to: CGPoint(x: laneCenter(occ.lane), y: bottom),
-                    color: Self.color(for: occ.branchId),
+                    color: laneColor(occ.branchId),
                     lineWidth: baseLineWidth
                 )
             }
@@ -41,8 +42,8 @@ struct GraphColumnView: View {
                 context: context,
                 from: CGPoint(x: commitX, y: 0),
                 to: CGPoint(x: commitX, y: bottom),
-                color: Self.color(for: row.commitBranchId),
-                lineWidth: baseLineWidth + 0.4
+                color: laneColor(row.commitBranchId),
+                lineWidth: baseLineWidth + 0.6
             )
 
             // Merge-in curves: from the merging lane (top) into the commit lane (center).
@@ -55,7 +56,7 @@ struct GraphColumnView: View {
                     control1: CGPoint(x: startX, y: center * 0.55),
                     control2: CGPoint(x: commitX, y: center * 0.45)
                 )
-                context.stroke(path, with: .color(Self.color(for: occ.branchId)), lineWidth: baseLineWidth)
+                context.stroke(path, with: .color(laneColor(occ.branchId)), lineWidth: baseLineWidth)
             }
 
             // Merge-out curves: from the commit lane (center) into the new parent lane (bottom).
@@ -68,11 +69,11 @@ struct GraphColumnView: View {
                     control1: CGPoint(x: commitX, y: center + (bottom - center) * 0.45),
                     control2: CGPoint(x: endX, y: center + (bottom - center) * 0.55)
                 )
-                context.stroke(path, with: .color(Self.color(for: occ.branchId)), lineWidth: baseLineWidth)
+                context.stroke(path, with: .color(laneColor(occ.branchId)), lineWidth: baseLineWidth)
             }
 
             // Dot: filled disc on the commit lane, hollow centre for merges.
-            let dotColor = Self.color(for: row.commitBranchId)
+            let dotColor = laneColor(row.commitBranchId)
             let dotRect = CGRect(
                 x: commitX - dotRadius,
                 y: center - dotRadius,
@@ -99,6 +100,15 @@ struct GraphColumnView: View {
         path.move(to: from)
         path.addLine(to: to)
         context.stroke(path, with: .color(color), lineWidth: lineWidth)
+    }
+
+    /// Colors muted when a different branch is being hovered, so the focused branch stands out.
+    private func laneColor(_ branchId: Int) -> Color {
+        let base = Self.color(for: branchId)
+        if let hovered = hoveredBranchId, hovered != branchId {
+            return base.opacity(0.18)
+        }
+        return base
     }
 
     static func color(for branchId: Int) -> Color {

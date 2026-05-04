@@ -6,6 +6,8 @@ struct CommitRowView: View {
     var refs: [GitRef] = []
     var graphRow: GraphRowLayout?
     var graphMaxLanes: Int = 1
+    var hoveredBranchId: Int? = nil
+    var onHoverChanged: (Bool) -> Void = { _ in }
 
     private static let relative: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
@@ -13,11 +15,25 @@ struct CommitRowView: View {
         return f
     }()
 
+    private var dimRow: Bool {
+        guard let hovered = hoveredBranchId, let mine = graphRow?.commitBranchId else { return false }
+        return hovered != mine
+    }
+
+    private var accentColor: Color {
+        guard let row = graphRow else { return .accentColor }
+        return GraphColumnView.color(for: row.commitBranchId)
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 4) {
             if let row = graphRow {
-                GraphColumnView(row: row, maxLanes: graphMaxLanes)
-                    .frame(height: 56)
+                GraphColumnView(
+                    row: row,
+                    maxLanes: graphMaxLanes,
+                    hoveredBranchId: hoveredBranchId
+                )
+                .frame(height: 60)
             } else {
                 Circle()
                     .fill(commit.isMerge ? Color.purple : Color.accentColor)
@@ -25,17 +41,21 @@ struct CommitRowView: View {
                     .padding(.horizontal, 8)
             }
 
+            AuthorAvatar(name: commit.authorName, email: commit.authorEmail, size: 26)
+                .opacity(dimRow ? 0.35 : 1)
+                .padding(.horizontal, 4)
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
+                    Text(commit.subject)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .fontWeight(isSelected ? .semibold : .regular)
                     if !refs.isEmpty {
                         ForEach(refs.prefix(4)) { ref in
                             RefBadge(ref: ref)
                         }
                     }
-                    Text(commit.subject)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .fontWeight(isSelected ? .semibold : .regular)
                 }
                 HStack(spacing: 6) {
                     Text(commit.shortSha)
@@ -53,13 +73,31 @@ struct CommitRowView: View {
                 }
                 .font(.caption)
             }
+            .opacity(dimRow ? 0.4 : 1)
             .padding(.leading, 4)
             Spacer(minLength: 0)
         }
-        .frame(height: 56)
+        .frame(height: 60)
         .contentShape(Rectangle())
         .padding(.horizontal, 8)
-        .background(isSelected ? Color.accentColor.opacity(0.18) : .clear)
+        .background(rowBackground)
+        .overlay(alignment: .leading) {
+            if isSelected {
+                Rectangle()
+                    .fill(accentColor)
+                    .frame(width: 3)
+            }
+        }
+        .onHover { onHoverChanged($0) }
+    }
+
+    @ViewBuilder
+    private var rowBackground: some View {
+        if isSelected {
+            accentColor.opacity(0.18)
+        } else {
+            Color.clear
+        }
     }
 }
 
@@ -114,7 +152,7 @@ private struct RefBadge: View {
             Divider()
         }
     }
-    .frame(width: 620)
+    .frame(width: 720)
     .padding()
 }
 
