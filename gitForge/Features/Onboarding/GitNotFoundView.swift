@@ -1,0 +1,60 @@
+import SwiftUI
+
+struct GitNotFoundView: View {
+    @Environment(AppState.self) private var appState
+    @State private var isInstalling = false
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(.orange.gradient)
+                .symbolRenderingMode(.hierarchical)
+
+            VStack(spacing: 10) {
+                Text("Git is required")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 440)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    installCommandLineTools()
+                } label: {
+                    Label("Install Command Line Tools", systemImage: "arrow.down.circle")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(isInstalling)
+
+                Button("Recheck") {
+                    Task { await appState.refreshGitInstallation() }
+                }
+                .controlSize(.large)
+            }
+        }
+        .padding(48)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func installCommandLineTools() {
+        isInstalling = true
+        Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
+            process.arguments = ["--install"]
+            try? process.run()
+            process.waitUntilExit()
+        }
+    }
+}
+
+#Preview {
+    GitNotFoundView()
+        .environment(AppState())
+        .frame(width: 720, height: 480)
+}
