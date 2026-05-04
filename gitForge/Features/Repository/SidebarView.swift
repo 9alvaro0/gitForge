@@ -3,63 +3,283 @@ import SwiftUI
 struct SidebarView: View {
     @Environment(AppState.self) private var appState
 
+    @State private var showingCreateBranchSheet = false
+    @State private var renameTarget: GitRef?
+    @State private var deleteTarget: GitRef?
+    @State private var dirtyCheckoutTarget: GitRef?
+    @State private var unmergedDeleteTarget: GitRef?
+
     var body: some View {
+        listContent
+            .listStyle(.sidebar)
+            .navigationTitle("gitForge")
+            .toolbar { toolbarContent }
+            .dropDestination(for: URL.self, action: handleDrop)
+            .modifier(NewBranchSheetModifier(isPresented: $showingCreateBranchSheet, appState: appState))
+            .modifier(RenameSheetModifier(target: $renameTarget, appState: appState))
+            .modifier(DeleteAlertModifier(target: $deleteTarget, unmerged: $unmergedDeleteTarget, appState: appState))
+            .modifier(UnmergedDeleteAlertModifier(target: $unmergedDeleteTarget, appState: appState))
+            .modifier(DirtyCheckoutAlertModifier(target: $dirtyCheckoutTarget, appState: appState))
+    }
+
+    @ViewBuilder
+    private var listContent: some View {
         List {
             Section("Repositories") {
                 ForEach(appState.repositories) { repo in
                     SidebarRow(repository: repo)
                 }
             }
-
             if let viewModel = appState.activeViewModel {
-                if !viewModel.localBranches.isEmpty {
-                    Section("Local Branches") {
-                        ForEach(viewModel.localBranches) { ref in
-                            BranchRow(ref: ref, viewModel: viewModel)
-                        }
-                    }
-                }
-                if !viewModel.remoteBranches.isEmpty {
-                    Section("Remote Branches") {
-                        ForEach(viewModel.remoteBranches) { ref in
-                            BranchRow(ref: ref, viewModel: viewModel)
-                        }
-                    }
-                }
-                if !viewModel.tags.isEmpty {
-                    Section("Tags") {
-                        ForEach(viewModel.tags) { ref in
-                            TagRow(ref: ref)
-                        }
-                    }
-                }
+                branchSections(viewModel: viewModel)
             }
         }
-        .listStyle(.sidebar)
-        .navigationTitle("gitForge")
-        .toolbar {
-            ToolbarItem {
+    }
+
+    @ViewBuilder
+    private func branchSections(viewModel: RepositoryViewModel) -> some View {
+        Section {
+            ForEach(viewModel.localBranches) { ref in
+                BranchRow(
+                    ref: ref,
+                    viewModel: viewModel,
+                    onCheckout: { handleCheckout(ref, viewModel: viewModel) },
+                    onRename: { renameTarget = ref },
+                    onDelete: { deleteTarget = ref }
+                )
+            }
+        } header: {
+            HStack {
+                Text("Local Branches")
+                Spacer()
                 Button {
-                    Task { await appState.presentOpenRepositoryPanel() }
+                    showingCreateBranchSheet = true
                 } label: {
-                    Image(systemName: "folder.badge.plus")
+                    Image(systemName: "plus")
                 }
-                .help("Open Repository (⌘O)")
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help("New Branch")
             }
         }
-        .dropDestination(for: URL.self) { urls, _ in
-            guard let url = urls.first else { return false }
-            Task {
-                do {
-                    try await appState.openRepository(at: url)
-                } catch {
-                    appState.presentedError = PresentedError(error: error)
+
+        if !viewModel.remoteBranches.isEmpty {
+            Section("Remote Branches") {
+                ForEach(viewModel.remoteBranches) { ref in
+                    BranchRow(
+                        ref: ref,
+                        viewModel: viewModel,
+                        onCheckout: { handleCheckout(ref, viewModel: viewModel) },
+                        onRename: nil,
+                        onDelete: nil
+                    )
                 }
             }
-            return true
+        }
+        if !viewModel.tags.isEmpty {
+            Section("Tags") {
+                ForEach(viewModel.tags) { ref in
+                    TagRow(ref: ref)
+                }
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem {
+            Button {
+                Task { await appState.presentOpenRepositoryPanel() }
+            } label: {
+                Image(systemName: "folder.badge.plus")
+            }
+            .help("Open Repository (⌘O)")
+        }
+    }
+
+    private func handleDrop(_ urls: [URL], _ point: CGPoint) -> Bool {
+        guard let url = urls.first else { return false }
+        Task {
+            do {
+                try await appState.openRepository(at: url)
+            } catch {
+                appState.presentedError = PresentedError(error: error)
+            }
+        }
+        return true
+    }
+
+    private func handleCheckout(_ ref: GitRef, viewModel: RepositoryViewModel) {
+        if !viewModel.status.isClean {
+            dirtyCheckoutTarget = ref
+            return
+        }
+        Task {
+            let result = await viewModel.checkoutBranch(ref)
+            if case .failure(let error) = result {
+                appState.presentedError = PresentedError(error: error, title: "Couldn’t checkout")
+            }
         }
     }
 }
+
+// MARK: - View modifiers
+
+private struct NewBranchSheetModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    let appState: AppState
+
+    func body(content: Content) -> some View {
+        content.sheet(isPresented: $isPresented) {
+            if let viewModel = appState.activeViewModel {
+                NewBranchSheet(baseDescription: viewModel.currentBranchName ?? "HEAD") { name, shouldCheckout in
+                    Task {
+                        let result = await viewModel.createBranch(name: name, checkout: shouldCheckout)
+                        if case .failure(let error) = result {
+                            appState.presentedError = PresentedError(error: error, title: "Couldn’t create branch")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct RenameSheetModifier: ViewModifier {
+    @Binding var target: GitRef?
+    let appState: AppState
+
+    func body(content: Content) -> some View {
+        content.sheet(item: $target) { ref in
+            if let viewModel = appState.activeViewModel {
+                RenameBranchSheet(oldName: ref.name) { newName in
+                    Task {
+                        let result = await viewModel.renameBranch(from: ref.name, to: newName)
+                        if case .failure(let error) = result {
+                            appState.presentedError = PresentedError(error: error, title: "Couldn’t rename branch")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct DeleteAlertModifier: ViewModifier {
+    @Binding var target: GitRef?
+    @Binding var unmerged: GitRef?
+    let appState: AppState
+
+    private var isPresented: Binding<Bool> {
+        Binding(
+            get: { target != nil },
+            set: { if !$0 { target = nil } }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.alert(
+            "Delete branch \(target?.name ?? "")?",
+            isPresented: isPresented,
+            presenting: target
+        ) { ref in
+            Button("Delete", role: .destructive) {
+                guard let viewModel = appState.activeViewModel else { return }
+                Task {
+                    let result = await viewModel.deleteBranch(ref, force: false)
+                    if case .failure(let error) = result {
+                        let stderr: String = {
+                            if let gitError = error as? GitError,
+                               case .commandFailed(_, _, let s) = gitError {
+                                return s
+                            }
+                            return ""
+                        }()
+                        if stderr.contains("not fully merged") {
+                            unmerged = ref
+                        } else {
+                            appState.presentedError = PresentedError(error: error, title: "Couldn’t delete branch")
+                        }
+                    }
+                    target = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { target = nil }
+        } message: { _ in
+            Text("This removes the local branch reference. Commits remain in the repository.")
+        }
+    }
+}
+
+private struct UnmergedDeleteAlertModifier: ViewModifier {
+    @Binding var target: GitRef?
+    let appState: AppState
+
+    private var isPresented: Binding<Bool> {
+        Binding(
+            get: { target != nil },
+            set: { if !$0 { target = nil } }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.alert(
+            "Branch \(target?.name ?? "") is not fully merged",
+            isPresented: isPresented,
+            presenting: target
+        ) { ref in
+            Button("Force Delete", role: .destructive) {
+                guard let viewModel = appState.activeViewModel else { return }
+                Task {
+                    let result = await viewModel.deleteBranch(ref, force: true)
+                    if case .failure(let error) = result {
+                        appState.presentedError = PresentedError(error: error, title: "Couldn’t force-delete branch")
+                    }
+                    target = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { target = nil }
+        } message: { _ in
+            Text("Some commits exist only on this branch and will become unreachable. Force delete anyway?")
+        }
+    }
+}
+
+private struct DirtyCheckoutAlertModifier: ViewModifier {
+    @Binding var target: GitRef?
+    let appState: AppState
+
+    private var isPresented: Binding<Bool> {
+        Binding(
+            get: { target != nil },
+            set: { if !$0 { target = nil } }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.alert(
+            "Working copy has uncommitted changes",
+            isPresented: isPresented,
+            presenting: target
+        ) { ref in
+            Button("Continue Checkout") {
+                guard let viewModel = appState.activeViewModel else { return }
+                Task {
+                    let result = await viewModel.checkoutBranch(ref)
+                    if case .failure(let error) = result {
+                        appState.presentedError = PresentedError(error: error, title: "Couldn’t checkout")
+                    }
+                    target = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { target = nil }
+        } message: { ref in
+            Text("Switching to “\(ref.displayName)” may carry your local changes. Commit or discard them first if you want a clean switch.")
+        }
+    }
+}
+
+// MARK: - Rows
 
 private struct SidebarRow: View {
     let repository: Repository
@@ -101,6 +321,9 @@ private struct SidebarRow: View {
 private struct BranchRow: View {
     let ref: GitRef
     @Bindable var viewModel: RepositoryViewModel
+    let onCheckout: () -> Void
+    let onRename: (() -> Void)?
+    let onDelete: (() -> Void)?
 
     private var isCurrent: Bool {
         ref.isLocalBranch && viewModel.currentBranchName == ref.name
@@ -111,28 +334,41 @@ private struct BranchRow: View {
     }
 
     var body: some View {
-        Button {
-            viewModel.selectedFilterBranch = ref.name
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: ref.isRemoteBranch ? "arrow.triangle.branch" : "point.topleft.down.to.point.bottomright.curvepath")
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                Text(ref.displayName)
-                    .fontWeight(isCurrent ? .semibold : .regular)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if isCurrent {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(.tint)
-                        .font(.caption)
-                }
-                Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            Image(systemName: ref.isRemoteBranch ? "arrow.triangle.branch" : "point.topleft.down.to.point.bottomright.curvepath")
+                .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            Text(ref.displayName)
+                .fontWeight(isCurrent ? .semibold : .regular)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            if isCurrent {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(.tint)
+                    .font(.caption)
             }
-            .contentShape(Rectangle())
-            .padding(.vertical, 1)
-            .background(isFiltered ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 4))
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 1)
+        .background(isFiltered ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 4))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            viewModel.selectedFilterBranch = ref.name
+        }
+        .onTapGesture(count: 2) {
+            if !isCurrent { onCheckout() }
+        }
+        .contextMenu {
+            if !isCurrent {
+                Button("Checkout", action: onCheckout)
+            }
+            if let onRename {
+                Button("Rename...", action: onRename)
+            }
+            if let onDelete, !isCurrent {
+                Divider()
+                Button("Delete...", role: .destructive, action: onDelete)
+            }
+        }
     }
 }
 
