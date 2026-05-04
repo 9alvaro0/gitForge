@@ -28,6 +28,24 @@ final class RepositoryViewModel {
     private(set) var graphLayouts: [GraphRowLayout] = []
     private(set) var graphMaxLanes: Int = 1
 
+    private(set) var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
+    private(set) var isLoadingStatus = false
+    var commitSubject: String = ""
+    var commitBody: String = ""
+    var amendMode: Bool = false {
+        didSet {
+            guard oldValue != amendMode, amendMode else {
+                if !amendMode {
+                    commitSubject = ""
+                    commitBody = ""
+                }
+                return
+            }
+            Task { await prefillFromHead() }
+        }
+    }
+    var commitError: String?
+
     /// `nil` filter shows the current HEAD branch.
     var selectedFilterBranch: String? {
         didSet {
@@ -89,6 +107,96 @@ final class RepositoryViewModel {
         }
         if let current = await currentTask {
             self.currentBranchName = current
+        }
+    }
+
+    func refreshStatus() async {
+        isLoadingStatus = true
+        defer { isLoadingStatus = false }
+        do {
+            status = try await cli.status()
+        } catch {
+            Self.logger.error("Failed to load status: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func stage(_ files: [WorkingCopyFile]) async {
+        await runStageOperation { try await self.cli.stage(paths: files.map(\.path)) }
+    }
+
+    func unstage(_ files: [WorkingCopyFile]) async {
+        await runStageOperation { try await self.cli.unstage(paths: files.map(\.path)) }
+    }
+
+    func discardChanges(_ files: [WorkingCopyFile]) async {
+        let tracked = files.filter { !$0.isUntracked }
+        let untracked = files.filter(\.isUntracked)
+        await runStageOperation {
+            try await self.cli.discardChanges(paths: tracked.map(\.path))
+            try await self.cli.deleteUntracked(paths: untracked.map(\.path))
+        }
+    }
+
+    private func runStageOperation(_ block: () async throws -> Void) async {
+        do {
+            try await block()
+            await refreshStatus()
+        } catch {
+            Self.logger.error("Stage operation failed: \(error.localizedDescription, privacy: .public)")
+            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func commit() async -> Bool {
+        let subject = commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !subject.isEmpty else {
+            commitError = "Commit subject cannot be empty"
+            return false
+        }
+        guard amendMode || status.hasStagedChanges else {
+            commitError = "Nothing staged to commit"
+            return false
+        }
+        do {
+            try await cli.commit(
+                subject: subject,
+                body: commitBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : commitBody,
+                amend: amendMode
+            )
+            commitSubject = ""
+            commitBody = ""
+            amendMode = false
+            commitError = nil
+            await refreshStatus()
+            await loadRefs()
+            // Force a fresh log read so HEAD shows the new commit
+            commits = []
+            graphLayouts = []
+            graphMaxLanes = 1
+            hasMore = true
+            selectedCommitId = nil
+            await loadInitial()
+            return true
+        } catch {
+            Self.logger.error("Commit failed: \(error.localizedDescription, privacy: .public)")
+            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
+    private func prefillFromHead() async {
+        do {
+            let result = try await cli.run(["log", "-1", "HEAD", "--format=%B"])
+            let message = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let firstNewline = message.firstIndex(of: "\n") {
+                commitSubject = String(message[..<firstNewline])
+                commitBody = String(message[message.index(after: firstNewline)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                commitSubject = message
+                commitBody = ""
+            }
+        } catch {
+            Self.logger.error("Failed to read HEAD message: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -156,6 +264,7 @@ extension RepositoryViewModel {
         vm.detailCache[Commit.preview.sha] = CommitDetail.preview
         vm.refs = GitRef.previewSamples
         vm.currentBranchName = "main"
+        vm.status = WorkingCopyStatus.preview
         vm.recomputeGraph()
         return vm
     }

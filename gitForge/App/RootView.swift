@@ -70,9 +70,7 @@ private struct MainNavigationView: View {
 }
 
 #Preview("Git not found") {
-    let state = AppState()
-    state.gitStatus = .notFound
-    return RootView()
-        .environment(state)
+    RootView()
+        .environment(AppState.previewMissingGit)
         .frame(width: 1100, height: 720)
 }

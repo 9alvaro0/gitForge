@@ -102,7 +102,7 @@ private struct RefBadge: View {
 
 #Preview {
     let vm = RepositoryViewModel.preview
-    return VStack(spacing: 0) {
+    VStack(spacing: 0) {
         ForEach(Array(vm.commits.enumerated()), id: \.element.id) { index, commit in
             CommitRowView(
                 commit: commit,
