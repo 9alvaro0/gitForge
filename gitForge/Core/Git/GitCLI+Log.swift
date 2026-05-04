@@ -4,14 +4,11 @@ extension GitCLI {
     private static let logSeparator = "\u{1F}"
     private static let logFormat = "%H\u{1F}%P\u{1F}%an\u{1F}%ae\u{1F}%aI\u{1F}%s"
 
-    func log(branch: String? = nil, limit: Int = 200, skip: Int = 0) async throws -> [Commit] {
-        var args: [String] = ["log", "--topo-order", "--format=\(Self.logFormat)", "-n", String(limit)]
+    func log(limit: Int = 200, skip: Int = 0) async throws -> [Commit] {
+        var args: [String] = ["log", "--all", "--topo-order", "--format=\(Self.logFormat)", "-n", String(limit)]
         if skip > 0 {
             args.append("--skip")
             args.append(String(skip))
-        }
-        if let branch {
-            args.append(branch)
         }
         let result = try await run(args)
         return Self.parseLog(result.stdout)

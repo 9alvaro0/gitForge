@@ -100,9 +100,7 @@ private struct RepositoryContentView: View {
             .pickerStyle(.segmented)
             .fixedSize()
             .labelsHidden()
-            if tab == .history {
-                BranchFilterMenu(viewModel: viewModel)
-            } else {
+            if tab == .changes {
                 changesBadge
             }
         }
@@ -241,88 +239,6 @@ private struct RemoteFailureAlertModifier: ViewModifier {
         } message: { failure in
             Text(failure.message)
         }
-    }
-}
-
-private struct BranchFilterMenu: View {
-    @Bindable var viewModel: RepositoryViewModel
-
-    private var label: String {
-        switch viewModel.selectedFilterBranch {
-        case nil:
-            return viewModel.currentBranchName ?? "HEAD"
-        case "ALL":
-            return "All branches"
-        case .some(let name):
-            return name
-        }
-    }
-
-    var body: some View {
-        Menu {
-            Button {
-                viewModel.selectedFilterBranch = nil
-            } label: {
-                if viewModel.selectedFilterBranch == nil {
-                    Label("Current Branch", systemImage: "checkmark")
-                } else {
-                    Text("Current Branch")
-                }
-            }
-
-            Button {
-                viewModel.selectedFilterBranch = "ALL"
-            } label: {
-                if viewModel.selectedFilterBranch == "ALL" {
-                    Label("All Branches", systemImage: "checkmark")
-                } else {
-                    Text("All Branches")
-                }
-            }
-
-            if !viewModel.localBranches.isEmpty {
-                Divider()
-                Section("Local") {
-                    ForEach(viewModel.localBranches) { ref in
-                        Button {
-                            viewModel.selectedFilterBranch = ref.name
-                        } label: {
-                            if viewModel.selectedFilterBranch == ref.name {
-                                Label(ref.name, systemImage: "checkmark")
-                            } else {
-                                Text(ref.name)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !viewModel.remoteBranches.isEmpty {
-                Section("Remote") {
-                    ForEach(viewModel.remoteBranches) { ref in
-                        Button {
-                            viewModel.selectedFilterBranch = ref.name
-                        } label: {
-                            if viewModel.selectedFilterBranch == ref.name {
-                                Label(ref.name, systemImage: "checkmark")
-                            } else {
-                                Text(ref.name)
-                            }
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.triangle.branch")
-                Text(label)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .frame(minWidth: 120, alignment: .leading)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
     }
 }
 
