@@ -3,8 +3,8 @@ import SwiftUI
 struct GraphColumnView: View {
     let row: GraphRowLayout
     let maxLanes: Int
-    var laneWidth: CGFloat = 22
-    var dotRadius: CGFloat = 5.5
+    var laneWidth: CGFloat = 14
+    var dotRadius: CGFloat = 4.5
 
     var body: some View {
         Canvas { context, size in
