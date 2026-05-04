@@ -13,8 +13,12 @@ struct GraphColumnView: View {
             let baseLineWidth: CGFloat = 2.4
 
             let mergesInLanes = Set(row.mergesIn.map(\.lane))
-            let mergesOutLanes = Set(row.mergesOut.map(\.lane))
-            let commitInTop = row.lanesAtTop.contains { $0.lane == row.commitLane }
+            let lanesAtTopSet = Set(row.lanesAtTop.map(\.lane))
+            // A merges-out lane only replaces its own vertical when the parent is brand new
+            // (didn't exist in a lane above this row). Existing parent lanes keep their
+            // continuation line; the merge curve draws ON TOP of it.
+            let newMergesOutLanes = Set(row.mergesOut.map(\.lane)).subtracting(lanesAtTopSet)
+            let commitInTop = lanesAtTopSet.contains(row.commitLane)
             let commitInBottom = row.lanesAtBottom.contains { $0.lane == row.commitLane }
 
             // Vertical top→center segments. Skip:
@@ -30,8 +34,9 @@ struct GraphColumnView: View {
                 )
             }
 
-            // Vertical center→bottom segments. Same exclusions for the bottom half.
-            for occ in row.lanesAtBottom where occ.lane != row.commitLane && !mergesOutLanes.contains(occ.lane) {
+            // Vertical center→bottom segments. Skip the commit lane and brand-new
+            // merges-out lanes (those have just the curve carrying them in).
+            for occ in row.lanesAtBottom where occ.lane != row.commitLane && !newMergesOutLanes.contains(occ.lane) {
                 drawSegment(
                     context: context,
                     from: CGPoint(x: laneCenter(occ.lane), y: center),
