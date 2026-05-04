@@ -72,6 +72,14 @@ final class RepositoryViewModel {
     private(set) var workingCopyDiff: [DiffHunk] = []
     private(set) var loadingWorkingCopyDiff = false
 
+    enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
+    var remoteOperation: RemoteOperation?
+    var remoteFailure: RemoteFailure?
+    private(set) var upstream: String?
+    private(set) var aheadCount: Int = 0
+    private(set) var behindCount: Int = 0
+    private(set) var lastFetchedAt: Date?
+
     /// `nil` filter shows the current HEAD branch.
     var selectedFilterBranch: String? {
         didSet {
@@ -134,6 +142,7 @@ final class RepositoryViewModel {
         if let current = await currentTask {
             self.currentBranchName = current
         }
+        await loadAheadBehind()
     }
 
     func refreshStatus() async {
@@ -281,6 +290,72 @@ final class RepositoryViewModel {
             hasMore = true
             selectedCommitId = nil
             await loadInitial()
+        }
+    }
+
+    func loadAheadBehind() async {
+        upstream = await cli.upstreamName()
+        guard let upstream, let branch = currentBranchName else {
+            aheadCount = 0
+            behindCount = 0
+            return
+        }
+        do {
+            let counts = try await cli.aheadBehind(branch: branch, upstream: upstream)
+            aheadCount = counts.ahead
+            behindCount = counts.behind
+        } catch {
+            aheadCount = 0
+            behindCount = 0
+        }
+    }
+
+    func fetch() async {
+        guard remoteOperation == nil else { return }
+        remoteOperation = .fetching
+        defer { remoteOperation = nil }
+        do {
+            try await cli.fetchAll()
+            lastFetchedAt = .now
+            await loadRefs()
+            await loadAheadBehind()
+        } catch {
+            remoteFailure = RemoteFailure.from(error)
+        }
+    }
+
+    func pull() async {
+        guard remoteOperation == nil else { return }
+        remoteOperation = .pulling
+        defer { remoteOperation = nil }
+        do {
+            try await cli.pull()
+            commits = []
+            graphLayouts = []
+            graphMaxLanes = 1
+            hasMore = true
+            selectedCommitId = nil
+            await loadInitial()
+            await loadRefs()
+            await refreshStatus()
+            await loadAheadBehind()
+        } catch {
+            remoteFailure = RemoteFailure.from(error)
+        }
+    }
+
+    func push() async {
+        guard remoteOperation == nil else { return }
+        remoteOperation = .pushing
+        defer { remoteOperation = nil }
+        let setUpstream = upstream == nil
+        do {
+            try await cli.push(setUpstream: setUpstream, branch: currentBranchName)
+            if setUpstream { upstream = await cli.upstreamName() }
+            await loadRefs()
+            await loadAheadBehind()
+        } catch {
+            remoteFailure = RemoteFailure.from(error)
         }
     }
 
