@@ -58,9 +58,11 @@ private struct RepositoryContentView: View {
             case .history:
                 HSplitView {
                     CommitLogView(viewModel: viewModel)
-                        .frame(minWidth: 280, idealWidth: 420)
+                        .frame(minWidth: 280, idealWidth: 360, maxWidth: 520)
+                        .layoutPriority(0)
                     detailPane
-                        .frame(minWidth: 260)
+                        .frame(minWidth: 280)
+                        .layoutPriority(1)
                 }
             case .changes:
                 ChangesView(viewModel: viewModel)
