@@ -377,7 +377,7 @@ private struct BranchRow: View {
             Text(leafName)
                 .fontWeight(isCurrent ? .semibold : .regular)
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .truncationMode(.tail)
             if isCurrent {
                 Image(systemName: "checkmark")
                     .foregroundStyle(.tint)

@@ -6,18 +6,15 @@ struct ChangesView: View {
 
     var body: some View {
         VSplitView {
-            HSplitView {
-                fileSections
-                    .frame(minWidth: 220, idealWidth: 280, maxWidth: 380)
-                    .layoutPriority(0)
-                DiffView(
-                    hunks: viewModel.workingCopyDiff,
-                    isLoading: viewModel.loadingWorkingCopyDiff,
-                    emptyMessage: untrackedMessage
-                )
-                .frame(minWidth: 280)
-                .layoutPriority(1)
-            }
+            fileSections
+                .frame(minHeight: 140, idealHeight: 200, maxHeight: 320)
+            DiffView(
+                hunks: viewModel.workingCopyDiff,
+                isLoading: viewModel.loadingWorkingCopyDiff,
+                emptyMessage: untrackedMessage
+            )
+            .frame(minHeight: 200)
+            .layoutPriority(1)
             CommitComposerView(viewModel: viewModel)
                 .frame(minHeight: 200, idealHeight: 240)
         }

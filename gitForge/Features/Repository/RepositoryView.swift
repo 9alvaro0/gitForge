@@ -89,8 +89,7 @@ private struct RepositoryContentView: View {
             RemoteToolbar(viewModel: viewModel)
             Picker("", selection: $tab) {
                 ForEach(RepositoryTab.allCases) { kind in
-                    Label(kind.title, systemImage: kind.systemImage)
-                        .tag(kind)
+                    Text(kind.title).tag(kind)
                 }
             }
             .pickerStyle(.segmented)
