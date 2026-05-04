@@ -77,6 +77,11 @@ final class RepositoryViewModel {
     /// Cleared by the view after the scroll happens.
     var scrollTargetSha: String?
 
+    /// True while `revealCommit` is paginating in search of a commit.
+    private(set) var isRevealingCommit = false
+
+    private static let maxRevealPages = 10
+
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
     var remoteOperation: RemoteOperation?
     var remoteFailure: RemoteFailure?
@@ -121,6 +126,35 @@ final class RepositoryViewModel {
         } catch {
             Self.logger.error("Failed to load more: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Scrolls the log to the given SHA, paginating in if it isn't loaded yet.
+    /// Stops at `maxRevealPages` so a stray ref doesn't load the entire history.
+    func revealCommit(sha: String) async {
+        if commits.contains(where: { $0.sha == sha }) {
+            scrollTargetSha = sha
+            return
+        }
+        guard hasMore else { return }
+        isRevealingCommit = true
+        defer { isRevealingCommit = false }
+        var pagesLoaded = 0
+        while hasMore && pagesLoaded < Self.maxRevealPages {
+            do {
+                let next = try await cli.log(limit: Self.pageSize, skip: commits.count)
+                commits.append(contentsOf: next)
+                hasMore = next.count == Self.pageSize
+                recomputeGraph()
+                pagesLoaded += 1
+                if commits.contains(where: { $0.sha == sha }) {
+                    scrollTargetSha = sha
+                    return
+                }
+            } catch {
+                Self.logger.error("Reveal pagination failed: \(error.localizedDescription, privacy: .public)")
+                return
+            }
         }
     }
 

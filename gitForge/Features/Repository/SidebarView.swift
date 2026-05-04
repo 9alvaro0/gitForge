@@ -394,7 +394,7 @@ private struct BranchRow: View {
         .padding(.vertical, 1)
         .contentShape(Rectangle())
         .onTapGesture {
-            viewModel.scrollTargetSha = ref.targetSha
+            Task { await viewModel.revealCommit(sha: ref.targetSha) }
         }
         .onTapGesture(count: 2) {
             if !isCurrent { onCheckout() }
@@ -466,7 +466,7 @@ private struct StashRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            viewModel.scrollTargetSha = stash.sha
+            Task { await viewModel.revealCommit(sha: stash.sha) }
         }
         .contextMenu {
             Button("Apply") {
