@@ -9,8 +9,9 @@ struct gitForgeApp: App {
         WindowGroup {
             RootView()
                 .environment(appState)
+                .frame(minWidth: 900, minHeight: 600)
                 .task {
-                    await appState.refreshGitInstallation()
+                    await appState.bootstrap()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active && appState.gitStatus == .notFound {
@@ -18,6 +19,19 @@ struct gitForgeApp: App {
                     }
                 }
         }
-        .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Open Repository...") {
+                    Task { await appState.presentOpenRepositoryPanel() }
+                }
+                .keyboardShortcut("o", modifiers: .command)
+
+                Button("Close Repository") {
+                    appState.closeRepository()
+                }
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+                .disabled(appState.activeRepository == nil)
+            }
+        }
     }
 }
