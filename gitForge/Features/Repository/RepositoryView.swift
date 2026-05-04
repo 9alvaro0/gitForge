@@ -59,11 +59,11 @@ private struct RepositoryContentView: View {
             ZStack {
                 HSplitView {
                     CommitLogView(viewModel: viewModel)
-                        .frame(minWidth: 280, idealWidth: 360, maxWidth: 520)
-                        .layoutPriority(0)
+                        .frame(minWidth: 320, idealWidth: 480)
+                        .layoutPriority(1)
                     detailPane
                         .frame(minWidth: 280)
-                        .layoutPriority(1)
+                        .layoutPriority(0)
                 }
                 .opacity(tab == .history ? 1 : 0)
                 .allowsHitTesting(tab == .history)

@@ -68,13 +68,6 @@ struct CommitRowView: View {
         .contentShape(Rectangle())
         .padding(.horizontal, 8)
         .background(rowBackground)
-        .overlay(alignment: .leading) {
-            if isSelected {
-                Rectangle()
-                    .fill(accentColor)
-                    .frame(width: 3)
-            }
-        }
     }
 
     @ViewBuilder
