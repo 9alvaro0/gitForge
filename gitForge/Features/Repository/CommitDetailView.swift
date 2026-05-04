@@ -13,20 +13,31 @@ struct CommitDetailView: View {
     }()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                metadata
-                Divider()
-                if let detail, !detail.bodyText.isEmpty {
-                    bodyMessage(detail.bodyText)
+        VSplitView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    metadata
                     Divider()
+                    if let detail, !detail.bodyText.isEmpty {
+                        bodyMessage(detail.bodyText)
+                        Divider()
+                    }
+                    fileList
                 }
-                fileList
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: 220, idealHeight: 320)
+
+            DiffView(
+                hunks: viewModel.commitFileDiff,
+                isLoading: viewModel.loadingCommitFileDiff,
+                emptyMessage: "Select a file to see its diff"
+            )
+            .frame(minHeight: 200)
         }
         .task(id: commit.id) {
+            viewModel.selectedCommitFile = nil
             detail = await viewModel.detail(for: commit)
         }
     }
@@ -69,7 +80,7 @@ struct CommitDetailView: View {
     }
 
     private var fileList: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("Files (\(detail?.files.count ?? 0))")
                 .font(.headline)
             if let detail {
@@ -79,20 +90,39 @@ struct CommitDetailView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(detail.files) { file in
-                        HStack(spacing: 8) {
-                            statusBadge(file.status)
-                            Text(file.path)
-                                .font(.system(.caption, design: .monospaced))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Spacer()
-                        }
+                        FileRow(
+                            file: file,
+                            isSelected: viewModel.selectedCommitFile == file.path,
+                            onSelect: { viewModel.selectedCommitFile = file.path }
+                        )
                     }
                 }
             } else {
                 ProgressView().controlSize(.small)
             }
         }
+    }
+}
+
+private struct FileRow: View {
+    let file: CommitFileChange
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            statusBadge(file.status)
+            Text(file.path)
+                .font(.system(.caption, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer()
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(isSelected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 4))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
     }
 
     private func statusBadge(_ status: CommitFileChange.Status) -> some View {
@@ -113,5 +143,5 @@ struct CommitDetailView: View {
 
 #Preview {
     CommitDetailView(commit: Commit.preview, viewModel: RepositoryViewModel.preview)
-        .frame(width: 520, height: 540)
+        .frame(width: 620, height: 720)
 }
