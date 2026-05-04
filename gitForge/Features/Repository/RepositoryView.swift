@@ -4,10 +4,33 @@ struct RepositoryView: View {
     let repository: Repository
 
     var body: some View {
+        RepositoryContentView(repository: repository)
+            .id(repository.url)
+    }
+}
+
+private struct RepositoryContentView: View {
+    let repository: Repository
+    @State private var viewModel: RepositoryViewModel
+
+    init(repository: Repository) {
+        self.repository = repository
+        self._viewModel = State(initialValue: RepositoryViewModel(repository: repository))
+    }
+
+    var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            content
+            HSplitView {
+                CommitLogView(viewModel: viewModel)
+                    .frame(minWidth: 320, idealWidth: 420)
+                detailPane
+                    .frame(minWidth: 320)
+            }
+        }
+        .task {
+            await viewModel.loadInitial()
         }
     }
 
@@ -31,14 +54,25 @@ struct RepositoryView: View {
         .background(.bar)
     }
 
-    private var content: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "rectangle.stack")
-                .font(.system(size: 48))
-                .foregroundStyle(.tertiary)
-            Text("Commit graph and changes will appear here")
-                .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var detailPane: some View {
+        if let commit = viewModel.selectedCommit {
+            CommitDetailView(commit: commit, viewModel: viewModel)
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: "rectangle.righthalf.inset.filled.arrow.right")
+                    .font(.system(size: 36))
+                    .foregroundStyle(.tertiary)
+                Text("Select a commit to see its details")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
+
+#Preview {
+    RepositoryView(repository: Repository.preview)
+        .environment(AppState.previewWithActive)
+        .frame(width: 1000, height: 640)
 }

@@ -73,3 +73,25 @@ private struct SidebarRow: View {
         }
     }
 }
+
+#Preview("With recents") {
+    NavigationSplitView {
+        SidebarView()
+            .environment(AppState.previewWithActive)
+            .frame(minWidth: 240)
+    } detail: {
+        Color.clear
+    }
+    .frame(width: 720, height: 480)
+}
+
+#Preview("Empty") {
+    NavigationSplitView {
+        SidebarView()
+            .environment(AppState())
+            .frame(minWidth: 240)
+    } detail: {
+        Color.clear
+    }
+    .frame(width: 720, height: 480)
+}
