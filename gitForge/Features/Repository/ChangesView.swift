@@ -6,31 +6,30 @@ struct ChangesView: View {
 
     var body: some View {
         VSplitView {
-            fileSections
+            HSplitView {
+                fileSections
+                    .frame(minWidth: 280, idealWidth: 360)
+                DiffView(
+                    hunks: viewModel.workingCopyDiff,
+                    isLoading: viewModel.loadingWorkingCopyDiff,
+                    emptyMessage: untrackedMessage
+                )
+                .frame(minWidth: 320)
+            }
             CommitComposerView(viewModel: viewModel)
-                .frame(minHeight: 220, idealHeight: 260)
+                .frame(minHeight: 200, idealHeight: 240)
         }
         .task {
             await viewModel.refreshStatus()
         }
-        .alert(
-            "Discard changes?",
-            isPresented: Binding(
-                get: { pendingDiscard != nil },
-                set: { if !$0 { pendingDiscard = nil } }
-            ),
-            presenting: pendingDiscard
-        ) { file in
-            Button("Discard", role: .destructive) {
-                Task {
-                    await viewModel.discardChanges([file])
-                    pendingDiscard = nil
-                }
-            }
-            Button("Cancel", role: .cancel) { pendingDiscard = nil }
-        } message: { file in
-            Text("This will permanently discard local changes to “\(file.path)”. This cannot be undone.")
+        .modifier(DiscardConfirmationModifier(target: $pendingDiscard, viewModel: viewModel))
+    }
+
+    private var untrackedMessage: String {
+        if viewModel.selectedWorkingCopyFile?.isUntracked == true {
+            return "Untracked file — stage to compare with the index"
         }
+        return "Select a file to see its diff"
     }
 
     private var fileSections: some View {
@@ -52,6 +51,8 @@ struct ChangesView: View {
                             FileChangeRow(
                                 file: file,
                                 isStagedSection: false,
+                                isSelected: viewModel.selectedWorkingCopyFile?.id == file.id,
+                                onSelect: { viewModel.selectedWorkingCopyFile = file },
                                 onPrimary: { Task { await viewModel.stage([file]) } },
                                 onDiscard: { pendingDiscard = file }
                             )
@@ -71,6 +72,8 @@ struct ChangesView: View {
                             FileChangeRow(
                                 file: file,
                                 isStagedSection: true,
+                                isSelected: viewModel.selectedWorkingCopyFile?.id == file.id,
+                                onSelect: { viewModel.selectedWorkingCopyFile = file },
                                 onPrimary: { Task { await viewModel.unstage([file]) } },
                                 onDiscard: { pendingDiscard = file }
                             )
@@ -113,12 +116,42 @@ struct ChangesView: View {
     }
 }
 
+private struct DiscardConfirmationModifier: ViewModifier {
+    @Binding var target: WorkingCopyFile?
+    let viewModel: RepositoryViewModel
+
+    private var isPresented: Binding<Bool> {
+        Binding(
+            get: { target != nil },
+            set: { if !$0 { target = nil } }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.alert(
+            "Discard changes?",
+            isPresented: isPresented,
+            presenting: target
+        ) { file in
+            Button("Discard", role: .destructive) {
+                Task {
+                    await viewModel.discardChanges([file])
+                    target = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { target = nil }
+        } message: { file in
+            Text("This will permanently discard local changes to “\(file.path)”. This cannot be undone.")
+        }
+    }
+}
+
 #Preview("With changes") {
     ChangesView(viewModel: RepositoryViewModel.preview)
-        .frame(width: 600, height: 720)
+        .frame(width: 1000, height: 720)
 }
 
 #Preview("Clean") {
     ChangesView(viewModel: RepositoryViewModel(repository: Repository.preview))
-        .frame(width: 600, height: 720)
+        .frame(width: 1000, height: 720)
 }
