@@ -31,7 +31,8 @@ struct CommitLogView: View {
                         ForEach(viewModel.commits) { commit in
                             CommitRowView(
                                 commit: commit,
-                                isSelected: commit.id == viewModel.selectedCommitId
+                                isSelected: commit.id == viewModel.selectedCommitId,
+                                refs: viewModel.refsBySha[commit.sha] ?? []
                             )
                             .tag(commit.id)
                             .listRowInsets(EdgeInsets())

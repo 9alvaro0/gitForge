@@ -14,6 +14,7 @@ final class AppState {
     var gitStatus: GitInstallationStatus = .checking
     var repositories: [Repository] = []
     var activeRepository: Repository?
+    var activeViewModel: RepositoryViewModel?
     var presentedError: PresentedError?
 
     private let store = RepositoryStore()
@@ -41,7 +42,11 @@ final class AppState {
             throw RepositoryError.notAGitRepository(url)
         }
         repositories = await store.touch(url)
-        activeRepository = repositories.first { $0.url == url }
+        let active = repositories.first { $0.url == url }
+        activeRepository = active
+        if let active, activeViewModel?.repository.url != active.url {
+            activeViewModel = RepositoryViewModel(repository: active)
+        }
     }
 
     func activate(_ repository: Repository) async {
@@ -54,12 +59,14 @@ final class AppState {
 
     func closeRepository() {
         activeRepository = nil
+        activeViewModel = nil
     }
 
     func removeFromRecents(_ url: URL) async {
         repositories = await store.remove(url)
         if activeRepository?.url == url {
             activeRepository = nil
+            activeViewModel = nil
         }
     }
 
