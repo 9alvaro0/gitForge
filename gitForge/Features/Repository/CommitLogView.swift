@@ -28,11 +28,13 @@ struct CommitLogView: View {
             } else {
                 ScrollViewReader { proxy in
                     List(selection: $viewModel.selectedCommitId) {
-                        ForEach(viewModel.commits) { commit in
+                        ForEach(Array(viewModel.commits.enumerated()), id: \.element.id) { index, commit in
                             CommitRowView(
                                 commit: commit,
                                 isSelected: commit.id == viewModel.selectedCommitId,
-                                refs: viewModel.refsBySha[commit.sha] ?? []
+                                refs: viewModel.refsBySha[commit.sha] ?? [],
+                                graphRow: viewModel.graphLayouts.indices.contains(index) ? viewModel.graphLayouts[index] : nil,
+                                graphMaxLanes: viewModel.graphMaxLanes
                             )
                             .tag(commit.id)
                             .listRowInsets(EdgeInsets())

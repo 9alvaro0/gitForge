@@ -4,6 +4,8 @@ struct CommitRowView: View {
     let commit: Commit
     let isSelected: Bool
     var refs: [GitRef] = []
+    var graphRow: GraphRowLayout?
+    var graphMaxLanes: Int = 1
 
     private static let relative: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
@@ -12,10 +14,16 @@ struct CommitRowView: View {
     }()
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Circle()
-                .fill(commit.isMerge ? Color.purple : Color.accentColor)
-                .frame(width: 8, height: 8)
+        HStack(alignment: .center, spacing: 4) {
+            if let row = graphRow {
+                GraphColumnView(row: row, maxLanes: graphMaxLanes)
+                    .frame(height: 56)
+            } else {
+                Circle()
+                    .fill(commit.isMerge ? Color.purple : Color.accentColor)
+                    .frame(width: 8, height: 8)
+                    .padding(.horizontal, 8)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
@@ -45,11 +53,12 @@ struct CommitRowView: View {
                 }
                 .font(.caption)
             }
+            .padding(.leading, 4)
             Spacer(minLength: 0)
         }
+        .frame(height: 56)
         .contentShape(Rectangle())
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
         .background(isSelected ? Color.accentColor.opacity(0.18) : .clear)
     }
 }
@@ -92,27 +101,25 @@ private struct RefBadge: View {
 }
 
 #Preview {
-    VStack(spacing: 0) {
-        CommitRowView(
-            commit: Commit.previewSamples[0],
-            isSelected: true,
-            refs: [GitRef.previewSamples[0], GitRef.previewSamples[3]]
-        )
-        Divider()
-        CommitRowView(
-            commit: Commit.previewSamples[1],
-            isSelected: false,
-            refs: [GitRef.previewSamples[1]]
-        )
-        Divider()
-        CommitRowView(commit: Commit.previewSamples[2], isSelected: false)
-        Divider()
-        CommitRowView(
-            commit: Commit.previewSamples[4],
-            isSelected: false,
-            refs: [GitRef.previewSamples[5]]
-        )
+    let vm = RepositoryViewModel.preview
+    return VStack(spacing: 0) {
+        ForEach(Array(vm.commits.enumerated()), id: \.element.id) { index, commit in
+            CommitRowView(
+                commit: commit,
+                isSelected: commit.id == vm.selectedCommitId,
+                refs: vm.refsBySha[commit.sha] ?? [],
+                graphRow: vm.graphLayouts[safe: index],
+                graphMaxLanes: vm.graphMaxLanes
+            )
+            Divider()
+        }
     }
-    .frame(width: 540)
+    .frame(width: 620)
     .padding()
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
 }

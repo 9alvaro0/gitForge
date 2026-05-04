@@ -25,6 +25,9 @@ final class RepositoryViewModel {
     private(set) var refs: [GitRef] = []
     private(set) var currentBranchName: String?
 
+    private(set) var graphLayouts: [GraphRowLayout] = []
+    private(set) var graphMaxLanes: Int = 1
+
     /// `nil` filter shows the current HEAD branch.
     var selectedFilterBranch: String? {
         didSet {
@@ -49,6 +52,7 @@ final class RepositoryViewModel {
             commits = page
             hasMore = page.count == Self.pageSize
             selectedCommitId = page.first?.id
+            recomputeGraph()
         } catch {
             Self.logger.error("Failed to load log: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -64,10 +68,17 @@ final class RepositoryViewModel {
             let next = try await cli.log(branch: filterBranchForLog, limit: Self.pageSize, skip: commits.count)
             commits.append(contentsOf: next)
             hasMore = next.count == Self.pageSize
+            recomputeGraph()
         } catch {
             Self.logger.error("Failed to load more: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    private func recomputeGraph() {
+        let result = GraphLayoutEngine.layouts(for: commits)
+        graphLayouts = result.rows
+        graphMaxLanes = max(1, result.maxLanes)
     }
 
     func loadRefs() async {
@@ -128,6 +139,8 @@ final class RepositoryViewModel {
     /// Resets commits and reloads with the new filter.
     private func reloadAfterFilterChange() async {
         commits = []
+        graphLayouts = []
+        graphMaxLanes = 1
         hasMore = true
         selectedCommitId = nil
         loadError = nil
@@ -143,6 +156,7 @@ extension RepositoryViewModel {
         vm.detailCache[Commit.preview.sha] = CommitDetail.preview
         vm.refs = GitRef.previewSamples
         vm.currentBranchName = "main"
+        vm.recomputeGraph()
         return vm
     }
 }
