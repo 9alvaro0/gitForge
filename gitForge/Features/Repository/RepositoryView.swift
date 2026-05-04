@@ -58,9 +58,9 @@ private struct RepositoryContentView: View {
             case .history:
                 HSplitView {
                     CommitLogView(viewModel: viewModel)
-                        .frame(minWidth: 360, idealWidth: 480)
+                        .frame(minWidth: 280, idealWidth: 420)
                     detailPane
-                        .frame(minWidth: 320)
+                        .frame(minWidth: 260)
                 }
             case .changes:
                 ChangesView(viewModel: viewModel)
@@ -92,7 +92,7 @@ private struct RepositoryContentView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 220)
+            .fixedSize()
             .labelsHidden()
             if tab == .history {
                 BranchFilterMenu(viewModel: viewModel)
@@ -204,9 +204,8 @@ private struct RemoteToolbar: View {
                         .foregroundStyle(.white)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(minWidth: 78)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)

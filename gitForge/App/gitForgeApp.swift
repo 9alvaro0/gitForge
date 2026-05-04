@@ -9,7 +9,7 @@ struct gitForgeApp: App {
         WindowGroup {
             RootView()
                 .environment(appState)
-                .frame(minWidth: 900, minHeight: 600)
+                .frame(minWidth: 820, minHeight: 560)
                 .task {
                     await appState.bootstrap()
                 }
