@@ -6,19 +6,12 @@ struct CommitRowView: View {
     var refs: [GitRef] = []
     var graphRow: GraphRowLayout?
     var graphMaxLanes: Int = 1
-    var hoveredBranchId: Int? = nil
-    var onHoverChanged: (Bool) -> Void = { _ in }
 
     private static let relative: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .abbreviated
         return f
     }()
-
-    private var dimRow: Bool {
-        guard let hovered = hoveredBranchId, let mine = graphRow?.commitBranchId else { return false }
-        return hovered != mine
-    }
 
     private var accentColor: Color {
         guard let row = graphRow else { return .accentColor }
@@ -28,12 +21,8 @@ struct CommitRowView: View {
     var body: some View {
         HStack(alignment: .center, spacing: 4) {
             if let row = graphRow {
-                GraphColumnView(
-                    row: row,
-                    maxLanes: graphMaxLanes,
-                    hoveredBranchId: hoveredBranchId
-                )
-                .frame(height: 60)
+                GraphColumnView(row: row, maxLanes: graphMaxLanes)
+                    .frame(height: 60)
             } else {
                 Circle()
                     .fill(commit.isMerge ? Color.purple : Color.accentColor)
@@ -42,7 +31,6 @@ struct CommitRowView: View {
             }
 
             AuthorAvatar(name: commit.authorName, email: commit.authorEmail, size: 26)
-                .opacity(dimRow ? 0.35 : 1)
                 .padding(.horizontal, 4)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -73,7 +61,6 @@ struct CommitRowView: View {
                 }
                 .font(.caption)
             }
-            .opacity(dimRow ? 0.4 : 1)
             .padding(.leading, 4)
             Spacer(minLength: 0)
         }
@@ -88,7 +75,6 @@ struct CommitRowView: View {
                     .frame(width: 3)
             }
         }
-        .onHover { onHoverChanged($0) }
     }
 
     @ViewBuilder
