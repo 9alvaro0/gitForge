@@ -8,13 +8,15 @@ struct ChangesView: View {
         VSplitView {
             HSplitView {
                 fileSections
-                    .frame(minWidth: 220, idealWidth: 300)
+                    .frame(minWidth: 220, idealWidth: 280, maxWidth: 380)
+                    .layoutPriority(0)
                 DiffView(
                     hunks: viewModel.workingCopyDiff,
                     isLoading: viewModel.loadingWorkingCopyDiff,
                     emptyMessage: untrackedMessage
                 )
-                .frame(minWidth: 240)
+                .frame(minWidth: 280)
+                .layoutPriority(1)
             }
             CommitComposerView(viewModel: viewModel)
                 .frame(minHeight: 200, idealHeight: 240)
