@@ -54,8 +54,9 @@ private struct RepositoryContentView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            switch tab {
-            case .history:
+            // Both panes are kept in the hierarchy at all times so the HSplitView /
+            // VSplitView dividers don't reset every time the tab is switched.
+            ZStack {
                 HSplitView {
                     CommitLogView(viewModel: viewModel)
                         .frame(minWidth: 280, idealWidth: 360, maxWidth: 520)
@@ -64,8 +65,12 @@ private struct RepositoryContentView: View {
                         .frame(minWidth: 280)
                         .layoutPriority(1)
                 }
-            case .changes:
+                .opacity(tab == .history ? 1 : 0)
+                .allowsHitTesting(tab == .history)
+
                 ChangesView(viewModel: viewModel)
+                    .opacity(tab == .changes ? 1 : 0)
+                    .allowsHitTesting(tab == .changes)
             }
         }
         .modifier(RemoteFailureAlertModifier(viewModel: viewModel))

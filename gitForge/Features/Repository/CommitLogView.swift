@@ -2,7 +2,6 @@ import SwiftUI
 
 struct CommitLogView: View {
     @Bindable var viewModel: RepositoryViewModel
-    @State private var hoveredBranchId: Int?
 
     var body: some View {
         Group {
@@ -30,17 +29,12 @@ struct CommitLogView: View {
                 ScrollViewReader { proxy in
                     List(selection: $viewModel.selectedCommitId) {
                         ForEach(Array(viewModel.commits.enumerated()), id: \.element.id) { index, commit in
-                            let layout = viewModel.graphLayouts.indices.contains(index) ? viewModel.graphLayouts[index] : nil
                             CommitRowView(
                                 commit: commit,
                                 isSelected: commit.id == viewModel.selectedCommitId,
                                 refs: viewModel.refsBySha[commit.sha] ?? [],
-                                graphRow: layout,
-                                graphMaxLanes: viewModel.graphMaxLanes,
-                                hoveredBranchId: hoveredBranchId,
-                                onHoverChanged: { isHovering in
-                                    hoveredBranchId = isHovering ? layout?.commitBranchId : nil
-                                }
+                                graphRow: viewModel.graphLayouts.indices.contains(index) ? viewModel.graphLayouts[index] : nil,
+                                graphMaxLanes: viewModel.graphMaxLanes
                             )
                             .tag(commit.id)
                             .listRowInsets(EdgeInsets())

@@ -17,6 +17,13 @@ enum GraphLayoutEngine {
         var nextBranchId = 0
 
         for commit in commits {
+            // Snapshot lanes BEFORE any mutation. This is what "comes in from above" — a brand
+            // new tip is NOT in this snapshot, so the renderer won't draw a top-half stub for it.
+            let lanesAtTop = lanes.enumerated().compactMap { index, state -> LaneOccupation? in
+                guard let state else { return nil }
+                return LaneOccupation(lane: index, branchId: state.branchId)
+            }
+
             // 1. Find lanes already pointing at this commit (could be more than one in a merge).
             let allMatches = lanes.indices.filter { lanes[$0]?.sha == commit.sha }
             let commitLane: Int
@@ -34,12 +41,6 @@ enum GraphLayoutEngine {
                     lanes.append(LaneState(sha: commit.sha, branchId: commitBranchId))
                     commitLane = lanes.count - 1
                 }
-            }
-
-            // Snapshot active lanes (top half) before mutating.
-            let lanesAtTop = lanes.enumerated().compactMap { index, state -> LaneOccupation? in
-                guard let state else { return nil }
-                return LaneOccupation(lane: index, branchId: state.branchId)
             }
 
             // 2. mergesIn = other lanes that pointed at this commit and now collapse into it.
