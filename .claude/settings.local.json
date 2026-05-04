@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(mv gitForge/gitForge.xcodeproj .)",
+      "Bash(mv gitForge/gitForgeTests .)",
+      "Bash(mv gitForge/gitForgeUITests .)",
+      "Bash(mv gitForge/gitForge ./gitForge_src_tmp)",
+      "Bash(rmdir gitForge)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git reset *)"
+    ]
+  }
+}
