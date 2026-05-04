@@ -38,14 +38,19 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func branchSections(viewModel: RepositoryViewModel) -> some View {
+        let localTree = BranchTreeBuilder.build(from: viewModel.localBranches)
+        let remoteTree = BranchTreeBuilder.build(from: viewModel.remoteBranches)
+        let tagTree = BranchTreeBuilder.build(from: viewModel.tags)
+
         Section {
-            ForEach(viewModel.localBranches) { ref in
-                BranchRow(
-                    ref: ref,
+            ForEach(localTree) { node in
+                BranchTreeNodeView(
+                    node: node,
                     viewModel: viewModel,
-                    onCheckout: { handleCheckout(ref, viewModel: viewModel) },
-                    onRename: { renameTarget = ref },
-                    onDelete: { deleteTarget = ref }
+                    canModify: true,
+                    onCheckout: { ref in handleCheckout(ref, viewModel: viewModel) },
+                    onRename: { ref in renameTarget = ref },
+                    onDelete: { ref in deleteTarget = ref }
                 )
             }
         } header: {
@@ -65,11 +70,12 @@ struct SidebarView: View {
 
         if !viewModel.remoteBranches.isEmpty {
             Section("Remote Branches") {
-                ForEach(viewModel.remoteBranches) { ref in
-                    BranchRow(
-                        ref: ref,
+                ForEach(remoteTree) { node in
+                    BranchTreeNodeView(
+                        node: node,
                         viewModel: viewModel,
-                        onCheckout: { handleCheckout(ref, viewModel: viewModel) },
+                        canModify: false,
+                        onCheckout: { ref in handleCheckout(ref, viewModel: viewModel) },
                         onRename: nil,
                         onDelete: nil
                     )
@@ -78,8 +84,8 @@ struct SidebarView: View {
         }
         if !viewModel.tags.isEmpty {
             Section("Tags") {
-                ForEach(viewModel.tags) { ref in
-                    TagRow(ref: ref)
+                ForEach(tagTree) { node in
+                    TagTreeNodeView(node: node)
                 }
             }
         }
@@ -318,8 +324,85 @@ private struct SidebarRow: View {
     }
 }
 
+private struct BranchTreeNodeView: View {
+    let node: BranchTreeNode
+    @Bindable var viewModel: RepositoryViewModel
+    let canModify: Bool
+    let onCheckout: (GitRef) -> Void
+    let onRename: ((GitRef) -> Void)?
+    let onDelete: ((GitRef) -> Void)?
+
+    var body: some View {
+        switch node {
+        case .folder(_, let name, let children):
+            DisclosureGroup {
+                ForEach(children) { child in
+                    BranchTreeNodeView(
+                        node: child,
+                        viewModel: viewModel,
+                        canModify: canModify,
+                        onCheckout: onCheckout,
+                        onRename: onRename,
+                        onDelete: onDelete
+                    )
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                        .foregroundStyle(.secondary)
+                    Text(name)
+                        .fontWeight(.medium)
+                    Spacer(minLength: 0)
+                }
+            }
+        case .ref(let leafName, let ref):
+            BranchRow(
+                ref: ref,
+                leafName: leafName,
+                viewModel: viewModel,
+                onCheckout: { onCheckout(ref) },
+                onRename: canModify ? { onRename?(ref) } : nil,
+                onDelete: canModify ? { onDelete?(ref) } : nil
+            )
+        }
+    }
+}
+
+private struct TagTreeNodeView: View {
+    let node: BranchTreeNode
+
+    var body: some View {
+        switch node {
+        case .folder(_, let name, let children):
+            DisclosureGroup {
+                ForEach(children) { child in
+                    TagTreeNodeView(node: child)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                        .foregroundStyle(.secondary)
+                    Text(name)
+                        .fontWeight(.medium)
+                    Spacer(minLength: 0)
+                }
+            }
+        case .ref(let leafName, _):
+            HStack(spacing: 8) {
+                Image(systemName: "tag")
+                    .foregroundStyle(.secondary)
+                Text(leafName)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
 private struct BranchRow: View {
     let ref: GitRef
+    let leafName: String
     @Bindable var viewModel: RepositoryViewModel
     let onCheckout: () -> Void
     let onRename: (() -> Void)?
@@ -337,7 +420,7 @@ private struct BranchRow: View {
         HStack(spacing: 8) {
             Image(systemName: ref.isRemoteBranch ? "arrow.triangle.branch" : "point.topleft.down.to.point.bottomright.curvepath")
                 .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-            Text(ref.displayName)
+            Text(leafName)
                 .fontWeight(isCurrent ? .semibold : .regular)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -368,21 +451,6 @@ private struct BranchRow: View {
                 Divider()
                 Button("Delete...", role: .destructive, action: onDelete)
             }
-        }
-    }
-}
-
-private struct TagRow: View {
-    let ref: GitRef
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "tag")
-                .foregroundStyle(.secondary)
-            Text(ref.name)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 0)
         }
     }
 }
