@@ -66,6 +66,7 @@ private struct RepositoryContentView: View {
                 ChangesView(viewModel: viewModel)
             }
         }
+        .modifier(RemoteFailureAlertModifier(viewModel: viewModel))
     }
 
     private var header: some View {
@@ -83,6 +84,7 @@ private struct RepositoryContentView: View {
                     .truncationMode(.head)
             }
             Spacer()
+            RemoteToolbar(viewModel: viewModel)
             Picker("", selection: $tab) {
                 ForEach(RepositoryTab.allCases) { kind in
                     Label(kind.title, systemImage: kind.systemImage)
@@ -132,6 +134,107 @@ private struct RepositoryContentView: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+private struct RemoteToolbar: View {
+    @Bindable var viewModel: RepositoryViewModel
+
+    private var hasUpstream: Bool { viewModel.upstream != nil }
+    private var canPull: Bool {
+        hasUpstream && viewModel.behindCount > 0 && viewModel.remoteOperation == nil
+    }
+    private var canPush: Bool {
+        viewModel.remoteOperation == nil && (viewModel.aheadCount > 0 || !hasUpstream)
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            button(
+                icon: "arrow.clockwise",
+                label: "Fetch",
+                badge: nil,
+                isLoading: viewModel.remoteOperation == .fetching,
+                disabled: viewModel.remoteOperation != nil,
+                action: { Task { await viewModel.fetch() } }
+            )
+            button(
+                icon: "arrow.down",
+                label: "Pull",
+                badge: viewModel.behindCount > 0 ? "\(viewModel.behindCount)" : nil,
+                isLoading: viewModel.remoteOperation == .pulling,
+                disabled: !canPull,
+                action: { Task { await viewModel.pull() } }
+            )
+            button(
+                icon: "arrow.up",
+                label: "Push",
+                badge: viewModel.aheadCount > 0 ? "\(viewModel.aheadCount)" : nil,
+                isLoading: viewModel.remoteOperation == .pushing,
+                disabled: !canPush,
+                action: { Task { await viewModel.push() } }
+            )
+        }
+    }
+
+    private func button(
+        icon: String,
+        label: String,
+        badge: String?,
+        isLoading: Bool,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if isLoading {
+                    ProgressView().controlSize(.small).scaleEffect(0.7)
+                } else {
+                    Image(systemName: icon)
+                }
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                if let badge {
+                    Text(badge)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.accentColor, in: Capsule())
+                        .foregroundStyle(.white)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(minWidth: 78)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(disabled)
+    }
+}
+
+private struct RemoteFailureAlertModifier: ViewModifier {
+    @Bindable var viewModel: RepositoryViewModel
+
+    private var isPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.remoteFailure != nil },
+            set: { if !$0 { viewModel.remoteFailure = nil } }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.alert(
+            viewModel.remoteFailure?.title ?? "",
+            isPresented: isPresented,
+            presenting: viewModel.remoteFailure
+        ) { _ in
+            Button("OK", role: .cancel) {
+                viewModel.remoteFailure = nil
+            }
+        } message: { failure in
+            Text(failure.message)
         }
     }
 }
@@ -221,5 +324,5 @@ private struct BranchFilterMenu: View {
 #Preview {
     RepositoryView(repository: Repository.preview)
         .environment(AppState.previewWithActive)
-        .frame(width: 1100, height: 680)
+        .frame(width: 1280, height: 680)
 }
