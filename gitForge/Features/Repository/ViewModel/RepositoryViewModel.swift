@@ -92,6 +92,13 @@ final class RepositoryViewModel {
     var behindCount: Int = 0
     var lastFetchedAt: Date?
 
+    // MARK: Conflicts
+    var mergeState: MergeState = .clean
+    var conflictFiles: [ConflictFile] = []
+    var conflictHunks: [ConflictHunk] = []
+    var selectedConflictPath: String?
+    var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
+
     init(repository: Repository) {
         self.repository = repository
         self.cli = GitCLI(workingDirectory: repository.url)
