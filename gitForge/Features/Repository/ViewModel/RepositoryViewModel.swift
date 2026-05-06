@@ -13,34 +13,31 @@ final class RepositoryViewModel {
     let repository: Repository
     let cli: GitCLI
 
-    // MARK: UI
-    var currentTab: RepositoryTab = .history
-
     // MARK: Log
-    internal(set) var commits: [Commit] = []
-    internal(set) var isLoadingInitial = false
-    internal(set) var isLoadingMore = false
-    internal(set) var hasMore = true
+    var commits: [Commit] = []
+    var isLoadingInitial = false
+    var isLoadingMore = false
+    var hasMore = true
     var loadError: String?
 
     var selectedCommitId: Commit.ID?
 
     // MARK: Detail
-    internal(set) var detailCache: [String: CommitDetail] = [:]
-    internal(set) var loadingDetailFor: String?
+    var detailCache: [String: CommitDetail] = [:]
+    var loadingDetailFor: String?
 
     // MARK: Refs / branches / stashes
-    internal(set) var refs: [GitRef] = []
-    internal(set) var currentBranchName: String?
-    internal(set) var stashes: [Stash] = []
+    var refs: [GitRef] = []
+    var currentBranchName: String?
+    var stashes: [Stash] = []
 
     // MARK: Graph
-    internal(set) var graphLayouts: [GraphRowLayout] = []
-    internal(set) var graphMaxLanes: Int = 1
+    var graphLayouts: [GraphRowLayout] = []
+    var graphMaxLanes: Int = 1
 
     // MARK: Working copy
-    internal(set) var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
-    internal(set) var isLoadingStatus = false
+    var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
+    var isLoadingStatus = false
     var commitSubject: String = ""
     var commitBody: String = ""
     var amendMode: Bool = false {
@@ -66,8 +63,8 @@ final class RepositoryViewModel {
             }
         }
     }
-    internal(set) var commitFileDiff: [DiffHunk] = []
-    internal(set) var loadingCommitFileDiff = false
+    var commitFileDiff: [DiffHunk] = []
+    var loadingCommitFileDiff = false
 
     var selectedWorkingCopyFile: WorkingCopyFile? {
         didSet {
@@ -79,21 +76,21 @@ final class RepositoryViewModel {
             }
         }
     }
-    internal(set) var workingCopyDiff: [DiffHunk] = []
-    internal(set) var loadingWorkingCopyDiff = false
+    var workingCopyDiff: [DiffHunk] = []
+    var loadingWorkingCopyDiff = false
 
     // MARK: Navigation
     var scrollTargetSha: String?
-    internal(set) var isRevealingCommit = false
+    var isRevealingCommit = false
 
     // MARK: Remote
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
     var remoteOperation: RemoteOperation?
     var remoteFailure: RemoteFailure?
-    internal(set) var upstream: String?
-    internal(set) var aheadCount: Int = 0
-    internal(set) var behindCount: Int = 0
-    internal(set) var lastFetchedAt: Date?
+    var upstream: String?
+    var aheadCount: Int = 0
+    var behindCount: Int = 0
+    var lastFetchedAt: Date?
 
     init(repository: Repository) {
         self.repository = repository

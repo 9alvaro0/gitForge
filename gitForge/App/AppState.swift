@@ -22,6 +22,12 @@ final class AppState {
     var newBranchSheetVisible: Bool = false
     var discardAllConfirmVisible: Bool = false
 
+    // Redesigned UI state.
+    var workspaceSection: WorkspaceSection = .history
+    var theme: AppTheme = AppTheme()
+    var commandPaletteOpen: Bool = false
+    var activeToast: ToastMessage?
+
     private let store = RepositoryStore()
 
     func bootstrap() async {
