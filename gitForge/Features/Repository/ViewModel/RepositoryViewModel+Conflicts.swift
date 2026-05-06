@@ -91,10 +91,25 @@ extension RepositoryViewModel {
         case failed(String)
     }
 
-    func mergeBranch(_ ref: GitRef) async -> IntegrationOutcome {
-        let name = ref.isLocalBranch ? ref.name : ref.displayName
+    /// Convenience: merge `source` into the currently checked-out branch.
+    func mergeBranch(_ source: GitRef) async -> IntegrationOutcome {
+        await mergeBranch(source: source, into: nil)
+    }
+
+    /// Merges `source` into `target`. If `target` is nil or already the
+    /// current branch, behaves like a direct `git merge`. Otherwise checks
+    /// out `target` first so the merge lands on the right ref.
+    func mergeBranch(source: GitRef, into target: GitRef?) async -> IntegrationOutcome {
+        let sourceName = source.isLocalBranch ? source.name : source.displayName
         do {
-            try await cli.merge(branch: name)
+            if let target, target.name != currentBranchName {
+                guard target.isLocalBranch else {
+                    return .failed("Can only merge into a local branch.")
+                }
+                try await cli.checkout(branch: target.name)
+                await refreshAfterRefMutation(reloadLog: true)
+            }
+            try await cli.merge(branch: sourceName)
             await refreshAfterRefMutation(reloadLog: true)
             await loadConflictState()
             return .clean
