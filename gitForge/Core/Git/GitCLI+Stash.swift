@@ -31,4 +31,14 @@ extension GitCLI {
     func stashDrop(index: Int) async throws {
         try await run(["stash", "drop", "stash@{\(index)}"])
     }
+
+    func stashPush(message: String? = nil, includeUntracked: Bool = true) async throws {
+        var args = ["stash", "push"]
+        if includeUntracked { args.append("--include-untracked") }
+        if let message, !message.isEmpty {
+            args.append("-m")
+            args.append(message)
+        }
+        try await run(args)
+    }
 }

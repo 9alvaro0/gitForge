@@ -3,7 +3,7 @@ import SwiftUI
 struct RepositoryContentView: View {
     let repository: Repository
     @Bindable var viewModel: RepositoryViewModel
-    @State private var tab: RepositoryTab = .history
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,15 +20,16 @@ struct RepositoryContentView: View {
                         .frame(minWidth: 280)
                         .layoutPriority(0)
                 }
-                .opacity(tab == .history ? 1 : 0)
-                .allowsHitTesting(tab == .history)
+                .opacity(viewModel.currentTab == .history ? 1 : 0)
+                .allowsHitTesting(viewModel.currentTab == .history)
 
                 ChangesView(viewModel: viewModel)
-                    .opacity(tab == .changes ? 1 : 0)
-                    .allowsHitTesting(tab == .changes)
+                    .opacity(viewModel.currentTab == .changes ? 1 : 0)
+                    .allowsHitTesting(viewModel.currentTab == .changes)
             }
         }
         .modifier(RemoteFailureAlertModifier(viewModel: viewModel))
+        .modifier(DiscardAllAlertModifier(appState: appState, viewModel: viewModel))
     }
 
     private var header: some View {
@@ -47,7 +48,7 @@ struct RepositoryContentView: View {
             }
             Spacer()
             RemoteToolbar(viewModel: viewModel)
-            Picker("", selection: $tab) {
+            Picker("", selection: $viewModel.currentTab) {
                 ForEach(RepositoryTab.allCases) { kind in
                     Text(kind.title).tag(kind)
                 }
@@ -55,7 +56,7 @@ struct RepositoryContentView: View {
             .pickerStyle(.segmented)
             .fixedSize()
             .labelsHidden()
-            if tab == .changes {
+            if viewModel.currentTab == .changes {
                 changesBadge
             }
         }

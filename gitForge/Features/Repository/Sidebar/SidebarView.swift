@@ -3,7 +3,6 @@ import SwiftUI
 struct SidebarView: View {
     @Environment(AppState.self) private var appState
 
-    @State private var showingCreateBranchSheet = false
     @State private var renameTarget: GitRef?
     @State private var deleteTarget: GitRef?
     @State private var dirtyCheckoutTarget: GitRef?
@@ -15,12 +14,13 @@ struct SidebarView: View {
     @AppStorage("sidebar.stashesExpanded") private var stashesExpanded = true
 
     var body: some View {
+        @Bindable var appState = appState
         listContent
             .listStyle(.sidebar)
             .navigationTitle("gitForge")
             .toolbar { toolbarContent }
             .dropDestination(for: URL.self, action: handleDrop)
-            .modifier(NewBranchSheetModifier(isPresented: $showingCreateBranchSheet, appState: appState))
+            .modifier(NewBranchSheetModifier(isPresented: $appState.newBranchSheetVisible, appState: appState))
             .modifier(RenameBranchSheetModifier(target: $renameTarget, appState: appState))
             .modifier(DeleteBranchAlertModifier(target: $deleteTarget, unmerged: $unmergedDeleteTarget, appState: appState))
             .modifier(ForceDeleteBranchAlertModifier(target: $unmergedDeleteTarget, appState: appState))
@@ -56,13 +56,13 @@ struct SidebarView: View {
         } header: {
             CollapsibleSectionHeader(title: "Local Branches", isExpanded: $localExpanded) {
                 Button {
-                    showingCreateBranchSheet = true
+                    appState.newBranchSheetVisible = true
                 } label: {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)
                 .controlSize(.small)
-                .help("New Branch")
+                .help("New Branch (⌘B)")
             }
         }
 

@@ -20,18 +20,10 @@ struct gitForgeApp: App {
                 }
         }
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("Open Repository...") {
-                    Task { await appState.presentOpenRepositoryPanel() }
-                }
-                .keyboardShortcut("o", modifiers: .command)
-
-                Button("Close Repository") {
-                    appState.closeRepository()
-                }
-                .keyboardShortcut("w", modifiers: [.command, .shift])
-                .disabled(appState.activeRepository == nil)
-            }
+            FileCommands(appState: appState)
+            ViewCommands(appState: appState)
+            RepositoryCommands(appState: appState)
+            HelpCommands()
         }
     }
 }
