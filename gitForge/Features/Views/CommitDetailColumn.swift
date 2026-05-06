@@ -51,7 +51,7 @@ struct CommitDetailColumn: View {
 
     private var metaCard: some View {
         HStack(spacing: 10) {
-            Avatar(name: commit.authorName, size: 20)
+            Avatar(name: commit.authorName, size: 20, colorSeed: commit.authorEmail)
             VStack(alignment: .leading, spacing: 2) {
                 Text(commit.authorName)
                     .font(AppFont.sans(12, weight: .medium))

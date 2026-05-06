@@ -17,18 +17,20 @@ struct CommitGraphTable: View {
     private var maxLanes: Int {
         layouts.map(\.totalLanes).max() ?? 1
     }
+    private var rowHeight: CGFloat { theme.density.rowHeight }
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 if workingCopyDirty {
-                    UncommittedRow(maxLanes: maxLanes)
+                    UncommittedRow(maxLanes: maxLanes, rowHeight: rowHeight)
                 }
                 ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
                     CommitRow(
                         commit: commit,
                         layout: layouts[safe: idx] ?? .empty,
                         maxLanes: maxLanes,
+                        rowHeight: rowHeight,
                         refs: refsBySha[commit.sha] ?? [],
                         currentBranch: currentBranch,
                         isSelected: commit.sha == selectedSha,
@@ -43,6 +45,7 @@ struct CommitGraphTable: View {
 
 private struct UncommittedRow: View {
     let maxLanes: Int
+    let rowHeight: CGFloat
     @Environment(\.appTheme) private var theme
     var body: some View {
         HStack(spacing: 0) {
@@ -65,7 +68,7 @@ private struct UncommittedRow: View {
             Text("now").font(AppFont.mono(11, family: theme.monoFont)).foregroundStyle(theme.palette.fg3).frame(width: 70, alignment: .trailing)
         }
         .padding(.horizontal, 18)
-        .frame(height: 30)
+        .frame(height: rowHeight)
         .background(LinearGradient(colors: [theme.palette.mod.opacity(0.07), .clear], startPoint: .leading, endPoint: .trailing))
     }
 }
@@ -74,6 +77,7 @@ private struct CommitRow: View {
     let commit: Commit
     let layout: GraphRowLayout
     let maxLanes: Int
+    let rowHeight: CGFloat
     let refs: [GitRef]
     let currentBranch: String?
     let isSelected: Bool
@@ -88,7 +92,7 @@ private struct CommitRow: View {
             messageColumn
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 6) {
-                Avatar(name: commit.authorName, size: 16)
+                Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
                 Text(commit.authorName)
                     .font(AppFont.sans(12))
                     .foregroundStyle(theme.palette.fg2)
@@ -106,7 +110,7 @@ private struct CommitRow: View {
                 .frame(width: 70, alignment: .trailing)
         }
         .padding(.horizontal, 18)
-        .frame(height: 30)
+        .frame(height: rowHeight)
         .background(rowBackground)
         .overlay(alignment: .leading) {
             if isSelected { Rectangle().fill(theme.palette.accent).frame(width: 2) }

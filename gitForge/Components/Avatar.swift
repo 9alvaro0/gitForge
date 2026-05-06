@@ -1,9 +1,13 @@
 import SwiftUI
 
-/// Hashed avatar with initials — matches `Avatar` from components.jsx.
+/// Hashed avatar with initials. Matches `Avatar` from components.jsx but
+/// hashes over `colorSeed` (when provided) so distinct authors with the same
+/// initials still get distinguishable bg colors. Pass the email — or any
+/// stable identity string — when you have it.
 struct Avatar: View {
     let name: String
     var size: CGFloat = 18
+    var colorSeed: String? = nil
 
     private static let palette: [Color] = [
         Color(hex: 0x7c5cff),
@@ -28,8 +32,9 @@ struct Avatar: View {
     }
 
     private var background: Color {
+        let seed = colorSeed ?? name
         var h: Int = 0
-        for c in name.unicodeScalars { h = (h &* 31) &+ Int(c.value) }
+        for c in seed.unicodeScalars { h = (h &* 31) &+ Int(c.value) }
         return Self.palette[abs(h) % Self.palette.count]
     }
 }
