@@ -57,6 +57,37 @@ final class AppState {
         }
     }
 
+    var isCloning: Bool = false
+
+    /// Clones `url` into `path` (with optional `~` expansion) and opens the
+    /// resulting repository when it finishes. Errors surface via `presentedError`.
+    func cloneRepository(url: String, path: String, branch: String?) async {
+        let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
+            presentedError = PresentedError(title: "Clone failed", message: "Source URL and local path are required.")
+            return
+        }
+        let expanded = (trimmedPath as NSString).expandingTildeInPath
+        let destination = URL(fileURLWithPath: expanded)
+        if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
+            presentedError = PresentedError(title: "Clone failed", message: "Destination already exists: \(expanded)")
+            return
+        }
+
+        isCloning = true
+        defer { isCloning = false }
+
+        do {
+            try await GitCLI.clone(url: trimmedUrl, destination: destination, branch: branch)
+            try await openRepository(at: destination)
+            workspaceSection = .history
+            activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
+        } catch {
+            presentedError = PresentedError(error: error, title: "Clone failed")
+        }
+    }
+
     func refreshGitInstallation() async {
         if gitStatus != .checking {
             gitStatus = .checking
@@ -99,6 +130,20 @@ final class AppState {
             activeRepository = nil
             activeViewModel = nil
         }
+    }
+
+    /// Opens an `NSOpenPanel` and returns the chosen directory's path.
+    /// Used by the Clone view to pick a parent directory.
+    func pickDirectoryPath(prompt: String = "Choose") async -> String? {
+        let panel = NSOpenPanel()
+        panel.title = prompt
+        panel.prompt = prompt
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return url.path(percentEncoded: false)
     }
 
     func presentOpenRepositoryPanel() async {

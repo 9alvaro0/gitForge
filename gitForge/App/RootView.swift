@@ -108,10 +108,7 @@ private struct ShellView: View {
         } else {
             switch appState.workspaceSection {
             case .clone:
-                CloneView(repositories: appState.repositories,
-                          onClone: { _, _, _ in },
-                          onPickPath: { Task { await appState.presentOpenRepositoryPanel() } },
-                          onOpenRepo: { r in Task { await appState.activate(r) } })
+                CloneView()
             case .settings:
                 SettingsView()
             case .terminal:
@@ -248,10 +245,7 @@ private struct ContentRouter: View {
         case .conflict: ConflictView()
         case .blame:    BlameView()
         case .terminal: TerminalView(workingDirectory: viewModel.repository.url.path)
-        case .clone:    CloneView(repositories: appState.repositories,
-                                  onClone: { _, _, _ in },
-                                  onPickPath: { Task { await appState.presentOpenRepositoryPanel() } },
-                                  onOpenRepo: { r in Task { await appState.activate(r) } })
+        case .clone:    CloneView()
         case .settings: SettingsView()
         }
     }
