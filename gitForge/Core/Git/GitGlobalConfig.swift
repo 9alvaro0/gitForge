@@ -80,10 +80,14 @@ actor GitGlobalConfigReader {
 
         async let stdoutData: Data = readToEnd(stdoutPipe.fileHandleForReading)
         async let stderrData: Data = readToEnd(stderrPipe.fileHandleForReading)
-        async let _: Void = waitForExit(process)
+        async let exitWait: Void = waitForExit(process)
 
-        let stdout = String(data: await stdoutData, encoding: .utf8) ?? ""
-        let stderr = String(data: await stderrData, encoding: .utf8) ?? ""
+        let stdoutBytes = await stdoutData
+        let stderrBytes = await stderrData
+        _ = await exitWait
+
+        let stdout = String(data: stdoutBytes, encoding: .utf8) ?? ""
+        let stderr = String(data: stderrBytes, encoding: .utf8) ?? ""
 
         let result = GitResult(
             stdout: stdout,
