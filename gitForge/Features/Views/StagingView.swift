@@ -108,6 +108,7 @@ struct StagingView: View {
                             else             { await viewModel.stageHunks(ids: [hunkId]) }
                         }
                     },
+                    onOpenInEditor: { openInEditor(file: file) },
                     viewMode: $diffMode
                 )
             } else if !staged.isEmpty || !unstaged.isEmpty {
@@ -148,19 +149,12 @@ struct StagingView: View {
                 }
             }
 
-            Button {
-                if commitMessage.isEmpty { commitMessage = "feat: " }
-            } label: {
-                HStack(spacing: 6) {
-                    GFIcon(kind: .cmd, size: 12, stroke: theme.palette.fg3)
-                    Text("Suggest commit message").font(AppFont.sans(11))
-                }
-                .foregroundStyle(theme.palette.fg3)
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 6).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [3, 3])).foregroundStyle(theme.palette.lineStrong))
+            if let error = viewModel.commitError {
+                Text(error)
+                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.del)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
         }
         .padding(12)
         .background(theme.palette.bg2)
@@ -173,6 +167,11 @@ struct StagingView: View {
         let ok = await viewModel.commit()
         if ok, push { await viewModel.push() }
         if ok { commitMessage = ""; commitDescription = "" }
+    }
+
+    private func openInEditor(file: WorkingCopyFile) {
+        let absolute = viewModel.repository.url.appendingPathComponent(file.path)
+        NSWorkspace.shared.open(absolute)
     }
 }
 

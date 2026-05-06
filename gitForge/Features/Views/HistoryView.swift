@@ -35,11 +35,7 @@ struct HistoryView: View {
                 selection: $filter
             )
             Spacer()
-            HStack(spacing: 8) {
-                MonoText("filter:", dim: true)
-                ChipInput(text: "author:\(authorChipName)")
-                IconButton(.plus, action: {})
-            }
+            MonoText(refCountLabel, dim: true)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 8)
@@ -47,9 +43,27 @@ struct HistoryView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
     }
 
-    private var authorChipName: String {
-        let raw = viewModel.commits.first?.authorName ?? "anyone"
-        return raw.split(separator: " ").first.map(String.init) ?? raw
+    /// Refs to actually render as chips on commit rows for the selected filter.
+    private var filteredRefsBySha: [String: [GitRef]] {
+        let kept = viewModel.refs.filter { ref in
+            switch filter {
+            case .all:    return true
+            case .local:  return ref.isLocalBranch
+            case .remote: return ref.isRemoteBranch
+            case .tags:   return ref.isTag
+            }
+        }
+        return Dictionary(grouping: kept) { $0.targetSha }
+    }
+
+    private var refCountLabel: String {
+        let count = filteredRefsBySha.values.reduce(0) { $0 + $1.count }
+        switch filter {
+        case .all:    return "\(count) refs"
+        case .local:  return "\(count) local branches"
+        case .remote: return "\(count) remote branches"
+        case .tags:   return "\(count) tags"
+        }
     }
 
     private var graphAndDiffColumn: some View {
@@ -58,7 +72,7 @@ struct HistoryView: View {
             CommitGraphTable(
                 commits: viewModel.commits,
                 layouts: viewModel.graphLayouts,
-                refsBySha: viewModel.refsBySha,
+                refsBySha: filteredRefsBySha,
                 currentBranch: viewModel.currentBranchName,
                 selectedSha: viewModel.selectedCommitId,
                 workingCopyDirty: !viewModel.status.isClean

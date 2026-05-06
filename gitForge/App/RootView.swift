@@ -232,14 +232,7 @@ private struct ContentRouter: View {
         case .history:  HistoryView(viewModel: viewModel)
         case .changes:  StagingView(viewModel: viewModel)
         case .branches: BranchesView(
-                            localBranches: viewModel.localBranches,
-                            remoteBranches: viewModel.remoteBranches,
-                            tags: viewModel.tags,
-                            currentBranchName: viewModel.currentBranchName,
-                            onCheckout: { ref in
-                                Task { _ = await viewModel.checkoutBranch(ref) }
-                            },
-                            onNewBranch: { appState.newBranchSheetVisible = true }
+                            viewModel: viewModel
                         )
         case .pulls:    PullsView()
         case .conflict: ConflictView(viewModel: viewModel)
