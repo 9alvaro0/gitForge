@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// `.gf-view-branches` — local + remote + tags listing, fully wired against
-/// the active `RepositoryViewModel` (checkout / rename / delete / new branch).
+/// `.gf-view-branches` — local + remote + tags listing, organised hierarchically
+/// by folder (`feature/`, `release/`, …) so big repos don't drown the list.
 struct BranchesView: View {
     @Bindable var viewModel: RepositoryViewModel
 
@@ -12,11 +12,18 @@ struct BranchesView: View {
     @State private var renameDraft: String = ""
     @State private var deleteTarget: GitRef?
     @State private var deleteForce: Bool = false
-    @State private var mergeTarget: GitRef?
+    @State private var mergeRequest: MergeRequest?
     @State private var rebaseTarget: GitRef?
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+
+    /// "Merge `source` into `target`" — `target == nil` means current branch.
+    struct MergeRequest: Identifiable, Equatable {
+        let id = UUID()
+        let source: GitRef
+        let target: GitRef?
+    }
 
     private var localBranches: [GitRef]  { viewModel.localBranches.filter(matchesFilter) }
     private var remoteBranches: [GitRef] { viewModel.remoteBranches.filter(matchesFilter) }
@@ -40,24 +47,30 @@ struct BranchesView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    BranchSection(title: "Local",
-                                  refs: localBranches,
-                                  currentBranchName: currentBranchName,
-                                  viewModel: viewModel,
-                                  onCheckout: { ref in Task { _ = await viewModel.checkoutBranch(ref) } },
-                                  onRename: { ref in renameTarget = ref; renameDraft = ref.name },
-                                  onDelete: { ref in deleteTarget = ref; deleteForce = false },
-                                  onMerge: { ref in mergeTarget = ref },
-                                  onRebase: { ref in rebaseTarget = ref })
-                    BranchSection(title: "Remote",
-                                  refs: remoteBranches,
-                                  currentBranchName: nil,
-                                  viewModel: viewModel,
-                                  onCheckout: { ref in Task { _ = await viewModel.checkoutBranch(ref) } },
-                                  onRename: nil,
-                                  onDelete: nil,
-                                  onMerge: { ref in mergeTarget = ref },
-                                  onRebase: { ref in rebaseTarget = ref })
+                    BranchSection(
+                        title: "Local",
+                        refs: localBranches,
+                        availableTargets: viewModel.localBranches,
+                        currentBranchName: currentBranchName,
+                        viewModel: viewModel,
+                        onCheckout: handleCheckout,
+                        onRename: { renameTarget = $0; renameDraft = $0.name },
+                        onDelete: { deleteTarget = $0; deleteForce = false },
+                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+                        onRebase: { rebaseTarget = $0 }
+                    )
+                    BranchSection(
+                        title: "Remote",
+                        refs: remoteBranches,
+                        availableTargets: viewModel.localBranches,
+                        currentBranchName: nil,
+                        viewModel: viewModel,
+                        onCheckout: handleCheckout,
+                        onRename: nil,
+                        onDelete: nil,
+                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+                        onRebase: { rebaseTarget = $0 }
+                    )
                     if !tags.isEmpty {
                         TagsSection(tags: tags)
                     }
@@ -67,8 +80,8 @@ struct BranchesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
-        .sheet(isPresented: $newBranchSheet) { newBranchSheet(presented: $newBranchSheet) }
-        .sheet(item: $renameTarget) { ref in renameSheet(ref: ref) }
+        .sheet(isPresented: $newBranchSheet) { newBranchSheetView(presented: $newBranchSheet) }
+        .sheet(item: $renameTarget) { ref in renameSheetView(ref: ref) }
         .confirmationDialog("Delete \(deleteTarget?.name ?? "")?",
                             isPresented: deleteAlertBinding,
                             titleVisibility: .visible) {
@@ -82,28 +95,22 @@ struct BranchesView: View {
         } message: {
             Text("This removes the local branch reference. Use force-delete if it has unmerged commits.")
         }
-        .confirmationDialog("Merge \(mergeTarget?.displayName ?? "") into \(currentBranchName ?? "current")?",
+        .confirmationDialog(mergeDialogTitle,
                             isPresented: mergeAlertBinding,
                             titleVisibility: .visible) {
             Button("Merge") {
-                if let ref = mergeTarget {
-                    let target = ref
-                    Task { await runMerge(ref: target) }
-                }
-                mergeTarget = nil
+                if let req = mergeRequest { Task { await runMerge(request: req) } }
+                mergeRequest = nil
             }
-            Button("Cancel", role: .cancel) { mergeTarget = nil }
+            Button("Cancel", role: .cancel) { mergeRequest = nil }
         } message: {
-            Text("Brings \(mergeTarget?.displayName ?? "") into the current branch. If conflicts arise you'll be sent to the Conflicts view.")
+            Text(mergeDialogMessage)
         }
         .confirmationDialog("Rebase \(currentBranchName ?? "current") onto \(rebaseTarget?.displayName ?? "")?",
                             isPresented: rebaseAlertBinding,
                             titleVisibility: .visible) {
             Button("Rebase") {
-                if let ref = rebaseTarget {
-                    let target = ref
-                    Task { await runRebase(ref: target) }
-                }
+                if let ref = rebaseTarget { Task { await runRebase(ref: ref) } }
                 rebaseTarget = nil
             }
             Button("Cancel", role: .cancel) { rebaseTarget = nil }
@@ -112,48 +119,64 @@ struct BranchesView: View {
         }
     }
 
+    private var deleteAlertBinding: Binding<Bool> {
+        Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } })
+    }
     private var mergeAlertBinding: Binding<Bool> {
-        Binding(get: { mergeTarget != nil }, set: { if !$0 { mergeTarget = nil } })
+        Binding(get: { mergeRequest != nil }, set: { if !$0 { mergeRequest = nil } })
     }
 
+    private var mergeDialogTitle: String {
+        guard let req = mergeRequest else { return "" }
+        let target = req.target?.displayName ?? currentBranchName ?? "current"
+        return "Merge \(req.source.displayName) into \(target)?"
+    }
+
+    private var mergeDialogMessage: String {
+        guard let req = mergeRequest else { return "" }
+        let target = req.target?.displayName ?? currentBranchName ?? "current"
+        if let t = req.target, t.name != currentBranchName {
+            return "Will check out \(target) first, then merge \(req.source.displayName) into it. Conflicts route you to the Conflicts view."
+        }
+        return "Brings \(req.source.displayName) into \(target). Conflicts route you to the Conflicts view."
+    }
     private var rebaseAlertBinding: Binding<Bool> {
         Binding(get: { rebaseTarget != nil }, set: { if !$0 { rebaseTarget = nil } })
     }
 
-    private func runMerge(ref: GitRef) async {
-        let outcome = await viewModel.mergeBranch(ref)
-        handleIntegration(outcome,
-                          successLabel: "Merged \(ref.displayName) into \(currentBranchName ?? "HEAD")",
-                          conflictLabel: "Merge has conflicts — resolve to continue")
+    private func handleCheckout(_ ref: GitRef) { Task { _ = await viewModel.checkoutBranch(ref) } }
+
+    private func runMerge(request: MergeRequest) async {
+        let outcome = await viewModel.mergeBranch(source: request.source, into: request.target)
+        let targetLabel = request.target?.displayName ?? currentBranchName ?? "HEAD"
+        report(outcome,
+               success: "Merged \(request.source.displayName) into \(targetLabel)",
+               conflicts: "Merge has conflicts — resolve to continue")
     }
 
     private func runRebase(ref: GitRef) async {
         let outcome = await viewModel.rebaseOnto(ref)
-        handleIntegration(outcome,
-                          successLabel: "Rebased \(currentBranchName ?? "HEAD") onto \(ref.displayName)",
-                          conflictLabel: "Rebase has conflicts — resolve to continue")
+        report(outcome,
+               success: "Rebased \(currentBranchName ?? "HEAD") onto \(ref.displayName)",
+               conflicts: "Rebase has conflicts — resolve to continue")
     }
 
-    private func handleIntegration(_ outcome: RepositoryViewModel.IntegrationOutcome,
-                                   successLabel: String,
-                                   conflictLabel: String) {
+    private func report(_ outcome: RepositoryViewModel.IntegrationOutcome,
+                        success: String,
+                        conflicts: String) {
         switch outcome {
         case .clean:
-            appState.activeToast = ToastMessage(message: successLabel, kind: .ok)
+            appState.activeToast = ToastMessage(message: success, kind: .ok)
         case .conflicts:
             appState.workspaceSection = .conflict
-            appState.activeToast = ToastMessage(message: conflictLabel, kind: .warn)
+            appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
         case .failed(let message):
             appState.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
-    private var deleteAlertBinding: Binding<Bool> {
-        Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } })
-    }
-
     @ViewBuilder
-    private func newBranchSheet(presented: Binding<Bool>) -> some View {
+    private func newBranchSheetView(presented: Binding<Bool>) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("New branch").font(AppFont.sans(14, weight: .semibold))
             GFTextField(placeholder: "feat/awesome", text: $newBranchName)
@@ -171,11 +194,11 @@ struct BranchesView: View {
         }
         .padding(20).frame(width: 380)
         .background(theme.palette.bg1)
-        .appTheme(viewModel.previewTheme())
+        .appTheme(appState.theme)
     }
 
     @ViewBuilder
-    private func renameSheet(ref: GitRef) -> some View {
+    private func renameSheetView(ref: GitRef) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Rename \(ref.name)").font(AppFont.sans(14, weight: .semibold))
             GFTextField(placeholder: ref.name, text: $renameDraft)
@@ -193,22 +216,64 @@ struct BranchesView: View {
         }
         .padding(20).frame(width: 380)
         .background(theme.palette.bg1)
-        .appTheme(viewModel.previewTheme())
+        .appTheme(appState.theme)
     }
+}
+
+// MARK: - Section
+
+private struct FlatRow: Identifiable {
+    enum Kind {
+        case folder(path: String, name: String, count: Int, collapsed: Bool)
+        case leaf(ref: GitRef, leafName: String)
+    }
+    let id: String
+    let depth: Int
+    let kind: Kind
 }
 
 private struct BranchSection: View {
     let title: String
     let refs: [GitRef]
+    /// Local branches that can be the destination of a merge.
+    let availableTargets: [GitRef]
     let currentBranchName: String?
     let viewModel: RepositoryViewModel
     let onCheckout: (GitRef) -> Void
     let onRename: ((GitRef) -> Void)?
     let onDelete: ((GitRef) -> Void)?
-    let onMerge: ((GitRef) -> Void)?
+    /// `(source, target)` — `target == nil` means current branch.
+    let onMerge: ((GitRef, GitRef?) -> Void)?
     let onRebase: ((GitRef) -> Void)?
 
+    @State private var collapsedFolders: Set<String> = []
     @Environment(\.appTheme) private var theme
+
+    private var tree: [BranchTreeNode] { BranchTreeBuilder.build(from: refs) }
+
+    /// Flatten the (possibly collapsed) tree into a single ordered list so the
+    /// view body can be a flat `ForEach` instead of a recursive ViewBuilder.
+    private var flatRows: [FlatRow] {
+        var out: [FlatRow] = []
+        func walk(_ nodes: [BranchTreeNode], depth: Int) {
+            for node in nodes {
+                switch node {
+                case .ref(let leaf, let ref):
+                    out.append(FlatRow(id: node.id, depth: depth,
+                                       kind: .leaf(ref: ref, leafName: leaf)))
+                case .folder(let path, let name, let children):
+                    let collapsed = collapsedFolders.contains(path)
+                    out.append(FlatRow(id: node.id, depth: depth,
+                                       kind: .folder(path: path, name: name,
+                                                      count: leafCount(in: children),
+                                                      collapsed: collapsed)))
+                    if !collapsed { walk(children, depth: depth + 1) }
+                }
+            }
+        }
+        walk(tree, depth: 0)
+        return out
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -227,8 +292,10 @@ private struct BranchSection: View {
                     .foregroundStyle(theme.palette.fg3)
             } else {
                 tableHeader
-                ForEach(refs) { ref in
-                    row(for: ref)
+                VStack(spacing: 0) {
+                    ForEach(flatRows) { row in
+                        renderFlatRow(row)
+                    }
                 }
             }
         }
@@ -253,9 +320,47 @@ private struct BranchSection: View {
     }
 
     @ViewBuilder
-    private func row(for ref: GitRef) -> some View {
+    private func renderFlatRow(_ row: FlatRow) -> some View {
+        switch row.kind {
+        case .leaf(let ref, let leafName):
+            leafRow(ref: ref, leafName: leafName, depth: row.depth)
+        case .folder(let path, let name, let count, _):
+            folderRow(path: path, name: name, depth: row.depth, count: count)
+        }
+    }
+
+    @ViewBuilder
+    private func folderRow(path: String, name: String, depth: Int, count: Int) -> some View {
+        let collapsed = collapsedFolders.contains(path)
+        Button {
+            if collapsed { collapsedFolders.remove(path) } else { collapsedFolders.insert(path) }
+        } label: {
+            HStack(spacing: 6) {
+                Spacer().frame(width: CGFloat(depth) * 16 + 14)
+                GFIcon(kind: collapsed ? .chevR : .chevD, size: 10, stroke: theme.palette.fg3)
+                GFIcon(kind: .folder, size: 12, stroke: theme.palette.fg2)
+                Text(name)
+                    .font(AppFont.sans(12, weight: .medium))
+                    .foregroundStyle(theme.palette.fg1)
+                Text("\(count)")
+                    .font(AppFont.mono(10.5, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.fg3)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+            .background(.clear)
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+    }
+
+    @ViewBuilder
+    private func leafRow(ref: GitRef, leafName: String, depth: Int) -> some View {
         let isCurrent = (ref.name == currentBranchName) && ref.isLocalBranch
         HStack(spacing: 6) {
+            Spacer().frame(width: CGFloat(depth) * 16 + 14)
             if isCurrent {
                 Circle().fill(theme.palette.accent).frame(width: 6, height: 6)
             } else {
@@ -263,7 +368,7 @@ private struct BranchSection: View {
             }
             HStack(spacing: 6) {
                 GFIcon(kind: .branch, size: 12, stroke: theme.palette.fg2)
-                Text(ref.displayName)
+                Text(leafName)
                     .font(AppFont.mono(12, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                 if isCurrent {
@@ -278,15 +383,22 @@ private struct BranchSection: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             HStack(spacing: 4) {
-                if !isCurrent && ref.isLocalBranch {
-                    GFButton(title: "Checkout", size: .small) { onCheckout(ref) }
-                } else if ref.isRemoteBranch {
+                if !isCurrent {
                     GFButton(title: "Checkout", size: .small) { onCheckout(ref) }
                 }
                 OverflowMenu {
                     if !isCurrent { Button("Checkout") { onCheckout(ref) } }
-                    if let onMerge, !isCurrent {
-                        Button("Merge into \(currentBranchName ?? "current")…") { onMerge(ref) }
+                    if let onMerge {
+                        Menu("Merge \(ref.displayName) into…") {
+                            // Quick path for merging into the current branch.
+                            if let current = currentBranchName, ref.name != current {
+                                Button("\(current) (current)") { onMerge(ref, nil) }
+                                Divider()
+                            }
+                            ForEach(otherTargets(excluding: ref)) { target in
+                                Button(target.name) { onMerge(ref, target) }
+                            }
+                        }
                     }
                     if let onRebase, !isCurrent {
                         Button("Rebase \(currentBranchName ?? "current") onto this…") { onRebase(ref) }
@@ -304,9 +416,26 @@ private struct BranchSection: View {
             .frame(width: 130, alignment: .trailing)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(isCurrent ? theme.palette.accent.opacity(0.06) : .clear)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+    }
+
+    /// Local branches usable as a merge target, excluding `excluded` and the
+    /// current branch (handled separately as the "quick" item).
+    private func otherTargets(excluding excluded: GitRef) -> [GitRef] {
+        availableTargets.filter { target in
+            target.id != excluded.id && target.name != currentBranchName
+        }
+    }
+
+    private func leafCount(in nodes: [BranchTreeNode]) -> Int {
+        nodes.reduce(0) { acc, node in
+            switch node {
+            case .ref:                            return acc + 1
+            case .folder(_, _, let children):     return acc + leafCount(in: children)
+            }
+        }
     }
 
     private func lastCommitLabel(for ref: GitRef) -> String {
@@ -317,6 +446,8 @@ private struct BranchSection: View {
         return String(ref.targetSha.prefix(7))
     }
 }
+
+// MARK: - Tags
 
 private struct TagsSection: View {
     let tags: [GitRef]
@@ -344,15 +475,10 @@ private struct TagsSection: View {
     }
 }
 
-/// Tiny helper so sheets can share the same theme without re-reading the env.
-private extension RepositoryViewModel {
-    @MainActor
-    func previewTheme() -> AppTheme { AppTheme() }
-}
-
 #Preview {
     @Previewable @State var theme = AppTheme()
     BranchesView(viewModel: RepositoryViewModel.preview)
+        .environment(AppState.preview)
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }
