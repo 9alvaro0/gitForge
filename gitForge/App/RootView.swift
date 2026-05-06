@@ -58,10 +58,6 @@ private struct ShellView: View {
                             withAnimation { appState.activeToast = nil }
                         }
                 }
-                TweaksPanel()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .allowsHitTesting(true)
-                    .zIndex(1)
             }
         }
         .background(KeyShortcutsCatcher())
