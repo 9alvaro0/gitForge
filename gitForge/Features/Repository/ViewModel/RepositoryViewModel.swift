@@ -99,9 +99,65 @@ final class RepositoryViewModel {
     var selectedConflictPath: String?
     var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
 
+    // MARK: Reactivity
+    private var watcher: RepositoryWatcher?
+    private let autoFetcher = AutoFetcher()
+
     init(repository: Repository) {
         self.repository = repository
         self.cli = GitCLI(workingDirectory: repository.url)
+    }
+
+    /// Wire the filesystem watcher and (optional) auto-fetch timer. Called by
+    /// the host view once after `loadInitial` so the first reads aren't
+    /// fighting with refresh notifications. Idempotent.
+    func startReactivity(autoFetchIntervalSeconds: Int) {
+        if watcher == nil {
+            watcher = RepositoryWatcher(repository: repository.url) { [weak self] in
+                await self?.refreshFromExternalChange()
+            }
+        }
+        autoFetcher.start(intervalSeconds: autoFetchIntervalSeconds) { [weak self] in
+            await self?.fetchSilently()
+        }
+    }
+
+    func stopReactivity() {
+        watcher = nil
+        autoFetcher.stop()
+    }
+
+    /// Manually pulse the watcher pipeline (e.g. when the app comes back to
+    /// the foreground) so the user immediately sees external changes.
+    func pokeReactivity() {
+        watcher?.poke()
+    }
+
+    /// Refresh path for filesystem-driven changes. Skips the log reload when
+    /// no remote operation is happening to keep things cheap.
+    private func refreshFromExternalChange() async {
+        await refreshStatus()
+        await loadRefs()
+        await loadAheadBehind()
+        await loadConflictState()
+        // The log can change too (rebase/commit/reset). Reload the head page
+        // so the UI catches up without paginating from scratch.
+        resetLog()
+        await loadInitial()
+    }
+
+    /// Silent fetch: never surfaces a toast on success, only logs failures.
+    /// Used by the AutoFetcher timer.
+    private func fetchSilently() async {
+        guard remoteOperation == nil else { return }
+        do {
+            try await cli.fetchAll()
+            lastFetchedAt = .now
+            await loadRefs()
+            await loadAheadBehind()
+        } catch {
+            Self.logger.debug("auto-fetch failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: Computed views

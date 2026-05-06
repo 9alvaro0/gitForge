@@ -14,9 +14,13 @@ struct gitForgeApp: App {
                     await appState.bootstrap()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .active && appState.gitStatus == .notFound {
+                    guard newPhase == .active else { return }
+                    if appState.gitStatus == .notFound {
                         Task { await appState.refreshGitInstallation() }
                     }
+                    // Pulse the active repo so external CLI changes show up
+                    // as soon as the user comes back to the app.
+                    appState.activeViewModel?.pokeReactivity()
                 }
         }
         .commands {
