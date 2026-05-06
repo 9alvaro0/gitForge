@@ -133,17 +133,24 @@ final class RepositoryViewModel {
         watcher?.poke()
     }
 
-    /// Refresh path for filesystem-driven changes. Skips the log reload when
-    /// no remote operation is happening to keep things cheap.
+    /// Refresh path for filesystem-driven changes. `loadRefs` already calls
+    /// `loadAheadBehind` internally, and we skip the log reload when nothing
+    /// HEAD-changing happened to keep things cheap. The log refresh is
+    /// triggered explicitly by remote/branch operations elsewhere — letting
+    /// the watcher reload it on every tick was the source of feedback loops.
     private func refreshFromExternalChange() async {
+        let previousHeadSha = commits.first?.sha
         await refreshStatus()
         await loadRefs()
-        await loadAheadBehind()
         await loadConflictState()
-        // The log can change too (rebase/commit/reset). Reload the head page
-        // so the UI catches up without paginating from scratch.
-        resetLog()
-        await loadInitial()
+        // Only refresh the log if HEAD actually moved. We detect that via the
+        // ref of the current branch — much cheaper than re-running git log.
+        if let currentBranch = currentBranchName,
+           let headSha = refs.first(where: { $0.isLocalBranch && $0.name == currentBranch })?.targetSha,
+           headSha != previousHeadSha {
+            resetLog()
+            await loadInitial()
+        }
     }
 
     /// Silent fetch: never surfaces a toast on success, only logs failures.

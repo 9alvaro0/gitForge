@@ -57,6 +57,43 @@ final class AppState {
         }
     }
 
+    func updateSigningKey(_ key: String?) async {
+        await applyConfigChange(title: "Couldn't update signing key") {
+            try await self.configReader.setSigningKey(key)
+        }
+    }
+
+    func updateDefaultBranch(_ name: String?) async {
+        await applyConfigChange(title: "Couldn't update default branch") {
+            try await self.configReader.setDefaultBranch(name)
+        }
+    }
+
+    func updatePullStrategy(_ strategy: String?) async {
+        await applyConfigChange(title: "Couldn't update pull strategy") {
+            try await self.configReader.setPullStrategy(strategy)
+        }
+    }
+
+    /// Updates the auto-fetch interval and immediately restarts the timer on
+    /// the active repo so the user doesn't have to relaunch the app.
+    func updateAutoFetchInterval(_ seconds: Int?) async {
+        await applyConfigChange(title: "Couldn't update auto-fetch") {
+            try await self.configReader.setAutoFetchInterval(seconds)
+        }
+        // Restart the timer with the new interval.
+        activeViewModel?.startReactivity(autoFetchIntervalSeconds: seconds ?? 0)
+    }
+
+    private func applyConfigChange(title: String, _ block: () async throws -> Void) async {
+        do {
+            try await block()
+            await refreshGlobalConfig()
+        } catch {
+            presentedError = PresentedError(error: error, title: title)
+        }
+    }
+
     var isCloning: Bool = false
 
     /// Clones `url` into `path` (with optional `~` expansion) and opens the

@@ -34,6 +34,46 @@ actor GitGlobalConfigReader {
         try await set("user.email", value: email)
     }
 
+    func setSigningKey(_ key: String?) async throws {
+        if let key, !key.isEmpty {
+            try await set("user.signingkey", value: key)
+        } else {
+            try await unset("user.signingkey")
+        }
+    }
+
+    func setDefaultBranch(_ name: String?) async throws {
+        if let name, !name.isEmpty {
+            try await set("init.defaultBranch", value: name)
+        } else {
+            try await unset("init.defaultBranch")
+        }
+    }
+
+    /// Three valid pull strategies in git: `rebase` / `merge` / `ff-only`.
+    /// `nil` removes the override and falls back to git's default.
+    func setPullStrategy(_ strategy: String?) async throws {
+        // Always clear both keys first so we don't leave conflicting state.
+        try await unset("pull.rebase")
+        try await unset("pull.ff")
+        switch strategy {
+        case "rebase":  try await set("pull.rebase", value: "true")
+        case "merge":   try await set("pull.rebase", value: "false")
+        case "ff-only": try await set("pull.ff", value: "only")
+        default:        break // nil / unknown → leave both unset
+        }
+    }
+
+    /// Auto-fetch interval in seconds (writes a custom `gitForge.*` key so we
+    /// don't pollute standard git keys). Pass `nil` to disable.
+    func setAutoFetchInterval(_ seconds: Int?) async throws {
+        if let seconds, seconds > 0 {
+            try await set("gitForge.autoFetchInterval", value: String(seconds))
+        } else {
+            try await unset("gitForge.autoFetchInterval")
+        }
+    }
+
     // MARK: private
 
     private func pullStrategyFromConfig() async -> String? {
@@ -58,6 +98,12 @@ actor GitGlobalConfigReader {
 
     private func set(_ key: String, value: String) async throws {
         _ = try await runGlobal(["config", "--global", key, value], allowFailure: false)
+    }
+
+    /// Best-effort `git config --unset`. Exit code 5 means "the key wasn't
+    /// there to begin with" — we treat that as success.
+    private func unset(_ key: String) async throws {
+        _ = try await runGlobal(["config", "--global", "--unset", key], allowFailure: true)
     }
 
     /// `git config --global` works against `$HOME`, not the cwd, but Process

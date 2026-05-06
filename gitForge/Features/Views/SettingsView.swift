@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// `.gf-view-settings` — identity, git, accounts. Reads global git config
-/// from `AppState.globalConfig`; the inline name/email editor writes back via
-/// `AppState.updateIdentity`.
+/// `.gf-view-settings` — appearance, identity, git config, all editable from
+/// the UI. No CLI homework required.
 struct SettingsView: View {
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
@@ -10,7 +9,10 @@ struct SettingsView: View {
     @State private var editing: EditingField?
     @State private var draftValue: String = ""
 
-    enum EditingField: String, Identifiable { case name, email; var id: String { rawValue } }
+    enum EditingField: String, Identifiable {
+        case name, email, signingKey, defaultBranch
+        var id: String { rawValue }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,6 +34,8 @@ struct SettingsView: View {
         .background(theme.palette.bg2)
         .task { await appState.refreshGlobalConfig() }
     }
+
+    // MARK: Appearance
 
     private var appearanceSection: some View {
         section(title: "Appearance") {
@@ -76,6 +80,166 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    // MARK: Identity
+
+    private var identitySection: some View {
+        section(title: "Identity") {
+            editableRow(label: "Name", value: appState.globalConfig.identity.name, field: .name, mono: false)
+            editableRow(label: "Email", value: appState.globalConfig.identity.email, field: .email, mono: true)
+            editableRow(label: "Signing key", value: appState.globalConfig.signingKey, field: .signingKey, mono: true,
+                        placeholder: "GPG / SSH key id (optional)")
+        }
+    }
+
+    // MARK: Git
+
+    private var gitSection: some View {
+        section(title: "Git") {
+            editableRow(label: "Default branch", value: appState.globalConfig.defaultBranch, field: .defaultBranch, mono: true,
+                        placeholder: "main")
+            pullStrategyRow
+            autoFetchRow
+        }
+    }
+
+    private var pullStrategyRow: some View {
+        HStack {
+            rowLabel("Pull strategy")
+            let current = appState.globalConfig.pullStrategy ?? "default"
+            Menu {
+                Button("Default (git config)") { Task { await appState.updatePullStrategy(nil) } }
+                Divider()
+                Button("Rebase")            { Task { await appState.updatePullStrategy("rebase") } }
+                Button("Merge")             { Task { await appState.updatePullStrategy("merge") } }
+                Button("Fast-forward only") { Task { await appState.updatePullStrategy("ff-only") } }
+            } label: {
+                pickerLabel(current)
+            }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+            .frame(maxWidth: 240, alignment: .trailing)
+        }
+        .modifier(SettingRowChrome(theme: theme))
+    }
+
+    private var autoFetchRow: some View {
+        HStack {
+            rowLabel("Auto-fetch")
+            let current = autoFetchLabel
+            Menu {
+                Button("Off") { Task { await appState.updateAutoFetchInterval(nil) } }
+                Divider()
+                Button("Every 1 min")  { Task { await appState.updateAutoFetchInterval(60) } }
+                Button("Every 5 min")  { Task { await appState.updateAutoFetchInterval(300) } }
+                Button("Every 10 min") { Task { await appState.updateAutoFetchInterval(600) } }
+                Button("Every 15 min") { Task { await appState.updateAutoFetchInterval(900) } }
+                Button("Every 30 min") { Task { await appState.updateAutoFetchInterval(1800) } }
+            } label: {
+                pickerLabel(current)
+            }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+            .frame(maxWidth: 240, alignment: .trailing)
+        }
+        .modifier(SettingRowChrome(theme: theme))
+    }
+
+    private var autoFetchLabel: String {
+        guard let interval = appState.globalConfig.autoFetchInterval, interval > 0 else { return "Off" }
+        if interval >= 60 { return "Every \(interval / 60) min" }
+        return "Every \(interval) sec"
+    }
+
+    @ViewBuilder
+    private func pickerLabel(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Text(text)
+                .font(AppFont.sans(12))
+                .foregroundStyle(theme.palette.fg1)
+            Spacer(minLength: 0)
+            GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 24)
+        .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
+    }
+
+    // MARK: Generic rows / editing
+
+    @ViewBuilder
+    private func section<C: View>(title: String, @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(theme.palette.fg3)
+            VStack(spacing: 4) { content() }
+        }
+    }
+
+    @ViewBuilder
+    private func editableRow(label: String,
+                              value: String?,
+                              field: EditingField,
+                              mono: Bool,
+                              placeholder: String = "") -> some View {
+        HStack {
+            rowLabel(label)
+            if editing == field {
+                TextField(placeholder, text: $draftValue)
+                    .textFieldStyle(.plain)
+                    .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
+                    .foregroundStyle(theme.palette.fg1)
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.accent, lineWidth: 1))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onSubmit { commit(field: field) }
+                GFButton(title: "Save", style: .primary, size: .small) { commit(field: field) }
+                GFButton(title: "Cancel", size: .small) { editing = nil }
+            } else {
+                Text(value ?? "—")
+                    .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
+                    .foregroundStyle(value == nil ? theme.palette.fg3 : theme.palette.fg1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                GFButton(title: "Edit", size: .small) {
+                    draftValue = value ?? ""
+                    editing = field
+                }
+            }
+        }
+        .modifier(SettingRowChrome(theme: theme))
+    }
+
+    @ViewBuilder
+    private func rowLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 11, weight: .medium))
+            .tracking(0.6)
+            .foregroundStyle(theme.palette.fg3)
+            .frame(width: 130, alignment: .leading)
+    }
+
+    private func commit(field: EditingField) {
+        let trimmed = draftValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value: String? = trimmed.isEmpty ? nil : trimmed
+        Task {
+            switch field {
+            case .name:
+                if let value { await appState.updateIdentity(name: value) }
+            case .email:
+                if let value { await appState.updateIdentity(email: value) }
+            case .signingKey:
+                await appState.updateSigningKey(value)
+            case .defaultBranch:
+                await appState.updateDefaultBranch(value)
+            }
+            editing = nil
+        }
+    }
+
+    // MARK: Appearance pickers
 
     @ViewBuilder
     private func radioRow(label: String, values: [(String, String)], current: String, onChange: @escaping (String) -> Void) -> some View {
@@ -139,103 +303,6 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .frame(maxWidth: 240)
-        }
-    }
-
-    private var identitySection: some View {
-        section(title: "Identity") {
-            editableRow(label: "Name", value: appState.globalConfig.identity.name, field: .name, mono: false)
-            editableRow(label: "Email", value: appState.globalConfig.identity.email, field: .email, mono: true)
-            settingRow(label: "Signing key", value: appState.globalConfig.signingKey ?? "—", mono: true)
-        }
-    }
-
-    private var gitSection: some View {
-        section(title: "Git") {
-            settingRow(label: "Default branch", value: appState.globalConfig.defaultBranch ?? "—", mono: true)
-            settingRow(label: "Pull strategy", value: appState.globalConfig.pullStrategy ?? "—", mono: true)
-            settingRow(label: "Auto-fetch", value: autoFetchLabel, mono: false)
-        }
-    }
-
-    private var autoFetchLabel: String {
-        guard let interval = appState.globalConfig.autoFetchInterval else { return "off" }
-        if interval >= 60 { return "every \(interval / 60) min" }
-        return "every \(interval) sec"
-    }
-
-    @ViewBuilder
-    private func section<C: View>(title: String, @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.8)
-                .foregroundStyle(theme.palette.fg3)
-            VStack(spacing: 4) { content() }
-        }
-    }
-
-    @ViewBuilder
-    private func settingRow(label: String, value: String, mono: Bool) -> some View {
-        HStack {
-            rowLabel(label)
-            Text(value)
-                .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
-                .foregroundStyle(theme.palette.fg1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .modifier(SettingRowChrome(theme: theme))
-    }
-
-    @ViewBuilder
-    private func editableRow(label: String, value: String?, field: EditingField, mono: Bool) -> some View {
-        HStack {
-            rowLabel(label)
-            if editing == field {
-                TextField("", text: $draftValue)
-                    .textFieldStyle(.plain)
-                    .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
-                    .foregroundStyle(theme.palette.fg1)
-                    .padding(.horizontal, 8)
-                    .frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.accent, lineWidth: 1))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onSubmit { commit(field: field) }
-                GFButton(title: "Save", style: .primary, size: .small) { commit(field: field) }
-                GFButton(title: "Cancel", size: .small) { editing = nil }
-            } else {
-                Text(value ?? "—")
-                    .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
-                    .foregroundStyle(value == nil ? theme.palette.fg3 : theme.palette.fg1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                GFButton(title: "Edit", size: .small) {
-                    draftValue = value ?? ""
-                    editing = field
-                }
-            }
-        }
-        .modifier(SettingRowChrome(theme: theme))
-    }
-
-    @ViewBuilder
-    private func rowLabel(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 11, weight: .medium))
-            .tracking(0.6)
-            .foregroundStyle(theme.palette.fg3)
-            .frame(width: 130, alignment: .leading)
-    }
-
-    private func commit(field: EditingField) {
-        let value = draftValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { editing = nil; return }
-        Task {
-            switch field {
-            case .name:  await appState.updateIdentity(name: value)
-            case .email: await appState.updateIdentity(email: value)
-            }
-            editing = nil
         }
     }
 }
