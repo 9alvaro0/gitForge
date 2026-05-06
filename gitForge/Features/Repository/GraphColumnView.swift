@@ -10,7 +10,7 @@ struct GraphColumnView: View {
         Canvas { context, size in
             let center = size.height / 2
             let bottom = size.height
-            let baseLineWidth: CGFloat = 2.4
+            let baseLineWidth: CGFloat = 1.8
 
             let mergesInLanes = Set(row.mergesIn.map(\.lane))
             let lanesAtTopSet = Set(row.lanesAtTop.map(\.lane))
@@ -47,6 +47,8 @@ struct GraphColumnView: View {
             }
 
             // Merge-in curves: from the merging lane (top) into the commit lane (center).
+            // Pull control points closer to the endpoints so the curve breathes and
+            // the bend lands near the commit row instead of squashing in the middle.
             let commitX = laneCenter(row.commitLane)
             for occ in row.mergesIn {
                 let startX = laneCenter(occ.lane)
@@ -54,21 +56,22 @@ struct GraphColumnView: View {
                 path.move(to: CGPoint(x: startX, y: 0))
                 path.addCurve(
                     to: CGPoint(x: commitX, y: center),
-                    control1: CGPoint(x: startX, y: center * 0.55),
-                    control2: CGPoint(x: commitX, y: center * 0.45)
+                    control1: CGPoint(x: startX, y: center * 0.85),
+                    control2: CGPoint(x: commitX, y: center * 0.15)
                 )
                 context.stroke(path, with: .color(Self.color(for: occ.branchId)), lineWidth: baseLineWidth)
             }
 
-            // Merge-out curves: from the commit lane (center) into the new parent lane (bottom).
+            // Merge-out curves: mirror image of the merge-in curves.
             for occ in row.mergesOut {
                 let endX = laneCenter(occ.lane)
+                let halfHeight = bottom - center
                 var path = Path()
                 path.move(to: CGPoint(x: commitX, y: center))
                 path.addCurve(
                     to: CGPoint(x: endX, y: bottom),
-                    control1: CGPoint(x: commitX, y: center + (bottom - center) * 0.45),
-                    control2: CGPoint(x: endX, y: center + (bottom - center) * 0.55)
+                    control1: CGPoint(x: commitX, y: center + halfHeight * 0.15),
+                    control2: CGPoint(x: endX, y: center + halfHeight * 0.85)
                 )
                 context.stroke(path, with: .color(Self.color(for: occ.branchId)), lineWidth: baseLineWidth)
             }
