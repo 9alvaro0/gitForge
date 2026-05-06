@@ -14,6 +14,7 @@ struct BranchesView: View {
     @State private var deleteForce: Bool = false
     @State private var mergeRequest: MergeRequest?
     @State private var rebaseTarget: GitRef?
+    @State private var deleteTargetTag: GitRef?
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -40,6 +41,9 @@ struct BranchesView: View {
                 EmptyView()
             } right: {
                 GFTextField(placeholder: "Filter branches…", text: $filter).frame(width: 220)
+                ToolButton(.push, label: "Push tags", disabled: viewModel.tags.isEmpty) {
+                    Task { await runPushAllTags() }
+                }
                 ToolButton(.plus, label: "New branch", primary: true) {
                     newBranchName = ""
                     newBranchSheet = true
@@ -72,7 +76,11 @@ struct BranchesView: View {
                         onRebase: { rebaseTarget = $0 }
                     )
                     if !tags.isEmpty {
-                        TagsSection(tags: tags)
+                        TagsSection(
+                            tags: tags,
+                            onPush:   { ref in Task { await runPushTag(ref) } },
+                            onDelete: { ref in deleteTargetTag = ref }
+                        )
                     }
                 }
                 .padding(18)
@@ -117,6 +125,25 @@ struct BranchesView: View {
         } message: {
             Text("Replays \(currentBranchName ?? "current") on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
         }
+        .confirmationDialog("Delete tag \(deleteTargetTag?.name ?? "")?",
+                            isPresented: deleteTagAlertBinding,
+                            titleVisibility: .visible) {
+            Button("Delete locally", role: .destructive) {
+                if let ref = deleteTargetTag { Task { await runDeleteTag(ref, alsoOnRemote: false) } }
+                deleteTargetTag = nil
+            }
+            Button("Delete locally + remote", role: .destructive) {
+                if let ref = deleteTargetTag { Task { await runDeleteTag(ref, alsoOnRemote: true) } }
+                deleteTargetTag = nil
+            }
+            Button("Cancel", role: .cancel) { deleteTargetTag = nil }
+        } message: {
+            Text("Local-only is reversible (re-tag the same sha). Removing from origin notifies anyone who already pulled it.")
+        }
+    }
+
+    private var deleteTagAlertBinding: Binding<Bool> {
+        Binding(get: { deleteTargetTag != nil }, set: { if !$0 { deleteTargetTag = nil } })
     }
 
     private var deleteAlertBinding: Binding<Bool> {
@@ -172,6 +199,54 @@ struct BranchesView: View {
             appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
         case .failed(let message):
             appState.activeToast = ToastMessage(message: message, kind: .error)
+        }
+    }
+
+    // MARK: Tag handlers
+
+    private func runPushTag(_ ref: GitRef) async {
+        let result = await viewModel.pushTag(ref)
+        switch result {
+        case .success:
+            appState.activeToast = ToastMessage(message: "Pushed \(ref.name)", kind: .ok)
+        case .failure(let err):
+            appState.activeToast = ToastMessage(
+                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                kind: .error)
+        }
+    }
+
+    private func runPushAllTags() async {
+        let result = await viewModel.pushAllTags()
+        switch result {
+        case .success:
+            appState.activeToast = ToastMessage(message: "Pushed all tags", kind: .ok)
+        case .failure(let err):
+            appState.activeToast = ToastMessage(
+                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                kind: .error)
+        }
+    }
+
+    private func runDeleteTag(_ ref: GitRef, alsoOnRemote: Bool) async {
+        if alsoOnRemote {
+            let remoteResult = await viewModel.pushDeleteTag(ref)
+            if case .failure(let err) = remoteResult {
+                appState.activeToast = ToastMessage(
+                    message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                    kind: .error)
+                return
+            }
+        }
+        let localResult = await viewModel.deleteTag(ref)
+        switch localResult {
+        case .success:
+            let suffix = alsoOnRemote ? " (local + remote)" : " (local)"
+            appState.activeToast = ToastMessage(message: "Deleted \(ref.name)\(suffix)", kind: .ok)
+        case .failure(let err):
+            appState.activeToast = ToastMessage(
+                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                kind: .error)
         }
     }
 
@@ -451,6 +526,9 @@ private struct BranchSection: View {
 
 private struct TagsSection: View {
     let tags: [GitRef]
+    let onPush: (GitRef) -> Void
+    let onDelete: (GitRef) -> Void
+
     @Environment(\.appTheme) private var theme
 
     var body: some View {
@@ -461,14 +539,21 @@ private struct TagsSection: View {
                 .foregroundStyle(theme.palette.fg3)
             FlowLayout(spacing: 6) {
                 ForEach(tags) { tag in
-                    HStack(spacing: 5) {
-                        GFIcon(kind: .diamond, size: 10, stroke: theme.palette.mod)
-                        Text(tag.name).font(AppFont.mono(11.5, family: theme.monoFont))
+                    Menu {
+                        Button("Push to origin") { onPush(tag) }
+                        Divider()
+                        Button("Delete…", role: .destructive) { onDelete(tag) }
+                    } label: {
+                        HStack(spacing: 5) {
+                            GFIcon(kind: .diamond, size: 10, stroke: theme.palette.mod)
+                            Text(tag.name).font(AppFont.mono(11.5, family: theme.monoFont))
+                        }
+                        .foregroundStyle(theme.palette.mod)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(theme.palette.mod.opacity(0.12)))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.palette.mod.opacity(0.25), lineWidth: 1))
                     }
-                    .foregroundStyle(theme.palette.mod)
-                    .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(theme.palette.mod.opacity(0.12)))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.palette.mod.opacity(0.25), lineWidth: 1))
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                 }
             }
         }

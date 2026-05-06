@@ -62,17 +62,32 @@ struct GraphColumnView: View {
                 context.stroke(path, with: .color(Self.color(for: occ.branchId)), lineWidth: baseLineWidth)
             }
 
-            // Merge-out curves: mirror image of the merge-in curves.
+            // Merge-out curves. Two cases that need different shapes so the curve
+            // never sits on top of an existing vertical:
+            //   • Brand-new lane (no top half above the row): the curve carries the
+            //     branch from row center down to the next row's top, replacing the
+            //     missing vertical. Reaches `bottom`.
+            //   • Preexisting lane (already drawn top→center→bottom): the curve enters
+            //     the lane right at the row center where the verticals meet, so it
+            //     just kisses the spine without doubling up over `center→bottom`.
             for occ in row.mergesOut {
                 let endX = laneCenter(occ.lane)
                 let halfHeight = bottom - center
                 var path = Path()
                 path.move(to: CGPoint(x: commitX, y: center))
-                path.addCurve(
-                    to: CGPoint(x: endX, y: bottom),
-                    control1: CGPoint(x: commitX, y: center + halfHeight * 0.15),
-                    control2: CGPoint(x: endX, y: center + halfHeight * 0.85)
-                )
+                if newMergesOutLanes.contains(occ.lane) {
+                    path.addCurve(
+                        to: CGPoint(x: endX, y: bottom),
+                        control1: CGPoint(x: commitX, y: center + halfHeight * 0.15),
+                        control2: CGPoint(x: endX, y: center + halfHeight * 0.85)
+                    )
+                } else {
+                    path.addCurve(
+                        to: CGPoint(x: endX, y: center),
+                        control1: CGPoint(x: commitX, y: center + halfHeight * 0.32),
+                        control2: CGPoint(x: endX, y: center + halfHeight * 0.32)
+                    )
+                }
                 context.stroke(path, with: .color(Self.color(for: occ.branchId)), lineWidth: baseLineWidth)
             }
 
@@ -191,7 +206,7 @@ struct GraphColumnView: View {
             isMerge: false
         ),
     ]
-    return VStack(spacing: 0) {
+    VStack(spacing: 0) {
         ForEach(0..<sample.count, id: \.self) { idx in
             GraphColumnView(row: sample[idx], maxLanes: 2)
                 .frame(height: 60)

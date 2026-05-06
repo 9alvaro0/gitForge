@@ -101,6 +101,9 @@ struct CommitDetailColumn: View {
     @State private var cherryPickConfirm = false
     @State private var revertConfirm = false
     @State private var resetMode: GitCLI.ResetMode?
+    @State private var newTagSheet = false
+    @State private var newTagName: String = ""
+    @State private var newTagMessage: String = ""
 
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -112,6 +115,11 @@ struct CommitDetailColumn: View {
                 GFButton(title: "Create branch") {
                     newBranchName = ""
                     newBranchSheet = true
+                }
+                GFButton(title: "Create tag") {
+                    newTagName = ""
+                    newTagMessage = ""
+                    newTagSheet = true
                 }
                 GFButton(title: "Cherry-pick") { cherryPickConfirm = true }
                 GFButton(title: "Revert") { revertConfirm = true }
@@ -135,6 +143,7 @@ struct CommitDetailColumn: View {
             }
         }
         .sheet(isPresented: $newBranchSheet) { newBranchSheetView }
+        .sheet(isPresented: $newTagSheet) { newTagSheetView }
         .confirmationDialog("Cherry-pick \(commit.shortSha)?",
                             isPresented: $cherryPickConfirm,
                             titleVisibility: .visible) {
@@ -191,7 +200,53 @@ struct CommitDetailColumn: View {
         }
         .padding(20).frame(width: 380)
         .background(theme.palette.bg1)
-        .appTheme(AppTheme())
+        .appTheme(appState.theme)
+    }
+
+    private var newTagSheetView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("New tag at \(commit.shortSha)").font(AppFont.sans(14, weight: .semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Name").font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
+                GFTextField(placeholder: "v1.2.3", text: $newTagName)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Message (optional — annotated tag if set)")
+                    .font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
+                GFTextField(placeholder: "Release 1.2.3", text: $newTagMessage)
+            }
+            HStack {
+                GFButton(title: "Cancel") { newTagSheet = false }
+                Spacer()
+                GFButton(title: "Create tag", style: .primary, disabled: newTagName.isEmpty) {
+                    Task { await runCreateTag() }
+                }
+            }
+        }
+        .padding(20).frame(width: 420)
+        .background(theme.palette.bg1)
+        .appTheme(appState.theme)
+    }
+
+    @MainActor
+    private func runCreateTag() async {
+        let name = newTagName
+        let message = newTagMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = await viewModel.createTag(
+            name: name,
+            at: commit.sha,
+            message: message.isEmpty ? nil : message
+        )
+        switch result {
+        case .success:
+            appState.activeToast = ToastMessage(message: "Tagged \(commit.shortSha) as \(name)", kind: .ok)
+            newTagSheet = false
+        case .failure(let err):
+            appState.activeToast = ToastMessage(
+                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                kind: .error
+            )
+        }
     }
 
     private var relativeWhen: String {
