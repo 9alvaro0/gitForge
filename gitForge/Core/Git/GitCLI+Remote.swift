@@ -5,16 +5,27 @@ extension GitCLI {
         try await run(["fetch", "--all", "--prune"])
     }
 
-    func pull() async throws {
-        try await run(["pull"])
+    func pull(rebase: Bool = false) async throws {
+        var args: [String] = ["pull"]
+        if rebase { args.append("--rebase") }
+        try await run(args)
     }
 
-    func push(setUpstream: Bool, remote: String = "origin", branch: String? = nil) async throws {
+    func push(setUpstream: Bool,
+              remote: String = "origin",
+              branch: String? = nil,
+              forceWithLease: Bool = false) async throws {
         var args: [String] = ["push"]
+        if forceWithLease { args.append("--force-with-lease") }
         if setUpstream {
             args.append("--set-upstream")
             args.append(remote)
             if let branch { args.append(branch) }
+        } else if let branch, forceWithLease {
+            // force-with-lease without --set-upstream still needs the
+            // remote+branch when the user explicitly wants to be safe.
+            args.append(remote)
+            args.append(branch)
         }
         try await run(args)
     }
