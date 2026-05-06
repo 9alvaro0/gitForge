@@ -81,6 +81,7 @@ private struct ShellView: View {
                     unstagedBadge: appState.activeViewModel?.status.unstagedFiles.count ?? 0,
                     pullsBadge: 0,
                     conflictsBadge: 0,
+                    identity: appState.globalConfig.identity,
                     onSelectRepo: { repo in Task { await appState.activate(repo) } },
                     onSelectSection: { appState.workspaceSection = $0 },
                     onOpenCommandPalette: { appState.commandPaletteOpen = true }
