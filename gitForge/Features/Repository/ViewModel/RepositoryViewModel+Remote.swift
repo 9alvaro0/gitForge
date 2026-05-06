@@ -31,12 +31,12 @@ extension RepositoryViewModel {
         }
     }
 
-    func pull() async {
+    func pull(rebase: Bool = false) async {
         guard remoteOperation == nil else { return }
         remoteOperation = .pulling
         defer { remoteOperation = nil }
         do {
-            try await cli.pull()
+            try await cli.pull(rebase: rebase)
             resetLog()
             await loadInitial()
             await loadRefs()
@@ -46,15 +46,20 @@ extension RepositoryViewModel {
         }
     }
 
-    func push() async {
+    func push(forceWithLease: Bool = false) async {
         guard remoteOperation == nil else { return }
         remoteOperation = .pushing
         defer { remoteOperation = nil }
         let setUpstream = upstream == nil
         do {
-            try await cli.push(setUpstream: setUpstream, branch: currentBranchName)
+            try await cli.push(
+                setUpstream: setUpstream,
+                branch: currentBranchName,
+                forceWithLease: forceWithLease
+            )
             if setUpstream { upstream = await cli.upstreamName() }
             await loadRefs()
+            await loadAheadBehind()
         } catch {
             remoteFailure = RemoteFailure.from(error)
         }

@@ -15,8 +15,8 @@ struct HistoryView: View {
                 MonoText("\(viewModel.currentBranchName ?? "—") · \(viewModel.commits.count) commits", dim: true)
             } right: {
                 ToolButton(.fetch, label: "Fetch") { Task { await viewModel.fetch() } }
-                ToolButton(.pull,  label: "Pull",  badge: viewModel.behindCount) { Task { await viewModel.pull() } }
-                ToolButton(.push,  label: "Push",  badge: viewModel.aheadCount, primary: true) { Task { await viewModel.push() } }
+                pullMenu
+                pushMenu
             }
             filtersBar
             HStack(spacing: 0) {
@@ -54,6 +54,63 @@ struct HistoryView: View {
             }
         }
         return Dictionary(grouping: kept) { $0.targetSha }
+    }
+
+    @ViewBuilder
+    private var pullMenu: some View {
+        Menu {
+            Button("Pull (merge)")  { Task { await viewModel.pull(rebase: false) } }
+            Button("Pull --rebase") { Task { await viewModel.pull(rebase: true)  } }
+        } label: {
+            HStack(spacing: 6) {
+                GFIcon(kind: .pull, size: 14, stroke: theme.palette.fg2)
+                Text("Pull").font(AppFont.sans(12))
+                if viewModel.behindCount > 0 {
+                    Text("\(viewModel.behindCount)")
+                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .foregroundStyle(theme.palette.fg2)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private var pushMenu: some View {
+        Menu {
+            Button("Push") { Task { await viewModel.push() } }
+            Button("Push --force-with-lease", role: .destructive) {
+                Task { await viewModel.push(forceWithLease: true) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                GFIcon(kind: .push, size: 14, stroke: theme.palette.accentFg)
+                Text("Push").font(AppFont.sans(12))
+                if viewModel.aheadCount > 0 {
+                    Text("\(viewModel.aheadCount)")
+                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.22)))
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .foregroundStyle(theme.palette.accentFg)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.accent))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.accent, lineWidth: 1))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
     }
 
     private var refCountLabel: String {
