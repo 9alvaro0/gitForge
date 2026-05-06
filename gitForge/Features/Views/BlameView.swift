@@ -1,44 +1,53 @@
 import SwiftUI
 
-/// `.gf-view-blame` — file blame view (mock data; integrates with cli later).
+/// `.gf-view-blame` — file blame view backed by `git blame --porcelain`.
 struct BlameView: View {
-    let file: String
-    let groups: [BlameGroup]
-
+    @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
 
-    init(file: String = "src/lib/lane-layout.ts",
-         groups: [BlameGroup] = BlameGroup.previewSamples) {
-        self.file = file
-        self.groups = groups
-    }
+    @State private var pathInput: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
             ContentHeader(title: "Blame") {
-                MonoText(file, dim: true)
+                MonoText(viewModel.selectedBlamePath ?? "—", dim: true)
             } right: {
-                ToolButton(.arrowU, label: "Prev rev") { }
-                ToolButton(.arrowD, label: "Next rev") { }
-            }
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(groups) { g in
-                        BlameGroupView(group: g)
+                HStack(spacing: 6) {
+                    GFTextField(placeholder: "path/to/file", text: $pathInput).frame(width: 260)
+                    GFButton(title: "Run blame", style: .primary, disabled: pathInput.isEmpty) {
+                        Task { await viewModel.loadBlame(path: pathInput) }
                     }
                 }
             }
+            content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
     }
-}
 
-#Preview {
-    @Previewable @State var theme = AppTheme()
-    BlameView()
-        .frame(width: 980, height: 620)
-        .appTheme(theme)
+    @ViewBuilder
+    private var content: some View {
+        if viewModel.isLoadingBlame {
+            ProgressView().controlSize(.small)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let error = viewModel.blameError {
+            EmptyState(icon: .warn, title: "Blame failed", subtitle: error) { EmptyView() }
+        } else if viewModel.blameGroups.isEmpty {
+            EmptyState(icon: .blame,
+                       title: viewModel.selectedBlamePath == nil ? "Pick a file to blame" : "Empty blame output",
+                       subtitle: viewModel.selectedBlamePath == nil ? "Type a path and press Run blame." : nil) {
+                EmptyView()
+            }
+        } else {
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(viewModel.blameGroups) { group in
+                        BlameGroupView(group: group)
+                    }
+                }
+            }
+        }
+    }
 }
 
 private struct BlameGroupView: View {
@@ -93,4 +102,11 @@ private struct BlameGroupView: View {
             Rectangle().fill(theme.palette.line).frame(height: 1)
         }
     }
+}
+
+#Preview("Empty") {
+    @Previewable @State var theme = AppTheme()
+    BlameView(viewModel: RepositoryViewModel.preview)
+        .frame(width: 980, height: 620)
+        .appTheme(theme)
 }

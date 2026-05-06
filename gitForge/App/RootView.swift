@@ -243,7 +243,7 @@ private struct ContentRouter: View {
                         )
         case .pulls:    PullsView()
         case .conflict: ConflictView(viewModel: viewModel)
-        case .blame:    BlameView()
+        case .blame:    BlameView(viewModel: viewModel)
         case .terminal: TerminalView(workingDirectory: viewModel.repository.url.path)
         case .clone:    CloneView()
         case .settings: SettingsView()
