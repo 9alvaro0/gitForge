@@ -64,7 +64,7 @@ extension RepositoryViewModel {
     }
 
     func recomputeGraph() {
-        let result = GraphLayoutEngine.layouts(for: commits)
+        let result = GraphLayoutEngine.layouts(for: commits, refsBySha: refsBySha)
         graphLayouts = result.rows
         graphMaxLanes = max(1, result.maxLanes)
     }
