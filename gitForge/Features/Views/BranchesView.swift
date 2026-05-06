@@ -283,7 +283,7 @@ private struct BranchSection: View {
                 } else if ref.isRemoteBranch {
                     GFButton(title: "Checkout", size: .small) { onCheckout(ref) }
                 }
-                Menu {
+                OverflowMenu {
                     if !isCurrent { Button("Checkout") { onCheckout(ref) } }
                     if let onMerge, !isCurrent {
                         Button("Merge into \(currentBranchName ?? "current")…") { onMerge(ref) }
@@ -291,19 +291,15 @@ private struct BranchSection: View {
                     if let onRebase, !isCurrent {
                         Button("Rebase \(currentBranchName ?? "current") onto this…") { onRebase(ref) }
                     }
-                    if let onRename { Divider(); Button("Rename…") { onRename(ref) } }
+                    if let onRename {
+                        Divider()
+                        Button("Rename…") { onRename(ref) }
+                    }
                     if let onDelete, !isCurrent {
                         Divider()
                         Button("Delete…", role: .destructive) { onDelete(ref) }
                     }
-                } label: {
-                    GFIcon(kind: .more, size: 14, stroke: theme.palette.fg3)
-                        .frame(width: 26, height: 26)
-                        .contentShape(Rectangle())
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .frame(width: 26, height: 26)
             }
             .frame(width: 130, alignment: .trailing)
         }
