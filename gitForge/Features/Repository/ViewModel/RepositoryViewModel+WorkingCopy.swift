@@ -20,6 +20,26 @@ extension RepositoryViewModel {
         await runStageOperation { try await self.cli.unstage(paths: files.map(\.path)) }
     }
 
+    /// Stages a subset of hunks from the currently-selected unstaged file.
+    func stageHunks(ids: Set<Int>) async {
+        guard let file = selectedWorkingCopyFile, !file.isStaged else { return }
+        guard let patch = PatchBuilder.makePatch(from: workingCopyFileDiff, hunkIds: ids) else { return }
+        await runStageOperation {
+            try await self.cli.applyPatch(patch, cached: true, reverse: false)
+        }
+        await loadWorkingCopyDiff(file: file)
+    }
+
+    /// Unstages a subset of hunks from the currently-selected staged file.
+    func unstageHunks(ids: Set<Int>) async {
+        guard let file = selectedWorkingCopyFile, file.isStaged else { return }
+        guard let patch = PatchBuilder.makePatch(from: workingCopyFileDiff, hunkIds: ids) else { return }
+        await runStageOperation {
+            try await self.cli.applyPatch(patch, cached: true, reverse: true)
+        }
+        await loadWorkingCopyDiff(file: file)
+    }
+
     func discardChanges(_ files: [WorkingCopyFile]) async {
         let tracked = files.filter { !$0.isUntracked }
         let untracked = files.filter(\.isUntracked)

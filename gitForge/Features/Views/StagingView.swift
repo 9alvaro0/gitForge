@@ -101,6 +101,13 @@ struct StagingView: View {
                     file: file.path,
                     hunks: viewModel.workingCopyDiff,
                     loading: viewModel.loadingWorkingCopyDiff,
+                    hunkAction: file.isStaged ? .unstage : .stage,
+                    onHunkAction: { hunkId in
+                        Task {
+                            if file.isStaged { await viewModel.unstageHunks(ids: [hunkId]) }
+                            else             { await viewModel.stageHunks(ids: [hunkId]) }
+                        }
+                    },
                     viewMode: $diffMode
                 )
             } else if !staged.isEmpty || !unstaged.isEmpty {

@@ -2,9 +2,15 @@ import SwiftUI
 
 /// `.gf-diff` — file diff viewer used in History and Changes.
 struct DiffPane: View {
+    enum HunkAction { case stage, unstage }
+
     let file: String?
     let hunks: [DiffHunk]
     var loading: Bool = false
+    /// Optional per-hunk action — when set, each hunk shows a Stage/Unstage
+    /// button in its header. Pass `nil` for read-only diffs (commit history).
+    var hunkAction: HunkAction? = nil
+    var onHunkAction: ((Int) -> Void)? = nil
 
     enum ViewMode: Hashable { case unified, split }
     @Binding var viewMode: ViewMode
@@ -56,7 +62,7 @@ struct DiffPane: View {
             ScrollView([.vertical, .horizontal]) {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(hunks) { hunk in
-                        hunkHeader(hunk.header)
+                        hunkHeader(hunk)
                         ForEach(hunk.lines) { line in
                             DiffRow(line: line)
                         }
@@ -68,15 +74,26 @@ struct DiffPane: View {
     }
 
     @ViewBuilder
-    private func hunkHeader(_ text: String) -> some View {
-        Text(text)
-            .font(AppFont.mono(11, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg3)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.palette.bg3)
-            .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+    private func hunkHeader(_ hunk: DiffHunk) -> some View {
+        HStack(spacing: 8) {
+            Text(hunk.header.isEmpty ? "@@" : hunk.header)
+                .font(AppFont.mono(11, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg3)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let hunkAction, let onHunkAction {
+                GFButton(title: hunkAction == .stage ? "Stage hunk" : "Unstage hunk",
+                         style: hunkAction == .stage ? .primary : .secondary,
+                         size: .small) {
+                    onHunkAction(hunk.id)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .background(theme.palette.bg3)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
     }
 }
 
