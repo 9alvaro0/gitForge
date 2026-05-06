@@ -17,6 +17,11 @@ final class AppState {
     var activeViewModel: RepositoryViewModel?
     var presentedError: PresentedError?
 
+    /// Flags driven by global menu commands. Views observe these and present
+    /// the matching sheet/alert; menus only flip the bool.
+    var newBranchSheetVisible: Bool = false
+    var discardAllConfirmVisible: Bool = false
+
     private let store = RepositoryStore()
 
     func bootstrap() async {

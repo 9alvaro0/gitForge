@@ -20,6 +20,25 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 
 Explicitly **not** in the MVP: OAuth integration with GitHub/GitLab, PR/issue management, visual conflict resolver, interactive rebase visual, LFS, submodules, custom themes.
 
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `⌘O` | Open Repository… |
+| `⇧⌘W` | Close Repository |
+| `⌘B` | New Branch… |
+| `⌘1` | Show History tab |
+| `⌘2` | Show Changes tab |
+| `⌃⌘S` | Toggle Sidebar |
+| `⌘R` | Refresh |
+| `⇧⌘F` | Fetch |
+| `⇧⌘P` | Pull |
+| `⌘P` | Push |
+| `⌘K` | Go to Commit (Changes tab) |
+| `⌘↩` | Commit (when composer is focused) |
+
+The full action set is also exposed through the native menu bar (File / View / Repository / Help).
+
 ## Requirements
 
 - macOS 26.1+
