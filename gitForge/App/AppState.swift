@@ -28,13 +28,33 @@ final class AppState {
     var commandPaletteOpen: Bool = false
     var activeToast: ToastMessage?
 
+    /// Snapshot of `git config --global` — identity, signing key, etc.
+    var globalConfig: GitGlobalConfig = .unknown
+
     private let store = RepositoryStore()
+    private let configReader = GitGlobalConfigReader.shared
 
     func bootstrap() async {
         async let gitCheck: Void = refreshGitInstallation()
+        async let configRead: GitGlobalConfig = configReader.read()
         await store.load()
         repositories = await store.repositories
         _ = await gitCheck
+        globalConfig = await configRead
+    }
+
+    func refreshGlobalConfig() async {
+        globalConfig = await configReader.read()
+    }
+
+    func updateIdentity(name: String? = nil, email: String? = nil) async {
+        do {
+            if let name { try await configReader.setName(name) }
+            if let email { try await configReader.setEmail(email) }
+            await refreshGlobalConfig()
+        } catch {
+            presentedError = PresentedError(error: error, title: "Couldn’t update git identity")
+        }
     }
 
     func refreshGitInstallation() async {

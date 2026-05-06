@@ -2,7 +2,7 @@ import SwiftUI
 
 /// `.gf-user` — sticky user identity card at the bottom of the sidebar.
 struct SidebarUserCard: View {
-    let name: String
+    let identity: GitIdentity
     let online: Bool
 
     @Environment(\.appTheme) private var theme
@@ -12,15 +12,25 @@ struct SidebarUserCard: View {
             ZStack {
                 Circle().fill(LinearGradient(colors: [Color(hex: 0x7c5cff), Color(hex: 0xc976d9)],
                                               startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text(initials)
+                Text(identity.initials)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
             }
             .frame(width: 26, height: 26)
-            Text(name)
-                .font(AppFont.sans(12))
-                .foregroundStyle(theme.palette.fg1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(identity.displayName)
+                    .font(AppFont.sans(12, weight: .medium))
+                    .foregroundStyle(theme.palette.fg1)
+                    .lineLimit(1)
+                if let email = identity.email {
+                    Text(email)
+                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .foregroundStyle(theme.palette.fg3)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
                 .frame(width: 8, height: 8)
                 .overlay(Circle().stroke(theme.palette.bg3, lineWidth: 2))
@@ -33,18 +43,13 @@ struct SidebarUserCard: View {
         .padding(.bottom, 4)
         .padding(.top, 8)
     }
-
-    private var initials: String {
-        let parts = name.split(separator: " ")
-        return parts.prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
-    }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack {
-        SidebarUserCard(name: "Alvaro Guerra", online: true)
-        SidebarUserCard(name: "Mateo Vélez",   online: false)
+        SidebarUserCard(identity: GitIdentity(name: "Alvaro Guerra", email: "9alvaro0@gmail.com"), online: true)
+        SidebarUserCard(identity: .unknown, online: false)
     }
     .frame(width: 256)
     .padding(.vertical, 12)

@@ -13,6 +13,7 @@ struct RedesignedSidebar: View {
     let unstagedBadge: Int
     let pullsBadge: Int
     let conflictsBadge: Int
+    let identity: GitIdentity
     let onSelectRepo: (Repository) -> Void
     let onSelectSection: (WorkspaceSection) -> Void
     let onOpenCommandPalette: () -> Void
@@ -70,7 +71,7 @@ struct RedesignedSidebar: View {
                 }
             }
 
-            SidebarUserCard(name: "Mateo Vélez", online: true)
+            SidebarUserCard(identity: identity, online: true)
         }
         .frame(width: DesignTokens.Sidebar.width)
         .background(theme.palette.bg1)
@@ -104,6 +105,7 @@ struct RedesignedSidebar: View {
         aheadCount: 7, behindCount: 1, dirtyCount: 3,
         activeSection: section,
         unstagedBadge: 3, pullsBadge: 2, conflictsBadge: 0,
+        identity: GitIdentity(name: "Alvaro Guerra", email: "9alvaro0@gmail.com"),
         onSelectRepo: { _ in },
         onSelectSection: { section = $0 },
         onOpenCommandPalette: {}
