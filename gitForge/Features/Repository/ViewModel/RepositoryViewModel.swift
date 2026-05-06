@@ -99,6 +99,12 @@ final class RepositoryViewModel {
     var selectedConflictPath: String?
     var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
 
+    // MARK: Blame
+    var selectedBlamePath: String?
+    var blameGroups: [BlameGroup] = []
+    var blameError: String?
+    var isLoadingBlame: Bool = false
+
     init(repository: Repository) {
         self.repository = repository
         self.cli = GitCLI(workingDirectory: repository.url)
