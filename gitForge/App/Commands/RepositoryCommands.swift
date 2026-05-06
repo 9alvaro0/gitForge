@@ -39,9 +39,9 @@ struct RepositoryCommands: Commands {
             Divider()
 
             Button("Commit...") {
-                appState.activeViewModel?.currentTab = .changes
+                appState.workspaceSection = .changes
             }
-            .keyboardShortcut("k", modifiers: .command)
+            .keyboardShortcut("c", modifiers: [.command, .shift])
             .disabled(appState.activeViewModel == nil)
 
             Button("Stash All Changes") {
