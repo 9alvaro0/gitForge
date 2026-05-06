@@ -5,6 +5,7 @@ struct CommitDetailColumn: View {
     let commit: Commit
     @Bindable var viewModel: RepositoryViewModel
 
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
     private var detail: CommitDetail? { viewModel.detailCache[commit.sha] }
@@ -97,6 +98,9 @@ struct CommitDetailColumn: View {
 
     @State private var newBranchSheet = false
     @State private var newBranchName: String = ""
+    @State private var cherryPickConfirm = false
+    @State private var revertConfirm = false
+    @State private var resetMode: GitCLI.ResetMode?
 
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -109,12 +113,63 @@ struct CommitDetailColumn: View {
                     newBranchName = ""
                     newBranchSheet = true
                 }
-                GFButton(title: "Revert", disabled: true) { }
-                GFButton(title: "Cherry-pick", disabled: true) { }
-                GFButton(title: "Reset to here", disabled: true) { }
+                GFButton(title: "Cherry-pick") { cherryPickConfirm = true }
+                GFButton(title: "Revert") { revertConfirm = true }
+                Menu {
+                    ForEach(GitCLI.ResetMode.allCases) { mode in
+                        Button(mode.label) { resetMode = mode }
+                    }
+                } label: {
+                    Text("Reset to here")
+                        .font(AppFont.sans(12))
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 28)
+                        .foregroundStyle(theme.palette.fg1)
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
+                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: 1))
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(height: 28)
             }
         }
         .sheet(isPresented: $newBranchSheet) { newBranchSheetView }
+        .confirmationDialog("Cherry-pick \(commit.shortSha)?",
+                            isPresented: $cherryPickConfirm,
+                            titleVisibility: .visible) {
+            Button("Cherry-pick") {
+                Task { await runCherryPick() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Replays the changes from this commit on top of the current branch.")
+        }
+        .confirmationDialog("Revert \(commit.shortSha)?",
+                            isPresented: $revertConfirm,
+                            titleVisibility: .visible) {
+            Button("Revert") {
+                Task { await runRevert() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Creates a new commit that undoes the changes from this commit.")
+        }
+        .confirmationDialog("Reset to \(commit.shortSha)?",
+                            isPresented: resetConfirmBinding,
+                            titleVisibility: .visible) {
+            Button(resetMode == .hard ? "Reset (destructive)" : "Reset",
+                   role: resetMode == .hard ? .destructive : nil) {
+                if let mode = resetMode { Task { await runReset(mode: mode) } }
+            }
+            Button("Cancel", role: .cancel) { resetMode = nil }
+        } message: {
+            Text(resetMode?.label ?? "")
+        }
+    }
+
+    private var resetConfirmBinding: Binding<Bool> {
+        Binding(get: { resetMode != nil }, set: { if !$0 { resetMode = nil } })
     }
 
     private var newBranchSheetView: some View {
@@ -142,6 +197,45 @@ struct CommitDetailColumn: View {
     private var relativeWhen: String {
         let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
         return f.localizedString(for: commit.authorDate, relativeTo: .now)
+    }
+
+    @MainActor
+    private func runCherryPick() async {
+        let outcome = await viewModel.cherryPick(commit)
+        report(outcome,
+               success: "Cherry-picked \(commit.shortSha)",
+               conflicts: "Cherry-pick has conflicts — resolve to continue")
+    }
+
+    @MainActor
+    private func runRevert() async {
+        let outcome = await viewModel.revert(commit)
+        report(outcome,
+               success: "Reverted \(commit.shortSha)",
+               conflicts: "Revert has conflicts — resolve to continue")
+    }
+
+    @MainActor
+    private func runReset(mode: GitCLI.ResetMode) async {
+        let outcome = await viewModel.reset(to: commit.sha, mode: mode)
+        report(outcome,
+               success: "Reset \(mode.rawValue) to \(commit.shortSha)",
+               conflicts: "Reset has conflicts — resolve to continue")
+    }
+
+    @MainActor
+    private func report(_ outcome: RepositoryViewModel.IntegrationOutcome,
+                        success: String,
+                        conflicts: String) {
+        switch outcome {
+        case .clean:
+            appState.activeToast = ToastMessage(message: success, kind: .ok)
+        case .conflicts:
+            appState.workspaceSection = .conflict
+            appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
+        case .failed(let message):
+            appState.activeToast = ToastMessage(message: message, kind: .error)
+        }
     }
 }
 
