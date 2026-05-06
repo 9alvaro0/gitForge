@@ -5,6 +5,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
     case history
     case changes
     case branches
+    case stashes
     case pulls
     case conflict
     case clone
@@ -17,6 +18,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         case .history:  return "History"
         case .changes:  return "Changes"
         case .branches: return "Branches"
+        case .stashes:  return "Stashes"
         case .pulls:    return "Pull requests"
         case .conflict: return "Conflicts"
         case .clone:    return "Clone repo…"
@@ -29,6 +31,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         case .history:  return .graph
         case .changes:  return .diff
         case .branches: return .branch
+        case .stashes:  return .stash
         case .pulls:    return .pr
         case .conflict: return .conflict
         case .clone:    return .clone
@@ -38,7 +41,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
 
     /// Sections shown in the workspace block (top group).
     static let workspaceItems: [WorkspaceSection] = [
-        .history, .changes, .branches, .pulls, .conflict,
+        .history, .changes, .branches, .stashes, .pulls, .conflict,
     ]
 
     /// Sections shown in the bottom group of the sidebar.
