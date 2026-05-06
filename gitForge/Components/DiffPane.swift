@@ -11,6 +11,9 @@ struct DiffPane: View {
     /// button in its header. Pass `nil` for read-only diffs (commit history).
     var hunkAction: HunkAction? = nil
     var onHunkAction: ((Int) -> Void)? = nil
+    /// Optional handler for the "open in editor" icon button. When `nil` the
+    /// button is hidden — keeps history-mode diffs free of dead chrome.
+    var onOpenInEditor: (() -> Void)? = nil
 
     enum ViewMode: Hashable { case unified, split }
     @Binding var viewMode: ViewMode
@@ -41,7 +44,9 @@ struct DiffPane: View {
                 [(.unified, "Unified"), (.split, "Split")],
                 selection: $viewMode
             )
-            IconButton(.ext, action: {})
+            if let onOpenInEditor {
+                IconButton(.ext, action: onOpenInEditor)
+            }
         }
         .padding(.horizontal, 14)
         .frame(height: 34)

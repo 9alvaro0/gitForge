@@ -38,7 +38,7 @@ struct PullsView: View {
                     [(.open, "Open"), (.merged, "Merged"), (.all, "All")],
                     selection: $tab
                 )
-                ToolButton(.plus, label: "New PR", primary: true) { }
+                ToolButton(.plus, label: "New PR", primary: true, disabled: true) { }
             }
             HStack(spacing: 0) {
                 listColumn
@@ -176,10 +176,13 @@ private struct PullRequestDetail: View {
             }
 
             HStack(spacing: 8) {
-                GFButton(title: "Add review") { }
-                GFButton(title: "Checkout PR") { }
-                GFButton(title: "Merge", style: .primary) { }
+                GFButton(title: "Add review", disabled: true) { }
+                GFButton(title: "Checkout PR", disabled: true) { }
+                GFButton(title: "Merge", style: .primary, disabled: true) { }
             }
+            Text("Pull-request actions need a host backend (GitHub/GitLab). Mock data shown for now.")
+                .font(AppFont.mono(11, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg3)
         }
     }
 

@@ -95,6 +95,9 @@ struct CommitDetailColumn: View {
         }
     }
 
+    @State private var newBranchSheet = false
+    @State private var newBranchName: String = ""
+
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("ACTIONS")
@@ -102,12 +105,38 @@ struct CommitDetailColumn: View {
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                GFButton(title: "Revert") { }
-                GFButton(title: "Cherry-pick") { }
-                GFButton(title: "Reset to here") { }
-                GFButton(title: "Create branch") { }
+                GFButton(title: "Create branch") {
+                    newBranchName = ""
+                    newBranchSheet = true
+                }
+                GFButton(title: "Revert", disabled: true) { }
+                GFButton(title: "Cherry-pick", disabled: true) { }
+                GFButton(title: "Reset to here", disabled: true) { }
             }
         }
+        .sheet(isPresented: $newBranchSheet) { newBranchSheetView }
+    }
+
+    private var newBranchSheetView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("New branch from \(commit.shortSha)").font(AppFont.sans(14, weight: .semibold))
+            GFTextField(placeholder: "feat/awesome", text: $newBranchName)
+            HStack {
+                GFButton(title: "Cancel") { newBranchSheet = false }
+                Spacer()
+                GFButton(title: "Create & checkout", style: .primary, disabled: newBranchName.isEmpty) {
+                    let name = newBranchName
+                    let sha = commit.sha
+                    Task {
+                        _ = await viewModel.createBranch(name: name, startingAt: sha, checkout: true)
+                        newBranchSheet = false
+                    }
+                }
+            }
+        }
+        .padding(20).frame(width: 380)
+        .background(theme.palette.bg1)
+        .appTheme(AppTheme())
     }
 
     private var relativeWhen: String {
