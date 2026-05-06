@@ -13,6 +13,9 @@ final class RepositoryViewModel {
     let repository: Repository
     let cli: GitCLI
 
+    // MARK: UI
+    var currentTab: RepositoryTab = .history
+
     // MARK: Log
     internal(set) var commits: [Commit] = []
     internal(set) var isLoadingInitial = false
