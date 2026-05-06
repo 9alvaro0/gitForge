@@ -18,12 +18,23 @@ struct CommitGraphTable: View {
         layouts.map(\.totalLanes).max() ?? 1
     }
     private var rowHeight: CGFloat { theme.density.rowHeight }
+    /// Grows with the number of simultaneously alive lanes so a wide history
+    /// (e.g. many parallel `release/*` branches) doesn't get crammed into a
+    /// fixed-width column. Floors at 110 to keep narrow histories looking the
+    /// same as before.
+    private var graphGutterWidth: CGFloat {
+        let lanes = max(maxLanes, 1)
+        let laneWidth: CGFloat = 14
+        let leadingSpacer: CGFloat = 18
+        let trailingPad: CGFloat = 8
+        return max(110, leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad)
+    }
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 if workingCopyDirty {
-                    UncommittedRow(maxLanes: maxLanes, rowHeight: rowHeight)
+                    UncommittedRow(maxLanes: maxLanes, rowHeight: rowHeight, gutterWidth: graphGutterWidth)
                 }
                 ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
                     CommitRow(
@@ -31,6 +42,7 @@ struct CommitGraphTable: View {
                         layout: layouts[safe: idx] ?? .empty,
                         maxLanes: maxLanes,
                         rowHeight: rowHeight,
+                        gutterWidth: graphGutterWidth,
                         refs: refsBySha[commit.sha] ?? [],
                         currentBranch: currentBranch,
                         isSelected: commit.sha == selectedSha,
@@ -46,6 +58,7 @@ struct CommitGraphTable: View {
 private struct UncommittedRow: View {
     let maxLanes: Int
     let rowHeight: CGFloat
+    let gutterWidth: CGFloat
     @Environment(\.appTheme) private var theme
     var body: some View {
         HStack(spacing: 0) {
@@ -54,7 +67,7 @@ private struct UncommittedRow: View {
                 Rectangle().fill(theme.palette.mod).frame(width: 8, height: 8)
                     .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: 1))
             }
-            .frame(width: 110, alignment: .leading)
+            .frame(width: gutterWidth, alignment: .leading)
             HStack(spacing: 8) {
                 Circle().fill(theme.palette.mod).frame(width: 8, height: 8)
                 Text("Uncommitted changes")
@@ -78,6 +91,7 @@ private struct CommitRow: View {
     let layout: GraphRowLayout
     let maxLanes: Int
     let rowHeight: CGFloat
+    let gutterWidth: CGFloat
     let refs: [GitRef]
     let currentBranch: String?
     let isSelected: Bool
@@ -88,7 +102,7 @@ private struct CommitRow: View {
     var body: some View {
         HStack(spacing: 0) {
             graphGutter
-                .frame(width: 110, alignment: .leading)
+                .frame(width: gutterWidth, alignment: .leading)
             messageColumn
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 6) {

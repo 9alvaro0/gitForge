@@ -5,6 +5,7 @@ nonisolated enum GitError: Error, Sendable, Equatable {
     case invalidWorkingDirectory(URL)
     case launchFailed(String)
     case commandFailed(args: [String], exitCode: Int32, stderr: String)
+    case busy
 }
 
 extension GitError: LocalizedError {
@@ -20,6 +21,8 @@ extension GitError: LocalizedError {
             let command = (["git"] + args).joined(separator: " ")
             let trimmed = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             return "`\(command)` exited with code \(exitCode): \(trimmed)"
+        case .busy:
+            return "Another remote operation is in progress."
         }
     }
 }
