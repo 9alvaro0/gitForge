@@ -1,17 +1,7 @@
 import Foundation
 
-/// Sample data for redesigned views (`PullsView`, `ConflictView`, `BlameView`,
-/// `TerminalView`, …). Lives only in the development asset folder.
-
-extension PullRequest {
-    static let previewSamples: [PullRequest] = [
-        PullRequest(id: 248, title: "Wire commit-graph virtualizer to commit store",  author: "mvelez",  status: .open,   reviews: 1, checks: .pass,    branch: "feat/commit-graph", target: "main", when: "2h"),
-        PullRequest(id: 247, title: "feat(diff): word-level intra-line highlight",    author: "rtanaka", status: .open,   reviews: 0, checks: .running, branch: "feat/conflict-ui",  target: "main", when: "6h"),
-        PullRequest(id: 246, title: "fix: diff scroll resets on stage",               author: "asingh",  status: .review, reviews: 2, checks: .pass,    branch: "fix/diff-scroll",   target: "main", when: "1d"),
-        PullRequest(id: 245, title: "chore(deps): tauri 1.6 → 1.7",                   author: "mvelez",  status: .merged, reviews: 2, checks: .pass,    branch: "chore/tauri",       target: "main", when: "2d"),
-        PullRequest(id: 244, title: "docs: add CONTRIBUTING.md and CODEOWNERS",       author: "lpark",   status: .merged, reviews: 1, checks: .pass,    branch: "docs/contrib",      target: "main", when: "5h"),
-    ]
-}
+/// Sample data for redesigned views (`ConflictView`, command palette, …).
+/// Lives only in the development asset folder.
 
 extension ConflictFile {
     static let previewSamples: [ConflictFile] = [
@@ -36,36 +26,6 @@ extension ConflictHunk {
             base:   ["  return commits"],
             theirs: ["  return memoize(commits.slice(start, end))"]
         ),
-    ]
-}
-
-extension BlameGroup {
-    static let previewSamples: [BlameGroup] = [
-        BlameGroup(sha: "1e9c3d2", author: "M. Vélez", when: "5d", lines: [
-            BlameLine(number: 1, text: "export type Lane = { col: number; color: string }"),
-            BlameLine(number: 2, text: ""),
-            BlameLine(number: 3, text: "export function layoutLanes(commits: Commit[]): Lane[] {"),
-        ], laneColorHex: 0x7c5cff),
-        BlameGroup(sha: "4471a09", author: "L. Park", when: "4d", lines: [
-            BlameLine(number: 4, text: "  const lanes: Lane[] = []"),
-            BlameLine(number: 5, text: "  const seen = new Map<string, number>()"),
-        ], laneColorHex: 0x56b497),
-        BlameGroup(sha: "2c7e4b0", author: "M. Vélez", when: "1h", lines: [
-            BlameLine(number: 6, text: "  let nextCol = 0"),
-            BlameLine(number: 7, text: ""),
-            BlameLine(number: 8, text: "  for (const c of commits) {"),
-        ], laneColorHex: 0xff7e6b),
-        BlameGroup(sha: "8b1d99e", author: "M. Vélez", when: "12m", lines: [
-            BlameLine(number: 9,  text: "    const col = seen.get(c.sha) ?? nextCol++"),
-            BlameLine(number: 10, text: "    lanes[col] ??= { col, color: laneColor(col) }"),
-            BlameLine(number: 11, text: "    for (const p of c.parents) seen.set(p.sha, col)"),
-        ], laneColorHex: 0xdda44b),
-        BlameGroup(sha: "4471a09", author: "L. Park", when: "4d", lines: [
-            BlameLine(number: 12, text: "  }"),
-            BlameLine(number: 13, text: ""),
-            BlameLine(number: 14, text: "  return lanes"),
-            BlameLine(number: 15, text: "}"),
-        ], laneColorHex: 0x56b497),
     ]
 }
 

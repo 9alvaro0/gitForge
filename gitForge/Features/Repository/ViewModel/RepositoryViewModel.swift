@@ -72,12 +72,11 @@ final class RepositoryViewModel {
             if let file = selectedWorkingCopyFile {
                 Task { await loadWorkingCopyDiff(file: file) }
             } else {
-                workingCopyFileDiff = .empty
+                workingCopyDiff = []
             }
         }
     }
-    var workingCopyFileDiff: FileDiff = .empty
-    var workingCopyDiff: [DiffHunk] { workingCopyFileDiff.hunks }
+    var workingCopyDiff: [DiffHunk] = []
     var loadingWorkingCopyDiff = false
 
     // MARK: Navigation
@@ -99,12 +98,6 @@ final class RepositoryViewModel {
     var conflictHunks: [ConflictHunk] = []
     var selectedConflictPath: String?
     var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
-
-    // MARK: Blame
-    var selectedBlamePath: String?
-    var blameGroups: [BlameGroup] = []
-    var blameError: String?
-    var isLoadingBlame: Bool = false
 
     init(repository: Repository) {
         self.repository = repository
