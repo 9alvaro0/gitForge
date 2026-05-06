@@ -210,6 +210,12 @@ private struct RepositoryHost: View {
             await viewModel.loadInitial()
             await viewModel.loadRefs()
             await viewModel.refreshStatus()
+            viewModel.startReactivity(
+                autoFetchIntervalSeconds: appState.globalConfig.autoFetchInterval ?? 0
+            )
+        }
+        .onDisappear {
+            appState.activeViewModel?.stopReactivity()
         }
     }
 }
