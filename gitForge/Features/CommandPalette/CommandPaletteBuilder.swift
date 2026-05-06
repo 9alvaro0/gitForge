@@ -55,7 +55,6 @@ enum CommandPaletteBuilder {
         CommandPaletteItem(kind: .command, label: "Push",            hint: "⌘⇧K", action: .push),
         CommandPaletteItem(kind: .command, label: "New branch…",     hint: "⌘⇧B", action: .selectSection(.branches)),
         CommandPaletteItem(kind: .command, label: "Stash changes",   hint: nil,   action: .stash),
-        CommandPaletteItem(kind: .command, label: "Open terminal",   hint: "⌃`",  action: .selectSection(.terminal)),
         CommandPaletteItem(kind: .command, label: "Settings",        hint: "⌘,",  action: .selectSection(.settings)),
     ]
 

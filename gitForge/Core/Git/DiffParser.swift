@@ -2,36 +2,21 @@ import Foundation
 
 enum DiffParser {
     static func parse(_ output: String) -> [DiffHunk] {
-        parseFile(output).hunks
-    }
-
-    /// Same as `parse(_:)` but also captures the raw header (everything before
-    /// the first `@@`) and the raw text of each hunk, so callers can rebuild
-    /// a partial unified patch.
-    static func parseFile(_ output: String) -> FileDiff {
         let lines = output.components(separatedBy: "\n")
         var hunks: [DiffHunk] = []
-        var rawHunks: [String] = []
-        var headerLines: [String] = []
         var hunkIndex = 0
-        var sawFirstHunk = false
         var i = 0
         while i < lines.count {
             let line = lines[i]
             if line.hasPrefix("@@"), let parsed = parseHunk(lines: lines, startIndex: i, id: hunkIndex) {
-                sawFirstHunk = true
                 hunks.append(parsed.hunk)
-                let raw = lines[i..<parsed.nextIndex].joined(separator: "\n")
-                rawHunks.append(raw)
                 i = parsed.nextIndex
                 hunkIndex += 1
             } else {
-                if !sawFirstHunk { headerLines.append(line) }
                 i += 1
             }
         }
-        while headerLines.last == "" { headerLines.removeLast() }
-        return FileDiff(header: headerLines, rawHunks: rawHunks, hunks: hunks)
+        return hunks
     }
 
     private static func parseHunk(lines: [String], startIndex: Int, id: Int) -> (hunk: DiffHunk, nextIndex: Int)? {

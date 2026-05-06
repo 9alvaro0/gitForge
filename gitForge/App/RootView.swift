@@ -107,14 +107,9 @@ private struct ShellView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             switch appState.workspaceSection {
-            case .clone:
-                CloneView()
-            case .settings:
-                SettingsView()
-            case .terminal:
-                TerminalView(workingDirectory: "~")
-            default:
-                WelcomeView()
+            case .clone:    CloneView()
+            case .settings: SettingsView()
+            default:        WelcomeView()
             }
         }
     }
@@ -231,13 +226,9 @@ private struct ContentRouter: View {
         switch appState.workspaceSection {
         case .history:  HistoryView(viewModel: viewModel)
         case .changes:  StagingView(viewModel: viewModel)
-        case .branches: BranchesView(
-                            viewModel: viewModel
-                        )
+        case .branches: BranchesView(viewModel: viewModel)
         case .pulls:    PullsView()
         case .conflict: ConflictView(viewModel: viewModel)
-        case .blame:    BlameView(viewModel: viewModel)
-        case .terminal: TerminalView(workingDirectory: viewModel.repository.url.path)
         case .clone:    CloneView()
         case .settings: SettingsView()
         }

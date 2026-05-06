@@ -26,10 +26,10 @@ extension RepositoryViewModel {
             } else {
                 raw = try await cli.diffUnstaged(file: file.path)
             }
-            workingCopyFileDiff = DiffParser.parseFile(raw)
+            workingCopyDiff = DiffParser.parse(raw)
         } catch {
             Self.logger.error("Failed to load working-copy diff: \(error.localizedDescription, privacy: .public)")
-            workingCopyFileDiff = .empty
+            workingCopyDiff = []
         }
     }
 

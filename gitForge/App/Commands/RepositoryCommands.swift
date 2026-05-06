@@ -4,6 +4,9 @@ import SwiftUI
 /// disable themselves when no repository is open, and remote operations gate
 /// on the VM not being mid-fetch/pull/push to avoid concurrent work.
 struct RepositoryCommands: Commands {
+    /// `@Bindable` is documented for use inside View bodies, not Commands —
+    /// using it here compiled but suppressed Repository menu items in some
+    /// builds. Keep it as a plain `let`.
     let appState: AppState
 
     var body: some Commands {
