@@ -16,10 +16,13 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             ContentHeader(title: "Settings")
             ScrollView {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)],
-                          alignment: .leading, spacing: 24) {
-                    identitySection
-                    gitSection
+                VStack(alignment: .leading, spacing: 24) {
+                    appearanceSection
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)],
+                              alignment: .leading, spacing: 24) {
+                        identitySection
+                        gitSection
+                    }
                 }
                 .padding(18)
                 .frame(maxWidth: 900, alignment: .topLeading)
@@ -28,6 +31,115 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
         .task { await appState.refreshGlobalConfig() }
+    }
+
+    private var appearanceSection: some View {
+        section(title: "Appearance") {
+            HStack(alignment: .top, spacing: 24) {
+                appearanceColumn
+                codeColumn
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        }
+    }
+
+    private var appearanceColumn: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            radioRow(label: "Theme",
+                     values: ThemeMode.allCases.map { ($0.rawValue, $0.label) },
+                     current: appState.theme.mode.rawValue) { v in
+                if let m = ThemeMode(rawValue: v) { appState.theme.mode = m }
+            }
+            colorRow(label: "Accent",
+                     swatches: AppTheme.accentSwatches,
+                     current: appState.theme.accent) { appState.theme.accent = $0 }
+            radioRow(label: "Density",
+                     values: Density.allCases.map { ($0.rawValue, $0.label) },
+                     current: appState.theme.density.rawValue) { v in
+                if let d = Density(rawValue: v) { appState.theme.density = d }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var codeColumn: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            selectRow(label: "Mono font",
+                      values: MonoFontFamily.allCases.map { ($0.rawValue, $0.label) },
+                      current: appState.theme.monoFont.rawValue) { v in
+                if let f = MonoFontFamily(rawValue: v) { appState.theme.monoFont = f }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func radioRow(label: String, values: [(String, String)], current: String, onChange: @escaping (String) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
+            HStack(spacing: 4) {
+                ForEach(values, id: \.0) { (raw, label) in
+                    Button(action: { onChange(raw) }) {
+                        Text(label.capitalized)
+                            .font(AppFont.sans(11))
+                            .padding(.horizontal, 10)
+                            .frame(height: 24)
+                            .foregroundStyle(raw == current ? theme.palette.accent : theme.palette.fg2)
+                            .background(RoundedRectangle(cornerRadius: 4).fill(raw == current ? theme.palette.accentSoft : theme.palette.bg2))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func colorRow(label: String, swatches: [Color], current: Color, onChange: @escaping (Color) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
+            HStack(spacing: 8) {
+                ForEach(Array(swatches.enumerated()), id: \.offset) { _, c in
+                    Button(action: { onChange(c) }) {
+                        Circle()
+                            .fill(c)
+                            .frame(width: 20, height: 20)
+                            .overlay(Circle().stroke(c == current ? theme.palette.fg1 : .clear, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func selectRow(label: String, values: [(String, String)], current: String, onChange: @escaping (String) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
+            Menu {
+                ForEach(values, id: \.0) { (raw, label) in
+                    Button(label) { onChange(raw) }
+                }
+            } label: {
+                HStack {
+                    Text(current).font(AppFont.sans(12))
+                    Spacer()
+                    GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 28)
+                .foregroundStyle(theme.palette.fg1)
+                .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg2))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.palette.lineStrong, lineWidth: 1))
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .frame(maxWidth: 240)
+        }
     }
 
     private var identitySection: some View {
