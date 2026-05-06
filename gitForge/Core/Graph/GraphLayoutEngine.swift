@@ -7,14 +7,28 @@ enum GraphLayoutEngine {
     }
 
     /// Computes per-row graph layout for an ordered list of commits (newest first, the order
-    /// `git log --topo-order` emits). Branches keep a stable `branchId` for the renderer to
-    /// color by branch identity instead of column index.
-    static func layouts(for commits: [Commit]) -> (rows: [GraphRowLayout], maxLanes: Int) {
+    /// `git log --topo-order` emits). When `refsBySha` is provided, brand-new tip commits
+    /// take a `branchId` derived from their ref's folder prefix (`feature/`, `release/`, …)
+    /// so sibling branches share a lane color in the renderer instead of each getting a
+    /// unique one. Commits without a tip ref fall back to a sequential id.
+    static func layouts(for commits: [Commit], refsBySha: [String: [GitRef]] = [:]) -> (rows: [GraphRowLayout], maxLanes: Int) {
         var lanes: [LaneState?] = []
         var rows: [GraphRowLayout] = []
         rows.reserveCapacity(commits.count)
         var maxLanes = 0
-        var nextBranchId = 0
+        var nextSequentialId = 100_000
+
+        // Returns a deterministic id derived from a branch's folder prefix
+        // (e.g. "release" / "feature") if there's a ref pointing at this sha;
+        // otherwise allocates a fresh sequential id far from the prefix range.
+        func branchId(for sha: String) -> Int {
+            if let ref = refsBySha[sha]?.preferredForGraph(),
+               let id = Self.prefixBranchId(for: ref) {
+                return id
+            }
+            defer { nextSequentialId += 1 }
+            return nextSequentialId
+        }
 
         for commit in commits {
             // Snapshot lanes BEFORE any mutation. This is what "comes in from above" — a brand
@@ -32,8 +46,7 @@ enum GraphLayoutEngine {
                 commitLane = primary
                 commitBranchId = state.branchId
             } else {
-                commitBranchId = nextBranchId
-                nextBranchId += 1
+                commitBranchId = branchId(for: commit.sha)
                 if let nilIndex = lanes.firstIndex(where: { $0 == nil }) {
                     lanes[nilIndex] = LaneState(sha: commit.sha, branchId: commitBranchId)
                     commitLane = nilIndex
@@ -63,8 +76,7 @@ enum GraphLayoutEngine {
                 if let existing = lanes.firstIndex(where: { $0?.sha == parent }), let state = lanes[existing] {
                     mergesOut.append(LaneOccupation(lane: existing, branchId: state.branchId))
                 } else {
-                    let newBranchId = nextBranchId
-                    nextBranchId += 1
+                    let newBranchId = branchId(for: parent)
                     let lane = allocateLaneNear(commitLane: commitLane, lanes: &lanes, sha: parent, branchId: newBranchId)
                     mergesOut.append(LaneOccupation(lane: lane, branchId: newBranchId))
                 }
@@ -121,5 +133,36 @@ enum GraphLayoutEngine {
         }
         lanes.append(LaneState(sha: sha, branchId: branchId))
         return lanes.count - 1
+    }
+
+    /// Maps a `GitRef` to a branchId derived from its folder prefix. Refs
+    /// without a `/` (e.g. `main`) get an id derived from the full name so
+    /// they don't collide with each other. Returns `nil` if we shouldn't
+    /// derive a branchId (no ref / non-branch ref).
+    static func prefixBranchId(for ref: GitRef) -> Int? {
+        let segments = ref.displayName.split(separator: "/", omittingEmptySubsequences: true)
+        let key: String
+        if segments.count >= 2 {
+            // "feature/RESAL-123" → "feature", "release/1.0.10" → "release", …
+            key = String(segments[0])
+        } else {
+            key = ref.displayName
+        }
+        // Stable hash within Int range; offset by a small base so the prefix-
+        // bucket ids don't overlap with sequential ids (which start at 100_000).
+        var h: Int = 0
+        for c in key.unicodeScalars { h = (h &* 31) &+ Int(c.value) }
+        return abs(h) % 99_999
+    }
+}
+
+private extension Array where Element == GitRef {
+    /// Pick the most "interesting" ref to derive a graph color from.
+    /// HEAD-tagged > local branch > remote branch > tag.
+    func preferredForGraph() -> GitRef? {
+        if let head = first(where: { $0.isHead }) { return head }
+        if let local = first(where: { $0.isLocalBranch }) { return local }
+        if let remote = first(where: { $0.isRemoteBranch }) { return remote }
+        return first
     }
 }
