@@ -3,7 +3,7 @@ import SwiftUI
 /// File menu — replaces the default `.newItem` group with repository-oriented
 /// actions. macOS still owns ⌘W (close window); ⇧⌘W closes the active repo.
 struct FileCommands: Commands {
-    @Bindable var appState: AppState
+    let appState: AppState
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
