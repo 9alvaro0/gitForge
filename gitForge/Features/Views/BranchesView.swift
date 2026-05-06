@@ -12,7 +12,10 @@ struct BranchesView: View {
     @State private var renameDraft: String = ""
     @State private var deleteTarget: GitRef?
     @State private var deleteForce: Bool = false
+    @State private var mergeTarget: GitRef?
+    @State private var rebaseTarget: GitRef?
 
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
     private var localBranches: [GitRef]  { viewModel.localBranches.filter(matchesFilter) }
@@ -43,14 +46,18 @@ struct BranchesView: View {
                                   viewModel: viewModel,
                                   onCheckout: { ref in Task { _ = await viewModel.checkoutBranch(ref) } },
                                   onRename: { ref in renameTarget = ref; renameDraft = ref.name },
-                                  onDelete: { ref in deleteTarget = ref; deleteForce = false })
+                                  onDelete: { ref in deleteTarget = ref; deleteForce = false },
+                                  onMerge: { ref in mergeTarget = ref },
+                                  onRebase: { ref in rebaseTarget = ref })
                     BranchSection(title: "Remote",
                                   refs: remoteBranches,
                                   currentBranchName: nil,
                                   viewModel: viewModel,
                                   onCheckout: { ref in Task { _ = await viewModel.checkoutBranch(ref) } },
                                   onRename: nil,
-                                  onDelete: nil)
+                                  onDelete: nil,
+                                  onMerge: { ref in mergeTarget = ref },
+                                  onRebase: { ref in rebaseTarget = ref })
                     if !tags.isEmpty {
                         TagsSection(tags: tags)
                     }
@@ -74,6 +81,70 @@ struct BranchesView: View {
             Button("Cancel", role: .cancel) { deleteTarget = nil }
         } message: {
             Text("This removes the local branch reference. Use force-delete if it has unmerged commits.")
+        }
+        .confirmationDialog("Merge \(mergeTarget?.displayName ?? "") into \(currentBranchName ?? "current")?",
+                            isPresented: mergeAlertBinding,
+                            titleVisibility: .visible) {
+            Button("Merge") {
+                if let ref = mergeTarget {
+                    let target = ref
+                    Task { await runMerge(ref: target) }
+                }
+                mergeTarget = nil
+            }
+            Button("Cancel", role: .cancel) { mergeTarget = nil }
+        } message: {
+            Text("Brings \(mergeTarget?.displayName ?? "") into the current branch. If conflicts arise you'll be sent to the Conflicts view.")
+        }
+        .confirmationDialog("Rebase \(currentBranchName ?? "current") onto \(rebaseTarget?.displayName ?? "")?",
+                            isPresented: rebaseAlertBinding,
+                            titleVisibility: .visible) {
+            Button("Rebase") {
+                if let ref = rebaseTarget {
+                    let target = ref
+                    Task { await runRebase(ref: target) }
+                }
+                rebaseTarget = nil
+            }
+            Button("Cancel", role: .cancel) { rebaseTarget = nil }
+        } message: {
+            Text("Replays \(currentBranchName ?? "current") on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
+        }
+    }
+
+    private var mergeAlertBinding: Binding<Bool> {
+        Binding(get: { mergeTarget != nil }, set: { if !$0 { mergeTarget = nil } })
+    }
+
+    private var rebaseAlertBinding: Binding<Bool> {
+        Binding(get: { rebaseTarget != nil }, set: { if !$0 { rebaseTarget = nil } })
+    }
+
+    private func runMerge(ref: GitRef) async {
+        let outcome = await viewModel.mergeBranch(ref)
+        handleIntegration(outcome,
+                          successLabel: "Merged \(ref.displayName) into \(currentBranchName ?? "HEAD")",
+                          conflictLabel: "Merge has conflicts — resolve to continue")
+    }
+
+    private func runRebase(ref: GitRef) async {
+        let outcome = await viewModel.rebaseOnto(ref)
+        handleIntegration(outcome,
+                          successLabel: "Rebased \(currentBranchName ?? "HEAD") onto \(ref.displayName)",
+                          conflictLabel: "Rebase has conflicts — resolve to continue")
+    }
+
+    private func handleIntegration(_ outcome: RepositoryViewModel.IntegrationOutcome,
+                                   successLabel: String,
+                                   conflictLabel: String) {
+        switch outcome {
+        case .clean:
+            appState.activeToast = ToastMessage(message: successLabel, kind: .ok)
+        case .conflicts:
+            appState.workspaceSection = .conflict
+            appState.activeToast = ToastMessage(message: conflictLabel, kind: .warn)
+        case .failed(let message):
+            appState.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
@@ -134,6 +205,8 @@ private struct BranchSection: View {
     let onCheckout: (GitRef) -> Void
     let onRename: ((GitRef) -> Void)?
     let onDelete: ((GitRef) -> Void)?
+    let onMerge: ((GitRef) -> Void)?
+    let onRebase: ((GitRef) -> Void)?
 
     @Environment(\.appTheme) private var theme
 
@@ -212,7 +285,13 @@ private struct BranchSection: View {
                 }
                 Menu {
                     if !isCurrent { Button("Checkout") { onCheckout(ref) } }
-                    if let onRename { Button("Rename…") { onRename(ref) } }
+                    if let onMerge, !isCurrent {
+                        Button("Merge into \(currentBranchName ?? "current")…") { onMerge(ref) }
+                    }
+                    if let onRebase, !isCurrent {
+                        Button("Rebase \(currentBranchName ?? "current") onto this…") { onRebase(ref) }
+                    }
+                    if let onRename { Divider(); Button("Rename…") { onRename(ref) } }
                     if let onDelete, !isCurrent {
                         Divider()
                         Button("Delete…", role: .destructive) { onDelete(ref) }

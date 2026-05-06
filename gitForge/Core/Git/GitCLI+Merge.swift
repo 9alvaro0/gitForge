@@ -48,6 +48,25 @@ extension GitCLI {
         _ = try await run(["rebase", "--continue"])
     }
 
+    /// `git merge <branch> [--no-ff] [--squash] [-m message]`. Throws on
+    /// conflicts — caller should refresh conflict state and route the user
+    /// to the conflict resolver.
+    func merge(branch: String, noFastForward: Bool = false, squash: Bool = false, message: String? = nil) async throws {
+        var args: [String] = ["merge"]
+        if noFastForward { args.append("--no-ff") }
+        if squash        { args.append("--squash") }
+        if let message {
+            args.append(contentsOf: ["-m", message])
+        }
+        args.append(branch)
+        _ = try await run(args)
+    }
+
+    /// `git rebase <upstream>`. Throws on conflicts.
+    func rebase(onto upstream: String) async throws {
+        _ = try await run(["rebase", upstream])
+    }
+
     /// Stages a path so git knows the conflict is resolved.
     func markResolved(path: String) async throws {
         _ = try await run(["add", "--", path])

@@ -83,6 +83,52 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Merges another branch into the current one. The result encodes whether
+    /// the operation finished cleanly, paused on conflicts, or failed outright.
+    enum IntegrationOutcome: Sendable, Equatable {
+        case clean
+        case conflicts
+        case failed(String)
+    }
+
+    func mergeBranch(_ ref: GitRef) async -> IntegrationOutcome {
+        let name = ref.isLocalBranch ? ref.name : ref.displayName
+        do {
+            try await cli.merge(branch: name)
+            await refreshAfterRefMutation(reloadLog: true)
+            await loadConflictState()
+            return .clean
+        } catch {
+            await loadConflictState()
+            await refreshStatus()
+            if mergeState.isInProgress {
+                return .conflicts
+            }
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = message
+            return .failed(message)
+        }
+    }
+
+    func rebaseOnto(_ ref: GitRef) async -> IntegrationOutcome {
+        let upstream = ref.isLocalBranch ? ref.name : ref.displayName
+        do {
+            try await cli.rebase(onto: upstream)
+            await refreshAfterRefMutation(reloadLog: true)
+            await loadConflictState()
+            return .clean
+        } catch {
+            await loadConflictState()
+            await refreshStatus()
+            if mergeState.isInProgress {
+                return .conflicts
+            }
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = message
+            return .failed(message)
+        }
+    }
+
     func continueMerge() async {
         do {
             switch mergeState {
