@@ -75,8 +75,9 @@ private struct ShellView: View {
                     dirtyCount: appState.activeViewModel?.status.files.count ?? 0,
                     activeSection: appState.workspaceSection,
                     unstagedBadge: appState.activeViewModel?.status.unstagedFiles.count ?? 0,
+                    stashesBadge: appState.activeViewModel?.stashes.count ?? 0,
                     pullsBadge: 0,
-                    conflictsBadge: 0,
+                    conflictsBadge: appState.activeViewModel?.conflictFiles.filter { !$0.resolved }.count ?? 0,
                     identity: appState.globalConfig.identity,
                     onSelectRepo: { repo in Task { await appState.activate(repo) } },
                     onSelectSection: { appState.workspaceSection = $0 },
@@ -229,6 +230,7 @@ private struct ContentRouter: View {
         case .history:  HistoryView(viewModel: viewModel)
         case .changes:  StagingView(viewModel: viewModel)
         case .branches: BranchesView(viewModel: viewModel)
+        case .stashes:  StashesView(viewModel: viewModel)
         case .pulls:    PullsView()
         case .conflict: ConflictView(viewModel: viewModel)
         case .clone:    CloneView()

@@ -11,6 +11,7 @@ struct RedesignedSidebar: View {
     let dirtyCount: Int
     let activeSection: WorkspaceSection
     let unstagedBadge: Int
+    let stashesBadge: Int
     let pullsBadge: Int
     let conflictsBadge: Int
     let identity: GitIdentity
@@ -83,6 +84,7 @@ struct RedesignedSidebar: View {
     private func badge(for section: WorkspaceSection) -> Int? {
         switch section {
         case .changes:  return unstagedBadge > 0 ? unstagedBadge : nil
+        case .stashes:  return stashesBadge > 0 ? stashesBadge : nil
         case .pulls:    return pullsBadge > 0 ? pullsBadge : nil
         case .conflict: return conflictsBadge > 0 ? conflictsBadge : nil
         default:        return nil
@@ -104,7 +106,7 @@ struct RedesignedSidebar: View {
         activeBranch: "feat/commit-graph",
         aheadCount: 7, behindCount: 1, dirtyCount: 3,
         activeSection: section,
-        unstagedBadge: 3, pullsBadge: 2, conflictsBadge: 0,
+        unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
         identity: GitIdentity(name: "Alvaro Guerra", email: "9alvaro0@gmail.com"),
         onSelectRepo: { _ in },
         onSelectSection: { section = $0 },
