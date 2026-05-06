@@ -4,9 +4,11 @@ import SwiftUI
 /// disable themselves when no repository is open, and remote operations gate
 /// on the VM not being mid-fetch/pull/push to avoid concurrent work.
 struct RepositoryCommands: Commands {
-    @Bindable var appState: AppState
+    let appState: AppState
 
     var body: some Commands {
+        // CommandMenu must contain at least one always-enabled item, otherwise
+        // SwiftUI may collapse the menu when no repository is active.
         CommandMenu("Repository") {
             Button("Refresh") {
                 Task { await appState.activeViewModel?.refresh() }
