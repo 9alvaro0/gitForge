@@ -1,31 +1,43 @@
 import SwiftUI
 
-/// `.gf-view-conflict` — three-way picker for resolving conflicts.
+/// `.gf-view-conflict` — three-way conflict resolver. Reads conflict state
+/// from the active `RepositoryViewModel`; falls back to a friendly empty state
+/// when the working tree is clean.
 struct ConflictView: View {
-    let files: [ConflictFile]
-    let hunks: [ConflictHunk]
-
+    @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
-    @State private var selectedPath: String = ""
-    @State private var picks: [UUID: ConflictHunk.Pick] = [:]
 
-    init(files: [ConflictFile] = ConflictFile.previewSamples,
-         hunks: [ConflictHunk] = ConflictHunk.previewSamples) {
-        self.files = files
-        self.hunks = hunks
-        _selectedPath = State(initialValue: files.first?.path ?? "")
-    }
-
-    private var resolvedCount: Int { picks.count }
+    private var files: [ConflictFile]   { viewModel.conflictFiles }
+    private var hunks: [ConflictHunk]   { viewModel.conflictHunks }
+    private var picks: [UUID: ConflictHunk.Pick] { viewModel.conflictPicks }
 
     var body: some View {
+        Group {
+            if !viewModel.mergeState.isInProgress {
+                EmptyState(icon: .check, title: "No merge in progress",
+                           subtitle: "Conflicts will show up here when a merge or rebase pauses.") { EmptyView() }
+                    .background(theme.palette.bg2)
+            } else {
+                resolverShell
+            }
+        }
+        .task { await viewModel.loadConflictState() }
+    }
+
+    private var resolverShell: some View {
         VStack(spacing: 0) {
             ContentHeader(title: "Resolve conflicts") {
-                MonoText("merging origin/main into feat/commit-graph", dim: true)
+                MonoText(headerSubtitle, dim: true)
             } right: {
-                ToolButton(.x, label: "Abort merge") { }
-                ToolButton(.check, label: "Continue merge", primary: true,
-                           disabled: resolvedCount < hunks.count) { }
+                ToolButton(.x, label: "Abort \(viewModel.mergeState == .rebasing ? "rebase" : "merge")") {
+                    Task { await viewModel.abortMerge() }
+                }
+                ToolButton(.check,
+                           label: "Continue \(viewModel.mergeState == .rebasing ? "rebase" : "merge")",
+                           primary: true,
+                           disabled: !files.allSatisfy(\.resolved)) {
+                    Task { await viewModel.continueMerge() }
+                }
             }
             HStack(spacing: 0) {
                 filesColumn
@@ -36,6 +48,14 @@ struct ConflictView: View {
         .background(theme.palette.bg2)
     }
 
+    private var headerSubtitle: String {
+        switch viewModel.mergeState {
+        case .merging:  return "merging into \(viewModel.currentBranchName ?? "HEAD")"
+        case .rebasing: return "rebasing \(viewModel.currentBranchName ?? "HEAD")"
+        case .clean:    return ""
+        }
+    }
+
     private var filesColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Files with conflicts".uppercased())
@@ -44,8 +64,14 @@ struct ConflictView: View {
                 .foregroundStyle(theme.palette.fg3)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
+            if files.isEmpty {
+                Text("No unresolved files.")
+                    .font(AppFont.sans(12))
+                    .foregroundStyle(theme.palette.fg3)
+                    .padding(14)
+            }
             ForEach(files) { file in
-                Button(action: { selectedPath = file.path }) {
+                Button(action: { Task { await viewModel.loadConflictHunks(for: file.path) } }) {
                     HStack(spacing: 8) {
                         ZStack {
                             Circle().fill((file.resolved ? theme.palette.ok : theme.palette.del).opacity(0.18))
@@ -67,7 +93,7 @@ struct ConflictView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(file.path == selectedPath ? theme.palette.bg4 : .clear))
+                    .background(RoundedRectangle(cornerRadius: 5).fill(file.path == viewModel.selectedConflictPath ? theme.palette.bg4 : .clear))
                     .padding(.horizontal, 8)
                 }
                 .buttonStyle(.plain)
@@ -82,17 +108,33 @@ struct ConflictView: View {
     private var hunksColumn: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 8) {
-                    GFIcon(kind: .diff, size: 14, stroke: theme.palette.fg1)
-                    Text(selectedPath)
-                        .font(AppFont.mono(12, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg1)
-                    Text("· \(resolvedCount)/\(hunks.count) resolved")
-                        .font(AppFont.mono(12, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg3)
+                if let path = viewModel.selectedConflictPath {
+                    HStack(spacing: 8) {
+                        GFIcon(kind: .diff, size: 14, stroke: theme.palette.fg1)
+                        Text(path)
+                            .font(AppFont.mono(12, family: theme.monoFont))
+                            .foregroundStyle(theme.palette.fg1)
+                        Text("· \(picks.count)/\(hunks.count) picked")
+                            .font(AppFont.mono(12, family: theme.monoFont))
+                            .foregroundStyle(theme.palette.fg3)
+                        Spacer()
+                        GFButton(title: "Mark resolved",
+                                 style: .primary,
+                                 size: .small,
+                                 disabled: hunks.isEmpty || picks.count < hunks.count) {
+                            Task { await viewModel.resolveSelectedFile() }
+                        }
+                    }
+                    .padding(.bottom, 8)
+                    .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
                 }
-                .padding(.bottom, 8)
-                .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+
+                if hunks.isEmpty {
+                    Text("Pick a file with unresolved conflicts on the left.")
+                        .font(AppFont.sans(12))
+                        .foregroundStyle(theme.palette.fg3)
+                        .padding(.top, 8)
+                }
 
                 ForEach(Array(hunks.enumerated()), id: \.element.id) { index, hunk in
                     hunkCard(hunk, index: index)
@@ -112,7 +154,7 @@ struct ConflictView: View {
                     .foregroundStyle(theme.palette.fg1)
                 Spacer()
                 if let pick {
-                    Pill(text: "resolved → \(pick.rawValue)", kind: .clean)
+                    Pill(text: "picked → \(pick.rawValue)", kind: .clean)
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
@@ -120,16 +162,19 @@ struct ConflictView: View {
             .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
 
             HStack(spacing: 0) {
-                conflictPane(title: "ours",   subtitle: "feat/commit-graph", lines: hunk.ours,   isPicked: pick == .ours,   tagColor: theme.palette.add) {
-                    picks[hunk.id] = .ours
+                conflictPane(title: "ours", subtitle: viewModel.currentBranchName ?? "HEAD", lines: hunk.ours,
+                             isPicked: pick == .ours, tagColor: theme.palette.add) {
+                    viewModel.setConflictPick(hunkId: hunk.id, pick: .ours)
                 }
                 Rectangle().fill(theme.palette.line).frame(width: 1)
-                conflictPane(title: "both",   subtitle: "merge manually",     lines: hunk.base,   isPicked: pick == .both,   tagColor: theme.palette.mod) {
-                    picks[hunk.id] = .both
+                conflictPane(title: "both", subtitle: "ours + theirs", lines: hunk.base.isEmpty ? hunk.ours + hunk.theirs : hunk.base,
+                             isPicked: pick == .both, tagColor: theme.palette.mod) {
+                    viewModel.setConflictPick(hunkId: hunk.id, pick: .both)
                 }
                 Rectangle().fill(theme.palette.line).frame(width: 1)
-                conflictPane(title: "theirs", subtitle: "origin/main",        lines: hunk.theirs, isPicked: pick == .theirs, tagColor: theme.palette.info) {
-                    picks[hunk.id] = .theirs
+                conflictPane(title: "theirs", subtitle: "incoming", lines: hunk.theirs,
+                             isPicked: pick == .theirs, tagColor: theme.palette.info) {
+                    viewModel.setConflictPick(hunkId: hunk.id, pick: .theirs)
                 }
             }
         }
@@ -168,10 +213,9 @@ struct ConflictView: View {
     }
 }
 
-#Preview {
+#Preview("Empty (clean tree)") {
     @Previewable @State var theme = AppTheme()
-    ConflictView(files: ConflictFile.previewSamples,
-                 hunks: ConflictHunk.previewSamples)
+    ConflictView(viewModel: RepositoryViewModel.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }

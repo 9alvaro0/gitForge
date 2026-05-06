@@ -242,7 +242,7 @@ private struct ContentRouter: View {
                             onNewBranch: { appState.newBranchSheetVisible = true }
                         )
         case .pulls:    PullsView()
-        case .conflict: ConflictView()
+        case .conflict: ConflictView(viewModel: viewModel)
         case .blame:    BlameView()
         case .terminal: TerminalView(workingDirectory: viewModel.repository.url.path)
         case .clone:    CloneView()
