@@ -72,11 +72,12 @@ final class RepositoryViewModel {
             if let file = selectedWorkingCopyFile {
                 Task { await loadWorkingCopyDiff(file: file) }
             } else {
-                workingCopyDiff = []
+                workingCopyFileDiff = .empty
             }
         }
     }
-    var workingCopyDiff: [DiffHunk] = []
+    var workingCopyFileDiff: FileDiff = .empty
+    var workingCopyDiff: [DiffHunk] { workingCopyFileDiff.hunks }
     var loadingWorkingCopyDiff = false
 
     // MARK: Navigation
