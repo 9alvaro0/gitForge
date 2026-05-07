@@ -66,16 +66,22 @@ struct DiffPane: View {
     }
 
     private var unifiedContent: some View {
-        ScrollView([.vertical, .horizontal]) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(hunks) { hunk in
-                    hunkHeader(hunk)
-                    ForEach(hunk.lines) { line in
-                        DiffRow(line: line)
+        // GeometryReader gives us the viewport width so the inner VStack can
+        // be at least that wide — without it, content < viewport renders at
+        // its natural (small) width and the ScrollView centers it inside the
+        // pane, leaving giant gutters on both sides.
+        GeometryReader { geo in
+            ScrollView([.vertical, .horizontal]) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(hunks) { hunk in
+                        hunkHeader(hunk)
+                        ForEach(hunk.lines) { line in
+                            DiffRow(line: line)
+                        }
                     }
                 }
+                .frame(minWidth: geo.size.width, alignment: .leading)
             }
-            .frame(minWidth: 1, alignment: .leading)
         }
     }
 
@@ -83,20 +89,24 @@ struct DiffPane: View {
     /// on the right, with consecutive removed / added groups paired so the
     /// changed lines align horizontally. Shorter side gets blank rows.
     private var splitContent: some View {
-        ScrollView([.vertical, .horizontal]) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(hunks) { hunk in
-                    hunkHeader(hunk)
-                    ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                        HStack(spacing: 0) {
-                            DiffSplitCell(line: row.left, side: .left)
-                            Rectangle().fill(theme.palette.line).frame(width: 1)
-                            DiffSplitCell(line: row.right, side: .right)
+        GeometryReader { geo in
+            ScrollView([.vertical, .horizontal]) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(hunks) { hunk in
+                        hunkHeader(hunk)
+                        ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
+                            HStack(spacing: 0) {
+                                DiffSplitCell(line: row.left, side: .left)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Rectangle().fill(theme.palette.line).frame(width: 1)
+                                DiffSplitCell(line: row.right, side: .right)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
                     }
                 }
+                .frame(minWidth: geo.size.width, alignment: .leading)
             }
-            .frame(minWidth: 1, alignment: .leading)
         }
     }
 
@@ -176,7 +186,9 @@ private struct DiffRow: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, 14)
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
     }
 
@@ -242,6 +254,7 @@ private struct DiffSplitCell: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, 14)
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(background)
