@@ -18,7 +18,26 @@ enum GraphLayoutEngine {
         let id: Int
         let branchId: Int
         let startRow: Int
+        /// Display name of the ref pointing at this lane's tip when it was
+        /// opened. Used to pin gitflow trunks (main, develop, release/*) to
+        /// stable leftmost columns.
+        let initialRefName: String?
         var endRow: Int  // resolved by end of Pass 1; defaults to last row if still open
+    }
+
+    /// Lower rank = leftmost column. `nil` (default `Int.max`) keeps the
+    /// existing greedy assignment for non-trunk lanes. Order matches a typical
+    /// gitflow read: trunk (main/master) first, then develop, then release
+    /// branches, then trunk-equivalent legacy names.
+    private static let priorityPatterns: [(matcher: (String) -> Bool, rank: Int)] = [
+        ({ $0 == "main" || $0 == "master" }, 0),
+        ({ $0 == "develop" || $0 == "dev"  }, 1),
+        ({ $0.hasPrefix("release/")        }, 2),
+        ({ $0 == "trunk"                   }, 3),
+    ]
+
+    private static func priorityRank(forName name: String) -> Int? {
+        priorityPatterns.first { $0.matcher(name) }?.rank
     }
 
     private struct RowSlots {
@@ -58,7 +77,14 @@ enum GraphLayoutEngine {
         func openLane(branchId: Int, currentSha: String, startRow: Int) -> Int {
             let id = nextLaneId
             nextLaneId += 1
-            lanes.append(LogicalLane(id: id, branchId: branchId, startRow: startRow, endRow: -1))
+            let initialRef = refsBySha[currentSha]?.preferredForGraph()
+            lanes.append(LogicalLane(
+                id: id,
+                branchId: branchId,
+                startRow: startRow,
+                initialRefName: initialRef?.displayName,
+                endRow: -1
+            ))
             laneCurrentSha[id] = currentSha
             return id
         }
@@ -140,9 +166,14 @@ enum GraphLayoutEngine {
         // ── Pass 2 ─────────────────────────────────────────────────────────────
         // Greedy interval scheduling: leftmost free column for each lane.
 
-        // Stable sort: earlier startRow first; ties broken by lane id (= creation order)
-        // so the first lane created (typically the active branch tip) stays in column 0.
+        // Sort: gitflow trunks (main/master, develop, release/*) first by their
+        // priority rank so they grab the leftmost columns and stay there for
+        // their entire lifetime. Everything else falls back to (startRow, id),
+        // preserving the previous greedy layout for feature/* and friends.
         let sortedLanes = lanes.sorted {
+            let aRank = $0.initialRefName.flatMap(Self.priorityRank(forName:)) ?? Int.max
+            let bRank = $1.initialRefName.flatMap(Self.priorityRank(forName:)) ?? Int.max
+            if aRank != bRank { return aRank < bRank }
             if $0.startRow != $1.startRow { return $0.startRow < $1.startRow }
             return $0.id < $1.id
         }
