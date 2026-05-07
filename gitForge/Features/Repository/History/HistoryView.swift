@@ -17,6 +17,17 @@ struct HistoryView: View {
         ]
     )
 
+    @AppStorage("gitForge.history.diffPaneHeight") private var diffPaneHeightRaw: Double = 280
+    private static let collapsedThreshold: CGFloat = 80
+    private static let defaultDiffHeight: CGFloat = 280
+
+    private var diffPaneHeight: Binding<CGFloat> {
+        Binding(
+            get: { CGFloat(diffPaneHeightRaw) },
+            set: { diffPaneHeightRaw = Double($0) }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ContentHeader(title: "History") {
@@ -153,15 +164,23 @@ struct HistoryView: View {
                     viewModel.selectedCommitFile = path
                 }
             }
+            .frame(maxHeight: .infinity)
+            RowDragHandle(height: diffPaneHeight, minHeight: 36, maxHeight: 800)
             DiffPane(
                 file: viewModel.selectedCommitFile,
                 hunks: viewModel.commitFileDiff,
                 loading: viewModel.loadingCommitFileDiff,
                 viewMode: $diffMode
             )
-            .frame(height: DesignTokens.Detail.diffPaneHeight)
+            .frame(height: diffPaneHeight.wrappedValue)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: viewModel.selectedCommitFile) { _, newFile in
+            guard newFile != nil, diffPaneHeight.wrappedValue < Self.collapsedThreshold else { return }
+            withAnimation(.easeOut(duration: 0.18)) {
+                diffPaneHeight.wrappedValue = Self.defaultDiffHeight
+            }
+        }
     }
 
     private var detailColumn: some View {

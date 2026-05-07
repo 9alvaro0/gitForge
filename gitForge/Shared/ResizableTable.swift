@@ -36,6 +36,38 @@ struct ColumnDragHandle: View {
     }
 }
 
+/// Horizontal divider you drag vertically to resize the height of the pane
+/// BELOW the handle (e.g. the diff pane below the History table). Drag up =
+/// pane grows, drag down = pane shrinks.
+struct RowDragHandle: View {
+    @Binding var height: CGFloat
+    var minHeight: CGFloat = 60
+    var maxHeight: CGFloat = 800
+
+    @State private var startHeight: CGFloat?
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        Color.clear
+            .frame(height: 8)
+            .overlay(Rectangle().fill(theme.palette.lineStrong).frame(height: 1))
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onChanged { value in
+                        let base = startHeight ?? height
+                        if startHeight == nil { startHeight = height }
+                        // Handle is at the TOP of the resizable pane: drag up
+                        // (negative dy) = pane gets taller.
+                        let new = base - value.translation.height
+                        height = min(max(minHeight, new), maxHeight)
+                    }
+                    .onEnded { _ in startHeight = nil }
+            )
+            .pointerStyle(.rowResize)
+    }
+}
+
 /// Persisted column widths for a table, keyed by stable column ID. Values
 /// auto-save to `UserDefaults` whenever they change. Use one model per table.
 @Observable

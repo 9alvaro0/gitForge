@@ -58,18 +58,89 @@ struct DiffPane: View {
                 .foregroundStyle(theme.palette.fg3)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(hunks) { hunk in
-                        hunkHeader(hunk)
-                        ForEach(hunk.lines) { line in
-                            DiffRow(line: line)
+            switch viewMode {
+            case .unified: unifiedContent
+            case .split:   splitContent
+            }
+        }
+    }
+
+    private var unifiedContent: some View {
+        ScrollView([.vertical, .horizontal]) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(hunks) { hunk in
+                    hunkHeader(hunk)
+                    ForEach(hunk.lines) { line in
+                        DiffRow(line: line)
+                    }
+                }
+            }
+            .frame(minWidth: 1, alignment: .leading)
+        }
+    }
+
+    /// Side-by-side diff. `removed`+`context` on the left, `added`+`context`
+    /// on the right, with consecutive removed / added groups paired so the
+    /// changed lines align horizontally. Shorter side gets blank rows.
+    private var splitContent: some View {
+        ScrollView([.vertical, .horizontal]) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(hunks) { hunk in
+                    hunkHeader(hunk)
+                    ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
+                        HStack(spacing: 0) {
+                            DiffSplitCell(line: row.left, side: .left)
+                            Rectangle().fill(theme.palette.line).frame(width: 1)
+                            DiffSplitCell(line: row.right, side: .right)
                         }
                     }
                 }
-                .frame(minWidth: 1, alignment: .leading)
+            }
+            .frame(minWidth: 1, alignment: .leading)
+        }
+    }
+
+    /// Pair consecutive `removed` runs with `added` runs so changed lines
+    /// align side-by-side; pad the shorter run with blanks.
+    private func splitRows(for hunk: DiffHunk) -> [SplitRow] {
+        var out: [SplitRow] = []
+        var pendingRemoved: [DiffLine] = []
+        var pendingAdded: [DiffLine] = []
+
+        func flush() {
+            let count = max(pendingRemoved.count, pendingAdded.count)
+            for i in 0..<count {
+                out.append(SplitRow(
+                    left:  i < pendingRemoved.count ? pendingRemoved[i] : nil,
+                    right: i < pendingAdded.count   ? pendingAdded[i]   : nil
+                ))
+            }
+            pendingRemoved.removeAll()
+            pendingAdded.removeAll()
+        }
+
+        for line in hunk.lines {
+            switch line.kind {
+            case .context:
+                flush()
+                out.append(SplitRow(left: line, right: line))
+            case .removed:
+                pendingRemoved.append(line)
+            case .added:
+                pendingAdded.append(line)
+            case .noNewline:
+                // Marker — show on whichever side just had content.
+                flush()
+                out.append(SplitRow(left: line, right: line))
             }
         }
+        flush()
+        return out
+    }
+
+    private struct SplitRow {
+        let left: DiffLine?
+        let right: DiffLine?
     }
 
     @ViewBuilder
@@ -142,6 +213,92 @@ private struct DiffRow: View {
         }
     }
     private var rowBackground: Color {
+        switch line.kind {
+        case .added:   return theme.palette.addSoft
+        case .removed: return theme.palette.delSoft
+        default:       return .clear
+        }
+    }
+}
+
+private struct DiffSplitCell: View {
+    enum Side { case left, right }
+
+    let line: DiffLine?
+    let side: Side
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            lineNumber
+            Text(sign)
+                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
+                .frame(width: 18)
+                .foregroundStyle(signColor)
+            Text(displayContent)
+                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
+                .foregroundStyle(textColor)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.trailing, 14)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(background)
+    }
+
+    @ViewBuilder
+    private var lineNumber: some View {
+        let number: Int? = {
+            guard let line else { return nil }
+            return side == .left ? line.oldLineNumber : line.newLineNumber
+        }()
+        Text(number.map(String.init) ?? "")
+            .font(AppFont.mono(11, family: theme.monoFont))
+            .foregroundStyle(theme.palette.fg4)
+            .frame(width: 44, alignment: .trailing)
+            .padding(.horizontal, 8)
+    }
+
+    private var displayContent: String {
+        guard let line, !line.content.isEmpty else { return " " }
+        return line.content
+    }
+
+    private var sign: String {
+        guard let line else { return " " }
+        switch line.kind {
+        case .added:    return side == .right ? "+" : " "
+        case .removed:  return side == .left  ? "−" : " "
+        case .context:  return " "
+        case .noNewline: return "\\"
+        }
+    }
+
+    private var signColor: Color {
+        guard let line else { return .clear }
+        switch line.kind {
+        case .added:    return theme.palette.add
+        case .removed:  return theme.palette.del
+        case .context:  return theme.palette.fg3
+        case .noNewline: return theme.palette.fg3
+        }
+    }
+
+    private var textColor: Color {
+        guard let line else { return .clear }
+        switch line.kind {
+        case .added:   return theme.palette.add
+        case .removed: return theme.palette.del
+        default:       return theme.palette.fg2
+        }
+    }
+
+    /// Standard split-diff convention: nil cells render as a muted gray
+    /// "this line doesn't exist here" indicator — subtler than tinting them
+    /// like a change so the actual changes still pop.
+    private var background: Color {
+        guard let line else { return theme.palette.bg3.opacity(0.5) }
         switch line.kind {
         case .added:   return theme.palette.addSoft
         case .removed: return theme.palette.delSoft
