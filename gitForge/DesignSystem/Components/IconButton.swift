@@ -14,6 +14,7 @@ struct IconButton<Content: View>: View {
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm).fill(hovering ? theme.palette.bg3 : .clear))
                 .foregroundStyle(hovering ? theme.palette.fg1 : theme.palette.fg3)
+                .contentShape(.rect(cornerRadius: DesignTokens.Radius.sm))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }

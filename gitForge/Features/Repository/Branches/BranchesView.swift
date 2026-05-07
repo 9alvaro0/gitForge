@@ -351,7 +351,7 @@ private struct BranchSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Text(title.uppercased())
                     .font(.system(size: 11, weight: .semibold))
@@ -361,21 +361,35 @@ private struct BranchSection: View {
                     .font(.system(size: 11))
                     .foregroundStyle(theme.palette.fg3)
             }
+            .padding(.leading, 2)
             if refs.isEmpty {
                 Text("No branches.")
                     .font(AppFont.sans(12))
                     .foregroundStyle(theme.palette.fg3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                    .background(card)
             } else {
-                tableHeader
                 VStack(spacing: 0) {
+                    tableHeader
                     ForEach(flatRows) { row in
                         renderFlatRow(row)
                     }
                 }
+                .background(card)
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg))
             }
         }
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: 1))
+    }
+
+    private var card: some View {
+        RoundedRectangle(cornerRadius: DesignTokens.Radius.lg)
+            .fill(theme.palette.bg3)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.lg)
+                    .stroke(theme.palette.lineStrong, lineWidth: 1)
+            )
     }
 
     private var tableHeader: some View {
@@ -390,8 +404,8 @@ private struct BranchSection: View {
         .foregroundStyle(theme.palette.fg3)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(theme.palette.bg2)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .background(theme.palette.bg4)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
     }
 
     @ViewBuilder
@@ -424,7 +438,7 @@ private struct BranchSection: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            .contentShape(.rect)
             .background(.clear)
         }
         .buttonStyle(.plain)
@@ -442,7 +456,7 @@ private struct BranchSection: View {
                 Color.clear.frame(width: 6, height: 6)
             }
             HStack(spacing: 6) {
-                GFIcon(kind: .branch, size: 12, stroke: theme.palette.fg2)
+                GFIcon(kind: ref.isRemoteBranch ? .cloud : .desktop, size: 12, stroke: theme.palette.fg2)
                 Text(leafName)
                     .font(AppFont.mono(12, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
@@ -494,6 +508,11 @@ private struct BranchSection: View {
         .padding(.vertical, 6)
         .background(isCurrent ? theme.palette.accent.opacity(0.06) : .clear)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .contentShape(.rect)
+        .onTapGesture(count: 2) {
+            guard !isCurrent else { return }
+            onCheckout(ref)
+        }
     }
 
     /// Local branches usable as a merge target, excluding `excluded` and the
@@ -545,7 +564,7 @@ private struct TagsSection: View {
                         Button("Delete…", role: .destructive) { onDelete(tag) }
                     } label: {
                         HStack(spacing: 5) {
-                            GFIcon(kind: .diamond, size: 10, stroke: theme.palette.mod)
+                            GFIcon(kind: .tag, size: 10, stroke: theme.palette.mod)
                             Text(tag.name).font(AppFont.mono(11.5, family: theme.monoFont))
                         }
                         .foregroundStyle(theme.palette.mod)

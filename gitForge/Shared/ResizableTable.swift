@@ -4,14 +4,19 @@ import SwiftUI
 /// the standard column-resize cursor; the bound `width` is clamped between
 /// `minWidth` and `maxWidth` while dragging.
 ///
-/// Each handle controls the column to its LEFT — neighbours stay put, like
-/// every native table on macOS. `onCommit` fires on drag-end so callers can
-/// defer expensive work (UserDefaults writes) until the user lets go,
-/// instead of paying that cost on every frame of the drag.
+/// By default each handle controls the column to its LEFT — neighbours stay
+/// put, like every native table on macOS. Set `inverted: true` when the
+/// handle sits at the LEADING edge of the column it resizes (e.g. the right
+/// detail panel in History): drag right then shrinks it instead of growing it.
+/// `onCommit` fires on drag-end so callers can defer expensive work
+/// (UserDefaults writes) until the user lets go, instead of paying that cost
+/// on every frame of the drag.
 struct ColumnDragHandle: View {
     @Binding var width: CGFloat
     var minWidth: CGFloat = 40
     var maxWidth: CGFloat = 1200
+    var inverted: Bool = false
+    var dividerColor: Color?
     var onCommit: () -> Void = {}
 
     @State private var startWidth: CGFloat?
@@ -25,11 +30,11 @@ struct ColumnDragHandle: View {
             .frame(width: 8)
             .overlay(
                 Rectangle()
-                    .fill(theme.palette.line)
+                    .fill(dividerColor ?? theme.palette.line)
                     .frame(width: 1)
                     .allowsHitTesting(false)
             )
-            .contentShape(Rectangle())
+            .contentShape(.rect)
             .gesture(
                 // `.global` keeps translation stable when the handle's frame
                 // moves during the drag (which it does, because the column it
@@ -40,7 +45,8 @@ struct ColumnDragHandle: View {
                     .onChanged { value in
                         let base = startWidth ?? width
                         if startWidth == nil { startWidth = width }
-                        let new = base + value.translation.width
+                        let delta = inverted ? -value.translation.width : value.translation.width
+                        let new = base + delta
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -77,7 +83,7 @@ struct RowDragHandle: View {
                     .frame(height: 1)
                     .allowsHitTesting(false)
             )
-            .contentShape(Rectangle())
+            .contentShape(.rect)
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in

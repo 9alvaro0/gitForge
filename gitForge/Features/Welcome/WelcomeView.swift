@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Empty-state shown when no repository is active. Lives in the redesigned
 /// shell, alongside the rest of the section views.
@@ -62,8 +63,18 @@ struct WelcomeView: View {
                         .padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
                         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+                        .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button("Reveal in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([repo.url])
+                        }
+                        Divider()
+                        Button("Remove from Recents", role: .destructive) {
+                            Task { await appState.removeFromRecents(repo.url) }
+                        }
+                    }
                 }
             }
             .frame(maxWidth: 480)

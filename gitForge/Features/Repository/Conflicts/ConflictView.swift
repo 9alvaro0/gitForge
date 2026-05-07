@@ -110,6 +110,7 @@ struct ConflictView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 5).fill(file.path == viewModel.selectedConflictPath ? theme.palette.bg4 : .clear))
+            .contentShape(.rect(cornerRadius: 5))
             .padding(.horizontal, 8)
         }
         .buttonStyle(.plain)
@@ -218,6 +219,7 @@ struct ConflictView: View {
             .overlay(alignment: .bottom) {
                 if isPicked { Rectangle().fill(theme.palette.accent).frame(height: 2) }
             }
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
     }

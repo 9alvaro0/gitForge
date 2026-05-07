@@ -109,7 +109,7 @@ struct CommandPaletteView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(isActive ? theme.palette.accentSoft : .clear))
-        .contentShape(Rectangle())
+        .contentShape(.rect)
     }
 
     private var footer: some View {

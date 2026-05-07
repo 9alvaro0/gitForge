@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// `.gf-view-clone` — Clone repository form + recent repos list. Talks to
-/// `AppState.cloneRepository` directly.
+/// `.gf-view-clone` — Clone repository form, "My repos" picker for GitHub/
+/// GitLab, and recent repos list. Talks to `AppState.startClone` /
+/// `cancelClone` and observes `cloneState` for live progress.
 struct CloneView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -9,6 +10,19 @@ struct CloneView: View {
     @State private var sourceURL: String = ""
     @State private var localPath: String = ""
     @State private var branch: String = ""
+    /// Tracks the most recent value produced by the autoderive so we can tell
+    /// whether the user has edited the path manually. If `localPath` no longer
+    /// matches `lastAutoDerived`, we stop overwriting it from URL changes.
+    @State private var lastAutoDerived: String = ""
+
+    @State private var sourceTab: SourceTab = .url
+
+    enum SourceTab: Hashable { case url, github, gitlab }
+
+    /// Last parent directory the user picked / cloned into. Persisted so the
+    /// next clone session pre-fills with the same parent and only the leaf
+    /// name changes — same UX as GitKraken/Sourcetree.
+    @AppStorage("gitForge.clone.lastParentDir") private var lastParentDir: String = ""
 
     private var repositories: [Repository] { appState.repositories }
     private var isCloning: Bool { appState.isCloning }
@@ -18,7 +32,8 @@ struct CloneView: View {
             ContentHeader(title: "Clone a repository")
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    cloneCard
+                    sourceTabs
+                    sourceTabContent
                     recentSection
                 }
                 .padding(18)
@@ -29,12 +44,105 @@ struct CloneView: View {
         .background(theme.palette.bg2)
     }
 
+    private var sourceTabs: some View {
+        SegmentedControl<SourceTab>(
+            [(.url, "URL"), (.github, "GitHub"), (.gitlab, "GitLab")],
+            selection: $sourceTab
+        )
+        .frame(maxWidth: 320, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var sourceTabContent: some View {
+        switch sourceTab {
+        case .url:
+            cloneCard
+        case .github:
+            VStack(alignment: .leading, spacing: 14) {
+                RemoteRepoPicker(provider: .github, availableHosts: hostsFor(.github)) { repo in
+                    selectRemoteRepo(repo)
+                }
+                if isCloning {
+                    cloningPanel
+                }
+            }
+            .frame(maxWidth: 560, alignment: .leading)
+        case .gitlab:
+            VStack(alignment: .leading, spacing: 14) {
+                RemoteRepoPicker(provider: .gitlab, availableHosts: hostsFor(.gitlab)) { repo in
+                    selectRemoteRepo(repo)
+                }
+                if isCloning {
+                    cloningPanel
+                }
+            }
+            .frame(maxWidth: 560, alignment: .leading)
+        }
+    }
+
+    /// Hosts in the Keychain that match `provider`'s naming heuristic, plus
+    /// the canonical default. Filters by substring (`github` / `gitlab`) so
+    /// self-hosted instances like `gitlab.example.com` show up automatically.
+    /// The default is appended so the user can still browse the public host
+    /// even when they only have tokens for self-hosted ones.
+    private func hostsFor(_ provider: RemoteProvider) -> [String] {
+        let needle: String = {
+            switch provider {
+            case .github: return "github"
+            case .gitlab: return "gitlab"
+            }
+        }()
+        let canonical: String = {
+            switch provider {
+            case .github: return "github.com"
+            case .gitlab: return "gitlab.com"
+            }
+        }()
+        let stored = RemoteCredentialsStore.shared.knownHosts()
+            .filter { $0.lowercased().contains(needle) }
+        // Put the canonical host last so users with a self-hosted token land
+        // on theirs by default — that's the one most likely to actually work.
+        var result = stored
+        if !result.contains(canonical) { result.append(canonical) }
+        return result
+    }
+
+    /// Filling the clone form from a remote repo row: prefer SSH if available
+    /// (matches what most devs have configured for push), otherwise HTTPS.
+    /// Switches to the URL tab so the user sees what's about to be cloned and
+    /// can tweak the path or branch before confirming.
+    private func selectRemoteRepo(_ repo: RemoteRepoSummary) {
+        sourceURL = repo.sshURL ?? repo.httpsURL
+        autofillPath(from: sourceURL)
+        sourceTab = .url
+    }
+
+    private var cloningPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if case let .running(stage, percent) = appState.cloneState {
+                progressRow(stage: stage, percent: percent)
+            }
+            HStack {
+                Spacer()
+                GFButton(title: "Cancel", style: .secondary) {
+                    appState.cancelClone()
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+    }
+
     private var cloneCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            field(label: "Source URL") {
+            field(label: "Source URL", hint: urlHint) {
                 GFTextField(placeholder: "git@github.com:owner/repo.git", text: $sourceURL)
+                    .onChange(of: sourceURL) { _, newValue in
+                        autofillPath(from: newValue)
+                    }
             }
-            field(label: "Local path") {
+            field(label: "Local path", hint: pathHint) {
                 HStack(spacing: 6) {
                     GFTextField(placeholder: "~/code/repo", text: $localPath)
                     GFButton(title: "Choose…") { Task { await pickPath() } }
@@ -43,18 +151,20 @@ struct CloneView: View {
             field(label: "Branch (optional)") {
                 GFTextField(placeholder: "default branch", text: $branch)
             }
+            if case let .running(stage, percent) = appState.cloneState {
+                progressRow(stage: stage, percent: percent)
+            }
             HStack(spacing: 8) {
-                if isCloning {
-                    ProgressView().controlSize(.small)
-                    Text("Cloning…")
-                        .font(AppFont.mono(11, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg2)
-                }
                 Spacer()
+                if isCloning {
+                    GFButton(title: "Cancel", style: .secondary) {
+                        appState.cancelClone()
+                    }
+                }
                 GFButton(title: isCloning ? "Cloning…" : "Clone",
                          style: .primary,
-                         disabled: isCloning || sourceURL.isEmpty || localPath.isEmpty) {
-                    Task { await clone() }
+                         disabled: isCloning || !canClone) {
+                    clone()
                 }
             }
             .padding(.top, 4)
@@ -66,13 +176,46 @@ struct CloneView: View {
     }
 
     @ViewBuilder
-    private func field<C: View>(label: String, @ViewBuilder content: () -> C) -> some View {
+    private func field<C: View>(label: String, hint: FieldHint? = nil, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(label)
-                .font(AppFont.sans(11, weight: .medium))
-                .foregroundStyle(theme.palette.fg3)
+            HStack(spacing: 6) {
+                Text(label)
+                    .font(AppFont.sans(11, weight: .medium))
+                    .foregroundStyle(theme.palette.fg3)
+                if let hint {
+                    Image(systemName: hint.kind.iconName)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(hint.kind.tint)
+                    Text(hint.message)
+                        .font(AppFont.sans(10.5))
+                        .foregroundStyle(hint.kind.tint)
+                        .lineLimit(1)
+                }
+            }
             content()
         }
+    }
+
+    private struct FieldHint {
+        enum Kind {
+            case ok, warn, bad
+            var iconName: String {
+                switch self {
+                case .ok:   return "checkmark.circle.fill"
+                case .warn: return "exclamationmark.triangle.fill"
+                case .bad:  return "xmark.octagon.fill"
+                }
+            }
+            var tint: Color {
+                switch self {
+                case .ok:   return .green
+                case .warn: return .orange
+                case .bad:  return .red
+                }
+            }
+        }
+        let kind: Kind
+        let message: String
     }
 
     private var recentSection: some View {
@@ -106,26 +249,103 @@ struct CloneView: View {
         }
     }
 
-    private func clone() async {
-        await appState.cloneRepository(
+    private func clone() {
+        // Persist the parent so next time we land on the same default.
+        let parent = (localPath as NSString).deletingLastPathComponent
+        if !parent.isEmpty { lastParentDir = parent }
+        appState.startClone(
             url: sourceURL,
             path: localPath,
             branch: branch.isEmpty ? nil : branch
         )
     }
 
+    @ViewBuilder
+    private func progressRow(stage: String, percent: Double) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(stage)
+                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.fg2)
+                Spacer()
+                Text("\(Int(percent * 100))%")
+                    .font(AppFont.mono(11, family: theme.monoFont).monospacedDigit())
+                    .foregroundStyle(theme.palette.fg2)
+            }
+            ProgressView(value: percent)
+                .progressViewStyle(.linear)
+                .tint(theme.palette.accent)
+        }
+        .padding(.top, 4)
+    }
+
     private func pickPath() async {
         guard let parent = await appState.pickDirectoryPath(prompt: "Choose parent directory") else { return }
+        lastParentDir = parent
         let leaf = inferRepoName(from: sourceURL) ?? "repo"
-        localPath = "\(parent)/\(leaf)"
+        let composed = "\(parent)/\(leaf)"
+        localPath = composed
+        lastAutoDerived = composed
     }
 
     private func inferRepoName(from url: String) -> String? {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let host = RemoteHost.parse(trimmed) { return host.repo }
         guard let last = trimmed.split(separator: "/").last else { return nil }
         var name = String(last)
         if name.hasSuffix(".git") { name.removeLast(4) }
         return name.isEmpty ? nil : name
+    }
+
+    /// Compute the path we'd suggest for `sourceURL` and apply it only if the
+    /// user hasn't manually edited the field — the sentinel `lastAutoDerived`
+    /// tells us "the value in the field is exactly what we put there last".
+    private func autofillPath(from url: String) {
+        guard let leaf = inferRepoName(from: url) else { return }
+        // Empty `lastParentDir` ≠ empty placeholder; only autofill when we
+        // have a parent to compose with, otherwise we'd suggest just the leaf.
+        let parent = lastParentDir.isEmpty
+            ? (NSString("~/code").expandingTildeInPath)
+            : lastParentDir
+        let composed = "\(parent)/\(leaf)"
+        if localPath.isEmpty || localPath == lastAutoDerived {
+            localPath = composed
+            lastAutoDerived = composed
+        }
+    }
+
+    // MARK: - Validation
+
+    private var urlHint: FieldHint? {
+        let trimmed = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+        if RemoteHost.parse(trimmed) != nil { return FieldHint(kind: .ok, message: "Recognized") }
+        // Looks like a git URL (ends in .git or contains :) but unknown host.
+        if trimmed.hasSuffix(".git") || trimmed.contains(":") || trimmed.hasPrefix("http") {
+            return FieldHint(kind: .warn, message: "Unknown host — clone may still work")
+        }
+        return FieldHint(kind: .bad, message: "Doesn't look like a git URL")
+    }
+
+    private var pathHint: FieldHint? {
+        let trimmed = localPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+        let expanded = (trimmed as NSString).expandingTildeInPath
+        if FileManager.default.fileExists(atPath: expanded) {
+            return FieldHint(kind: .bad, message: "Destination already exists")
+        }
+        let parent = (expanded as NSString).deletingLastPathComponent
+        if parent.isEmpty || !FileManager.default.fileExists(atPath: parent) {
+            return FieldHint(kind: .warn, message: "Parent will be created")
+        }
+        return FieldHint(kind: .ok, message: "Available")
+    }
+
+    private var canClone: Bool {
+        guard !sourceURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !localPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        if pathHint?.kind == .bad { return false }
+        return true
     }
 
     private func orgName(_ repo: Repository) -> String { repo.url.deletingLastPathComponent().lastPathComponent }

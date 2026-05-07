@@ -5,10 +5,10 @@ import SwiftUI
 struct RedesignedSidebar: View {
     let repositories: [Repository]
     let activeRepository: Repository?
-    let activeBranch: String?
-    let aheadCount: Int
-    let behindCount: Int
-    let dirtyCount: Int
+    /// Returns the live status for any repo. Parent decides whether to pull
+    /// from the active VM (instant) or from `AppState.repositoryStatuses`
+    /// (background-polled snapshot).
+    let statusFor: (Repository) -> RepoStatusSnapshot
     let activeSection: WorkspaceSection
     let unstagedBadge: Int
     let stashesBadge: Int
@@ -16,6 +16,10 @@ struct RedesignedSidebar: View {
     let conflictsBadge: Int
     let identity: GitIdentity
     let onSelectRepo: (Repository) -> Void
+    let onRemoveRepo: (Repository) -> Void
+    let onRevealRepo: (Repository) -> Void
+    let onOpenExisting: () -> Void
+    let onCloneNew: () -> Void
     let onSelectSection: (WorkspaceSection) -> Void
     let onOpenCommandPalette: () -> Void
 
@@ -30,18 +34,38 @@ struct RedesignedSidebar: View {
                         .padding(.top, 4)
                         .padding(.bottom, 8)
 
-                    SidebarSectionHeader(title: "Repositories")
+                    SidebarSectionHeader(title: "Repositories") {
+                        Menu {
+                            Button("Open existing…") { onOpenExisting() }
+                            Button("Clone new…") { onCloneNew() }
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(theme.palette.fg3)
+                                .frame(width: 16, height: 16)
+                                .contentShape(.rect)
+                        }
+                        .menuStyle(.button)
+                        .menuIndicator(.hidden)
+                        .buttonStyle(.plain)
+                        .fixedSize()
+                        .help("Add repository")
+                    }
                     VStack(spacing: 1) {
                         ForEach(repositories) { repo in
+                            let status = statusFor(repo)
                             SidebarRepoRow(
                                 repository: repo,
                                 org: orgName(for: repo),
-                                branch: activeRepository?.id == repo.id ? activeBranch : nil,
-                                ahead: activeRepository?.id == repo.id ? aheadCount : 0,
-                                behind: activeRepository?.id == repo.id ? behindCount : 0,
-                                dirty: activeRepository?.id == repo.id ? dirtyCount : 0,
+                                branch: status.branch,
+                                ahead: status.ahead,
+                                behind: status.behind,
+                                dirty: status.dirty,
+                                loaded: status.loaded,
                                 isCurrent: activeRepository?.id == repo.id,
-                                onSelect: { onSelectRepo(repo) }
+                                onSelect: { onSelectRepo(repo) },
+                                onRemove: { onRemoveRepo(repo) },
+                                onRevealInFinder: { onRevealRepo(repo) }
                             )
                         }
                     }
@@ -103,12 +127,19 @@ struct RedesignedSidebar: View {
     RedesignedSidebar(
         repositories: Repository.previewSamples,
         activeRepository: Repository.previewSamples.first,
-        activeBranch: "feat/commit-graph",
-        aheadCount: 7, behindCount: 1, dirtyCount: 3,
+        statusFor: { repo in
+            repo.id == Repository.previewSamples.first?.id
+                ? RepoStatusSnapshot(branch: "feat/commit-graph", dirty: 3, ahead: 7, behind: 1)
+                : RepoStatusSnapshot(branch: "main", dirty: 0, ahead: 0, behind: 0)
+        },
         activeSection: section,
         unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
         identity: GitIdentity(name: "Alvaro Guerra", email: "9alvaro0@gmail.com"),
         onSelectRepo: { _ in },
+        onRemoveRepo: { _ in },
+        onRevealRepo: { _ in },
+        onOpenExisting: {},
+        onCloneNew: {},
         onSelectSection: { section = $0 },
         onOpenCommandPalette: {}
     )

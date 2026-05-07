@@ -7,6 +7,7 @@ struct ToolButton<Icon: View>: View {
     var badge: Int? = nil
     var primary: Bool = false
     var disabled: Bool = false
+    var loading: Bool = false
     var action: () -> Void = {}
 
     @Environment(\.appTheme) private var theme
@@ -16,6 +17,7 @@ struct ToolButton<Icon: View>: View {
          badge: Int? = nil,
          primary: Bool = false,
          disabled: Bool = false,
+         loading: Bool = false,
          action: @escaping () -> Void = {},
          @ViewBuilder icon: () -> Icon) {
         self.icon = icon()
@@ -23,17 +25,22 @@ struct ToolButton<Icon: View>: View {
         self.badge = badge
         self.primary = primary
         self.disabled = disabled
+        self.loading = loading
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                icon
+                if loading {
+                    SpinnerGlyph(color: fg)
+                } else {
+                    icon
+                }
                 if let label {
                     Text(label).font(AppFont.sans(12))
                 }
-                if let badge, badge > 0 {
+                if let badge, badge > 0, !loading {
                     Text("\(badge)")
                         .font(AppFont.mono(10, family: theme.monoFont))
                         .padding(.horizontal, 5)
@@ -49,7 +56,7 @@ struct ToolButton<Icon: View>: View {
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .disabled(disabled)
+        .disabled(disabled || loading)
         .opacity(disabled ? 0.5 : 1)
         .onHover { hovering = $0 }
     }
@@ -81,10 +88,34 @@ extension ToolButton where Icon == GFIcon {
          badge: Int? = nil,
          primary: Bool = false,
          disabled: Bool = false,
+         loading: Bool = false,
          action: @escaping () -> Void = {}) {
-        self.init(label: label, badge: badge, primary: primary, disabled: disabled, action: action) {
+        self.init(label: label, badge: badge, primary: primary, disabled: disabled, loading: loading, action: action) {
             GFIcon(kind: kind, size: 14)
         }
+    }
+}
+
+/// 14×14 spinning arc that matches the toolbar icon footprint. Plays nicely
+/// with primary/secondary backgrounds because it inherits the foreground tint.
+struct SpinnerGlyph: View {
+    var color: Color = .primary
+    var size: CGFloat = 14
+    var lineWidth: CGFloat = 1.6
+
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.12, to: 0.92)
+            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(rotation))
+            .onAppear {
+                withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            }
     }
 }
 
@@ -95,6 +126,11 @@ extension ToolButton where Icon == GFIcon {
             ToolButton(.fetch, label: "Fetch") { }
             ToolButton(.pull,  label: "Pull",  badge: 1) { }
             ToolButton(.push,  label: "Push",  badge: 7, primary: true) { }
+        }
+        HStack {
+            ToolButton(.fetch, label: "Fetching", loading: true) { }
+            ToolButton(.pull,  label: "Pulling",  badge: 3, loading: true) { }
+            ToolButton(.push,  label: "Pushing",  badge: 7, primary: true, loading: true) { }
         }
         HStack {
             ToolButton(.plus, label: "New PR", primary: true) { }

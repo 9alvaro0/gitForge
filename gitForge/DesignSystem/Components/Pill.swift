@@ -40,9 +40,15 @@ struct StatusPills: View {
     let ahead: Int
     let behind: Int
     let dirty: Int
+    /// When false, renders a shimmer placeholder pill instead of "clean".
+    /// Avoids the false "clean" flash before the first status fetch lands.
+    var loaded: Bool = true
 
     var body: some View {
-        if ahead == 0 && behind == 0 && dirty == 0 {
+        if !loaded {
+            Pill(text: "···", kind: .neutral)
+                .skeleton(true)
+        } else if ahead == 0 && behind == 0 && dirty == 0 {
             Pill(text: "clean", kind: .clean)
         } else {
             HStack(spacing: 3) {

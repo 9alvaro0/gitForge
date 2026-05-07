@@ -7,10 +7,10 @@ import SwiftUI
 /// at the top during vertical scroll and slides with content during horizontal
 /// scroll (so the labels never desync from the columns below).
 ///
-/// Drag-handle convention: each handle sits on the LEFT edge of the column it
-/// controls. Drag right = that column widens. The previous column stays put
-/// width-wise; only the dragged column grows. This is the "every column has a
-/// handle on its leading side" convention the user's mental model expects.
+/// Drag-handle convention: each handle sits on the RIGHT (trailing) edge of
+/// the column it controls — Excel-style. Drag right = that column widens, the
+/// next column slides over. Every visible column has a handle including GRAPH
+/// and WHEN, so any boundary the eye lands on is draggable.
 struct CommitGraphTable: View {
     let commits: [Commit]
     let layouts: [GraphRowLayout]
@@ -24,6 +24,14 @@ struct CommitGraphTable: View {
     /// lanes need both endpoints visible to make sense).
     var isMatch: ((Commit) -> Bool)? = nil
     let onSelect: (String) -> Void
+    /// Triggered by a double-click on a commit row. Host views typically use it
+    /// to checkout the commit (or its enclosing local branch).
+    var onDoubleClick: ((String) -> Void)? = nil
+    /// Fired when a row appears in the viewport. Host wires it to
+    /// `RepositoryViewModel.loadMoreIfNeeded(currentItem:)` so reaching the
+    /// last loaded commit pulls in the next page. Without this hook the log
+    /// silently stops at `pageSize` even though `hasMore` is true.
+    var onAppear: ((Commit) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -31,31 +39,54 @@ struct CommitGraphTable: View {
         layouts.map(\.totalLanes).max() ?? 1
     }
     private var rowHeight: CGFloat { theme.density.rowHeight }
+    /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
     /// Grows with the number of simultaneously alive lanes so a wide history
-    /// (e.g. many parallel `release/*` branches) doesn't get crammed into a
-    /// fixed-width column. Floors at 110 to keep narrow histories looking the
-    /// same as before.
-    private var graphGutterWidth: CGFloat {
+    /// (e.g. many parallel `release/*` branches) is never cramped, and floors
+    /// at the column's static minimum so the user can still drag it tighter
+    /// than 110 when the history is single-lane.
+    private var dynamicGraphMin: CGFloat {
         let lanes = max(maxLanes, 1)
         let laneWidth: CGFloat = 14
         let leadingSpacer: CGFloat = 18
         let trailingPad: CGFloat = 8
-        return max(110, leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad)
+        let needed = leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad
+        return max(columns.minWidth("graph"), needed)
     }
 
-    /// Sum of every fixed-width piece in a row (gutter + the five resizable
-    /// columns + the four 8pt handle gaps + 36pt horizontal padding). When
-    /// the viewport is wider, a trailing Spacer absorbs the slack; when it's
-    /// narrower, ScrollView's horizontal axis takes over.
+    /// Effective rendered width of the GRAPH gutter. Honors the user's stored
+    /// preference but bumps up to `dynamicGraphMin` so lanes never overflow
+    /// into the next column when commits arrive.
+    private var graphGutterWidth: CGFloat {
+        max(columns.width("graph"), dynamicGraphMin)
+    }
+
+    /// Custom binding for the GRAPH handle that mirrors `graphGutterWidth` —
+    /// reads the effective (clamped) value so the handle visually starts where
+    /// the gutter actually is, and writes back through the same clamp so a
+    /// drag-left below `dynamicGraphMin` snaps the stored value to the floor
+    /// instead of silently sliding under it.
+    private var graphHandleBinding: Binding<CGFloat> {
+        let dynMin = dynamicGraphMin
+        let stored = columns.binding(for: "graph")
+        return Binding(
+            get: { max(stored.wrappedValue, dynMin) },
+            set: { stored.wrappedValue = max($0, dynMin) }
+        )
+    }
+
+    /// Sum of every fixed-width piece in a row (six resizable columns +
+    /// six 8pt handle gaps + 36pt horizontal padding). When the viewport is
+    /// wider, a trailing Spacer absorbs the slack; when it's narrower,
+    /// ScrollView's horizontal axis takes over.
     private var totalContentWidth: CGFloat {
-        graphGutterWidth
-            + columns.width("branchTag")
+        let columnsWidth: CGFloat = columns.width("branchTag")
             + columns.width("message")
             + columns.width("author")
             + columns.width("sha")
             + columns.width("when")
-            + (4 * 8)
-            + 36
+        let handleGaps: CGFloat = 6 * 8
+        let horizontalPadding: CGFloat = 36
+        return graphGutterWidth + columnsWidth + handleGaps + horizontalPadding
     }
 
     var body: some View {
@@ -82,11 +113,18 @@ struct CommitGraphTable: View {
                                 isSelected: commit.sha == selectedSha,
                                 dimmed: isMatch.map { !$0(commit) } ?? false,
                                 columns: columns,
-                                onSelect: { onSelect(commit.sha) }
+                                onSelect: { onSelect(commit.sha) },
+                                onDoubleClick: { onDoubleClick?(commit.sha) }
                             )
+                            .onAppear { onAppear?(commit) }
                         }
                     } header: {
-                        CommitTableHeader(gutterWidth: graphGutterWidth, columns: columns)
+                        CommitTableHeader(
+                            gutterWidth: graphGutterWidth,
+                            graphHandle: graphHandleBinding,
+                            graphMinWidth: dynamicGraphMin,
+                            columns: columns
+                        )
                     }
                 }
                 .frame(width: max(totalContentWidth, geo.size.width), alignment: .leading)
@@ -97,6 +135,8 @@ struct CommitGraphTable: View {
 
 private struct CommitTableHeader: View {
     let gutterWidth: CGFloat
+    let graphHandle: Binding<CGFloat>
+    let graphMinWidth: CGFloat
     let columns: ResizableTableModel
 
     @Environment(\.appTheme) private var theme
@@ -104,31 +144,34 @@ private struct CommitTableHeader: View {
     var body: some View {
         HStack(spacing: 0) {
             Text("GRAPH").frame(width: gutterWidth, alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "branchTag"),
-                             minWidth: columns.minWidth("branchTag"), maxWidth: 480,
+            ColumnDragHandle(width: graphHandle,
+                             minWidth: graphMinWidth, maxWidth: 600,
                              onCommit: { columns.commit() })
             Text("BRANCH / TAG")
                 .frame(width: columns.width("branchTag"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "message"),
-                             minWidth: columns.minWidth("message"), maxWidth: 1200,
+            ColumnDragHandle(width: columns.binding(for: "branchTag"),
+                             minWidth: columns.minWidth("branchTag"), maxWidth: 480,
                              onCommit: { columns.commit() })
             Text("MESSAGE")
                 .frame(width: columns.width("message"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "author"),
-                             minWidth: columns.minWidth("author"), maxWidth: 280,
+            ColumnDragHandle(width: columns.binding(for: "message"),
+                             minWidth: columns.minWidth("message"), maxWidth: 1200,
                              onCommit: { columns.commit() })
             Text("AUTHOR")
                 .frame(width: columns.width("author"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "sha"),
-                             minWidth: columns.minWidth("sha"), maxWidth: 200,
+            ColumnDragHandle(width: columns.binding(for: "author"),
+                             minWidth: columns.minWidth("author"), maxWidth: 280,
                              onCommit: { columns.commit() })
             Text("SHA")
                 .frame(width: columns.width("sha"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "when"),
-                             minWidth: columns.minWidth("when"), maxWidth: 160,
+            ColumnDragHandle(width: columns.binding(for: "sha"),
+                             minWidth: columns.minWidth("sha"), maxWidth: 200,
                              onCommit: { columns.commit() })
             Text("WHEN")
                 .frame(width: columns.width("when"), alignment: .trailing)
+            ColumnDragHandle(width: columns.binding(for: "when"),
+                             minWidth: columns.minWidth("when"), maxWidth: 160,
+                             onCommit: { columns.commit() })
             Spacer(minLength: 0)
         }
         .font(AppFont.mono(10.5, family: theme.monoFont))
@@ -182,6 +225,7 @@ private struct UncommittedRow: View {
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
+            Color.clear.frame(width: 8)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
@@ -202,8 +246,10 @@ private struct CommitRow: View {
     let dimmed: Bool
     let columns: ResizableTableModel
     let onSelect: () -> Void
+    let onDoubleClick: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var showHiddenRefs = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -235,6 +281,7 @@ private struct CommitRow: View {
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
+            Color.clear.frame(width: 8)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
@@ -244,7 +291,8 @@ private struct CommitRow: View {
             if isSelected { Rectangle().fill(theme.palette.accent).frame(width: 2) }
         }
         .opacity(dimmed ? 0.35 : 1)
-        .contentShape(Rectangle())
+        .contentShape(.rect)
+        .onTapGesture(count: 2, perform: onDoubleClick)
         .onTapGesture(perform: onSelect)
     }
 
@@ -299,19 +347,61 @@ private struct CommitRow: View {
         sortedRefs.count <= 2 ? sortedRefs : Array(sortedRefs.prefix(1))
     }
 
+    private var hiddenRefs: [GitRef] {
+        Array(sortedRefs.dropFirst(visibleRefs.count))
+    }
+
     private var overflowCount: Int? {
-        sortedRefs.count > 2 ? sortedRefs.count - 1 : nil
+        hiddenRefs.isEmpty ? nil : hiddenRefs.count
     }
 
     @ViewBuilder
     private func overflowPill(count: Int) -> some View {
-        Text("+\(count)")
-            .font(AppFont.mono(10.5, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg3)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 10).fill(theme.palette.bg3))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.palette.lineStrong, lineWidth: 1))
+        Button {
+            showHiddenRefs.toggle()
+        } label: {
+            Text("+\(count)")
+                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg3)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(showHiddenRefs ? theme.palette.bg4 : theme.palette.bg3)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(theme.palette.lineStrong, lineWidth: 1)
+                )
+                .contentShape(.rect(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering { showHiddenRefs = true }
+        }
+        .popover(isPresented: $showHiddenRefs, arrowEdge: .bottom) {
+            hiddenRefsPopover
+        }
+    }
+
+    private var hiddenRefsPopover: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(hiddenRefs.count) more")
+                .font(AppFont.sans(11, weight: .semibold))
+                .tracking(0.5)
+                .foregroundStyle(theme.palette.fg3)
+            ForEach(hiddenRefs) { ref in
+                BranchChip(
+                    name: ref.displayName,
+                    current: ref.isLocalBranch && ref.name == currentBranch,
+                    remote: ref.isRemoteBranch,
+                    tag: ref.isTag
+                )
+            }
+        }
+        .padding(12)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
     }
 
     private var messageColumn: some View {
@@ -345,6 +435,7 @@ private extension Array {
     @Previewable @State var columns = ResizableTableModel(
         id: "history.preview",
         columns: [
+            (id: "graph",     defaultWidth: 110, minWidth: 80),
             (id: "branchTag", defaultWidth: 220, minWidth: 80),
             (id: "message",   defaultWidth: 480, minWidth: 240),
             (id: "author",    defaultWidth: 130, minWidth: 80),

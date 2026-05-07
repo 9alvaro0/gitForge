@@ -8,8 +8,11 @@ struct SidebarRepoRow: View {
     let ahead: Int
     let behind: Int
     let dirty: Int
+    var loaded: Bool = true
     let isCurrent: Bool
     let onSelect: () -> Void
+    var onRemove: (() -> Void)? = nil
+    var onRevealInFinder: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
@@ -31,16 +34,26 @@ struct SidebarRepoRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                StatusPills(ahead: ahead, behind: behind, dirty: dirty)
+                StatusPills(ahead: ahead, behind: behind, dirty: dirty, loaded: loaded)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(height: DesignTokens.Sidebar.repoRow)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
+            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
             .padding(.horizontal, 6)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .contextMenu {
+            if let onRevealInFinder {
+                Button("Reveal in Finder", action: onRevealInFinder)
+            }
+            if let onRemove {
+                Divider()
+                Button("Remove from Recents", role: .destructive, action: onRemove)
+            }
+        }
     }
 
     private var rowBackground: Color {

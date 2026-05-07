@@ -4,12 +4,21 @@ extension GitCLI {
     private static let logSeparator = "\u{1F}"
     private static let logFormat = "%H\u{1F}%P\u{1F}%an\u{1F}%ae\u{1F}%aI\u{1F}%s"
 
-    func log(limit: Int = 200, skip: Int = 0) async throws -> [Commit] {
-        var args: [String] = ["log", "--all", "--topo-order", "--format=\(Self.logFormat)", "-n", String(limit)]
+    /// Loads commits visible in the graph. The default scope mirrors GitKraken's
+    /// out-of-the-box view: every local branch (`--branches`), the current HEAD
+    /// (covers detached states), and any stash commits the caller passes in via
+    /// `refs`. Remote-tracking refs and tags are intentionally excluded — pulling
+    /// those via `--all` is what made the layout engine allocate one column per
+    /// simultaneously open tip in dense histories.
+    /// Pass `refs: ["--branches", "HEAD", stashSha1, "origin/develop", ...]` to
+    /// override or extend the scope.
+    func log(limit: Int = 200, skip: Int = 0, refs: [String] = ["--branches", "HEAD"]) async throws -> [Commit] {
+        var args: [String] = ["log", "--topo-order", "--format=\(Self.logFormat)", "-n", String(limit)]
         if skip > 0 {
             args.append("--skip")
             args.append(String(skip))
         }
+        args.append(contentsOf: refs)
         let result = try await run(args)
         return Self.parseLog(result.stdout)
     }
