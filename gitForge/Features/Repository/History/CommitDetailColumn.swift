@@ -83,7 +83,7 @@ struct CommitDetailColumn: View {
                     .foregroundStyle(theme.palette.fg3)
             }
             if let detail {
-                VStack(spacing: 1) {
+                LazyVStack(spacing: 1) {
                     ForEach(detail.files) { f in
                         FileMiniRow(file: f, isActive: viewModel.selectedCommitFile == f.path) {
                             viewModel.selectedCommitFile = f.path

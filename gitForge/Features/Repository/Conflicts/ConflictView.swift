@@ -69,40 +69,50 @@ struct ConflictView: View {
                     .font(AppFont.sans(12))
                     .foregroundStyle(theme.palette.fg3)
                     .padding(14)
-            }
-            ForEach(files) { file in
-                Button(action: { Task { await viewModel.loadConflictHunks(for: file.path) } }) {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            Circle().fill((file.resolved ? theme.palette.ok : theme.palette.del).opacity(0.18))
-                            Text(file.resolved ? "✓" : "!")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(file.resolved ? theme.palette.ok : theme.palette.del)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(files) { file in
+                            conflictFileRow(file)
                         }
-                        .frame(width: 18, height: 18)
-                        Text(file.path)
-                            .font(AppFont.mono(11, family: theme.monoFont))
-                            .foregroundStyle(file.resolved ? theme.palette.fg3 : theme.palette.fg1)
-                            .strikethrough(file.resolved)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Text("\(file.conflicts)")
-                            .font(AppFont.mono(11, family: theme.monoFont))
-                            .foregroundStyle(theme.palette.fg3)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(file.path == viewModel.selectedConflictPath ? theme.palette.bg4 : .clear))
-                    .padding(.horizontal, 8)
                 }
-                .buttonStyle(.plain)
             }
-            Spacer()
         }
         .frame(width: DesignTokens.Conflict.filesWidth)
         .background(theme.palette.bg1)
         .overlay(alignment: .trailing) { Rectangle().fill(theme.palette.lineStrong).frame(width: 1) }
+    }
+
+    @ViewBuilder
+    private func conflictFileRow(_ file: ConflictFile) -> some View {
+        Button(action: { Task { await viewModel.loadConflictHunks(for: file.path) } }) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle().fill((file.resolved ? theme.palette.ok : theme.palette.del).opacity(0.18))
+                    Text(file.resolved ? "✓" : "!")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(file.resolved ? theme.palette.ok : theme.palette.del)
+                }
+                .frame(width: 18, height: 18)
+                Text(file.path)
+                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .foregroundStyle(file.resolved ? theme.palette.fg3 : theme.palette.fg1)
+                    .strikethrough(file.resolved)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text("\(file.conflicts)")
+                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.fg3)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 5).fill(file.path == viewModel.selectedConflictPath ? theme.palette.bg4 : .clear))
+            .padding(.horizontal, 8)
+        }
+        .buttonStyle(.plain)
     }
 
     private var hunksColumn: some View {

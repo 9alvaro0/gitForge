@@ -33,27 +33,25 @@ struct StagingView: View {
 
     private var filesColumn: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                fileSectionHeader(title: "Staged", count: staged.count, action: "Unstage all") {
-                    Task { await viewModel.unstage(staged) }
-                }
-                if staged.isEmpty {
-                    Text("Nothing staged")
-                        .font(AppFont.sans(12))
-                        .foregroundStyle(theme.palette.fg3)
-                        .italic()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                } else {
-                    ForEach(staged) { f in
-                        StagingRow(file: f, viewModel: viewModel)
-                    }
-                }
-            }
-            Divider().background(theme.palette.line)
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
+                    fileSectionHeader(title: "Staged", count: staged.count, action: "Unstage all") {
+                        Task { await viewModel.unstage(staged) }
+                    }
+                    if staged.isEmpty {
+                        Text("Nothing staged")
+                            .font(AppFont.sans(12))
+                            .foregroundStyle(theme.palette.fg3)
+                            .italic()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                    } else {
+                        ForEach(staged) { f in
+                            StagingRow(file: f, viewModel: viewModel)
+                        }
+                    }
+                    Divider().background(theme.palette.line)
                     fileSectionHeader(title: "Unstaged", count: unstaged.count, action: "Stage all") {
                         Task { await viewModel.stage(unstaged) }
                     }

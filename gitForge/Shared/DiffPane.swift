@@ -102,7 +102,8 @@ private struct DiffRow: View {
             Text(line.content.isEmpty ? " " : line.content)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
                 .foregroundStyle(textColor)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, 14)
         }
         .background(rowBackground)
