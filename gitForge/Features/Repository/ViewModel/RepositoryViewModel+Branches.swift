@@ -25,6 +25,20 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Checkout a raw SHA — yields a detached HEAD. Use `checkoutBranch(_:)`
+    /// when a local branch already points at the commit so the user lands on
+    /// a named branch instead.
+    func checkoutCommit(_ sha: String) async -> Result<Void, Error> {
+        do {
+            try await cli.checkout(branch: sha)
+            await refreshAfterRefMutation(reloadLog: true)
+            return .success(())
+        } catch {
+            Self.logger.error("Failed to checkout commit \(sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return .failure(error)
+        }
+    }
+
     func deleteBranch(_ ref: GitRef, force: Bool = false) async -> Result<Void, Error> {
         do {
             try await cli.deleteBranch(ref.name, force: force)

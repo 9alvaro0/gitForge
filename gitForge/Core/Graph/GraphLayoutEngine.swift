@@ -22,6 +22,9 @@ enum GraphLayoutEngine {
         /// opened. Used to pin gitflow trunks (main, develop, release/*) to
         /// stable leftmost columns.
         let initialRefName: String?
+        /// True when the lane originates from a stash commit. Propagates into
+        /// `LaneOccupation.isStash` so the renderer can draw it dashed.
+        let isStash: Bool
         var endRow: Int  // resolved by end of Pass 1; defaults to last row if still open
     }
 
@@ -29,14 +32,14 @@ enum GraphLayoutEngine {
     /// existing greedy assignment for non-trunk lanes. Order matches a typical
     /// gitflow read: trunk (main/master) first, then develop, then release
     /// branches, then trunk-equivalent legacy names.
-    private static let priorityPatterns: [(matcher: (String) -> Bool, rank: Int)] = [
+    nonisolated(unsafe) private static let priorityPatterns: [(matcher: (String) -> Bool, rank: Int)] = [
         ({ $0 == "main" || $0 == "master" }, 0),
         ({ $0 == "develop" || $0 == "dev"  }, 1),
         ({ $0.hasPrefix("release/")        }, 2),
         ({ $0 == "trunk"                   }, 3),
     ]
 
-    private static func priorityRank(forName name: String) -> Int? {
+    nonisolated static func priorityRank(forName name: String) -> Int? {
         priorityPatterns.first { $0.matcher(name) }?.rank
     }
 
@@ -52,7 +55,13 @@ enum GraphLayoutEngine {
     /// Computes per-row graph layout for an ordered list of commits (newest first, the
     /// order `git log --topo-order` emits). When `refsBySha` is provided, lanes derive
     /// their `branchId` from the ref's folder prefix so sibling branches share a color.
-    static func layouts(for commits: [Commit], refsBySha: [String: [GitRef]] = [:]) -> (rows: [GraphRowLayout], maxLanes: Int) {
+    /// `stashShas` marks lanes opened directly at a stash commit so the renderer can
+    /// draw them dashed.
+    static func layouts(
+        for commits: [Commit],
+        refsBySha: [String: [GitRef]] = [:],
+        stashShas: Set<String> = []
+    ) -> (rows: [GraphRowLayout], maxLanes: Int) {
         guard !commits.isEmpty else { return ([], 1) }
 
         // ── Pass 1 ─────────────────────────────────────────────────────────────
@@ -83,6 +92,7 @@ enum GraphLayoutEngine {
                 branchId: branchId,
                 startRow: startRow,
                 initialRefName: initialRef?.displayName,
+                isStash: stashShas.contains(currentSha),
                 endRow: -1
             ))
             laneCurrentSha[id] = currentSha
@@ -130,9 +140,18 @@ enum GraphLayoutEngine {
                 closeLane(primaryLaneId, atRow: rowIdx)
             }
 
+            // Stash commits have 2-3 parents (HEAD-when-stashed, index tree, optional
+            // untracked tree). Only `parent[0]` is meaningful for the graph — the
+            // others are ephemeral trees with no shared ancestry, so opening lanes
+            // for them produces dangling "ghost branches" that look broken. Treat
+            // a stash as if it were linear (single-parent) for layout purposes,
+            // which is how GitKraken/Fork render them.
+            let isStashCommit = stashShas.contains(commit.sha)
+            let extraParents = isStashCommit ? [] : Array(commit.parentShas.dropFirst())
+
             // Additional parents: reuse a lane already pointing at the parent, or open a new one.
             var mergesOutIds: [Int] = []
-            for parent in commit.parentShas.dropFirst() {
+            for parent in extraParents {
                 if let existing = laneCurrentSha.first(where: { $0.value == parent })?.key {
                     mergesOutIds.append(existing)
                 } else {
@@ -147,13 +166,17 @@ enum GraphLayoutEngine {
 
             let lanesAtBottomIds = laneCurrentSha.keys.sorted()
 
+            // A stash is *technically* a merge (2-3 parents) but visually we want
+            // it to read as a single-point side note, not a merge node — the hollow
+            // merge dot would compete with the distinct stash glyph the renderer
+            // draws.
             rowSlots.append(RowSlots(
                 commitLaneId: primaryLaneId,
                 lanesAtTopIds: lanesAtTopIds,
                 lanesAtBottomIds: lanesAtBottomIds,
                 mergesInIds: mergesInIds,
                 mergesOutIds: mergesOutIds,
-                isMerge: commit.parentShas.count > 1
+                isMerge: !isStashCommit && commit.parentShas.count > 1
             ))
         }
 
@@ -209,16 +232,27 @@ enum GraphLayoutEngine {
         graphRows.reserveCapacity(commits.count)
         var maxLanes = 1
 
+        func priorityRank(forLaneId id: Int) -> Int? {
+            lanes[id].initialRefName.flatMap(Self.priorityRank(forName:))
+        }
+
         func occupations(_ ids: [Int]) -> [LaneOccupation] {
             ids.compactMap { id in
                 guard let col = laneColumn[id] else { return nil }
-                return LaneOccupation(lane: col, branchId: lanes[id].branchId)
+                return LaneOccupation(
+                    lane: col,
+                    branchId: lanes[id].branchId,
+                    priorityRank: priorityRank(forLaneId: id),
+                    isStash: lanes[id].isStash
+                )
             }
         }
 
         for slots in rowSlots {
             guard let commitLane = laneColumn[slots.commitLaneId] else { continue }
             let commitBranchId = lanes[slots.commitLaneId].branchId
+            let commitPriorityRank = priorityRank(forLaneId: slots.commitLaneId)
+            let commitIsStash = lanes[slots.commitLaneId].isStash
 
             let lanesAtTop = occupations(slots.lanesAtTopIds)
             let lanesAtBottom = occupations(slots.lanesAtBottomIds)
@@ -241,7 +275,9 @@ enum GraphLayoutEngine {
                 mergesIn: mergesIn,
                 mergesOut: mergesOut,
                 totalLanes: totalLanes,
-                isMerge: slots.isMerge
+                isMerge: slots.isMerge,
+                commitPriorityRank: commitPriorityRank,
+                commitIsStash: commitIsStash
             ))
         }
 

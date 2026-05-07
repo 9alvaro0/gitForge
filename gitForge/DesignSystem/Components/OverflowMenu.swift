@@ -19,7 +19,7 @@ struct OverflowMenu<Content: View>: View {
                 GFIcon(kind: .more, size: 14, stroke: hovering ? theme.palette.fg1 : theme.palette.fg3)
             }
             .frame(width: 26, height: 26)
-            .contentShape(Rectangle())
+            .contentShape(.rect)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)

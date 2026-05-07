@@ -20,11 +20,35 @@ final class RepositoryViewModel {
     var hasMore = true
     var loadError: String?
 
-    var selectedCommitId: Commit.ID?
+    var selectedCommitId: Commit.ID? {
+        didSet {
+            guard oldValue != selectedCommitId else { return }
+            selectedCommitFile = nil
+            commitFileDiff = []
+            guard
+                let id = selectedCommitId,
+                let commit = commits.first(where: { $0.id == id })
+            else { return }
+            Task { await selectFirstFile(for: commit) }
+        }
+    }
 
     // MARK: Detail
     var detailCache: [String: CommitDetail] = [:]
     var loadingDetailFor: String?
+
+    /// Auto-selects the first changed file once the detail is available so the
+    /// diff pane reflects the freshly clicked commit instead of keeping the
+    /// previous selection.
+    private func selectFirstFile(for commit: Commit) async {
+        let loaded = await detail(for: commit)
+        guard
+            selectedCommitId == commit.id,
+            selectedCommitFile == nil,
+            let path = loaded?.files.first?.path
+        else { return }
+        selectedCommitFile = path
+    }
 
     // MARK: Refs / branches / stashes
     var refs: [GitRef] = []
@@ -38,6 +62,11 @@ final class RepositoryViewModel {
     // MARK: Working copy
     var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
     var isLoadingStatus = false
+    /// `false` until the first `refreshStatus()` completes for this VM.
+    /// Lets the UI distinguish "never loaded" from "loaded and clean", so
+    /// the Changes view doesn't briefly flash "Working tree is clean"
+    /// during the initial load chain (loadInitial → loadRefs → refreshStatus).
+    var hasLoadedStatusOnce = false
     var commitSubject: String = ""
     var commitBody: String = ""
     var amendMode: Bool = false {
@@ -91,6 +120,24 @@ final class RepositoryViewModel {
     var aheadCount: Int = 0
     var behindCount: Int = 0
     var lastFetchedAt: Date?
+
+    // MARK: Pull / merge requests
+    var pullRequests: [PullRequest] = []
+    var pullRequestsHost: RemoteHost?
+    var pullRequestsLoading: Bool = false
+    var pullRequestsError: String?
+    /// Set when the host is detected but no token is configured. Drives the
+    /// "Connect a host" empty state in `PullsView`.
+    var pullRequestsRequiresToken: Bool = false
+    var pullRequestsLastLoadedAt: Date?
+
+    // Detail (drives PullRequestDetailView)
+    var selectedPullRequest: PullRequest?
+    var pullRequestDetail: PullRequestDetail?
+    var pullRequestCommits: [PullRequestCommit] = []
+    var pullRequestFiles: [PullRequestFileChange] = []
+    var pullRequestDetailLoading: Bool = false
+    var pullRequestDetailError: String?
 
     // MARK: Conflicts
     var mergeState: MergeState = .clean

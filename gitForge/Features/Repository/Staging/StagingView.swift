@@ -19,6 +19,13 @@ struct StagingView: View {
     private var staged: [WorkingCopyFile]   { viewModel.status.stagedFiles }
     private var unstaged: [WorkingCopyFile] { viewModel.status.unstagedFiles }
 
+    /// True while the first status fetch is pending OR a subsequent one is
+    /// running. Lets the UI show a skeleton instead of a misleading "clean"
+    /// state during the initial `loadInitial → loadRefs → refreshStatus` chain.
+    private var statusLoading: Bool {
+        viewModel.isLoadingStatus || !viewModel.hasLoadedStatusOnce
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ContentHeader(title: "Changes") {
@@ -41,29 +48,33 @@ struct StagingView: View {
     private var filesColumn: some View {
         VStack(spacing: 0) {
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    fileSectionHeader(title: "Staged", count: staged.count, action: "Unstage all") {
-                        Task { await viewModel.unstage(staged) }
-                    }
-                    if staged.isEmpty {
-                        Text("Nothing staged")
-                            .font(AppFont.sans(12))
-                            .foregroundStyle(theme.palette.fg3)
-                            .italic()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                    } else {
-                        ForEach(staged) { f in
+                if statusLoading && staged.isEmpty && unstaged.isEmpty {
+                    statusPlaceholder
+                } else {
+                    LazyVStack(spacing: 0) {
+                        fileSectionHeader(title: "Staged", count: staged.count, action: "Unstage all") {
+                            Task { await viewModel.unstage(staged) }
+                        }
+                        if staged.isEmpty {
+                            Text("Nothing staged")
+                                .font(AppFont.sans(12))
+                                .foregroundStyle(theme.palette.fg3)
+                                .italic()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                        } else {
+                            ForEach(staged) { f in
+                                StagingRow(file: f, viewModel: viewModel)
+                            }
+                        }
+                        Divider().background(theme.palette.line)
+                        fileSectionHeader(title: "Unstaged", count: unstaged.count, action: "Stage all") {
+                            Task { await viewModel.stage(unstaged) }
+                        }
+                        ForEach(unstaged) { f in
                             StagingRow(file: f, viewModel: viewModel)
                         }
-                    }
-                    Divider().background(theme.palette.line)
-                    fileSectionHeader(title: "Unstaged", count: unstaged.count, action: "Stage all") {
-                        Task { await viewModel.stage(unstaged) }
-                    }
-                    ForEach(unstaged) { f in
-                        StagingRow(file: f, viewModel: viewModel)
                     }
                 }
             }
@@ -72,6 +83,66 @@ struct StagingView: View {
         .frame(width: DesignTokens.Staging.filesWidth)
         .background(theme.palette.bg1)
         .overlay(alignment: .trailing) { Rectangle().fill(theme.palette.lineStrong).frame(width: 1) }
+    }
+
+    private static let placeholderPaths = [
+        "Sources/Features/Repository/Staging/StagingView.swift",
+        "Sources/Core/Git/GitCLI.swift",
+        "Sources/Core/Models/WorkingCopyFile.swift",
+        "Sources/DesignSystem/Components/Skeleton.swift",
+        "README.md",
+    ]
+
+    private var statusPlaceholder: some View {
+        LazyVStack(spacing: 0) {
+            placeholderSectionHeader(title: "Staged", count: 0)
+            ForEach(0..<2, id: \.self) { index in
+                placeholderRow(index: index)
+            }
+            Divider().background(theme.palette.line)
+            placeholderSectionHeader(title: "Unstaged", count: 0)
+            ForEach(2..<5, id: \.self) { index in
+                placeholderRow(index: index)
+            }
+        }
+        .skeleton(true)
+    }
+
+    @ViewBuilder
+    private func placeholderSectionHeader(title: String, count: Int) -> some View {
+        HStack {
+            HStack(spacing: 4) {
+                Text(title.uppercased())
+                    .font(AppFont.mono(10.5, family: theme.monoFont))
+                    .tracking(0.6)
+                Text("(0)")
+                    .font(AppFont.mono(10.5, family: theme.monoFont))
+            }
+            .foregroundStyle(theme.palette.fg3)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private func placeholderRow(index: Int) -> some View {
+        let path = Self.placeholderPaths[index % Self.placeholderPaths.count]
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(theme.palette.bg2)
+                .frame(width: 14, height: 14)
+            StatusTag(kind: .modified)
+            Text(path)
+                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg2)
+                .lineLimit(1)
+                .truncationMode(.head)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .frame(height: 26)
     }
 
     @ViewBuilder
@@ -92,6 +163,7 @@ struct StagingView: View {
                     .foregroundStyle(theme.palette.accent)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(RoundedRectangle(cornerRadius: 3).fill(.clear))
+                    .contentShape(.rect(cornerRadius: 3))
             }
             .buttonStyle(.plain)
         }
@@ -112,6 +184,8 @@ struct StagingView: View {
             } else if !staged.isEmpty || !unstaged.isEmpty {
                 EmptyState(icon: .diff, title: "Pick a file to see the diff",
                            subtitle: "Selection drives the right-hand pane.") { EmptyView() }
+            } else if statusLoading {
+                DiffPane(file: nil, hunks: [], loading: true, viewMode: diffMode)
             } else {
                 EmptyState(icon: .check, title: "Working tree is clean",
                            subtitle: "No changes to stage.") { EmptyView() }
@@ -185,10 +259,7 @@ private struct StagingRow: View {
             HStack(spacing: 8) {
                 Toggle("", isOn: Binding(
                     get: { file.isStaged },
-                    set: { _ in Task {
-                        if file.isStaged { await viewModel.unstage([file]) }
-                        else             { await viewModel.stage([file]) }
-                    } }
+                    set: { _ in Task { await toggleStaged() } }
                 ))
                 .toggleStyle(GFCheckboxStyle())
                 StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
@@ -203,6 +274,15 @@ private struct StagingRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
+        )
+        .help(file.isStaged ? "Double-click to unstage" : "Double-click to stage")
+    }
+
+    private func toggleStaged() async {
+        if file.isStaged { await viewModel.unstage([file]) }
+        else             { await viewModel.stage([file]) }
     }
 
     private var pathView: some View {
@@ -230,9 +310,19 @@ private struct StagingRow: View {
     }
 }
 
-#Preview {
+#Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     StagingView(viewModel: RepositoryViewModel.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Loading status") {
+    @Previewable @State var theme = AppTheme()
+    let vm = RepositoryViewModel.preview
+    vm.status = WorkingCopyStatus(files: [])
+    vm.isLoadingStatus = true
+    return StagingView(viewModel: vm)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
@@ -257,6 +347,7 @@ struct GFCheckboxStyle: ToggleStyle {
                 }
             }
             .frame(width: 14, height: 14)
+            .contentShape(.rect(cornerRadius: 3))
         }
         .buttonStyle(.plain)
     }

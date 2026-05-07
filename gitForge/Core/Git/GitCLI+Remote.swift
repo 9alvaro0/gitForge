@@ -5,9 +5,10 @@ extension GitCLI {
         try await run(["fetch", "--all", "--prune"])
     }
 
-    func pull(rebase: Bool = false) async throws {
+    func pull(rebase: Bool = false, ffOnly: Bool = false) async throws {
         var args: [String] = ["pull"]
         if rebase { args.append("--rebase") }
+        if ffOnly { args.append("--ff-only") }
         try await run(args)
     }
 

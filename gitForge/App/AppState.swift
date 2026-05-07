@@ -31,8 +31,14 @@ final class AppState {
     /// Snapshot of `git config --global` — identity, signing key, etc.
     var globalConfig: GitGlobalConfig = .unknown
 
+    /// Per-repo branch + dirty + ahead/behind, refreshed in the background so
+    /// every row in the sidebar reflects the truth, not just the active one.
+    var repositoryStatuses: [URL: RepoStatusSnapshot] = [:]
+
     private let store = RepositoryStore()
     private let configReader = GitGlobalConfigReader.shared
+    private var statusPollTask: Task<Void, Never>?
+    private static let statusPollInterval: UInt64 = 30_000_000_000   // 30s
 
     func bootstrap() async {
         async let gitCheck: Void = refreshGitInstallation()
@@ -41,6 +47,60 @@ final class AppState {
         repositories = await store.repositories
         _ = await gitCheck
         globalConfig = await configRead
+
+        // Make cached emoji shortcodes available before the first PR detail
+        // render, then refresh in the background.
+        EmojiShortcodeStore.shared.loadCachedSync()
+        Task { await EmojiShortcodeStore.shared.refreshIfNeeded() }
+
+        startStatusPolling()
+    }
+
+    /// Loops in the background, refreshing every repo's lightweight status
+    /// snapshot so the sidebar pills are always close to the truth — without
+    /// needing per-repo filesystem watchers. Cheap calls (status, ahead/behind
+    /// against cached upstream); no `git fetch`.
+    private func startStatusPolling() {
+        statusPollTask?.cancel()
+        statusPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshAllRepoStatuses()
+                try? await Task.sleep(nanoseconds: Self.statusPollInterval)
+            }
+        }
+    }
+
+    func refreshAllRepoStatuses() async {
+        let urls = repositories.map(\.url)
+        await withTaskGroup(of: (URL, RepoStatusSnapshot?).self) { group in
+            for url in urls {
+                group.addTask { (url, await Self.snapshot(for: url)) }
+            }
+            for await (url, snapshot) in group {
+                if let snapshot { repositoryStatuses[url] = snapshot }
+            }
+        }
+    }
+
+    func refreshRepoStatus(_ url: URL) async {
+        if let snapshot = await Self.snapshot(for: url) {
+            repositoryStatuses[url] = snapshot
+        }
+    }
+
+    private static func snapshot(for url: URL) async -> RepoStatusSnapshot? {
+        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else { return nil }
+        let cli = GitCLI(workingDirectory: url)
+        let branch = await cli.currentBranchName()
+        let dirty = (try? await cli.status())?.files.count ?? 0
+        var ahead = 0
+        var behind = 0
+        if let branch, let upstream = await cli.upstreamName(),
+           let counts = try? await cli.aheadBehind(branch: branch, upstream: upstream) {
+            ahead = counts.ahead
+            behind = counts.behind
+        }
+        return RepoStatusSnapshot(branch: branch, dirty: dirty, ahead: ahead, behind: behind)
     }
 
     func refreshGlobalConfig() async {
@@ -94,11 +154,36 @@ final class AppState {
         }
     }
 
-    var isCloning: Bool = false
+    /// Live state of the clone operation. Drives the progress bar and the
+    /// "Clone vs Cancel" button label in `CloneView`.
+    enum CloneState: Sendable, Equatable {
+        case idle
+        case running(stage: String, percent: Double)
+    }
+    var cloneState: CloneState = .idle
+    var isCloning: Bool {
+        if case .running = cloneState { return true }
+        return false
+    }
+
+    private var cloneTask: Task<Void, Never>?
 
     /// Clones `url` into `path` (with optional `~` expansion) and opens the
     /// resulting repository when it finishes. Errors surface via `presentedError`.
-    func cloneRepository(url: String, path: String, branch: String?) async {
+    /// Fire-and-forget — observe `cloneState` for progress; call `cancelClone()`
+    /// to abort.
+    func startClone(url: String, path: String, branch: String?) {
+        cloneTask?.cancel()
+        cloneTask = Task { [weak self] in
+            await self?.runClone(url: url, path: path, branch: branch)
+        }
+    }
+
+    func cancelClone() {
+        cloneTask?.cancel()
+    }
+
+    private func runClone(url: String, path: String, branch: String?) async {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
@@ -112,15 +197,34 @@ final class AppState {
             return
         }
 
-        isCloning = true
-        defer { isCloning = false }
+        cloneState = .running(stage: "Connecting…", percent: 0)
+        defer {
+            cloneState = .idle
+            cloneTask = nil
+        }
 
         do {
-            try await GitCLI.clone(url: trimmedUrl, destination: destination, branch: branch)
+            try await GitCLI.clone(
+                url: trimmedUrl,
+                destination: destination,
+                branch: branch,
+                onProgress: { [weak self] progress in
+                    Task { @MainActor [weak self] in
+                        self?.cloneState = .running(stage: progress.stage, percent: progress.percent)
+                    }
+                }
+            )
             try await openRepository(at: destination)
             workspaceSection = .history
             activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
+        } catch is CancellationError {
+            // User-initiated cancel: clean up the partial directory git left
+            // behind so the next attempt with the same path doesn't hit the
+            // "destination exists" guard.
+            try? FileManager.default.removeItem(at: destination)
+            activeToast = ToastMessage(message: "Clone cancelled", kind: .info)
         } catch {
+            try? FileManager.default.removeItem(at: destination)
             presentedError = PresentedError(error: error, title: "Clone failed")
         }
     }
@@ -129,6 +233,12 @@ final class AppState {
         if gitStatus != .checking {
             gitStatus = .checking
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["GITFORGE_FAKE_NO_GIT"] != nil {
+            gitStatus = .notFound
+            return
+        }
+        #endif
         let isAvailable = await GitCLI.isGitAvailable()
         gitStatus = isAvailable ? .available : .notFound
     }
@@ -140,12 +250,22 @@ final class AppState {
         guard await GitCLI.isGitRepository(at: url) else {
             throw RepositoryError.notAGitRepository(url)
         }
+        let isSwitchingRepo = activeRepository?.url != url
         repositories = await store.touch(url)
         let active = repositories.first { $0.url == url }
         activeRepository = active
         if let active, activeViewModel?.repository.url != active.url {
             activeViewModel = RepositoryViewModel(repository: active)
         }
+        // Always land on History when entering a different repo — fresh
+        // context, fresh starting point. No-op when re-touching the same one
+        // so the user doesn't get yanked out of Settings/Branches/etc.
+        if isSwitchingRepo {
+            workspaceSection = .history
+        }
+        // Seed the snapshot for any newly added repo so the sidebar pills
+        // reflect reality before the next poll tick fires.
+        await refreshRepoStatus(url)
     }
 
     func activate(_ repository: Repository) async {

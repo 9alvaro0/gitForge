@@ -8,6 +8,9 @@ struct DiffPane: View {
     /// Optional handler for the "open in editor" icon button. When `nil` the
     /// button is hidden — keeps history-mode diffs free of dead chrome.
     var onOpenInEditor: (() -> Void)? = nil
+    /// Optional handler for the close icon button. When `nil` the button is
+    /// hidden — only History needs to collapse the diff pane.
+    var onClose: (() -> Void)? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split
@@ -49,6 +52,11 @@ struct DiffPane: View {
             )
             if let onOpenInEditor {
                 IconButton(.ext, action: onOpenInEditor)
+                    .help("Open in editor")
+            }
+            if let onClose {
+                IconButton(.x, action: onClose)
+                    .help("Hide diff pane")
             }
         }
         .padding(.horizontal, 14)
@@ -60,7 +68,7 @@ struct DiffPane: View {
     @ViewBuilder
     private var content: some View {
         if loading {
-            ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+            diffSkeleton
         } else if hunks.isEmpty {
             Text("No changes")
                 .font(AppFont.sans(12))
@@ -74,22 +82,63 @@ struct DiffPane: View {
         }
     }
 
-    private var unifiedContent: some View {
-        // GeometryReader gives us the viewport width so the inner VStack can
-        // be at least that wide — without it, content < viewport renders at
-        // its natural (small) width and the ScrollView centers it inside the
-        // pane, leaving giant gutters on both sides.
+    private static let placeholderHunk = DiffHunk(
+        id: 0,
+        oldStart: 1, oldCount: 7, newStart: 1, newCount: 8,
+        header: "@@ -1,7 +1,8 @@ func loadData() {",
+        lines: [
+            DiffLine(id: 0, kind: .context, content: "    func loadData() async throws {",                      oldLineNumber: 1,    newLineNumber: 1),
+            DiffLine(id: 1, kind: .context, content: "        let token = credentials.token(for: host)",        oldLineNumber: 2,    newLineNumber: 2),
+            DiffLine(id: 2, kind: .removed, content: "        guard token != nil else { return }",              oldLineNumber: 3,    newLineNumber: nil),
+            DiffLine(id: 3, kind: .added,   content: "        guard let token else { return }",                 oldLineNumber: nil,  newLineNumber: 3),
+            DiffLine(id: 4, kind: .context, content: "        let response = try await fetcher.fetch()",        oldLineNumber: 4,    newLineNumber: 4),
+            DiffLine(id: 5, kind: .added,   content: "        items = response.items",                          oldLineNumber: nil,  newLineNumber: 5),
+            DiffLine(id: 6, kind: .added,   content: "        lastSync = Date()",                               oldLineNumber: nil,  newLineNumber: 6),
+            DiffLine(id: 7, kind: .context, content: "        return items",                                    oldLineNumber: 5,    newLineNumber: 7),
+            DiffLine(id: 8, kind: .context, content: "    }",                                                   oldLineNumber: 6,    newLineNumber: 8),
+        ]
+    )
+
+    private var diffSkeleton: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(hunks) { hunk in
-                        hunkHeader(hunk)
-                        ForEach(hunk.lines) { line in
+                    VStack(alignment: .leading, spacing: 0) {
+                        hunkHeader(Self.placeholderHunk)
+                        ForEach(Self.placeholderHunk.lines) { line in
                             DiffRow(line: line)
                         }
                     }
+                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                 }
-                .frame(minWidth: geo.size.width, alignment: .leading)
+                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
+            }
+        }
+        .skeleton(true)
+    }
+
+    private var unifiedContent: some View {
+        // Two-level VStack: the inner one is `.fixedSize` vertically so rows
+        // keep their natural height (no stretching when the diff is short),
+        // and the outer one extends to the viewport with a trailing Spacer
+        // that anchors the content to the top — preventing the bidirectional
+        // ScrollView from centering it.
+        GeometryReader { geo in
+            ScrollView([.vertical, .horizontal]) {
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(hunks) { hunk in
+                            hunkHeader(hunk)
+                            ForEach(hunk.lines) { line in
+                                DiffRow(line: line)
+                            }
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
             }
         }
     }
@@ -101,20 +150,24 @@ struct DiffPane: View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(hunks) { hunk in
-                        hunkHeader(hunk)
-                        ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                            HStack(spacing: 0) {
-                                DiffSplitCell(line: row.left, side: .left)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Rectangle().fill(theme.palette.line).frame(width: 1)
-                                DiffSplitCell(line: row.right, side: .right)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(hunks) { hunk in
+                            hunkHeader(hunk)
+                            ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
+                                HStack(spacing: 0) {
+                                    DiffSplitCell(line: row.left, side: .left)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Rectangle().fill(theme.palette.line).frame(width: 1)
+                                    DiffSplitCell(line: row.right, side: .right)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
                         }
                     }
+                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                 }
-                .frame(minWidth: geo.size.width, alignment: .leading)
+                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
             }
         }
     }
@@ -329,12 +382,26 @@ private struct DiffSplitCell: View {
     }
 }
 
-#Preview {
+#Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var mode: DiffPane.ViewMode = .unified
     DiffPane(
         file: "src/components/CommitGraph.tsx",
         hunks: DiffHunk.previewSamples,
+        viewMode: $mode
+    )
+    .frame(width: 720, height: 320)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+
+#Preview("Loading") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var mode: DiffPane.ViewMode = .unified
+    DiffPane(
+        file: "src/Features/Repository/Pulls/PullsView.swift",
+        hunks: [],
+        loading: true,
         viewMode: $mode
     )
     .frame(width: 720, height: 320)

@@ -4,6 +4,9 @@ import SwiftUI
 struct CommitDetailColumn: View {
     let commit: Commit
     @Bindable var viewModel: RepositoryViewModel
+    /// Optional handler for the close icon at the panel top. When `nil` the
+    /// button is hidden — used by History to collapse the panel.
+    var onClose: (() -> Void)? = nil
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -45,6 +48,12 @@ struct CommitDetailColumn: View {
                 NSPasteboard.general.declareTypes([.string], owner: nil)
                 NSPasteboard.general.setString(commit.sha, forType: .string)
                 #endif
+            }
+            .help("Copy full SHA")
+            Spacer()
+            if let onClose {
+                IconButton(.x, action: onClose)
+                    .help("Hide commit detail")
             }
         }
     }
@@ -91,9 +100,35 @@ struct CommitDetailColumn: View {
                     }
                 }
             } else {
-                ProgressView().controlSize(.small)
+                filesPlaceholder
             }
         }
+    }
+
+    private static let placeholderPaths = [
+        "Sources/Features/Repository/RepositoryView.swift",
+        "Sources/Core/Git/GitCLI.swift",
+        "Sources/DesignSystem/Components/EmptyState.swift",
+        "README.md",
+    ]
+
+    private var filesPlaceholder: some View {
+        LazyVStack(spacing: 1) {
+            ForEach(0..<4, id: \.self) { index in
+                HStack(spacing: 8) {
+                    StatusTag(kind: .modified)
+                    Text(Self.placeholderPaths[index % Self.placeholderPaths.count])
+                        .font(AppFont.mono(11.5, family: theme.monoFont))
+                        .foregroundStyle(theme.palette.fg2)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+            }
+        }
+        .skeleton(true)
     }
 
     @State private var newBranchSheet = false
@@ -112,35 +147,53 @@ struct CommitDetailColumn: View {
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                GFButton(title: "Create branch") {
+                CommitActionButton(
+                    icon: .branch,
+                    title: "Branch",
+                    tooltip: "Create a new branch starting at \(commit.shortSha)."
+                ) {
                     newBranchName = ""
                     newBranchSheet = true
                 }
-                GFButton(title: "Create tag") {
+                CommitActionButton(
+                    icon: .square,
+                    title: "Tag",
+                    tooltip: "Create a tag pointing at \(commit.shortSha)."
+                ) {
                     newTagName = ""
                     newTagMessage = ""
                     newTagSheet = true
                 }
-                GFButton(title: "Cherry-pick") { cherryPickConfirm = true }
-                GFButton(title: "Revert") { revertConfirm = true }
-                Menu {
-                    ForEach(GitCLI.ResetMode.allCases) { mode in
-                        Button(mode.label) { resetMode = mode }
-                    }
-                } label: {
-                    Text("Reset to here")
-                        .font(AppFont.sans(12))
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 28)
-                        .foregroundStyle(theme.palette.fg1)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
-                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: 1))
+                CommitActionButton(
+                    icon: .plus,
+                    title: "Cherry-pick",
+                    tooltip: "Replay this commit on top of the current branch."
+                ) {
+                    cherryPickConfirm = true
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .frame(height: 28)
+                CommitActionButton(
+                    icon: .arrowU,
+                    title: "Revert",
+                    tooltip: "Create a new commit that undoes the changes from \(commit.shortSha)."
+                ) {
+                    revertConfirm = true
+                }
             }
+            Menu {
+                ForEach(GitCLI.ResetMode.allCases) { mode in
+                    Button(mode.label) { resetMode = mode }
+                }
+            } label: {
+                CommitActionButtonLabel(
+                    icon: .warn,
+                    title: "Reset to here",
+                    destructive: true,
+                    trailingChevron: true
+                )
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .help("Move HEAD of the current branch to \(commit.shortSha). Soft / mixed / hard control how the working tree is affected — hard discards uncommitted changes.")
         }
         .sheet(isPresented: $newBranchSheet) { newBranchSheetView }
         .sheet(isPresented: $newTagSheet) { newTagSheetView }
@@ -315,6 +368,7 @@ private struct FileMiniRow: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(RoundedRectangle(cornerRadius: 5).fill(isActive ? theme.palette.bg3 : .clear))
+            .contentShape(.rect(cornerRadius: 5))
         }
         .buttonStyle(.plain)
     }
@@ -329,6 +383,73 @@ private struct FileMiniRow: View {
         case .unmerged: return .unmerged
         case .unknown: return .modified
         }
+    }
+}
+
+private struct CommitActionButton: View {
+    let icon: GFIconKind
+    let title: String
+    let tooltip: String
+    var destructive: Bool = false
+    let action: () -> Void
+
+    @Environment(\.appTheme) private var theme
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            CommitActionButtonLabel(
+                icon: icon,
+                title: title,
+                destructive: destructive,
+                hovering: hovering
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(tooltip)
+    }
+}
+
+private struct CommitActionButtonLabel: View {
+    let icon: GFIconKind
+    let title: String
+    var destructive: Bool = false
+    var trailingChevron: Bool = false
+    var hovering: Bool = false
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            GFIcon(kind: icon, size: 13, stroke: foreground)
+            Text(title)
+                .font(AppFont.sans(12))
+                .foregroundStyle(foreground)
+            Spacer(minLength: 0)
+            if trailingChevron {
+                GFIcon(kind: .chevD, size: 11, stroke: theme.palette.fg3)
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 30)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(background))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: 1))
+        .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
+    }
+
+    private var background: Color {
+        if destructive { return theme.palette.delSoft }
+        return hovering ? theme.palette.bg4 : theme.palette.bg3
+    }
+    private var foreground: Color {
+        if destructive { return theme.palette.del }
+        return hovering ? theme.palette.fg1 : theme.palette.fg2
+    }
+    private var border: Color {
+        if destructive { return theme.palette.del.opacity(hovering ? 0.55 : 0.3) }
+        return hovering ? theme.palette.lineStrong : theme.palette.line
     }
 }
 

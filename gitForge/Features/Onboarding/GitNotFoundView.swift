@@ -43,12 +43,16 @@ struct GitNotFoundView: View {
 
     private func installCommandLineTools() {
         isInstalling = true
-        Task.detached {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
-            process.arguments = ["--install"]
-            try? process.run()
-            process.waitUntilExit()
+        Task {
+            await Task.detached {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
+                process.arguments = ["--install"]
+                try? process.run()
+                process.waitUntilExit()
+            }.value
+            isInstalling = false
+            await appState.refreshGitInstallation()
         }
     }
 }

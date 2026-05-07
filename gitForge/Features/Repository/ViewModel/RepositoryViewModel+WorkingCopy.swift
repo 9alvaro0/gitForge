@@ -4,7 +4,10 @@ import os
 extension RepositoryViewModel {
     func refreshStatus() async {
         isLoadingStatus = true
-        defer { isLoadingStatus = false }
+        defer {
+            isLoadingStatus = false
+            hasLoadedStatusOnce = true
+        }
         do {
             status = try await cli.status()
         } catch {

@@ -46,6 +46,7 @@ struct SegmentedControl<Value: Hashable>: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(isActive ? theme.palette.bg5 : .clear)
                 )
+                .contentShape(.rect(cornerRadius: 4))
         }
         .buttonStyle(.plain)
     }

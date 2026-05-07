@@ -39,6 +39,7 @@ struct SidebarNavItem: View {
                         .offset(x: -7)
                 }
             }
+            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
             .padding(.horizontal, 6)
         }
         .buttonStyle(.plain)

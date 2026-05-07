@@ -37,11 +37,13 @@ actor RepositoryStore {
     @discardableResult
     func touch(_ url: URL) -> [Repository] {
         if let index = repositories.firstIndex(where: { $0.url == url }) {
+            // Bookkeeping only — no reordering. The user found the
+            // "recently-used floats to top" behavior disorienting.
             repositories[index].lastOpenedAt = .now
         } else {
             repositories.append(Repository(url: url))
+            sort()
         }
-        sort()
         persist()
         return repositories
     }
@@ -53,8 +55,10 @@ actor RepositoryStore {
         return repositories
     }
 
+    /// Stable alphabetical order by repo name. Predictable across launches
+    /// and immune to whatever the user just clicked.
     private func sort() {
-        repositories.sort { $0.lastOpenedAt > $1.lastOpenedAt }
+        repositories.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func persist() {

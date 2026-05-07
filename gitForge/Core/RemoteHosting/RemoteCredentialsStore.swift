@@ -1,0 +1,133 @@
+import Foundation
+import Security
+import os
+
+/// Stores Personal Access Tokens for remote hosts (GitHub / GitLab) in the
+/// macOS Keychain. Keyed by host (e.g. `github.com`, `gitlab.com`,
+/// `gitlab.example.org` for self-hosted).
+///
+/// Holds no mutable state — Keychain APIs are themselves thread-safe — so it
+/// ships as a `Sendable` value type with namespace-style methods.
+struct RemoteCredentialsStore: Sendable {
+    static let shared = RemoteCredentialsStore()
+    static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "credentials")
+
+    private let service = "com.warwarelabs.gitForge.remote-token"
+
+    /// Returns the token stored for `host`, or nil if none exists / Keychain
+    /// access fails.
+    func token(for host: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: host,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let token = String(data: data, encoding: .utf8) else {
+            if status != errSecItemNotFound {
+                Self.logger.error("Keychain read for \(host, privacy: .public) failed (\(status, privacy: .public))")
+            } else {
+                Self.logger.debug("Keychain miss for \(host, privacy: .public)")
+            }
+            return nil
+        }
+        Self.logger.debug("Keychain hit for \(host, privacy: .public) (\(token.count) chars)")
+        return token
+    }
+
+    /// Set/replace the token for `host`. Empty / whitespace-only tokens delete
+    /// any existing entry. Returns `nil` on success or a human-readable error
+    /// message on failure (so the UI can surface Keychain access issues).
+    @discardableResult
+    func setToken(_ token: String?, for host: String) -> String? {
+        let trimmed = token?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmed.isEmpty {
+            removeToken(for: host)
+            return nil
+        }
+
+        let data = Data(trimmed.utf8)
+        let attributes: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: host,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+        ]
+
+        // Try update first; fall back to add when nothing existed.
+        let updateQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: host,
+        ]
+        let updateAttrs: [String: Any] = [kSecValueData as String: data]
+        let updateStatus = SecItemUpdate(updateQuery as CFDictionary, updateAttrs as CFDictionary)
+        if updateStatus == errSecSuccess { return nil }
+
+        if updateStatus != errSecItemNotFound {
+            Self.logger.error("Keychain SecItemUpdate failed (\(updateStatus, privacy: .public)) for host \(host, privacy: .public)")
+            return Self.message(for: updateStatus)
+        }
+
+        let addStatus = SecItemAdd(attributes as CFDictionary, nil)
+        if addStatus != errSecSuccess {
+            Self.logger.error("Keychain SecItemAdd failed (\(addStatus, privacy: .public)) for host \(host, privacy: .public)")
+            return Self.message(for: addStatus)
+        }
+        // Defensive: read it back immediately. If we can't see what we just
+        // wrote it's almost certainly a sandbox/entitlement issue and the
+        // user deserves to know rather than chase a phantom bug.
+        if self.token(for: host) == nil {
+            Self.logger.error("Keychain readback failed right after add for host \(host, privacy: .public)")
+            return "Token saved but couldn't be read back from Keychain. App likely lacks Keychain access (entitlement issue)."
+        }
+        Self.logger.info("Keychain wrote token for \(host, privacy: .public)")
+        return nil
+    }
+
+    func removeToken(for host: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: host,
+        ]
+        _ = SecItemDelete(query as CFDictionary)
+    }
+
+    func hasToken(for host: String) -> Bool {
+        token(for: host) != nil
+    }
+
+    /// Returns every host (Keychain `account`) that has a token stored under
+    /// our service. Used by the clone picker to discover what the user
+    /// actually has configured — instead of guessing `gitlab.com` when their
+    /// real host is something self-hosted.
+    func knownHosts() -> [String] {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecReturnAttributes as String: true,
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let items = result as? [[String: Any]] else {
+            if status != errSecItemNotFound {
+                Self.logger.error("Keychain enumerate failed (\(status, privacy: .public))")
+            }
+            return []
+        }
+        return items.compactMap { $0[kSecAttrAccount as String] as? String }.sorted()
+    }
+
+    private static func message(for status: OSStatus) -> String {
+        let detail = SecCopyErrorMessageString(status, nil) as String? ?? "unknown error"
+        return "Keychain error \(status): \(detail)"
+    }
+}

@@ -8,6 +8,14 @@ enum GFIconKind: String, CaseIterable, Sendable {
     case search, plus, minus, dot, chevR, chevD, arrowU, arrowD
     case pull, push, fetch, stash, folder, cmd, check, x, ext
     case diamond, square, warn, more, user, copy
+    /// Local-branch marker — drawn as a small monitor on a stand. Pairs with
+    /// `.cloud` for remote-branch marker so origin is readable at a glance.
+    case desktop
+    /// Remote-branch marker — three-bump cloud silhouette.
+    case cloud
+    /// Tag marker — angular price-tag silhouette with a hole. Replaces the
+    /// generic `.diamond` in tag chips so the metaphor matches.
+    case tag
 }
 
 struct GFIcon: View {
@@ -75,6 +83,9 @@ enum GFIconLibrary {
         case .more:     return more
         case .user:     return user
         case .copy:     return copyIcon
+        case .desktop:  return desktop
+        case .cloud:    return cloud
+        case .tag:      return tag
         }
     }
 
@@ -354,6 +365,44 @@ enum GFIconLibrary {
         p.addRoundedRect(in: CGRect(x: 5, y: 5, width: 8, height: 8), cornerSize: CGSize(width: 1, height: 1))
         p.move(to: CGPoint(x: 3, y: 11)); p.addLine(to: CGPoint(x: 3, y: 3))
         p.addLine(to: CGPoint(x: 11, y: 3))
+        return [GFIconPiece(path: p, fill: false)]
+    }
+
+    private static var desktop: [GFIconPiece] {
+        var p = Path()
+        // Monitor body
+        p.addRoundedRect(in: CGRect(x: 2, y: 3, width: 12, height: 8), cornerSize: CGSize(width: 1.2, height: 1.2))
+        // Stand neck + base — keeps the silhouette readable at 10pt sizes.
+        p.move(to: CGPoint(x: 8, y: 11));   p.addLine(to: CGPoint(x: 8, y: 13.5))
+        p.move(to: CGPoint(x: 5.5, y: 13.5)); p.addLine(to: CGPoint(x: 10.5, y: 13.5))
+        return [GFIconPiece(path: p, fill: false)]
+    }
+
+    private static var cloud: [GFIconPiece] {
+        // Three-bump silhouette as a single closed path so the strokes don't
+        // overlap visibly where the bumps meet.
+        var p = Path()
+        p.move(to: CGPoint(x: 3, y: 11.5))
+        p.addQuadCurve(to: CGPoint(x: 4.5, y: 7),  control: CGPoint(x: 1, y: 8))
+        p.addQuadCurve(to: CGPoint(x: 9, y: 4),    control: CGPoint(x: 5, y: 3))
+        p.addQuadCurve(to: CGPoint(x: 13, y: 7.5), control: CGPoint(x: 14, y: 3.5))
+        p.addQuadCurve(to: CGPoint(x: 13, y: 11.5),control: CGPoint(x: 15, y: 11))
+        p.addLine(to: CGPoint(x: 3, y: 11.5))
+        p.closeSubpath()
+        return [GFIconPiece(path: p, fill: false)]
+    }
+
+    private static var tag: [GFIconPiece] {
+        var p = Path()
+        // Pentagon-like price-tag body
+        p.move(to: CGPoint(x: 3, y: 3))
+        p.addLine(to: CGPoint(x: 8.5, y: 3))
+        p.addLine(to: CGPoint(x: 13, y: 7.5))
+        p.addLine(to: CGPoint(x: 7.5, y: 13))
+        p.addLine(to: CGPoint(x: 3, y: 8.5))
+        p.closeSubpath()
+        // Punch-hole near the tag's pointed corner
+        p.addEllipse(in: CGRect(x: 4.5, y: 4.5, width: 2, height: 2))
         return [GFIconPiece(path: p, fill: false)]
     }
 }

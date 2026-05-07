@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
@@ -69,17 +70,38 @@ private struct ShellView: View {
                 RedesignedSidebar(
                     repositories: appState.repositories,
                     activeRepository: appState.activeRepository,
-                    activeBranch: appState.activeViewModel?.currentBranchName,
-                    aheadCount: appState.activeViewModel?.aheadCount ?? 0,
-                    behindCount: appState.activeViewModel?.behindCount ?? 0,
-                    dirtyCount: appState.activeViewModel?.status.files.count ?? 0,
+                    statusFor: { repo in
+                        // Active repo: read straight from the live ViewModel
+                        // so the pills update instantly as the user works.
+                        // Other repos: cached snapshot refreshed every 30s by
+                        // AppState's background poller.
+                        if let active = appState.activeRepository,
+                           active.id == repo.id,
+                           let vm = appState.activeViewModel,
+                           vm.hasLoadedStatusOnce {
+                            return RepoStatusSnapshot(
+                                branch: vm.currentBranchName,
+                                dirty: vm.status.files.count,
+                                ahead: vm.aheadCount,
+                                behind: vm.behindCount,
+                                loaded: true
+                            )
+                        }
+                        // VM not ready yet (or still loading): fall back to the
+                        // cached snapshot so the row doesn't flash "clean".
+                        return appState.repositoryStatuses[repo.url] ?? .empty
+                    },
                     activeSection: appState.workspaceSection,
                     unstagedBadge: appState.activeViewModel?.status.unstagedFiles.count ?? 0,
                     stashesBadge: appState.activeViewModel?.stashes.count ?? 0,
-                    pullsBadge: 0,
+                    pullsBadge: appState.activeViewModel?.pullRequests.count ?? 0,
                     conflictsBadge: appState.activeViewModel?.conflictFiles.filter { !$0.resolved }.count ?? 0,
                     identity: appState.globalConfig.identity,
                     onSelectRepo: { repo in Task { await appState.activate(repo) } },
+                    onRemoveRepo: { repo in Task { await appState.removeFromRecents(repo.url) } },
+                    onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
+                    onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
+                    onCloneNew: { appState.workspaceSection = .clone },
                     onSelectSection: { appState.workspaceSection = $0 },
                     onOpenCommandPalette: { appState.commandPaletteOpen = true }
                 )
@@ -195,6 +217,7 @@ private struct KeyShortcutsCatcher: View {
 private struct RepositoryHost: View {
     let repository: Repository
     @Environment(AppState.self) private var appState
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         Group {
@@ -203,7 +226,14 @@ private struct RepositoryHost: View {
                 ContentRouter(viewModel: viewModel)
                     .id(repository.url)
             } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 10) {
+                    ProgressView().controlSize(.regular)
+                    Text("Opening \(repository.url.lastPathComponent)…")
+                        .font(AppFont.mono(11, family: theme.monoFont))
+                        .foregroundStyle(theme.palette.fg3)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.palette.bg2)
             }
         }
         .task(id: repository.url) {
@@ -231,7 +261,7 @@ private struct ContentRouter: View {
         case .changes:  StagingView(viewModel: viewModel)
         case .branches: BranchesView(viewModel: viewModel)
         case .stashes:  StashesView(viewModel: viewModel)
-        case .pulls:    PullsView()
+        case .pulls:    PullsView(viewModel: viewModel)
         case .conflict: ConflictView(viewModel: viewModel)
         case .clone:    CloneView()
         case .settings: SettingsView()

@@ -11,7 +11,7 @@ struct BranchChip: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            GFIcon(kind: tag ? .diamond : .branch, size: 10, stroke: foreground)
+            GFIcon(kind: iconKind, size: 10, stroke: foreground)
             Text(name)
                 .font(AppFont.mono(10.5, family: theme.monoFont))
                 .lineLimit(1)
@@ -29,6 +29,14 @@ struct BranchChip: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(border, lineWidth: 1)
         )
+    }
+
+    /// Local → monitor, remote → cloud, tag → tag silhouette. Communicates
+    /// origin at a glance so the user doesn't have to read the `origin/` prefix.
+    private var iconKind: GFIconKind {
+        if tag    { return .tag }
+        if remote { return .cloud }
+        return .desktop
     }
 
     private var foreground: Color {

@@ -31,12 +31,12 @@ extension RepositoryViewModel {
         }
     }
 
-    func pull(rebase: Bool = false) async {
+    func pull(rebase: Bool = false, ffOnly: Bool = false) async {
         guard remoteOperation == nil else { return }
         remoteOperation = .pulling
         defer { remoteOperation = nil }
         do {
-            try await cli.pull(rebase: rebase)
+            try await cli.pull(rebase: rebase, ffOnly: ffOnly)
             resetLog()
             await loadInitial()
             await loadRefs()

@@ -2,12 +2,32 @@ import Foundation
 import os
 
 extension RepositoryViewModel {
+    /// Refs the graph walks. Local branches + tags + HEAD + every stash, so the
+    /// log paginates through the full history that's reachable locally (without
+    /// `--tags` the user could scroll past the last release-merge and the log
+    /// would just stop). Remote-tracking refs (`--remotes`) are intentionally
+    /// out — they typically duplicate local branches and would re-introduce the
+    /// column explosion we removed when we dropped `--all`. Tags are mostly
+    /// labels on already-walked commits, so they extend reach without
+    /// allocating extra lanes.
+    func graphScope() -> [String] {
+        var refs: [String] = ["--branches", "--tags", "HEAD"]
+        refs.append(contentsOf: stashes.map(\.sha))
+        return refs
+    }
+
     func loadInitial() async {
         guard commits.isEmpty, !isLoadingInitial else { return }
         isLoadingInitial = true
         defer { isLoadingInitial = false }
         do {
-            let page = try await cli.log(limit: Self.pageSize, skip: 0)
+            // Stashes are part of the graph scope. Pull them inline if loadRefs
+            // hasn't populated them yet — otherwise the first paint misses any
+            // stash dots and we'd need a full reload to surface them.
+            if stashes.isEmpty {
+                stashes = (try? await cli.stashes()) ?? []
+            }
+            let page = try await cli.log(limit: Self.pageSize, skip: 0, refs: graphScope())
             commits = page
             hasMore = page.count == Self.pageSize
             selectedCommitId = page.first?.id
@@ -24,7 +44,7 @@ extension RepositoryViewModel {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let next = try await cli.log(limit: Self.pageSize, skip: commits.count)
+            let next = try await cli.log(limit: Self.pageSize, skip: commits.count, refs: graphScope())
             commits.append(contentsOf: next)
             hasMore = next.count == Self.pageSize
             recomputeGraph()
@@ -47,7 +67,7 @@ extension RepositoryViewModel {
         var pagesLoaded = 0
         while hasMore && pagesLoaded < Self.maxRevealPages {
             do {
-                let next = try await cli.log(limit: Self.pageSize, skip: commits.count)
+                let next = try await cli.log(limit: Self.pageSize, skip: commits.count, refs: graphScope())
                 commits.append(contentsOf: next)
                 hasMore = next.count == Self.pageSize
                 recomputeGraph()
@@ -64,7 +84,8 @@ extension RepositoryViewModel {
     }
 
     func recomputeGraph() {
-        let result = GraphLayoutEngine.layouts(for: commits, refsBySha: refsBySha)
+        let stashShas = Set(stashes.map(\.sha))
+        let result = GraphLayoutEngine.layouts(for: commits, refsBySha: refsBySha, stashShas: stashShas)
         graphLayouts = result.rows
         graphMaxLanes = max(1, result.maxLanes)
     }
