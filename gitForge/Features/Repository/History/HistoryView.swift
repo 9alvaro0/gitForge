@@ -5,9 +5,17 @@ struct HistoryView: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
 
-    enum HistoryFilter: Hashable { case all, local, remote, tags }
-    @State private var filter: HistoryFilter = .all
+    @State private var search: String = ""
     @State private var diffMode: DiffPane.ViewMode = .unified
+    @State private var columns = ResizableTableModel(
+        id: "history",
+        columns: [
+            (id: "branchTag", defaultWidth: 220, minWidth: 80),
+            (id: "author",    defaultWidth: 130, minWidth: 80),
+            (id: "sha",       defaultWidth: 80,  minWidth: 60),
+            (id: "when",      defaultWidth: 70,  minWidth: 50),
+        ]
+    )
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,12 +38,10 @@ struct HistoryView: View {
 
     private var filtersBar: some View {
         HStack(spacing: 10) {
-            SegmentedControl<HistoryFilter>(
-                [(.all, "All"), (.local, "Local"), (.remote, "Remote"), (.tags, "Tags")],
-                selection: $filter
-            )
+            GFTextField(placeholder: "Search subject, author, sha…", text: $search)
+                .frame(maxWidth: 320)
             Spacer()
-            MonoText(refCountLabel, dim: true)
+            MonoText(matchSummary, dim: true)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 8)
@@ -43,17 +49,34 @@ struct HistoryView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
     }
 
-    /// Refs to actually render as chips on commit rows for the selected filter.
-    private var filteredRefsBySha: [String: [GitRef]] {
-        let kept = viewModel.refs.filter { ref in
-            switch filter {
-            case .all:    return true
-            case .local:  return ref.isLocalBranch
-            case .remote: return ref.isRemoteBranch
-            case .tags:   return ref.isTag
-            }
-        }
-        return Dictionary(grouping: kept) { $0.targetSha }
+    private var refsBySha: [String: [GitRef]] {
+        Dictionary(grouping: viewModel.refs) { $0.targetSha }
+    }
+
+    private var trimmedQuery: String {
+        search.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var matchSummary: String {
+        guard !trimmedQuery.isEmpty else { return "\(viewModel.commits.count) commits" }
+        let count = viewModel.commits.lazy.filter { commitMatches($0, query: trimmedQuery) }.count
+        return "\(count) of \(viewModel.commits.count) match"
+    }
+
+    private func commitMatches(_ commit: Commit, query: String) -> Bool {
+        let q = query.lowercased()
+        return commit.subject.lowercased().contains(q)
+            || commit.authorName.lowercased().contains(q)
+            || commit.authorEmail.lowercased().contains(q)
+            || commit.sha.lowercased().hasPrefix(q)
+    }
+
+    /// Closure passed to the table — `nil` when search is empty so every row
+    /// renders at full opacity.
+    private var searchMatcher: ((Commit) -> Bool)? {
+        let query = trimmedQuery
+        guard !query.isEmpty else { return nil }
+        return { commitMatches($0, query: query) }
     }
 
     @ViewBuilder
@@ -113,26 +136,18 @@ struct HistoryView: View {
         .fixedSize()
     }
 
-    private var refCountLabel: String {
-        let count = filteredRefsBySha.values.reduce(0) { $0 + $1.count }
-        switch filter {
-        case .all:    return "\(count) refs"
-        case .local:  return "\(count) local branches"
-        case .remote: return "\(count) remote branches"
-        case .tags:   return "\(count) tags"
-        }
-    }
-
     private var graphAndDiffColumn: some View {
         VStack(spacing: 0) {
-            CommitTableHeader()
+            CommitTableHeader(columns: columns)
             CommitGraphTable(
                 commits: viewModel.commits,
                 layouts: viewModel.graphLayouts,
-                refsBySha: filteredRefsBySha,
+                refsBySha: refsBySha,
                 currentBranch: viewModel.currentBranchName,
                 selectedSha: viewModel.selectedCommitId,
-                workingCopyDirty: !viewModel.status.isClean
+                workingCopyDirty: !viewModel.status.isClean,
+                columns: columns,
+                isMatch: searchMatcher
             ) { sha in
                 viewModel.selectedCommitId = sha
                 if let path = viewModel.detailCache[sha]?.files.first?.path {
@@ -169,14 +184,27 @@ struct HistoryView: View {
 }
 
 private struct CommitTableHeader: View {
+    let columns: ResizableTableModel
     @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack(spacing: 0) {
             Text("GRAPH").frame(width: 110, alignment: .leading)
+            Text("BRANCH / TAG")
+                .frame(width: columns.width("branchTag"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "branchTag"),
+                             minWidth: columns.minWidth("branchTag"), maxWidth: 380)
             Text("MESSAGE").frame(maxWidth: .infinity, alignment: .leading)
-            Text("AUTHOR").frame(width: 130, alignment: .leading)
-            Text("SHA").frame(width: 80, alignment: .leading)
-            Text("WHEN").frame(width: 70, alignment: .trailing)
+            Text("AUTHOR")
+                .frame(width: columns.width("author"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "author"),
+                             minWidth: columns.minWidth("author"), maxWidth: 220)
+            Text("SHA")
+                .frame(width: columns.width("sha"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "sha"),
+                             minWidth: columns.minWidth("sha"), maxWidth: 140)
+            Text("WHEN")
+                .frame(width: columns.width("when"), alignment: .trailing)
         }
         .font(AppFont.mono(10.5, family: theme.monoFont))
         .tracking(0.6)
@@ -185,6 +213,9 @@ private struct CommitTableHeader: View {
         .padding(.vertical, 6)
         .background(theme.palette.bg1)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .contextMenu {
+            Button("Reset column widths") { columns.reset() }
+        }
     }
 }
 
