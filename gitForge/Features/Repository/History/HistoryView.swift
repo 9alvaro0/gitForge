@@ -11,6 +11,7 @@ struct HistoryView: View {
         id: "history",
         columns: [
             (id: "branchTag", defaultWidth: 220, minWidth: 80),
+            (id: "message",   defaultWidth: 480, minWidth: 240),
             (id: "author",    defaultWidth: 130, minWidth: 80),
             (id: "sha",       defaultWidth: 80,  minWidth: 60),
             (id: "when",      defaultWidth: 70,  minWidth: 50),
