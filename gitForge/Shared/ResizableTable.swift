@@ -15,26 +15,24 @@ struct ColumnDragHandle: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(theme.palette.line)
-                .frame(width: 1)
-            Rectangle()
-                .fill(Color.clear)
-                .contentShape(Rectangle())
-        }
-        .frame(width: 8)
-        .gesture(
-            DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                .onChanged { value in
-                    let base = startWidth ?? width
-                    if startWidth == nil { startWidth = width }
-                    let new = base + value.translation.width
-                    width = min(max(minWidth, new), maxWidth)
-                }
-                .onEnded { _ in startWidth = nil }
-        )
-        .pointerStyle(.columnResize)
+        // Color.clear has 0 intrinsic size — fills the row's height set by
+        // its sibling Text views. Setting only `.frame(width:)` lets the
+        // height stay flexible, so the handle never bloats the row.
+        Color.clear
+            .frame(width: 8)
+            .overlay(Rectangle().fill(theme.palette.line).frame(width: 1))
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onChanged { value in
+                        let base = startWidth ?? width
+                        if startWidth == nil { startWidth = width }
+                        let new = base + value.translation.width
+                        width = min(max(minWidth, new), maxWidth)
+                    }
+                    .onEnded { _ in startWidth = nil }
+            )
+            .pointerStyle(.columnResize)
     }
 }
 

@@ -138,7 +138,6 @@ struct HistoryView: View {
 
     private var graphAndDiffColumn: some View {
         VStack(spacing: 0) {
-            CommitTableHeader(columns: columns)
             CommitGraphTable(
                 commits: viewModel.commits,
                 layouts: viewModel.graphLayouts,
@@ -180,42 +179,6 @@ struct HistoryView: View {
         .frame(width: DesignTokens.Detail.panelWidth)
         .background(theme.palette.bg1)
         .overlay(alignment: .leading) { Rectangle().fill(theme.palette.lineStrong).frame(width: 1) }
-    }
-}
-
-private struct CommitTableHeader: View {
-    let columns: ResizableTableModel
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Text("GRAPH").frame(width: 110, alignment: .leading)
-            Text("BRANCH / TAG")
-                .frame(width: columns.width("branchTag"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "branchTag"),
-                             minWidth: columns.minWidth("branchTag"), maxWidth: 380)
-            Text("MESSAGE").frame(maxWidth: .infinity, alignment: .leading)
-            Text("AUTHOR")
-                .frame(width: columns.width("author"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "author"),
-                             minWidth: columns.minWidth("author"), maxWidth: 220)
-            Text("SHA")
-                .frame(width: columns.width("sha"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "sha"),
-                             minWidth: columns.minWidth("sha"), maxWidth: 140)
-            Text("WHEN")
-                .frame(width: columns.width("when"), alignment: .trailing)
-        }
-        .font(AppFont.mono(10.5, family: theme.monoFont))
-        .tracking(0.6)
-        .foregroundStyle(theme.palette.fg3)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 6)
-        .background(theme.palette.bg1)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
-        .contextMenu {
-            Button("Reset column widths") { columns.reset() }
-        }
     }
 }
 

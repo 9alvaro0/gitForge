@@ -1,8 +1,11 @@
 import SwiftUI
 
-/// Commit table with placeholder graph gutter. The actual graph drawing is
-/// iterated on top of this scaffold (`CommitGraphCanvas`) at the very end —
-/// for now we render the dots only so the rest of the History layout works.
+/// Header + data table for the History view. Owns its own dual-axis ScrollView
+/// so columns line up between header and rows even when the graph gutter is
+/// wide enough to push the message off-screen — horizontal scroll engages
+/// automatically. The header is pinned via a `LazyVStack` Section so it stays
+/// at the top during vertical scroll and slides with content during horizontal
+/// scroll (so the labels never desync from the columns below).
 struct CommitGraphTable: View {
     let commits: [Commit]
     let layouts: [GraphRowLayout]
@@ -35,39 +38,111 @@ struct CommitGraphTable: View {
         return max(110, leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad)
     }
 
+    private var totalFixedWidth: CGFloat {
+        graphGutterWidth
+            + columns.width("branchTag")
+            + columns.width("author")
+            + columns.width("sha")
+            + columns.width("when")
+            + (3 * 8)   // three drag handles between fixed columns
+            + 36        // 18pt horizontal padding on each side
+    }
+
+    private static let minMessageWidth: CGFloat = 240
+
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                if workingCopyDirty {
-                    UncommittedRow(maxLanes: maxLanes, rowHeight: rowHeight, gutterWidth: graphGutterWidth, columns: columns)
+        GeometryReader { geo in
+            let messageWidth = max(Self.minMessageWidth, geo.size.width - totalFixedWidth)
+            let contentWidth = totalFixedWidth + messageWidth - 36 // padding accounted in HStack
+
+            ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        if workingCopyDirty {
+                            UncommittedRow(
+                                rowHeight: rowHeight,
+                                gutterWidth: graphGutterWidth,
+                                columns: columns,
+                                messageWidth: messageWidth
+                            )
+                        }
+                        ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
+                            CommitRow(
+                                commit: commit,
+                                layout: layouts[safe: idx] ?? .empty,
+                                maxLanes: maxLanes,
+                                rowHeight: rowHeight,
+                                gutterWidth: graphGutterWidth,
+                                refs: refsBySha[commit.sha] ?? [],
+                                currentBranch: currentBranch,
+                                isSelected: commit.sha == selectedSha,
+                                dimmed: isMatch.map { !$0(commit) } ?? false,
+                                columns: columns,
+                                messageWidth: messageWidth,
+                                onSelect: { onSelect(commit.sha) }
+                            )
+                        }
+                    } header: {
+                        CommitTableHeader(
+                            gutterWidth: graphGutterWidth,
+                            columns: columns,
+                            messageWidth: messageWidth
+                        )
+                    }
                 }
-                ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
-                    CommitRow(
-                        commit: commit,
-                        layout: layouts[safe: idx] ?? .empty,
-                        maxLanes: maxLanes,
-                        rowHeight: rowHeight,
-                        gutterWidth: graphGutterWidth,
-                        refs: refsBySha[commit.sha] ?? [],
-                        currentBranch: currentBranch,
-                        isSelected: commit.sha == selectedSha,
-                        dimmed: isMatch.map { !$0(commit) } ?? false,
-                        columns: columns,
-                        onSelect: { onSelect(commit.sha) }
-                    )
-                }
+                .frame(width: max(contentWidth + 36, geo.size.width), alignment: .leading)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct CommitTableHeader: View {
+    let gutterWidth: CGFloat
+    let columns: ResizableTableModel
+    let messageWidth: CGFloat
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text("GRAPH").frame(width: gutterWidth, alignment: .leading)
+            Text("BRANCH / TAG")
+                .frame(width: columns.width("branchTag"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "branchTag"),
+                             minWidth: columns.minWidth("branchTag"), maxWidth: 380)
+            Text("MESSAGE").frame(width: messageWidth, alignment: .leading)
+            Text("AUTHOR")
+                .frame(width: columns.width("author"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "author"),
+                             minWidth: columns.minWidth("author"), maxWidth: 220)
+            Text("SHA")
+                .frame(width: columns.width("sha"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "sha"),
+                             minWidth: columns.minWidth("sha"), maxWidth: 140)
+            Text("WHEN")
+                .frame(width: columns.width("when"), alignment: .trailing)
+        }
+        .font(AppFont.mono(10.5, family: theme.monoFont))
+        .tracking(0.6)
+        .foregroundStyle(theme.palette.fg3)
+        .padding(.horizontal, 18)
+        .frame(height: 28)
+        .background(theme.palette.bg1)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .contextMenu {
+            Button("Reset column widths") { columns.reset() }
+        }
     }
 }
 
 private struct UncommittedRow: View {
-    let maxLanes: Int
     let rowHeight: CGFloat
     let gutterWidth: CGFloat
     let columns: ResizableTableModel
+    let messageWidth: CGFloat
+
     @Environment(\.appTheme) private var theme
+
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 0) {
@@ -85,13 +160,17 @@ private struct UncommittedRow: View {
                     .italic()
                     .foregroundStyle(theme.palette.mod)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Text("").frame(width: columns.width("author"))
+            .frame(width: messageWidth, alignment: .leading)
+            Color.clear.frame(width: columns.width("author"))
             Color.clear.frame(width: 8)
-            Text("–").font(AppFont.mono(11, family: theme.monoFont)).foregroundStyle(theme.palette.fg3)
+            Text("–")
+                .font(AppFont.mono(11, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("sha"), alignment: .leading)
             Color.clear.frame(width: 8)
-            Text("now").font(AppFont.mono(11, family: theme.monoFont)).foregroundStyle(theme.palette.fg3)
+            Text("now")
+                .font(AppFont.mono(11, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
         }
         .padding(.horizontal, 18)
@@ -111,6 +190,7 @@ private struct CommitRow: View {
     let isSelected: Bool
     let dimmed: Bool
     let columns: ResizableTableModel
+    let messageWidth: CGFloat
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -123,7 +203,7 @@ private struct CommitRow: View {
                 .frame(width: columns.width("branchTag"), alignment: .leading)
             Color.clear.frame(width: 8)
             messageColumn
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: messageWidth, alignment: .leading)
             HStack(spacing: 6) {
                 Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
                 Text(commit.authorName)
