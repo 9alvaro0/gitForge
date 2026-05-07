@@ -109,16 +109,19 @@ private struct CommitTableHeader: View {
             Text("BRANCH / TAG")
                 .frame(width: columns.width("branchTag"), alignment: .leading)
             ColumnDragHandle(width: columns.binding(for: "branchTag"),
-                             minWidth: columns.minWidth("branchTag"), maxWidth: 380)
+                             minWidth: columns.minWidth("branchTag"), maxWidth: 380,
+                             onCommit: { columns.commit() })
             Text("MESSAGE").frame(width: messageWidth, alignment: .leading)
             Text("AUTHOR")
                 .frame(width: columns.width("author"), alignment: .leading)
             ColumnDragHandle(width: columns.binding(for: "author"),
-                             minWidth: columns.minWidth("author"), maxWidth: 220)
+                             minWidth: columns.minWidth("author"), maxWidth: 220,
+                             onCommit: { columns.commit() })
             Text("SHA")
                 .frame(width: columns.width("sha"), alignment: .leading)
             ColumnDragHandle(width: columns.binding(for: "sha"),
-                             minWidth: columns.minWidth("sha"), maxWidth: 140)
+                             minWidth: columns.minWidth("sha"), maxWidth: 140,
+                             onCommit: { columns.commit() })
             Text("WHEN")
                 .frame(width: columns.width("when"), alignment: .trailing)
         }
