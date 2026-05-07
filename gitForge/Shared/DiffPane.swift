@@ -9,7 +9,16 @@ struct DiffPane: View {
     /// button is hidden — keeps history-mode diffs free of dead chrome.
     var onOpenInEditor: (() -> Void)? = nil
 
-    enum ViewMode: Hashable { case unified, split }
+    enum ViewMode: String, Hashable, CaseIterable, Identifiable {
+        case unified, split
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .unified: return "Unified"
+            case .split:   return "Split"
+            }
+        }
+    }
     @Binding var viewMode: ViewMode
 
     @Environment(\.appTheme) private var theme

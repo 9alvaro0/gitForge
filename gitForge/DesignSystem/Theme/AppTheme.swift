@@ -19,6 +19,12 @@ final class AppTheme {
     var monoFont: MonoFontFamily {
         didSet { persistMonoFont() }
     }
+    /// Default diff layout that History / Staging / Conflicts seed their
+    /// local toggle from. Per-view toggles stay ephemeral so changing this
+    /// in Settings is the only way to flip the starting mode globally.
+    var defaultDiffMode: DiffPane.ViewMode {
+        didSet { persistDiffMode() }
+    }
 
     private(set) var palette: ThemePalette = .dark
 
@@ -35,11 +41,14 @@ final class AppTheme {
         let savedMonoRaw = UserDefaults.standard.string(forKey: Keys.monoFont) ?? MonoFontFamily.jetbrainsMono.rawValue
         let savedMono = MonoFontFamily(rawValue: savedMonoRaw) ?? .jetbrainsMono
         let savedAccent = UserDefaults.standard.string(forKey: Keys.accent).flatMap(Color.init(stringHex:)) ?? Color(hex: 0x7c5cff)
+        let savedDiffMode = UserDefaults.standard.string(forKey: Keys.diffMode)
+            .flatMap(DiffPane.ViewMode.init(rawValue:)) ?? .unified
 
         self.mode = savedMode
         self.accent = savedAccent
         self.density = savedDensity
         self.monoFont = savedMono
+        self.defaultDiffMode = savedDiffMode
         refreshPalette()
     }
 
@@ -63,12 +72,16 @@ final class AppTheme {
     private func persistAccent() {
         UserDefaults.standard.set(accent.hexString, forKey: Keys.accent)
     }
+    private func persistDiffMode() {
+        UserDefaults.standard.set(defaultDiffMode.rawValue, forKey: Keys.diffMode)
+    }
 
     private enum Keys {
         static let mode = "appTheme.mode"
         static let density = "appTheme.density"
         static let accent = "appTheme.accent"
         static let monoFont = "appTheme.monoFont"
+        static let diffMode = "appTheme.diffMode"
     }
 }
 

@@ -25,6 +25,7 @@ struct SettingsView: View {
                         identitySection
                         gitSection
                     }
+                    RemoteHostsSection()
                 }
                 .padding(18)
                 .frame(maxWidth: 900, alignment: .topLeading)
@@ -76,6 +77,11 @@ struct SettingsView: View {
                       values: MonoFontFamily.allCases.map { ($0.rawValue, $0.label) },
                       current: appState.theme.monoFont.rawValue) { v in
                 if let f = MonoFontFamily(rawValue: v) { appState.theme.monoFont = f }
+            }
+            radioRow(label: "Diff view",
+                     values: DiffPane.ViewMode.allCases.map { ($0.rawValue, $0.label) },
+                     current: appState.theme.defaultDiffMode.rawValue) { v in
+                if let m = DiffPane.ViewMode(rawValue: v) { appState.theme.defaultDiffMode = m }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
