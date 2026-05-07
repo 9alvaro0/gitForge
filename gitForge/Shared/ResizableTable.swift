@@ -5,11 +5,14 @@ import SwiftUI
 /// `minWidth` and `maxWidth` while dragging.
 ///
 /// Each handle controls the column to its LEFT — neighbours stay put, like
-/// every native table on macOS.
+/// every native table on macOS. `onCommit` fires on drag-end so callers can
+/// defer expensive work (UserDefaults writes) until the user lets go,
+/// instead of paying that cost on every frame of the drag.
 struct ColumnDragHandle: View {
     @Binding var width: CGFloat
     var minWidth: CGFloat = 40
     var maxWidth: CGFloat = 1200
+    var onCommit: () -> Void = {}
 
     @State private var startWidth: CGFloat?
     @Environment(\.appTheme) private var theme
@@ -20,17 +23,34 @@ struct ColumnDragHandle: View {
         // height stay flexible, so the handle never bloats the row.
         Color.clear
             .frame(width: 8)
-            .overlay(Rectangle().fill(theme.palette.line).frame(width: 1))
+            .overlay(
+                Rectangle()
+                    .fill(theme.palette.line)
+                    .frame(width: 1)
+                    .allowsHitTesting(false)
+            )
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                // `.global` keeps translation stable when the handle's frame
+                // moves during the drag (which it does, because the column it
+                // controls is growing). `.local` produced a feedback loop
+                // where the cursor "caught up" with the handle and the gesture
+                // appeared reversed.
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in
                         let base = startWidth ?? width
                         if startWidth == nil { startWidth = width }
                         let new = base + value.translation.width
-                        width = min(max(minWidth, new), maxWidth)
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            width = min(max(minWidth, new), maxWidth)
+                        }
                     }
-                    .onEnded { _ in startWidth = nil }
+                    .onEnded { _ in
+                        startWidth = nil
+                        onCommit()
+                    }
             )
             .pointerStyle(.columnResize)
     }
@@ -43,6 +63,7 @@ struct RowDragHandle: View {
     @Binding var height: CGFloat
     var minHeight: CGFloat = 60
     var maxHeight: CGFloat = 800
+    var onCommit: () -> Void = {}
 
     @State private var startHeight: CGFloat?
     @Environment(\.appTheme) private var theme
@@ -50,19 +71,31 @@ struct RowDragHandle: View {
     var body: some View {
         Color.clear
             .frame(height: 8)
-            .overlay(Rectangle().fill(theme.palette.lineStrong).frame(height: 1))
+            .overlay(
+                Rectangle()
+                    .fill(theme.palette.lineStrong)
+                    .frame(height: 1)
+                    .allowsHitTesting(false)
+            )
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in
                         let base = startHeight ?? height
                         if startHeight == nil { startHeight = height }
                         // Handle is at the TOP of the resizable pane: drag up
                         // (negative dy) = pane gets taller.
                         let new = base - value.translation.height
-                        height = min(max(minHeight, new), maxHeight)
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            height = min(max(minHeight, new), maxHeight)
+                        }
                     }
-                    .onEnded { _ in startHeight = nil }
+                    .onEnded { _ in
+                        startHeight = nil
+                        onCommit()
+                    }
             )
             .pointerStyle(.rowResize)
     }
@@ -95,15 +128,16 @@ final class ResizableTableModel {
         }
     }
 
-    /// Width binding for `column`. Setting writes through to UserDefaults so
-    /// drags persist between launches without manual save calls.
+    /// Width binding for `column`. Setting only updates the in-memory widths —
+    /// callers should invoke `commit()` on drag-end to persist to UserDefaults.
+    /// Persisting on every keystroke caused noticeable drag lag because each
+    /// `set` synchronously hit disk and triggered every observer to re-render.
     func binding(for column: String) -> Binding<CGFloat> {
         Binding(
             get: { self.widths[column] ?? self.defaults[column] ?? 100 },
             set: { newValue in
                 let min = self.mins[column] ?? 40
                 self.widths[column] = Swift.max(min, newValue)
-                self.persist()
             }
         )
     }
@@ -114,6 +148,13 @@ final class ResizableTableModel {
 
     func minWidth(_ column: String) -> CGFloat {
         mins[column] ?? 40
+    }
+
+    /// Persist the current in-memory widths. Call from `ColumnDragHandle`'s
+    /// `onCommit` closure (i.e. drag-end) so the disk write happens once per
+    /// gesture instead of once per frame.
+    func commit() {
+        persist()
     }
 
     func reset() {

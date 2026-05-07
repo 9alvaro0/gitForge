@@ -17,15 +17,24 @@ struct HistoryView: View {
         ]
     )
 
-    @AppStorage("gitForge.history.diffPaneHeight") private var diffPaneHeightRaw: Double = 280
+    private static let diffHeightKey = "gitForge.history.diffPaneHeight"
     private static let collapsedThreshold: CGFloat = 80
     private static let defaultDiffHeight: CGFloat = 280
 
+    @State private var diffPaneHeightValue: CGFloat = {
+        let stored = UserDefaults.standard.double(forKey: HistoryView.diffHeightKey)
+        return stored > 0 ? CGFloat(stored) : 280
+    }()
+
     private var diffPaneHeight: Binding<CGFloat> {
         Binding(
-            get: { CGFloat(diffPaneHeightRaw) },
-            set: { diffPaneHeightRaw = Double($0) }
+            get: { diffPaneHeightValue },
+            set: { diffPaneHeightValue = $0 }
         )
+    }
+
+    private func persistDiffPaneHeight() {
+        UserDefaults.standard.set(Double(diffPaneHeightValue), forKey: Self.diffHeightKey)
     }
 
     var body: some View {
@@ -165,7 +174,12 @@ struct HistoryView: View {
                 }
             }
             .frame(maxHeight: .infinity)
-            RowDragHandle(height: diffPaneHeight, minHeight: 36, maxHeight: 800)
+            RowDragHandle(
+                height: diffPaneHeight,
+                minHeight: 36,
+                maxHeight: 800,
+                onCommit: { persistDiffPaneHeight() }
+            )
             DiffPane(
                 file: viewModel.selectedCommitFile,
                 hunks: viewModel.commitFileDiff,
