@@ -6,7 +6,10 @@ struct HistoryView: View {
     @Environment(\.appTheme) private var theme
 
     @State private var search: String = ""
-    @State private var diffMode: DiffPane.ViewMode = .unified
+    /// `nil` until the user toggles Unified/Split locally. While it stays nil
+    /// the pane reads `theme.defaultDiffMode` so changes in Settings show up
+    /// immediately and re-entering History always lands on the default.
+    @State private var diffModeOverride: DiffPane.ViewMode?
     @State private var columns = ResizableTableModel(
         id: "history",
         columns: [
@@ -36,6 +39,13 @@ struct HistoryView: View {
 
     private func persistDiffPaneHeight() {
         UserDefaults.standard.set(Double(diffPaneHeightValue), forKey: Self.diffHeightKey)
+    }
+
+    private var diffMode: Binding<DiffPane.ViewMode> {
+        Binding(
+            get: { diffModeOverride ?? theme.defaultDiffMode },
+            set: { diffModeOverride = $0 }
+        )
     }
 
     var body: some View {
@@ -185,7 +195,7 @@ struct HistoryView: View {
                 file: viewModel.selectedCommitFile,
                 hunks: viewModel.commitFileDiff,
                 loading: viewModel.loadingCommitFileDiff,
-                viewMode: $diffMode
+                viewMode: diffMode
             )
             .frame(height: diffPaneHeight.wrappedValue)
         }

@@ -7,7 +7,14 @@ struct StagingView: View {
     @Environment(\.appTheme) private var theme
     @State private var commitMessage: String = ""
     @State private var commitDescription: String = ""
-    @State private var diffMode: DiffPane.ViewMode = .unified
+    @State private var diffModeOverride: DiffPane.ViewMode?
+
+    private var diffMode: Binding<DiffPane.ViewMode> {
+        Binding(
+            get: { diffModeOverride ?? theme.defaultDiffMode },
+            set: { diffModeOverride = $0 }
+        )
+    }
 
     private var staged: [WorkingCopyFile]   { viewModel.status.stagedFiles }
     private var unstaged: [WorkingCopyFile] { viewModel.status.unstagedFiles }
@@ -100,7 +107,7 @@ struct StagingView: View {
                     hunks: viewModel.workingCopyDiff,
                     loading: viewModel.loadingWorkingCopyDiff,
                     onOpenInEditor: { openInEditor(file: file) },
-                    viewMode: $diffMode
+                    viewMode: diffMode
                 )
             } else if !staged.isEmpty || !unstaged.isEmpty {
                 EmptyState(icon: .diff, title: "Pick a file to see the diff",
