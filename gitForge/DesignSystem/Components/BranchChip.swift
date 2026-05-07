@@ -14,6 +14,8 @@ struct BranchChip: View {
             GFIcon(kind: tag ? .diamond : .branch, size: 10, stroke: foreground)
             Text(name)
                 .font(AppFont.mono(10.5, family: theme.monoFont))
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .padding(.leading, 5)
         .padding(.trailing, 7)
