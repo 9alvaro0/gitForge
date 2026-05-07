@@ -2,10 +2,15 @@ import SwiftUI
 
 /// Header + data table for the History view. Owns its own dual-axis ScrollView
 /// so columns line up between header and rows even when the graph gutter is
-/// wide enough to push the message off-screen — horizontal scroll engages
+/// wide enough to push the row past the viewport — horizontal scroll engages
 /// automatically. The header is pinned via a `LazyVStack` Section so it stays
 /// at the top during vertical scroll and slides with content during horizontal
 /// scroll (so the labels never desync from the columns below).
+///
+/// Drag-handle convention: each handle sits on the LEFT edge of the column it
+/// controls. Drag right = that column widens. The previous column stays put
+/// width-wise; only the dragged column grows. This is the "every column has a
+/// handle on its leading side" convention the user's mental model expects.
 struct CommitGraphTable: View {
     let commits: [Commit]
     let layouts: [GraphRowLayout]
@@ -38,23 +43,23 @@ struct CommitGraphTable: View {
         return max(110, leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad)
     }
 
-    private var totalFixedWidth: CGFloat {
+    /// Sum of every fixed-width piece in a row (gutter + the five resizable
+    /// columns + the four 8pt handle gaps + 36pt horizontal padding). When
+    /// the viewport is wider, a trailing Spacer absorbs the slack; when it's
+    /// narrower, ScrollView's horizontal axis takes over.
+    private var totalContentWidth: CGFloat {
         graphGutterWidth
             + columns.width("branchTag")
+            + columns.width("message")
             + columns.width("author")
             + columns.width("sha")
             + columns.width("when")
-            + (3 * 8)   // three drag handles between fixed columns
-            + 36        // 18pt horizontal padding on each side
+            + (4 * 8)
+            + 36
     }
-
-    private static let minMessageWidth: CGFloat = 240
 
     var body: some View {
         GeometryReader { geo in
-            let messageWidth = max(Self.minMessageWidth, geo.size.width - totalFixedWidth)
-            let contentWidth = totalFixedWidth + messageWidth - 36 // padding accounted in HStack
-
             ScrollView([.vertical, .horizontal], showsIndicators: true) {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                     Section {
@@ -62,8 +67,7 @@ struct CommitGraphTable: View {
                             UncommittedRow(
                                 rowHeight: rowHeight,
                                 gutterWidth: graphGutterWidth,
-                                columns: columns,
-                                messageWidth: messageWidth
+                                columns: columns
                             )
                         }
                         ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
@@ -78,19 +82,14 @@ struct CommitGraphTable: View {
                                 isSelected: commit.sha == selectedSha,
                                 dimmed: isMatch.map { !$0(commit) } ?? false,
                                 columns: columns,
-                                messageWidth: messageWidth,
                                 onSelect: { onSelect(commit.sha) }
                             )
                         }
                     } header: {
-                        CommitTableHeader(
-                            gutterWidth: graphGutterWidth,
-                            columns: columns,
-                            messageWidth: messageWidth
-                        )
+                        CommitTableHeader(gutterWidth: graphGutterWidth, columns: columns)
                     }
                 }
-                .frame(width: max(contentWidth + 36, geo.size.width), alignment: .leading)
+                .frame(width: max(totalContentWidth, geo.size.width), alignment: .leading)
             }
         }
     }
@@ -99,31 +98,38 @@ struct CommitGraphTable: View {
 private struct CommitTableHeader: View {
     let gutterWidth: CGFloat
     let columns: ResizableTableModel
-    let messageWidth: CGFloat
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
         HStack(spacing: 0) {
             Text("GRAPH").frame(width: gutterWidth, alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "branchTag"),
+                             minWidth: columns.minWidth("branchTag"), maxWidth: 480,
+                             onCommit: { columns.commit() })
             Text("BRANCH / TAG")
                 .frame(width: columns.width("branchTag"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "branchTag"),
-                             minWidth: columns.minWidth("branchTag"), maxWidth: 380,
+            ColumnDragHandle(width: columns.binding(for: "message"),
+                             minWidth: columns.minWidth("message"), maxWidth: 1200,
                              onCommit: { columns.commit() })
-            Text("MESSAGE").frame(width: messageWidth, alignment: .leading)
+            Text("MESSAGE")
+                .frame(width: columns.width("message"), alignment: .leading)
+            ColumnDragHandle(width: columns.binding(for: "author"),
+                             minWidth: columns.minWidth("author"), maxWidth: 280,
+                             onCommit: { columns.commit() })
             Text("AUTHOR")
                 .frame(width: columns.width("author"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "author"),
-                             minWidth: columns.minWidth("author"), maxWidth: 220,
+            ColumnDragHandle(width: columns.binding(for: "sha"),
+                             minWidth: columns.minWidth("sha"), maxWidth: 200,
                              onCommit: { columns.commit() })
             Text("SHA")
                 .frame(width: columns.width("sha"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "sha"),
-                             minWidth: columns.minWidth("sha"), maxWidth: 140,
+            ColumnDragHandle(width: columns.binding(for: "when"),
+                             minWidth: columns.minWidth("when"), maxWidth: 160,
                              onCommit: { columns.commit() })
             Text("WHEN")
                 .frame(width: columns.width("when"), alignment: .trailing)
+            Spacer(minLength: 0)
         }
         .font(AppFont.mono(10.5, family: theme.monoFont))
         .tracking(0.6)
@@ -142,7 +148,6 @@ private struct UncommittedRow: View {
     let rowHeight: CGFloat
     let gutterWidth: CGFloat
     let columns: ResizableTableModel
-    let messageWidth: CGFloat
 
     @Environment(\.appTheme) private var theme
 
@@ -154,6 +159,7 @@ private struct UncommittedRow: View {
                     .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: 1))
             }
             .frame(width: gutterWidth, alignment: .leading)
+            Color.clear.frame(width: 8)
             Color.clear.frame(width: columns.width("branchTag"))
             Color.clear.frame(width: 8)
             HStack(spacing: 8) {
@@ -163,8 +169,9 @@ private struct UncommittedRow: View {
                     .italic()
                     .foregroundStyle(theme.palette.mod)
             }
-            .frame(width: messageWidth, alignment: .leading)
-            Color.clear.frame(width: columns.width("author"))
+            .frame(width: columns.width("message"), alignment: .leading)
+            Color.clear.frame(width: 8)
+            Text("").frame(width: columns.width("author"))
             Color.clear.frame(width: 8)
             Text("–")
                 .font(AppFont.mono(11, family: theme.monoFont))
@@ -175,6 +182,7 @@ private struct UncommittedRow: View {
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
         .frame(height: rowHeight)
@@ -193,7 +201,6 @@ private struct CommitRow: View {
     let isSelected: Bool
     let dimmed: Bool
     let columns: ResizableTableModel
-    let messageWidth: CGFloat
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -202,11 +209,13 @@ private struct CommitRow: View {
         HStack(spacing: 0) {
             graphGutter
                 .frame(width: gutterWidth, alignment: .leading)
+            Color.clear.frame(width: 8)
             branchTagColumn
                 .frame(width: columns.width("branchTag"), alignment: .leading)
             Color.clear.frame(width: 8)
             messageColumn
-                .frame(width: messageWidth, alignment: .leading)
+                .frame(width: columns.width("message"), alignment: .leading)
+            Color.clear.frame(width: 8)
             HStack(spacing: 6) {
                 Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
                 Text(commit.authorName)
@@ -226,6 +235,7 @@ private struct CommitRow: View {
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 18)
         .frame(height: rowHeight)
@@ -336,6 +346,7 @@ private extension Array {
         id: "history.preview",
         columns: [
             (id: "branchTag", defaultWidth: 220, minWidth: 80),
+            (id: "message",   defaultWidth: 480, minWidth: 240),
             (id: "author",    defaultWidth: 130, minWidth: 80),
             (id: "sha",       defaultWidth: 80,  minWidth: 60),
             (id: "when",      defaultWidth: 70,  minWidth: 50),
