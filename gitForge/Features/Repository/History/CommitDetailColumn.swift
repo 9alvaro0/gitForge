@@ -43,7 +43,7 @@ struct CommitDetailColumn: View {
             Text(commit.shortSha)
                 .font(AppFont.mono(13, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
-            IconButton(.copy) {
+            IconButton(.copy, accessibilityLabel: "Copy full SHA") {
                 #if canImport(AppKit)
                 NSPasteboard.general.declareTypes([.string], owner: nil)
                 NSPasteboard.general.setString(commit.sha, forType: .string)
@@ -52,7 +52,7 @@ struct CommitDetailColumn: View {
             .help("Copy full SHA")
             Spacer()
             if let onClose {
-                IconButton(.x, action: onClose)
+                IconButton(.x, accessibilityLabel: "Hide commit detail", action: onClose)
                     .help("Hide commit detail")
             }
         }

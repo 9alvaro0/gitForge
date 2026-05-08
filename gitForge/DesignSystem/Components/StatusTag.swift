@@ -44,22 +44,6 @@ struct StatusTag: View {
     }
 }
 
-extension StatusTag.Kind {
-    init(workingFile: WorkingCopyFile.Status) {
-        switch workingFile {
-        case .modified, .typeChanged: self = .modified
-        case .added:                  self = .added
-        case .deleted:                self = .deleted
-        case .renamed:                self = .renamed
-        case .copied:                 self = .copied
-        case .untracked:              self = .untracked
-        case .unmerged:               self = .unmerged
-        case .ignored:                self = .ignored
-        case .unmodified:             self = .modified
-        }
-    }
-}
-
 #Preview {
     @Previewable @State var theme = AppTheme()
     HStack(spacing: DesignTokens.Spacing.md) {

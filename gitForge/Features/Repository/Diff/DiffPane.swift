@@ -54,11 +54,11 @@ struct DiffPane: View {
                 selection: $viewMode
             )
             if let onOpenInEditor {
-                IconButton(.ext, action: onOpenInEditor)
+                IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
                     .help("Open in editor")
             }
             if let onClose {
-                IconButton(.x, action: onClose)
+                IconButton(.x, accessibilityLabel: "Hide diff pane", action: onClose)
                     .help("Hide diff pane")
             }
         }

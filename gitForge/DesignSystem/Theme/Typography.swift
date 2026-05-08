@@ -11,7 +11,8 @@ enum MonoFontFamily: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// Semantic font sizes. Use these instead of raw numbers when calling `AppFont.sans/.mono`.
-/// Sizes here are absolute — `Density.fontSize` covers the "follows user density" case.
+/// Sizes here are absolute — for monospace blocks that should follow the
+/// user's density preference, use `theme.density.monoFontSize` instead.
 enum FontSize {
     static let caption: CGFloat = 10
     static let footnote: CGFloat = 11

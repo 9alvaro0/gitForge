@@ -25,7 +25,7 @@ struct SplitToolButton<Menu: View>: View {
         }
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(bg))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
-        .opacity(disabled ? 0.5 : 1)
+        .opacity(disabled ? DesignTokens.Opacity.disabled : 1)
         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.md))
     }
 

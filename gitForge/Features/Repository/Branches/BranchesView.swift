@@ -471,7 +471,7 @@ private struct BranchSection: View {
                     .font(AppFont.mono(12, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                 if isCurrent {
-                    Pill(text: "HEAD", kind: .clean)
+                    Pill(text: "HEAD", kind: .neutral)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

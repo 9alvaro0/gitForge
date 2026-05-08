@@ -57,7 +57,7 @@ struct ToolButton<Icon: View>: View {
         }
         .buttonStyle(.plain)
         .disabled(disabled || loading)
-        .opacity(disabled ? 0.5 : 1)
+        .opacity(disabled ? DesignTokens.Opacity.disabled : 1)
         .onHover { hovering = $0 }
     }
 
