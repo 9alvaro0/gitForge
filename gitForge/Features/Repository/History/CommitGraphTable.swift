@@ -96,7 +96,7 @@ struct CommitGraphTable: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(spacing: DesignTokens.Spacing.none, pinnedViews: [.sectionHeaders]) {
                     Section {
                         if workingCopyDirty {
                             UncommittedRow(
@@ -148,7 +148,7 @@ private struct CommitTableHeader: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             Text("GRAPH").frame(width: gutterWidth, alignment: .leading)
             ColumnDragHandle(width: graphHandle,
                              minWidth: graphMinWidth, maxWidth: 600,
@@ -183,7 +183,7 @@ private struct CommitTableHeader: View {
         .font(AppFont.mono(10.5, family: theme.monoFont))
         .tracking(0.6)
         .foregroundStyle(theme.palette.fg3)
-        .padding(.horizontal, 18)
+        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
         .frame(height: 28)
         .background(theme.palette.bg1)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
@@ -201,8 +201,8 @@ private struct UncommittedRow: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
+            HStack(spacing: DesignTokens.Spacing.none) {
                 Spacer().frame(width: 18)
                 Rectangle().fill(theme.palette.mod).frame(width: 8, height: 8)
                     .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: 1))
@@ -211,7 +211,7 @@ private struct UncommittedRow: View {
             Color.clear.frame(width: 8)
             Color.clear.frame(width: columns.width("branchTag"))
             Color.clear.frame(width: 8)
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 Circle().fill(theme.palette.mod).frame(width: 8, height: 8)
                 Text("Uncommitted changes")
                     .font(AppFont.sans(12.5))
@@ -234,7 +234,7 @@ private struct UncommittedRow: View {
             Color.clear.frame(width: 8)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
         .frame(height: rowHeight)
         .background(LinearGradient(colors: [theme.palette.mod.opacity(0.07), .clear], startPoint: .leading, endPoint: .trailing))
     }
@@ -260,7 +260,7 @@ private struct CommitRow: View {
     @State private var rowDropTargeted = false
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             graphGutter
                 .frame(width: gutterWidth, alignment: .leading)
             Color.clear.frame(width: 8)
@@ -270,7 +270,7 @@ private struct CommitRow: View {
             messageColumn
                 .frame(width: columns.width("message"), alignment: .leading)
             Color.clear.frame(width: 8)
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
                 Text(commit.authorName)
                     .font(AppFont.sans(12))
@@ -292,7 +292,7 @@ private struct CommitRow: View {
             Color.clear.frame(width: 8)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
         .frame(height: rowHeight)
         .background(rowBackground)
         .overlay(alignment: .leading) {
@@ -314,7 +314,7 @@ private struct CommitRow: View {
 
     /// Re-uses the existing `GraphColumnView` so lane drawing matches the rest of the app.
     private var graphGutter: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             Spacer().frame(width: 18)
             GraphColumnView(row: layout, maxLanes: max(maxLanes, 1))
         }
@@ -323,7 +323,7 @@ private struct CommitRow: View {
     /// Up to 2 chips when refs ≤ 2, otherwise first chip + "+N" overflow pill.
     /// Refs are sorted so the current branch wins, then local, tag, remote.
     private var branchTagColumn: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DesignTokens.Spacing.xs) {
             ForEach(visibleRefs) { ref in
                 chipView(for: ref)
             }
@@ -427,8 +427,8 @@ private struct CommitRow: View {
             Text("+\(count)")
                 .font(AppFont.mono(10.5, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
+                .padding(.horizontal, DesignTokens.Spacing.sm)
+                .padding(.vertical, DesignTokens.Spacing.hairline)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(showHiddenRefs ? theme.palette.bg4 : theme.palette.bg3)
@@ -449,7 +449,7 @@ private struct CommitRow: View {
     }
 
     private var hiddenRefsPopover: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text("\(hiddenRefs.count) more")
                 .font(AppFont.sans(11, weight: .semibold))
                 .tracking(0.5)
@@ -464,7 +464,7 @@ private struct CommitRow: View {
                 )
             }
         }
-        .padding(12)
+        .padding(DesignTokens.Spacing.xl)
         .background(theme.palette.bg2)
         .appTheme(theme)
     }

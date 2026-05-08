@@ -10,7 +10,7 @@ struct WindowChrome<Content: View>: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             titleBar
             Rectangle()
                 .fill(theme.palette.lineStrong)

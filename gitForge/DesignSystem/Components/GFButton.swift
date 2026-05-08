@@ -46,7 +46,7 @@ struct GFButton: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: 8) {
+    VStack(spacing: DesignTokens.Spacing.md) {
         HStack {
             GFButton(title: "Secondary") { }
             GFButton(title: "Primary", style: .primary) { }
@@ -57,7 +57,7 @@ struct GFButton: View {
             GFButton(title: "Small primary", style: .primary, size: .small) { }
         }
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

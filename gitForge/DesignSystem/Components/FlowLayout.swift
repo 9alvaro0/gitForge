@@ -46,19 +46,19 @@ struct FlowLayout: Layout {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    FlowLayout(spacing: 6) {
+    FlowLayout(spacing: DesignTokens.Spacing.sm) {
         ForEach(["v2.3.1", "v2.3.0", "v2.2.4", "v2.2.3", "v2.2.2", "v2.2.1", "v2.1.0", "v2.0.0"], id: \.self) { tag in
-            HStack(spacing: 5) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: .diamond, size: 10, stroke: theme.palette.mod)
                 Text(tag).font(AppFont.mono(11.5, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.mod)
-            .padding(.horizontal, 10).padding(.vertical, 4)
+            .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)
             .background(RoundedRectangle(cornerRadius: 12).fill(theme.palette.mod.opacity(0.12)))
         }
     }
     .frame(width: 460)
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

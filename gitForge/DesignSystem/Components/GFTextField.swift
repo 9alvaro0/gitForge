@@ -13,7 +13,7 @@ struct GFTextField: View {
             .textFieldStyle(.plain)
             .font(AppFont.sans(12))
             .foregroundStyle(theme.palette.fg1)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: 28)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
             .overlay(
@@ -33,8 +33,8 @@ struct ChipInput: View {
         Text(text)
             .font(AppFont.mono(11, family: theme.monoFont))
             .foregroundStyle(theme.palette.accent)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.vertical, DesignTokens.Spacing.xxs)
             .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.accentSoft))
     }
 }
@@ -42,7 +42,7 @@ struct ChipInput: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var text: String = "feat/commit-graph"
-    VStack(spacing: 10) {
+    VStack(spacing: DesignTokens.Spacing.lg) {
         GFTextField(placeholder: "Filter…", text: $text).frame(width: 300)
         GFTextField(placeholder: "Empty placeholder", text: .constant("")).frame(width: 300)
         HStack {
@@ -50,7 +50,7 @@ struct ChipInput: View {
             ChipInput(text: "branch:main")
         }
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

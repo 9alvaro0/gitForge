@@ -31,7 +31,7 @@ struct OverflowMenu<Content: View>: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    HStack(spacing: 8) {
+    HStack(spacing: DesignTokens.Spacing.md) {
         OverflowMenu {
             Button("Checkout") {}
             Button("Rename…") {}
@@ -40,7 +40,7 @@ struct OverflowMenu<Content: View>: View {
         }
         Text("← click").foregroundStyle(theme.palette.fg3)
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg1)
     .appTheme(theme)
 }

@@ -50,7 +50,7 @@ private struct ShellView: View {
                 }
                 if let toast = appState.activeToast {
                     ToastView(toast: toast) { appState.activeToast = nil }
-                        .padding(.bottom, 40)
+                        .padding(.bottom, DesignTokens.Spacing.xxxhuge)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.opacity)
                         .zIndex(3)
@@ -65,8 +65,8 @@ private struct ShellView: View {
     }
 
     private var shellLayout: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
+            HStack(spacing: DesignTokens.Spacing.none) {
                 RedesignedSidebar(
                     repositories: appState.repositories,
                     activeRepository: appState.activeRepository,
@@ -226,7 +226,7 @@ private struct RepositoryHost: View {
                 ContentRouter(viewModel: viewModel)
                     .id(repository.url)
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: DesignTokens.Spacing.lg) {
                     ProgressView().controlSize(.regular)
                     Text("Opening \(repository.url.lastPathComponent)…")
                         .font(AppFont.mono(11, family: theme.monoFont))

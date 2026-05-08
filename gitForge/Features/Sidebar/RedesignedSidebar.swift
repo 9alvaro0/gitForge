@@ -26,13 +26,13 @@ struct RedesignedSidebar: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                     SidebarSearchTrigger(action: onOpenCommandPalette)
-                        .padding(.horizontal, 10)
-                        .padding(.top, 4)
-                        .padding(.bottom, 8)
+                        .padding(.horizontal, DesignTokens.Spacing.lg)
+                        .padding(.top, DesignTokens.Spacing.xs)
+                        .padding(.bottom, DesignTokens.Spacing.md)
 
                     SidebarSectionHeader(title: "Repositories") {
                         Menu {
@@ -51,7 +51,7 @@ struct RedesignedSidebar: View {
                         .fixedSize()
                         .help("Add repository")
                     }
-                    VStack(spacing: 1) {
+                    VStack(spacing: DesignTokens.Spacing.hairline) {
                         ForEach(repositories) { repo in
                             let status = statusFor(repo)
                             SidebarRepoRow(
@@ -76,7 +76,7 @@ struct RedesignedSidebar: View {
 
                     if activeRepository != nil {
                         SidebarSectionHeader(title: "Workspace")
-                        VStack(spacing: 1) {
+                        VStack(spacing: DesignTokens.Spacing.hairline) {
                             ForEach(WorkspaceSection.workspaceItems) { section in
                                 SidebarNavItem(
                                     section: section,
@@ -88,10 +88,10 @@ struct RedesignedSidebar: View {
                         }
                     }
                 }
-                .padding(.bottom, 12)
+                .padding(.bottom, DesignTokens.Spacing.xl)
             }
 
-            VStack(spacing: 1) {
+            VStack(spacing: DesignTokens.Spacing.hairline) {
                 ForEach(WorkspaceSection.bottomItems) { section in
                     SidebarNavItem(
                         section: section,
@@ -142,7 +142,7 @@ private struct AddRepositoryRow: View {
             Button("Open existing folder…") { onOpenExisting() }
             Button("Clone new…") { onCloneNew() }
         } label: {
-            HStack(spacing: 9) {
+            HStack(spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(foreground.opacity(0.85))
@@ -152,11 +152,11 @@ private struct AddRepositoryRow: View {
                     .foregroundStyle(foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: DesignTokens.Sidebar.navRow)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-            .padding(.horizontal, 6)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
         }
         .menuStyle(.button)
         .menuIndicator(.hidden)

@@ -30,7 +30,7 @@ struct StagingView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Changes") {
                 MonoText("\(staged.count) staged · \(unstaged.count) unstaged", dim: true)
             } right: {
@@ -39,7 +39,7 @@ struct StagingView: View {
                     Task { await viewModel.discardChanges(viewModel.status.files) }
                 }
             }
-            HStack(spacing: 0) {
+            HStack(spacing: DesignTokens.Spacing.none) {
                 filesColumn
                 diffColumn
             }
@@ -49,12 +49,12 @@ struct StagingView: View {
     }
 
     private var filesColumn: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ScrollView {
                 if statusLoading && staged.isEmpty && unstaged.isEmpty {
                     statusPlaceholder
                 } else {
-                    LazyVStack(spacing: 0) {
+                    LazyVStack(spacing: DesignTokens.Spacing.none) {
                         fileSectionHeader(title: "Staged", count: staged.count, action: "Unstage all") {
                             Task { await viewModel.unstage(staged) }
                         }
@@ -64,8 +64,8 @@ struct StagingView: View {
                                 .foregroundStyle(theme.palette.fg3)
                                 .italic()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
+                                .padding(.horizontal, DesignTokens.Spacing.xxl)
+                                .padding(.vertical, DesignTokens.Spacing.md)
                         } else {
                             ForEach(staged) { f in
                                 StagingRow(file: f, viewModel: viewModel)
@@ -97,7 +97,7 @@ struct StagingView: View {
     ]
 
     private var statusPlaceholder: some View {
-        LazyVStack(spacing: 0) {
+        LazyVStack(spacing: DesignTokens.Spacing.none) {
             placeholderSectionHeader(title: "Staged", count: 0)
             ForEach(0..<2, id: \.self) { index in
                 placeholderRow(index: index)
@@ -114,7 +114,7 @@ struct StagingView: View {
     @ViewBuilder
     private func placeholderSectionHeader(title: String, count: Int) -> some View {
         HStack {
-            HStack(spacing: 4) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
                 Text(title.uppercased())
                     .font(AppFont.mono(10.5, family: theme.monoFont))
                     .tracking(0.6)
@@ -124,14 +124,14 @@ struct StagingView: View {
             .foregroundStyle(theme.palette.fg3)
             Spacer()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.vertical, DesignTokens.Spacing.sm)
     }
 
     @ViewBuilder
     private func placeholderRow(index: Int) -> some View {
         let path = Self.placeholderPaths[index % Self.placeholderPaths.count]
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(theme.palette.bg2)
                 .frame(width: 14, height: 14)
@@ -143,15 +143,15 @@ struct StagingView: View {
                 .truncationMode(.head)
             Spacer()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 4)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.vertical, DesignTokens.Spacing.xs)
         .frame(height: 26)
     }
 
     @ViewBuilder
     private func fileSectionHeader(title: String, count: Int, action: String, onAction: @escaping () -> Void) -> some View {
         HStack {
-            HStack(spacing: 4) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
                 Text(title.uppercased())
                     .font(AppFont.mono(10.5, family: theme.monoFont))
                     .tracking(0.6)
@@ -164,14 +164,14 @@ struct StagingView: View {
                 Text(action)
                     .font(AppFont.mono(10.5, family: theme.monoFont))
                     .foregroundStyle(theme.palette.accent)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                     .background(RoundedRectangle(cornerRadius: 3).fill(.clear))
                     .contentShape(.rect(cornerRadius: 3))
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.vertical, DesignTokens.Spacing.sm)
     }
 
     private var diffColumn: some View {
@@ -198,10 +198,10 @@ struct StagingView: View {
     }
 
     private var commitBox: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DesignTokens.Spacing.md) {
             TextField("Commit message", text: $commitMessage)
                 .textFieldStyle(.plain)
-                .padding(.horizontal, 10).padding(.vertical, 8)
+                .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.md)
                 .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg3))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.palette.lineStrong, lineWidth: 1))
                 .font(AppFont.sans(12.5))
@@ -209,7 +209,7 @@ struct StagingView: View {
             TextField("Description (optional)", text: $commitDescription, axis: .vertical)
                 .lineLimit(3...3)
                 .textFieldStyle(.plain)
-                .padding(.horizontal, 10).padding(.vertical, 8)
+                .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.md)
                 .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg3))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.palette.lineStrong, lineWidth: 1))
                 .font(AppFont.mono(12, family: theme.monoFont))
@@ -231,7 +231,7 @@ struct StagingView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(12)
+        .padding(DesignTokens.Spacing.xl)
         .background(theme.palette.bg2)
         .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
     }
@@ -259,7 +259,7 @@ private struct StagingRow: View {
     var body: some View {
         let isSelected = viewModel.selectedWorkingCopyFile?.id == file.id
         Button(action: { viewModel.selectedWorkingCopyFile = file }) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 Toggle("", isOn: Binding(
                     get: { file.isStaged },
                     set: { _ in Task { await toggleStaged() } }
@@ -270,8 +270,8 @@ private struct StagingRow: View {
                 Spacer()
                 stats
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DesignTokens.Spacing.xxl)
+            .padding(.vertical, DesignTokens.Spacing.xs)
             .frame(height: 26)
             .background(isSelected ? theme.palette.bg4 : (hovering ? theme.palette.bg3 : .clear))
         }
@@ -292,7 +292,7 @@ private struct StagingRow: View {
         let parts = file.path.split(separator: "/")
         let directory = parts.dropLast().joined(separator: "/")
         let name = parts.last.map(String.init) ?? file.path
-        return HStack(spacing: 0) {
+        return HStack(spacing: DesignTokens.Spacing.none) {
             if !directory.isEmpty {
                 Text("\(directory)/")
                     .font(AppFont.mono(11.5, family: theme.monoFont))

@@ -178,8 +178,8 @@ final class ResizableTableModel {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var w1: CGFloat = 200
     @Previewable @State var w2: CGFloat = 120
-    VStack(spacing: 0) {
-        HStack(spacing: 0) {
+    VStack(spacing: DesignTokens.Spacing.none) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             Text("ALPHA")
                 .font(AppFont.mono(10.5, family: theme.monoFont))
                 .frame(width: w1, alignment: .leading)
@@ -192,7 +192,7 @@ final class ResizableTableModel {
                 .font(AppFont.mono(10.5, family: theme.monoFont))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg2)
         Divider()
         Text("Drag the dividers — w1=\(Int(w1)), w2=\(Int(w2))")

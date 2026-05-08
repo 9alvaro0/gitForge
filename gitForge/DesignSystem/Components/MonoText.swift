@@ -27,12 +27,12 @@ struct MonoText: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: 6) {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
         MonoText("a4f3c12 · feat/commit-graph")
         MonoText("just now", dim: true)
         MonoText("12.5px", weight: .semibold, color: theme.palette.accent)
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

@@ -15,7 +15,7 @@ struct SidebarSectionHeader<Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             Text(title.uppercased())
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(0.8)
@@ -23,16 +23,16 @@ struct SidebarSectionHeader<Trailing: View>: View {
             Spacer(minLength: 0)
             trailing()
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.top, DesignTokens.Spacing.md)
+        .padding(.bottom, DesignTokens.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: 0) {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
         SidebarSectionHeader(title: "Repositories") {
             Image(systemName: "plus")
                 .font(.system(size: 10, weight: .semibold))

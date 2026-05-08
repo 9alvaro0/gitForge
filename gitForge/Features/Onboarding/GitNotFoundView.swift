@@ -6,13 +6,13 @@ struct GitNotFoundView: View {
     @State private var isInstalling = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DesignTokens.Spacing.xhuge) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(theme.palette.warn.gradient)
                 .symbolRenderingMode(.hierarchical)
 
-            VStack(spacing: 10) {
+            VStack(spacing: DesignTokens.Spacing.lg) {
                 Text("Git is required")
                     .font(.title2)
                     .fontWeight(.semibold)
@@ -22,7 +22,7 @@ struct GitNotFoundView: View {
                     .frame(maxWidth: 440)
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: DesignTokens.Spacing.xl) {
                 Button {
                     installCommandLineTools()
                 } label: {

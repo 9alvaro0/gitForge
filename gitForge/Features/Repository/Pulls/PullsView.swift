@@ -31,7 +31,7 @@ struct PullsView: View {
     }
 
     private var listLayout: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: headerTitle) {
                 subtitle
             } right: {
@@ -66,7 +66,7 @@ struct PullsView: View {
             loadingPlaceholder
         } else if let message = viewModel.pullRequestsError {
             EmptyState(icon: .warn, title: "Couldn't load", subtitle: message) {
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     if isTLSError(message), let host = viewModel.pullRequestsHost {
                         GFButton(title: "Trust \(host.host)", style: .primary) {
                             RemoteHostTrust.shared.setTrusted(host.host, true)
@@ -98,12 +98,12 @@ struct PullsView: View {
             ) { EmptyView() }
         } else {
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: DesignTokens.Spacing.md) {
                     ForEach(viewModel.pullRequests) { pr in
                         pullRow(pr)
                     }
                 }
-                .padding(18)
+                .padding(DesignTokens.Spacing.xxxxl)
             }
         }
     }
@@ -131,12 +131,12 @@ struct PullsView: View {
     @ViewBuilder
     private var loadingPlaceholder: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: DesignTokens.Spacing.md) {
                 ForEach(0..<6, id: \.self) { index in
                     placeholderRow(index: index)
                 }
             }
-            .padding(18)
+            .padding(DesignTokens.Spacing.xxxxl)
         }
         .skeleton(true)
     }
@@ -146,17 +146,17 @@ struct PullsView: View {
         let title = Self.placeholderTitles[index % Self.placeholderTitles.count]
         let branch = Self.placeholderBranches[index % Self.placeholderBranches.count]
 
-        HStack(spacing: 12) {
+        HStack(spacing: DesignTokens.Spacing.xl) {
             statusBadge(.open)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                HStack(spacing: DesignTokens.Spacing.md) {
                     Text(title)
                         .font(AppFont.sans(13, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
                         .lineLimit(1)
                     MonoText("#000", dim: true)
                 }
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     MonoText("@author", dim: true)
                     Text("·").foregroundStyle(theme.palette.fg4)
                     MonoText(branch, dim: true)
@@ -168,8 +168,8 @@ struct PullsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
@@ -182,7 +182,7 @@ struct PullsView: View {
                 title: "\(host.provider.label) token required",
                 subtitle: "No token stored for \(host.host). Add a Personal Access Token to list \(headerTitle.lowercased())."
             ) {
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     GFButton(title: "Add token…", style: .primary) {
                         tokenDraft = ""
                         tokenError = nil
@@ -204,7 +204,7 @@ struct PullsView: View {
 
     @ViewBuilder
     private func tokenSheet(for host: RemoteHost) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("\(host.provider.label) token")
                 .font(AppFont.sans(14, weight: .semibold))
             Text("Token will be stored in macOS Keychain for \(host.host).")
@@ -217,7 +217,7 @@ struct PullsView: View {
             SecureField("ghp_… / glpat_…", text: $tokenDraft)
                 .textFieldStyle(.plain)
                 .font(AppFont.mono(12, family: theme.monoFont))
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 28)
                 .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
@@ -244,7 +244,7 @@ struct PullsView: View {
                 .disabled(tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(width: 460)
         .background(theme.palette.bg1)
         .appTheme(theme)
@@ -271,10 +271,10 @@ struct PullsView: View {
         Button {
             viewModel.selectPullRequest(pr)
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DesignTokens.Spacing.xl) {
                 statusBadge(pr.state)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                    HStack(spacing: DesignTokens.Spacing.md) {
                         Text(pr.title)
                             .font(AppFont.sans(13, weight: .medium))
                             .foregroundStyle(theme.palette.fg1)
@@ -282,7 +282,7 @@ struct PullsView: View {
                             .truncationMode(.tail)
                         MonoText("#\(pr.number)", dim: true)
                     }
-                    HStack(spacing: 6) {
+                    HStack(spacing: DesignTokens.Spacing.sm) {
                         if let author = pr.authorLogin {
                             MonoText("@\(author)", dim: true)
                             Text("·").foregroundStyle(theme.palette.fg4)
@@ -304,7 +304,7 @@ struct PullsView: View {
                         Text("Open")
                             .font(AppFont.sans(11))
                             .foregroundStyle(theme.palette.fg2)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, DesignTokens.Spacing.md)
                             .frame(height: 22)
                             .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
                             .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.line, lineWidth: 1))
@@ -313,8 +313,8 @@ struct PullsView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, DesignTokens.Spacing.xxl)
+            .padding(.vertical, DesignTokens.Spacing.lg)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
@@ -335,8 +335,8 @@ struct PullsView: View {
         }()
         Text(label)
             .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)
             .background(RoundedRectangle(cornerRadius: 3).fill(bg))
     }

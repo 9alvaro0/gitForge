@@ -21,7 +21,7 @@ struct CommandPaletteView: View {
     var body: some View {
         ZStack(alignment: .top) {
             theme.palette.bg0.opacity(0.6).ignoresSafeArea().onTapGesture { onClose() }
-            VStack(spacing: 0) {
+            VStack(spacing: DesignTokens.Spacing.none) {
                 inputRow
                 Rectangle().fill(theme.palette.line).frame(height: 1)
                 resultsList
@@ -51,7 +51,7 @@ struct CommandPaletteView: View {
     }
 
     private var inputRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DesignTokens.Spacing.lg) {
             GFIcon(kind: .search, size: 14, stroke: theme.palette.fg3)
             TextField("Search repos, commits, branches, files…", text: $query)
                 .textFieldStyle(.plain)
@@ -61,18 +61,18 @@ struct CommandPaletteView: View {
                 .onChange(of: query) { _, _ in selectedIndex = 0 }
             Kbd(text: "esc")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, DesignTokens.Spacing.xxxl)
+        .padding(.vertical, DesignTokens.Spacing.xxl)
     }
 
     private var resultsList: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            VStack(spacing: DesignTokens.Spacing.none) {
                 if filteredItems.isEmpty {
                     Text("No matches for “\(query)”")
                         .font(AppFont.sans(12))
                         .foregroundStyle(theme.palette.fg3)
-                        .padding(24)
+                        .padding(DesignTokens.Spacing.xhuge)
                 }
                 ForEach(Array(filteredItems.enumerated()), id: \.element.id) { idx, item in
                     paletteRow(item: item, isActive: idx == selectedIndex)
@@ -80,14 +80,14 @@ struct CommandPaletteView: View {
                         .onTapGesture { onPick(item) }
                 }
             }
-            .padding(4)
+            .padding(DesignTokens.Spacing.xs)
         }
         .frame(maxHeight: 380)
     }
 
     @ViewBuilder
     private func paletteRow(item: CommandPaletteItem, isActive: Bool) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DesignTokens.Spacing.lg) {
             GFIcon(kind: item.icon, size: 14, stroke: isActive ? theme.palette.accent : theme.palette.fg3)
             Text(item.label)
                 .font(AppFont.sans(13))
@@ -97,8 +97,8 @@ struct CommandPaletteView: View {
             Text(item.tag.uppercased())
                 .font(AppFont.mono(10, family: theme.monoFont))
                 .foregroundStyle(isActive ? theme.palette.accent.opacity(0.85) : theme.palette.fg3)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
+                .padding(.horizontal, DesignTokens.Spacing.sm)
+                .padding(.vertical, DesignTokens.Spacing.hairline)
                 .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
             if let hint = item.hint {
                 Text(hint)
@@ -106,22 +106,22 @@ struct CommandPaletteView: View {
                     .foregroundStyle(isActive ? theme.palette.accent.opacity(0.85) : theme.palette.fg3)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(isActive ? theme.palette.accentSoft : .clear))
         .contentShape(.rect)
     }
 
     private var footer: some View {
-        HStack(spacing: 16) {
-            HStack(spacing: 4) { Kbd(text: "↑↓"); Text("navigate") }
-            HStack(spacing: 4) { Kbd(text: "↵"); Text("select") }
-            HStack(spacing: 4) { Kbd(text: "esc"); Text("close") }
+        HStack(spacing: DesignTokens.Spacing.xxxl) {
+            HStack(spacing: DesignTokens.Spacing.xs) { Kbd(text: "↑↓"); Text("navigate") }
+            HStack(spacing: DesignTokens.Spacing.xs) { Kbd(text: "↵"); Text("select") }
+            HStack(spacing: DesignTokens.Spacing.xs) { Kbd(text: "esc"); Text("close") }
         }
         .font(AppFont.sans(11))
         .foregroundStyle(theme.palette.fg3)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DesignTokens.Spacing.xxxl)
+        .padding(.vertical, DesignTokens.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(theme.palette.bg2)
     }

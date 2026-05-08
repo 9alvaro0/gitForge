@@ -23,12 +23,12 @@ struct SegmentedControl<Value: Hashable>: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             ForEach(options) { opt in
                 segmentButton(opt)
             }
         }
-        .padding(2)
+        .padding(DesignTokens.Spacing.xxs)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
@@ -39,7 +39,7 @@ struct SegmentedControl<Value: Hashable>: View {
         Button(action: { selection = opt.value }) {
             Text(opt.label)
                 .font(AppFont.sans(11))
-                .padding(.horizontal, 9)
+                .padding(.horizontal, DesignTokens.Spacing.lg)
                 .frame(height: 22)
                 .foregroundStyle(isActive ? theme.palette.fg1 : theme.palette.fg3)
                 .background(
@@ -55,12 +55,12 @@ struct SegmentedControl<Value: Hashable>: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var selection: String = "all"
-    VStack(spacing: 12) {
+    VStack(spacing: DesignTokens.Spacing.xl) {
         SegmentedControl<String>([("all", "All"), ("local", "Local"), ("remote", "Remote"), ("tags", "Tags")],
                                   selection: $selection)
         Text("Selected: \(selection)").foregroundStyle(theme.palette.fg2)
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

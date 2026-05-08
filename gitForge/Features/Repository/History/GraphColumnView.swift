@@ -256,7 +256,7 @@ struct GraphColumnView: View {
             isMerge: false
         ),
     ]
-    VStack(spacing: 0) {
+    VStack(spacing: DesignTokens.Spacing.none) {
         ForEach(0..<sample.count, id: \.self) { idx in
             GraphColumnView(row: sample[idx], maxLanes: 2)
                 .frame(height: 60)

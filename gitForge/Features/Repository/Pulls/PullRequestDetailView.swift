@@ -24,7 +24,7 @@ struct PullRequestDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             header
             tabBar
             content
@@ -68,8 +68,8 @@ struct PullRequestDetailView: View {
     @ViewBuilder
     private var header: some View {
         if let pr = viewModel.selectedPullRequest {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                HStack(spacing: DesignTokens.Spacing.md) {
                     GFButton(title: "← Back", size: .small) {
                         viewModel.closePullRequestDetail()
                     }
@@ -80,7 +80,7 @@ struct PullRequestDetailView: View {
                         }
                     }
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
                     PullRequestStatePill(state: pr.state)
                     Text(pr.title)
                         .font(AppFont.sans(16, weight: .semibold))
@@ -88,7 +88,7 @@ struct PullRequestDetailView: View {
                         .lineLimit(2)
                     MonoText("#\(pr.number)", dim: true)
                 }
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     if let author = pr.authorLogin {
                         MonoText("@\(author)", dim: true)
                         Text("·").foregroundStyle(theme.palette.fg4)
@@ -102,8 +102,8 @@ struct PullRequestDetailView: View {
                     }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
+            .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+            .padding(.vertical, DesignTokens.Spacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(theme.palette.bg2)
             .overlay(alignment: .bottom) {
@@ -123,8 +123,8 @@ struct PullRequestDetailView: View {
                 ProgressView().controlSize(.small)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg1)
         .overlay(alignment: .bottom) {
             Rectangle().fill(theme.palette.line).frame(height: 1)
@@ -181,8 +181,8 @@ private struct PullRequestStatePill: View {
         }()
         Text(label)
             .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)
             .background(RoundedRectangle(cornerRadius: 3).fill(bg))
     }
@@ -199,7 +199,7 @@ private struct OverviewTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxxl) {
                 if let detail {
                     metaRow(detail)
                     descriptionBlock(detail)
@@ -210,25 +210,25 @@ private struct OverviewTab: View {
                         .skeleton(true)
                 }
             }
-            .padding(18)
+            .padding(DesignTokens.Spacing.xxxxl)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
     @ViewBuilder
     private var placeholderContent: some View {
-        FlowLayout(spacing: 8) {
+        FlowLayout(spacing: DesignTokens.Spacing.md) {
             Text("CI: All checks passed")
                 .font(AppFont.sans(11))
-                .padding(.horizontal, 6).padding(.vertical, 2)
+                .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                 .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
             Text("Mergeable")
                 .font(AppFont.sans(11))
-                .padding(.horizontal, 6).padding(.vertical, 2)
+                .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                 .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
         }
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             sectionLabel("Description")
             Text("Adds the PR/MR integration with the new detail view, including overview, commits, and files tabs.")
                 .font(AppFont.sans(12))
@@ -237,39 +237,39 @@ private struct OverviewTab: View {
                 .font(AppFont.sans(12))
                 .foregroundStyle(theme.palette.fg2)
         }
-        .padding(14)
+        .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
 
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             sectionLabel("Reviewers")
-            FlowLayout(spacing: 6) {
+            FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(["@reviewer-one", "@reviewer-two", "@reviewer-three"], id: \.self) { name in
                     MonoText(name)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                         .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
                 }
             }
         }
-        .padding(14)
+        .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
 
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             sectionLabel("Labels")
-            FlowLayout(spacing: 6) {
+            FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(["feature", "phase-2", "needs-review"], id: \.self) { name in
                     Text(name)
                         .font(AppFont.sans(11))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                         .foregroundStyle(theme.palette.fg2)
                         .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
                 }
             }
         }
-        .padding(14)
+        .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -277,7 +277,7 @@ private struct OverviewTab: View {
 
     @ViewBuilder
     private func metaRow(_ detail: PullRequestDetail) -> some View {
-        FlowLayout(spacing: 8) {
+        FlowLayout(spacing: DesignTokens.Spacing.md) {
             if let ci = detail.ciStatus {
                 ciPill(ci)
             }
@@ -305,7 +305,7 @@ private struct OverviewTab: View {
             case .canceled, .unknown: (p.fg3, p.bg3)
             }
         }()
-        let content = HStack(spacing: 4) {
+        let content = HStack(spacing: DesignTokens.Spacing.xs) {
             Text("CI:")
                 .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
                 .foregroundStyle(fg)
@@ -313,8 +313,8 @@ private struct OverviewTab: View {
                 .font(AppFont.sans(11))
                 .foregroundStyle(fg)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
+        .padding(.horizontal, DesignTokens.Spacing.sm)
+        .padding(.vertical, DesignTokens.Spacing.xxs)
         .background(RoundedRectangle(cornerRadius: 3).fill(bg))
         if let url = ci.webURL {
             Button { NSWorkspace.shared.open(url) } label: { content.contentShape(.rect(cornerRadius: 3)) }.buttonStyle(.plain)
@@ -335,15 +335,15 @@ private struct OverviewTab: View {
         }()
         Text(text)
             .font(AppFont.sans(11))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)
             .background(RoundedRectangle(cornerRadius: 3).fill(bg))
     }
 
     @ViewBuilder
     private func descriptionBlock(_ detail: PullRequestDetail) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             sectionLabel("Description")
             if let body = detail.descriptionMarkdown, !body.isEmpty {
                 MarkdownView(source: body)
@@ -353,7 +353,7 @@ private struct OverviewTab: View {
                     .foregroundStyle(theme.palette.fg3)
             }
         }
-        .padding(14)
+        .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -361,11 +361,11 @@ private struct OverviewTab: View {
 
     @ViewBuilder
     private func reviewersBlock(_ detail: PullRequestDetail) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             sectionLabel("Reviewers")
-            FlowLayout(spacing: 6) {
+            FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(detail.reviewers) { r in
-                    HStack(spacing: 4) {
+                    HStack(spacing: DesignTokens.Spacing.xs) {
                         if r.approved {
                             Text("✓")
                                 .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
@@ -373,13 +373,13 @@ private struct OverviewTab: View {
                         }
                         MonoText("@\(r.login)")
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, DesignTokens.Spacing.sm)
+                    .padding(.vertical, DesignTokens.Spacing.xxs)
                     .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
                 }
             }
         }
-        .padding(14)
+        .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -387,20 +387,20 @@ private struct OverviewTab: View {
 
     @ViewBuilder
     private func labelsBlock(_ detail: PullRequestDetail) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             sectionLabel("Labels")
-            FlowLayout(spacing: 6) {
+            FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(detail.labels, id: \.self) { name in
                     Text(name)
                         .font(AppFont.sans(11))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, DesignTokens.Spacing.sm)
+                        .padding(.vertical, DesignTokens.Spacing.xxs)
                         .foregroundStyle(theme.palette.fg2)
                         .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
                 }
             }
         }
-        .padding(14)
+        .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -445,12 +445,12 @@ private struct CommitsTab: View {
             }
         } else {
             ScrollView {
-                LazyVStack(spacing: 4) {
+                LazyVStack(spacing: DesignTokens.Spacing.xs) {
                     ForEach(commits) { commit in
                         commitRow(commit)
                     }
                 }
-                .padding(18)
+                .padding(DesignTokens.Spacing.xxxxl)
             }
         }
     }
@@ -465,12 +465,12 @@ private struct CommitsTab: View {
 
     private var placeholderList: some View {
         ScrollView {
-            LazyVStack(spacing: 4) {
+            LazyVStack(spacing: DesignTokens.Spacing.xs) {
                 ForEach(0..<5, id: \.self) { index in
                     placeholderRow(index: index)
                 }
             }
-            .padding(18)
+            .padding(DesignTokens.Spacing.xxxxl)
         }
         .skeleton(true)
     }
@@ -478,14 +478,14 @@ private struct CommitsTab: View {
     @ViewBuilder
     private func placeholderRow(index: Int) -> some View {
         let subject = Self.placeholderSubjects[index % Self.placeholderSubjects.count]
-        HStack(spacing: 12) {
+        HStack(spacing: DesignTokens.Spacing.xl) {
             MonoText("abc1234", color: theme.palette.accent)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(subject)
                     .font(AppFont.sans(12.5))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     MonoText("9alvaro0", dim: true)
                     Text("·").foregroundStyle(theme.palette.fg4)
                     MonoText("2h ago", dim: true)
@@ -493,23 +493,23 @@ private struct CommitsTab: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
 
     @ViewBuilder
     private func commitRow(_ commit: PullRequestCommit) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DesignTokens.Spacing.xl) {
             MonoText(commit.shortSha, color: theme.palette.accent)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(commit.subject)
                     .font(AppFont.sans(12.5))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     if let author = commit.authorName {
                         MonoText(author, dim: true)
                     }
@@ -521,8 +521,8 @@ private struct CommitsTab: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
@@ -553,7 +553,7 @@ private struct FilesTab: View {
                 EmptyState(icon: .diff, title: "No files changed", subtitle: nil) { EmptyView() }
             }
         } else {
-            HStack(spacing: 0) {
+            HStack(spacing: DesignTokens.Spacing.none) {
                 fileList
                     .frame(width: DesignTokens.Pulls.listWidth)
                     .frame(maxHeight: .infinity)
@@ -578,7 +578,7 @@ private struct FilesTab: View {
 
     private var fileList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: DesignTokens.Spacing.none) {
                 ForEach(files) { file in
                     fileRow(file)
                 }
@@ -598,7 +598,7 @@ private struct FilesTab: View {
 
     private var placeholderList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: DesignTokens.Spacing.none) {
                 ForEach(0..<7, id: \.self) { index in
                     placeholderRow(index: index)
                 }
@@ -612,7 +612,7 @@ private struct FilesTab: View {
     @ViewBuilder
     private func placeholderRow(index: Int) -> some View {
         let path = Self.placeholderPaths[index % Self.placeholderPaths.count]
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             StatusTag(kind: .modified)
             Text(path)
                 .font(AppFont.mono(11.5, family: theme.monoFont))
@@ -623,8 +623,8 @@ private struct FilesTab: View {
             MonoText("+10", color: theme.palette.add)
             MonoText("−4", color: theme.palette.del)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignTokens.Spacing.lg)
+        .padding(.vertical, DesignTokens.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -634,7 +634,7 @@ private struct FilesTab: View {
         Button {
             selectedPath = file.path
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 StatusTag(kind: StatusTag.Kind(prFileStatus: file.status))
                 Text(file.path)
                     .font(AppFont.mono(11.5, family: theme.monoFont))
@@ -649,8 +649,8 @@ private struct FilesTab: View {
                     MonoText("−\(file.deletions)", color: theme.palette.del)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
+            .padding(.vertical, DesignTokens.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isSelected ? theme.palette.bg3 : Color.clear)
             .contentShape(.rect)

@@ -41,19 +41,19 @@ extension View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var loading = true
 
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
         Toggle("Loading", isOn: $loading)
             .toggleStyle(.switch)
-            .padding(.horizontal, 18)
+            .padding(.horizontal, DesignTokens.Spacing.xxxxl)
 
-        VStack(spacing: 8) {
+        VStack(spacing: DesignTokens.Spacing.md) {
             ForEach(0..<5, id: \.self) { _ in
-                HStack(spacing: 12) {
+                HStack(spacing: DesignTokens.Spacing.xl) {
                     Text("OPEN")
                         .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                         .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                         Text("Add merge request integration")
                             .font(AppFont.sans(13, weight: .medium))
                             .foregroundStyle(theme.palette.fg1)
@@ -63,12 +63,12 @@ extension View {
                     }
                     Spacer()
                 }
-                .padding(.horizontal, 14).padding(.vertical, 10)
+                .padding(.horizontal, DesignTokens.Spacing.xxl).padding(.vertical, DesignTokens.Spacing.lg)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
             }
         }
-        .padding(18)
+        .padding(DesignTokens.Spacing.xxxxl)
         .skeleton(loading)
     }
     .frame(width: 640, height: 360)

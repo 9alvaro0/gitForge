@@ -18,7 +18,7 @@ struct SplitToolButton<Menu: View>: View {
     @State private var hoveringChev = false
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             mainPill
             divider
             chevronPill
@@ -31,7 +31,7 @@ struct SplitToolButton<Menu: View>: View {
 
     private var mainPill: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 if loading {
                     SpinnerGlyph(color: fg)
                 } else {
@@ -41,13 +41,13 @@ struct SplitToolButton<Menu: View>: View {
                 if let badge, badge > 0, !loading {
                     Text("\(badge)")
                         .font(AppFont.mono(10, family: theme.monoFont))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
+                        .padding(.horizontal, DesignTokens.Spacing.sm)
+                        .padding(.vertical, DesignTokens.Spacing.hairline)
                         .background(RoundedRectangle(cornerRadius: 3).fill(badgeBg))
                         .foregroundStyle(badgeFg)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: 28)
             .foregroundStyle(fg)
             .background(hoveringMain ? hoverBg : .clear)
@@ -107,7 +107,7 @@ struct SplitToolButton<Menu: View>: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
         HStack {
             SplitToolButton(kind: .pull, label: "Pull", badge: 2, action: {}) {
                 Button("Pull --ff-only") {}
@@ -127,7 +127,7 @@ struct SplitToolButton<Menu: View>: View {
             }
         }
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

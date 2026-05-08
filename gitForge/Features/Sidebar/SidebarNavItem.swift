@@ -12,7 +12,7 @@ struct SidebarNavItem: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 9) {
+            HStack(spacing: DesignTokens.Spacing.lg) {
                 GFIcon(kind: section.icon, size: 14, stroke: foreground.opacity(isActive ? 1 : 0.85))
                 Text(section.label)
                     .font(AppFont.sans(12))
@@ -22,12 +22,12 @@ struct SidebarNavItem: View {
                     Text("\(badge)")
                         .font(AppFont.mono(10, family: theme.monoFont))
                         .foregroundStyle(badgeForeground)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
+                        .padding(.horizontal, DesignTokens.Spacing.sm)
+                        .padding(.vertical, DesignTokens.Spacing.hairline)
                         .background(RoundedRectangle(cornerRadius: 3).fill(badgeBackground))
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: DesignTokens.Sidebar.navRow)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
             .overlay(alignment: .leading) {
@@ -40,7 +40,7 @@ struct SidebarNavItem: View {
                 }
             }
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-            .padding(.horizontal, 6)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -65,7 +65,7 @@ struct SidebarNavItem: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var active: WorkspaceSection = .history
-    VStack(spacing: 1) {
+    VStack(spacing: DesignTokens.Spacing.hairline) {
         ForEach(WorkspaceSection.allCases) { s in
             SidebarNavItem(section: s,
                            badge: s == .changes ? 3 : (s == .pulls ? 2 : nil),
@@ -74,7 +74,7 @@ struct SidebarNavItem: View {
         }
     }
     .frame(width: 256)
-    .padding(.vertical, 6)
+    .padding(.vertical, DesignTokens.Spacing.sm)
     .background(theme.palette.bg1)
     .appTheme(theme)
 }

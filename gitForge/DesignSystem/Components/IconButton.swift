@@ -30,13 +30,13 @@ extension IconButton where Content == GFIcon {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    HStack(spacing: 6) {
+    HStack(spacing: DesignTokens.Spacing.sm) {
         IconButton(.more, action: {})
         IconButton(.copy, action: {})
         IconButton(.search, action: {})
         IconButton(.ext, action: {})
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

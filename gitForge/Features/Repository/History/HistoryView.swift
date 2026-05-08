@@ -118,7 +118,7 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "History") {
                 MonoText("\(viewModel.currentBranchName ?? "—") · \(viewModel.commits.count) commits", dim: true)
             } right: {
@@ -134,7 +134,7 @@ struct HistoryView: View {
                 pushSplitButton
             }
             filtersBar
-            HStack(spacing: 0) {
+            HStack(spacing: DesignTokens.Spacing.none) {
                 graphAndDiffColumn
                 if detailColumnCollapsed {
                     detailColumnCollapsedStrip
@@ -345,14 +345,14 @@ struct HistoryView: View {
     }
 
     private var filtersBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DesignTokens.Spacing.lg) {
             GFTextField(placeholder: "Search subject, author, sha…", text: $search)
                 .frame(maxWidth: 320)
             Spacer()
             MonoText(matchSummary, dim: true)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg2)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
     }
@@ -425,7 +425,7 @@ struct HistoryView: View {
     }
 
     private var graphAndDiffColumn: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ZStack(alignment: .bottom) {
                 if viewModel.commits.isEmpty && !viewModel.hasLoadedLogForCurrentScope {
                     commitLogSkeleton
@@ -488,7 +488,7 @@ struct HistoryView: View {
         Button {
             setDiffPaneCollapsed(false)
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .diff, size: 12, stroke: theme.palette.fg2)
                 Text("Show diff pane")
                     .font(AppFont.sans(12))
@@ -496,7 +496,7 @@ struct HistoryView: View {
                 Spacer(minLength: 0)
                 GFIcon(kind: .arrowU, size: 11, stroke: theme.palette.fg3)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, DesignTokens.Spacing.xxl)
             .frame(height: Self.collapsedStripHeight)
             .frame(maxWidth: .infinity)
             .background(theme.palette.bg1)
@@ -522,7 +522,7 @@ struct HistoryView: View {
 
     private var commitLogSkeleton: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: DesignTokens.Spacing.none) {
                 ForEach(0..<10, id: \.self) { index in
                     commitPlaceholderRow(index: index)
                 }
@@ -536,11 +536,11 @@ struct HistoryView: View {
     @ViewBuilder
     private func commitPlaceholderRow(index: Int) -> some View {
         let subject = Self.placeholderSubjects[index % Self.placeholderSubjects.count]
-        HStack(spacing: 12) {
+        HStack(spacing: DesignTokens.Spacing.xl) {
             // branch/tag column
             Text("main")
                 .font(AppFont.mono(11, family: theme.monoFont))
-                .padding(.horizontal, 6).padding(.vertical, 1)
+                .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.hairline)
                 .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
                 .frame(width: 100, alignment: .leading)
             // message column
@@ -565,24 +565,24 @@ struct HistoryView: View {
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: 50, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.sm)
         .frame(height: 28)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
     }
 
     private var loadingMoreFooter: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             ProgressView().controlSize(.small).scaleEffect(0.7)
             Text("Loading more commits…")
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().stroke(theme.palette.line, lineWidth: 1))
-        .padding(.bottom, 12)
+        .padding(.bottom, DesignTokens.Spacing.xl)
     }
 
     private var detailColumn: some View {
@@ -594,7 +594,7 @@ struct HistoryView: View {
                         viewModel: viewModel,
                         onClose: { setDetailColumnCollapsed(true) }
                     )
-                    .padding(18)
+                    .padding(DesignTokens.Spacing.xxxxl)
                 }
             } else {
                 EmptyState(icon: .diamond, title: "Select a commit",
@@ -602,7 +602,7 @@ struct HistoryView: View {
                     .overlay(alignment: .topTrailing) {
                         IconButton(.x) { setDetailColumnCollapsed(true) }
                             .help("Hide commit detail")
-                            .padding(8)
+                            .padding(DesignTokens.Spacing.md)
                     }
             }
         }
@@ -614,9 +614,9 @@ struct HistoryView: View {
         Button {
             setDetailColumnCollapsed(false)
         } label: {
-            VStack(spacing: 0) {
+            VStack(spacing: DesignTokens.Spacing.none) {
                 GFIcon(kind: .diamond, size: 13, stroke: theme.palette.fg2)
-                    .padding(.top, 14)
+                    .padding(.top, DesignTokens.Spacing.xxl)
                 Spacer(minLength: 0)
             }
             .frame(width: Self.collapsedStripWidth)

@@ -36,7 +36,7 @@ struct BranchesView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Branches") {
                 EmptyView()
             } right: {
@@ -50,7 +50,7 @@ struct BranchesView: View {
                 }
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
                     BranchSection(
                         title: "Local",
                         refs: localBranches,
@@ -83,7 +83,7 @@ struct BranchesView: View {
                         )
                     }
                 }
-                .padding(18)
+                .padding(DesignTokens.Spacing.xxxxl)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -252,7 +252,7 @@ struct BranchesView: View {
 
     @ViewBuilder
     private func newBranchSheetView(presented: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("New branch").font(AppFont.sans(14, weight: .semibold))
             GFTextField(placeholder: "feat/awesome", text: $newBranchName)
             HStack {
@@ -267,14 +267,14 @@ struct BranchesView: View {
                 }
             }
         }
-        .padding(20).frame(width: 380)
+        .padding(DesignTokens.Spacing.huge).frame(width: 380)
         .background(theme.palette.bg1)
         .appTheme(appState.theme)
     }
 
     @ViewBuilder
     private func renameSheetView(ref: GitRef) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("Rename \(ref.name)").font(AppFont.sans(14, weight: .semibold))
             GFTextField(placeholder: ref.name, text: $renameDraft)
             HStack {
@@ -289,7 +289,7 @@ struct BranchesView: View {
                 }
             }
         }
-        .padding(20).frame(width: 380)
+        .padding(DesignTokens.Spacing.huge).frame(width: 380)
         .background(theme.palette.bg1)
         .appTheme(appState.theme)
     }
@@ -351,8 +351,8 @@ private struct BranchSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Text(title.uppercased())
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(0.8)
@@ -361,17 +361,17 @@ private struct BranchSection: View {
                     .font(.system(size: 11))
                     .foregroundStyle(theme.palette.fg3)
             }
-            .padding(.leading, 2)
+            .padding(.leading, DesignTokens.Spacing.xxs)
             if refs.isEmpty {
                 Text("No branches.")
                     .font(AppFont.sans(12))
                     .foregroundStyle(theme.palette.fg3)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, DesignTokens.Spacing.xxl)
+                    .padding(.vertical, DesignTokens.Spacing.xxl)
                     .background(card)
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: DesignTokens.Spacing.none) {
                     tableHeader
                     ForEach(flatRows) { row in
                         renderFlatRow(row)
@@ -402,8 +402,8 @@ private struct BranchSection: View {
         .font(AppFont.mono(10.5, family: theme.monoFont))
         .tracking(0.6)
         .foregroundStyle(theme.palette.fg3)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg4)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
     }
@@ -424,7 +424,7 @@ private struct BranchSection: View {
         Button {
             if collapsed { collapsedFolders.remove(path) } else { collapsedFolders.insert(path) }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Spacer().frame(width: CGFloat(depth) * 16 + 14)
                 GFIcon(kind: collapsed ? .chevR : .chevD, size: 10, stroke: theme.palette.fg3)
                 GFIcon(kind: .folder, size: 12, stroke: theme.palette.fg2)
@@ -436,8 +436,8 @@ private struct BranchSection: View {
                     .foregroundStyle(theme.palette.fg3)
                 Spacer()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DesignTokens.Spacing.xl)
+            .padding(.vertical, DesignTokens.Spacing.sm)
             .contentShape(.rect)
             .background(.clear)
         }
@@ -448,14 +448,14 @@ private struct BranchSection: View {
     @ViewBuilder
     private func leafRow(ref: GitRef, leafName: String, depth: Int) -> some View {
         let isCurrent = (ref.name == currentBranchName) && ref.isLocalBranch
-        HStack(spacing: 6) {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             Spacer().frame(width: CGFloat(depth) * 16 + 14)
             if isCurrent {
                 Circle().fill(theme.palette.accent).frame(width: 6, height: 6)
             } else {
                 Color.clear.frame(width: 6, height: 6)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: ref.isRemoteBranch ? .cloud : .desktop, size: 12, stroke: theme.palette.fg2)
                 Text(leafName)
                     .font(AppFont.mono(12, family: theme.monoFont))
@@ -471,7 +471,7 @@ private struct BranchSection: View {
                 .frame(width: 200, alignment: .leading)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            HStack(spacing: 4) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
                 if !isCurrent {
                     GFButton(title: "Checkout", size: .small) { onCheckout(ref) }
                 }
@@ -504,8 +504,8 @@ private struct BranchSection: View {
             }
             .frame(width: 130, alignment: .trailing)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.sm)
         .background(isCurrent ? theme.palette.accent.opacity(0.06) : .clear)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
         .contentShape(.rect)
@@ -551,24 +551,24 @@ private struct TagsSection: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("TAGS")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
-            FlowLayout(spacing: 6) {
+            FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(tags) { tag in
                     Menu {
                         Button("Push to origin") { onPush(tag) }
                         Divider()
                         Button("Delete…", role: .destructive) { onDelete(tag) }
                     } label: {
-                        HStack(spacing: 5) {
+                        HStack(spacing: DesignTokens.Spacing.sm) {
                             GFIcon(kind: .tag, size: 10, stroke: theme.palette.mod)
                             Text(tag.name).font(AppFont.mono(11.5, family: theme.monoFont))
                         }
                         .foregroundStyle(theme.palette.mod)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)
                         .background(RoundedRectangle(cornerRadius: 12).fill(theme.palette.mod.opacity(0.12)))
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.palette.mod.opacity(0.25), lineWidth: 1))
                     }

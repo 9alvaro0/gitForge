@@ -27,7 +27,7 @@ struct DiffPane: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             header
             content
         }
@@ -36,8 +36,8 @@ struct DiffPane: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .diff, size: 12, stroke: theme.palette.fg1)
                 Text(file ?? "—")
                     .font(AppFont.mono(12, family: theme.monoFont))
@@ -59,7 +59,7 @@ struct DiffPane: View {
                     .help("Hide diff pane")
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
         .frame(height: 34)
         .background(theme.palette.bg1)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
@@ -102,8 +102,8 @@ struct DiffPane: View {
     private var diffSkeleton: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                         hunkHeader(Self.placeholderHunk)
                         ForEach(Self.placeholderHunk.lines) { line in
                             DiffRow(line: line)
@@ -126,8 +126,8 @@ struct DiffPane: View {
         // ScrollView from centering it.
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                         ForEach(hunks) { hunk in
                             hunkHeader(hunk)
                             ForEach(hunk.lines) { line in
@@ -149,12 +149,12 @@ struct DiffPane: View {
     private var splitContent: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                         ForEach(hunks) { hunk in
                             hunkHeader(hunk)
                             ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                                HStack(spacing: 0) {
+                                HStack(spacing: DesignTokens.Spacing.none) {
                                     DiffSplitCell(line: row.left, side: .left)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     Rectangle().fill(theme.palette.line).frame(width: 1)
@@ -222,8 +222,8 @@ struct DiffPane: View {
             .foregroundStyle(theme.palette.fg3)
             .lineLimit(1)
             .truncationMode(.tail)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DesignTokens.Spacing.xxl)
+            .padding(.vertical, DesignTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(theme.palette.bg3)
             .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
@@ -235,7 +235,7 @@ private struct DiffRow: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             lineNumber(line.oldLineNumber)
             lineNumber(line.newLineNumber)
             Text(sign)
@@ -247,7 +247,7 @@ private struct DiffRow: View {
                 .foregroundStyle(textColor)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-                .padding(.trailing, 14)
+                .padding(.trailing, DesignTokens.Spacing.xxl)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -260,7 +260,7 @@ private struct DiffRow: View {
             .font(AppFont.mono(11, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg4)
             .frame(width: 44, alignment: .trailing)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
     private var sign: String {
@@ -304,7 +304,7 @@ private struct DiffSplitCell: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: DesignTokens.Spacing.none) {
             lineNumber
             Text(sign)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
@@ -315,7 +315,7 @@ private struct DiffSplitCell: View {
                 .foregroundStyle(textColor)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-                .padding(.trailing, 14)
+                .padding(.trailing, DesignTokens.Spacing.xxl)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -332,7 +332,7 @@ private struct DiffSplitCell: View {
             .font(AppFont.mono(11, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg4)
             .frame(width: 44, alignment: .trailing)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, DesignTokens.Spacing.md)
     }
 
     private var displayContent: String {

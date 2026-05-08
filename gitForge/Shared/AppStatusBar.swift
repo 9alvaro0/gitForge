@@ -13,17 +13,17 @@ struct AppStatusBar: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 4) {
+        HStack(spacing: DesignTokens.Spacing.xxl) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
                 GFIcon(kind: .branch, size: 11, stroke: theme.palette.fg2)
                 Text(branch ?? "—")
                     .font(AppFont.mono(11, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.fg2)
 
-            HStack(spacing: 0) {
+            HStack(spacing: DesignTokens.Spacing.none) {
                 Text("↑\(ahead)").foregroundStyle(theme.palette.ok)
-                Text("↓\(behind)").foregroundStyle(theme.palette.info).padding(.leading, 4)
+                Text("↓\(behind)").foregroundStyle(theme.palette.info).padding(.leading, DesignTokens.Spacing.xs)
             }
             .font(AppFont.mono(11, family: theme.monoFont))
 
@@ -42,7 +42,7 @@ struct AppStatusBar: View {
             Text("LF")
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
-            HStack(spacing: 5) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
                     .frame(width: 7, height: 7)
                 Text(online ? "online" : "offline")
@@ -50,7 +50,7 @@ struct AppStatusBar: View {
             }
             .foregroundStyle(theme.palette.fg2)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
         .frame(height: DesignTokens.Window.statusbarHeight)
         .background(theme.palette.bg1)
         .overlay(alignment: .top) {
@@ -72,7 +72,7 @@ struct AppStatusBar: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: 0) {
+    VStack(spacing: DesignTokens.Spacing.none) {
         Spacer()
         AppStatusBar(branch: "feat/commit-graph",
                      ahead: 7, behind: 1,

@@ -20,7 +20,7 @@ struct EmptyState<Action: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: DesignTokens.Spacing.lg) {
             GFIcon(kind: icon, size: 32, stroke: theme.palette.fg4)
             Text(title)
                 .font(AppFont.sans(14))
@@ -33,7 +33,7 @@ struct EmptyState<Action: View>: View {
             action()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(40)
+        .padding(DesignTokens.Spacing.xxxhuge)
     }
 }
 

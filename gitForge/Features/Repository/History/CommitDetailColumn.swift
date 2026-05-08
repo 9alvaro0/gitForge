@@ -14,7 +14,7 @@ struct CommitDetailColumn: View {
     private var detail: CommitDetail? { viewModel.detailCache[commit.sha] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
             shaLine
             Text(commit.subject)
                 .font(AppFont.sans(14))
@@ -38,7 +38,7 @@ struct CommitDetailColumn: View {
     }
 
     private var shaLine: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: .diamond, size: 14, stroke: theme.palette.fg1)
             Text(commit.shortSha)
                 .font(AppFont.mono(13, family: theme.monoFont))
@@ -59,9 +59,9 @@ struct CommitDetailColumn: View {
     }
 
     private var metaCard: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DesignTokens.Spacing.lg) {
             Avatar(name: commit.authorName, size: 20, colorSeed: commit.authorEmail)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(commit.authorName)
                     .font(AppFont.sans(12, weight: .medium))
                     .foregroundStyle(theme.palette.fg1)
@@ -74,14 +74,14 @@ struct CommitDetailColumn: View {
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
         }
-        .padding(10)
+        .padding(DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg2))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
 
     @ViewBuilder
     private var filesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack {
                 Text("FILES CHANGED")
                     .font(.system(size: 11, weight: .semibold))
@@ -92,7 +92,7 @@ struct CommitDetailColumn: View {
                     .foregroundStyle(theme.palette.fg3)
             }
             if let detail {
-                LazyVStack(spacing: 1) {
+                LazyVStack(spacing: DesignTokens.Spacing.hairline) {
                     ForEach(detail.files) { f in
                         FileMiniRow(file: f, isActive: viewModel.selectedCommitFile == f.path) {
                             viewModel.selectedCommitFile = f.path
@@ -113,9 +113,9 @@ struct CommitDetailColumn: View {
     ]
 
     private var filesPlaceholder: some View {
-        LazyVStack(spacing: 1) {
+        LazyVStack(spacing: DesignTokens.Spacing.hairline) {
             ForEach(0..<4, id: \.self) { index in
-                HStack(spacing: 8) {
+                HStack(spacing: DesignTokens.Spacing.md) {
                     StatusTag(kind: .modified)
                     Text(Self.placeholderPaths[index % Self.placeholderPaths.count])
                         .font(AppFont.mono(11.5, family: theme.monoFont))
@@ -124,8 +124,8 @@ struct CommitDetailColumn: View {
                         .truncationMode(.head)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
+                .padding(.horizontal, DesignTokens.Spacing.md)
+                .padding(.vertical, DesignTokens.Spacing.sm)
             }
         }
         .skeleton(true)
@@ -141,12 +141,12 @@ struct CommitDetailColumn: View {
     @State private var newTagMessage: String = ""
 
     private var actionsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("ACTIONS")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: DesignTokens.Spacing.sm), GridItem(.flexible(), spacing: DesignTokens.Spacing.sm)], spacing: DesignTokens.Spacing.sm) {
                 CommitActionButton(
                     icon: .branch,
                     title: "Branch",
@@ -235,7 +235,7 @@ struct CommitDetailColumn: View {
     }
 
     private var newBranchSheetView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("New branch from \(commit.shortSha)").font(AppFont.sans(14, weight: .semibold))
             GFTextField(placeholder: "feat/awesome", text: $newBranchName)
             HStack {
@@ -251,19 +251,19 @@ struct CommitDetailColumn: View {
                 }
             }
         }
-        .padding(20).frame(width: 380)
+        .padding(DesignTokens.Spacing.huge).frame(width: 380)
         .background(theme.palette.bg1)
         .appTheme(appState.theme)
     }
 
     private var newTagSheetView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("New tag at \(commit.shortSha)").font(AppFont.sans(14, weight: .semibold))
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("Name").font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
                 GFTextField(placeholder: "v1.2.3", text: $newTagName)
             }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("Message (optional — annotated tag if set)")
                     .font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
                 GFTextField(placeholder: "Release 1.2.3", text: $newTagMessage)
@@ -276,7 +276,7 @@ struct CommitDetailColumn: View {
                 }
             }
         }
-        .padding(20).frame(width: 420)
+        .padding(DesignTokens.Spacing.huge).frame(width: 420)
         .background(theme.palette.bg1)
         .appTheme(appState.theme)
     }
@@ -356,7 +356,7 @@ private struct FileMiniRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 StatusTag(kind: tagKind)
                 Text(file.path)
                     .font(AppFont.mono(11.5, family: theme.monoFont))
@@ -365,8 +365,8 @@ private struct FileMiniRow: View {
                     .truncationMode(.head)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.vertical, DesignTokens.Spacing.sm)
             .background(RoundedRectangle(cornerRadius: 5).fill(isActive ? theme.palette.bg3 : .clear))
             .contentShape(.rect(cornerRadius: 5))
         }
@@ -421,7 +421,7 @@ private struct CommitActionButtonLabel: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: icon, size: 13, stroke: foreground)
             Text(title)
                 .font(AppFont.sans(12))
@@ -431,7 +431,7 @@ private struct CommitActionButtonLabel: View {
                 GFIcon(kind: .chevD, size: 11, stroke: theme.palette.fg3)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, DesignTokens.Spacing.lg)
         .frame(height: 30)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(background))

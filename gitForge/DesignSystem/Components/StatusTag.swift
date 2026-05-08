@@ -62,7 +62,7 @@ extension StatusTag.Kind {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    HStack(spacing: 8) {
+    HStack(spacing: DesignTokens.Spacing.md) {
         StatusTag(kind: .added)
         StatusTag(kind: .modified)
         StatusTag(kind: .deleted)
@@ -73,7 +73,7 @@ extension StatusTag.Kind {
         StatusTag(kind: .unmerged)
         StatusTag(kind: .ignored)
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
