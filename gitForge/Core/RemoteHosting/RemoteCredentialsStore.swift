@@ -9,31 +9,26 @@ import os
 /// Holds no mutable state — Keychain APIs are themselves thread-safe — so it
 /// ships as a `Sendable` value type with namespace-style methods.
 ///
-/// We use the modern data-protection keychain (`kSecUseDataProtectionKeychain`)
-/// scoped to a Team-ID-prefixed access group instead of the legacy macOS
-/// keychain. The legacy keychain pins each item's ACL to the exact code
-/// signature that wrote it, so users see "GitForge wants to access…" prompts
-/// every time we ship a new build (different signature ⇒ different ACL). The
-/// data-protection keychain gates access by access group entitlement, which
-/// any binary signed with the same Developer ID team will satisfy — no
-/// prompts, even across app updates and side-by-side dev/release installs.
+/// Uses the legacy macOS keychain (no `kSecUseDataProtectionKeychain`, no
+/// access group), the same strategy Tower / Fork / Sourcetree follow. The
+/// keychain ACL keys items by the writing app's *designated requirement*,
+/// which stays constant across releases as long as we keep signing with the
+/// same Developer ID Application certificate (Team ID + bundle ID). Result:
+/// the user sees a single "Always Allow" prompt on first save and that
+/// permission persists across every subsequent app update. We do **not** use
+/// `keychain-access-groups`: that entitlement is only needed when sharing
+/// items with sibling apps / extensions, and it requires a Developer ID
+/// provisioning profile we don't ship.
 struct RemoteCredentialsStore: Sendable {
     static let shared = RemoteCredentialsStore()
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "credentials")
 
     private let service = "com.warwarelabs.gitForge.remote-token"
 
-    /// Must match `keychain-access-groups` in `gitForge.entitlements`. The
-    /// `T6B3T6K6TZ.` prefix is the Team ID; expanded from `$(AppIdentifierPrefix)`
-    /// at sign time.
-    private let accessGroup = "T6B3T6K6TZ.com.warwarelabs.gitForge"
-
     private func baseQuery() -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccessGroup as String: accessGroup,
-            kSecUseDataProtectionKeychain as String: true,
         ]
     }
 
@@ -97,11 +92,11 @@ struct RemoteCredentialsStore: Sendable {
             return Self.message(for: addStatus)
         }
         // Defensive: read it back immediately. If we can't see what we just
-        // wrote it's almost certainly a sandbox/entitlement issue and the
-        // user deserves to know rather than chase a phantom bug.
+        // wrote, the user denied the "Always Allow" prompt or the keychain is
+        // locked — surface it so the failure isn't silent.
         if self.token(for: host) == nil {
             Self.logger.error("Keychain readback failed right after add for host \(host, privacy: .public)")
-            return "Token saved but couldn't be read back from Keychain. App likely lacks Keychain access (entitlement issue)."
+            return "Token saved but couldn't be read back from Keychain. Make sure you allowed Keychain access when macOS prompted."
         }
         Self.logger.info("Keychain wrote token for \(host, privacy: .public)")
         return nil
