@@ -351,7 +351,7 @@ struct GFCheckboxStyle: ToggleStyle {
                 if configuration.isOn {
                     Image(systemName: "checkmark")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.palette.accentFg)
                 }
             }
             .frame(width: 14, height: 14)

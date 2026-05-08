@@ -74,10 +74,10 @@ struct ToolButton<Icon: View>: View {
         return hovering ? theme.palette.lineStrong : theme.palette.line
     }
     private var badgeBg: Color {
-        primary ? Color.white.opacity(0.22) : theme.palette.bg2
+        primary ? theme.palette.accentFg.opacity(DesignTokens.Opacity.strong) : theme.palette.bg2
     }
     private var badgeFg: Color {
-        primary ? .white : theme.palette.fg1
+        primary ? theme.palette.accentFg : theme.palette.fg1
     }
 }
 

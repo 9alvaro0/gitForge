@@ -205,35 +205,12 @@ struct GraphColumnView: View {
         // release/* (rank 2) keeps the hashed palette so concurrent siblings
         // (release/1.0.13 vs release/1.0.14) remain visually distinguishable.
         switch priorityRank {
-        case 0: return mainColor
-        case 1: return developColor
-        case 3: return trunkColor
-        default: return palette[branchId % palette.count]
+        case 0: return GraphPalette.main
+        case 1: return GraphPalette.develop
+        case 3: return GraphPalette.trunk
+        default: return GraphPalette.lanes[branchId % GraphPalette.lanes.count]
         }
     }
-
-    /// main / master — vivid cobalt. Reads as the canonical production trunk.
-    private static let mainColor = Color(red: 0.18, green: 0.55, blue: 1.00)
-    /// develop / dev — warm amber. Strong contrast against main.
-    private static let developColor = Color(red: 1.00, green: 0.62, blue: 0.10)
-    /// trunk — deep indigo, distinct from main but in the "stable" family.
-    private static let trunkColor = Color(red: 0.40, green: 0.30, blue: 0.95)
-
-    /// 12 distinct hues so neighboring branches contrast well even in dense histories.
-    private static let palette: [Color] = [
-        Color(red: 0.30, green: 0.65, blue: 0.95),
-        Color(red: 0.97, green: 0.50, blue: 0.30),
-        Color(red: 0.40, green: 0.78, blue: 0.50),
-        Color(red: 0.85, green: 0.45, blue: 0.85),
-        Color(red: 0.95, green: 0.78, blue: 0.30),
-        Color(red: 0.55, green: 0.50, blue: 0.95),
-        Color(red: 0.30, green: 0.80, blue: 0.80),
-        Color(red: 0.92, green: 0.42, blue: 0.55),
-        Color(red: 0.55, green: 0.78, blue: 0.40),
-        Color(red: 0.78, green: 0.55, blue: 0.30),
-        Color(red: 0.40, green: 0.55, blue: 0.85),
-        Color(red: 0.85, green: 0.65, blue: 0.85),
-    ]
 }
 
 #Preview {

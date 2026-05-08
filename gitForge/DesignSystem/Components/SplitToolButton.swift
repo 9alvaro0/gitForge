@@ -86,7 +86,7 @@ struct SplitToolButton<Menu: View>: View {
         primary ? theme.palette.accent : theme.palette.bg3
     }
     private var hoverBg: Color {
-        primary ? Color.white.opacity(0.10) : theme.palette.bg4
+        primary ? theme.palette.accentFg.opacity(DesignTokens.Opacity.subtle) : theme.palette.bg4
     }
     private var fg: Color {
         primary ? theme.palette.accentFg : theme.palette.fg2
@@ -95,13 +95,13 @@ struct SplitToolButton<Menu: View>: View {
         primary ? theme.palette.accent : theme.palette.line
     }
     private var dividerColor: Color {
-        primary ? Color.white.opacity(0.22) : theme.palette.line
+        primary ? theme.palette.accentFg.opacity(DesignTokens.Opacity.strong) : theme.palette.line
     }
     private var badgeBg: Color {
-        primary ? Color.white.opacity(0.22) : theme.palette.bg2
+        primary ? theme.palette.accentFg.opacity(DesignTokens.Opacity.strong) : theme.palette.bg2
     }
     private var badgeFg: Color {
-        primary ? .white : theme.palette.fg1
+        primary ? theme.palette.accentFg : theme.palette.fg1
     }
 }
 
