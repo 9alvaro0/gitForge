@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Settings section managing Personal Access Tokens for remote hosting
-/// platforms. Tokens are stored in the Keychain via `RemoteCredentialsStore`.
+/// Personal Access Tokens for remote hosting platforms. Tokens land in the
+/// Keychain via `RemoteCredentialsStore`; per-host TLS trust is tracked in
+/// `RemoteHostTrust`. Defaults cover github.com / gitlab.com; the active
+/// repo's host is appended automatically so self-hosted instances appear.
 struct RemoteHostsSection: View {
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
@@ -19,8 +21,6 @@ struct RemoteHostsSection: View {
                   scopeHint: "Required scope: `read_api` (or `api` to create MRs later)."),
     ]
 
-    /// The defaults plus any host detected from the active repo (so self-hosted
-    /// GitLab / GitHub Enterprise instances appear here automatically).
     private var entries: [HostEntry] {
         var result = Self.defaults
         if let host = appState.catalog.activeViewModel?.pullRequestsHost,
@@ -37,15 +37,10 @@ struct RemoteHostsSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-            Text("Remote hosts".uppercased())
-                .font(.system(size: FontSize.footnote, weight: .semibold))
-                .tracking(0.8)
-                .foregroundStyle(theme.palette.fg3)
-            VStack(spacing: DesignTokens.Spacing.xs) {
-                ForEach(entries) { entry in
-                    hostRow(entry)
-                }
+        SettingsSection(title: "Remote hosts") {
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                if index > 0 { SettingsDivider() }
+                hostRow(entry)
             }
         }
         .onAppear { refreshConfiguredState() }
@@ -110,8 +105,6 @@ struct RemoteHostsSection: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.lg)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -181,8 +174,9 @@ private struct HostEntry: Identifiable, Equatable {
 #Preview {
     @Previewable @State var theme = AppTheme()
     RemoteHostsSection()
-        .padding(DesignTokens.Spacing.huge)
+        .previewAppState(.preview)
         .frame(width: 600)
+        .padding(DesignTokens.Spacing.huge)
         .background(theme.palette.bg2)
         .appTheme(theme)
 }
