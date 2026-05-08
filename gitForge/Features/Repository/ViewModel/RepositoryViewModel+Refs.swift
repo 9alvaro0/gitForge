@@ -5,6 +5,7 @@ extension RepositoryViewModel {
         async let refsTask: [GitRef]? = try? cli.refs()
         async let currentTask: String? = cli.currentBranchName()
         async let stashTask: [Stash]? = try? cli.stashes()
+        async let unmergedTask: [String]? = try? cli.unmergedLocalBranches()
         var refsChanged = false
         if let refs = await refsTask {
             self.refs = refs
@@ -15,6 +16,9 @@ extension RepositoryViewModel {
         }
         if let stashes = await stashTask {
             self.stashes = stashes
+        }
+        if let unmerged = await unmergedTask {
+            self.unmergedLocalBranchRefs = unmerged
         }
         // Refs feed into the graph layout (priority lanes — main/develop/
         // release/* pin to the leftmost columns). When loadInitial and

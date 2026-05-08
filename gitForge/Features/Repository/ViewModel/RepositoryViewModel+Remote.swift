@@ -37,10 +37,9 @@ extension RepositoryViewModel {
         defer { remoteOperation = nil }
         do {
             try await cli.pull(rebase: rebase, ffOnly: ffOnly)
-            resetLog()
-            await loadInitial()
             await loadRefs()
             await refreshStatus()
+            await reloadLog()
         } catch {
             remoteFailure = RemoteFailure.from(error)
         }

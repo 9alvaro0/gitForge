@@ -5,8 +5,7 @@ extension RepositoryViewModel {
     /// "Refresh" command — git operations performed by gitForge already
     /// trigger their own targeted refreshes.
     func refresh() async {
-        resetLog()
-        async let logTask: Void = loadInitial()
+        async let logTask: Void = reloadLog()
         async let refsTask: Void = loadRefs()
         async let statusTask: Void = refreshStatus()
         _ = await logTask

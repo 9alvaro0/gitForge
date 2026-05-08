@@ -19,6 +19,12 @@ final class RepositoryViewModel {
     var isLoadingMore = false
     var hasMore = true
     var loadError: String?
+    /// `false` until a `loadInitial()` for the current scope completes.
+    /// `resetLog()` clears it so the skeleton can show again on a fresh
+    /// branch/checkout. Drives the History skeleton without the
+    /// "in-flight loadInitial" race that flickered `isLoadingInitial` and
+    /// could trap the placeholder when two checkouts overlapped.
+    var hasLoadedLogForCurrentScope = false
 
     var selectedCommitId: Commit.ID? {
         didSet {
@@ -54,6 +60,11 @@ final class RepositoryViewModel {
     var refs: [GitRef] = []
     var currentBranchName: String?
     var stashes: [Stash] = []
+    /// Full ref-names of local branches whose tip is NOT reachable from HEAD.
+    /// Feeds the graph log scope so we don't open a separate lane for every
+    /// already-merged branch ref still lingering locally. Refreshed by
+    /// `loadRefs`. Empty by default (no filter applied) until first refresh.
+    var unmergedLocalBranchRefs: [String] = []
 
     // MARK: Graph
     var graphLayouts: [GraphRowLayout] = []
@@ -138,6 +149,9 @@ final class RepositoryViewModel {
     var pullRequestFiles: [PullRequestFileChange] = []
     var pullRequestDetailLoading: Bool = false
     var pullRequestDetailError: String?
+    /// True while a "try local merge" attempt is running for the open PR.
+    /// Drives the spinner / disabled state on the resolve-locally button.
+    var pullRequestLocalMergeRunning: Bool = false
 
     // MARK: Conflicts
     var mergeState: MergeState = .clean
@@ -195,8 +209,7 @@ final class RepositoryViewModel {
         if let currentBranch = currentBranchName,
            let headSha = refs.first(where: { $0.isLocalBranch && $0.name == currentBranch })?.targetSha,
            headSha != previousHeadSha {
-            resetLog()
-            await loadInitial()
+            await reloadLog()
         }
     }
 

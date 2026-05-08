@@ -109,6 +109,13 @@ enum GraphLayoutEngine {
             let lanesAtTopIds = laneCurrentSha.keys.sorted()
 
             // Lanes whose `currentSha` is this commit's sha. Multiple if branches converge.
+            // Sorted by id so the FIRST-OPENED lane wins as primary at convergence —
+            // which is what GitKraken does. The first-opened lane corresponds to the
+            // tip highest in topo-order, so it ends up in the leftmost column with a
+            // continuous lifetime from top to bottom of the visible window. Pinning
+            // by priorityRank instead would put `main` in col 0 but only at its tip
+            // row, leaving col 0 empty above and producing the "escalera arriba y abajo"
+            // shape we hated.
             let matching = laneCurrentSha
                 .filter { $0.value == commit.sha }
                 .keys
@@ -116,7 +123,25 @@ enum GraphLayoutEngine {
 
             let primaryLaneId: Int
             let mergesInIds: [Int]
-            if let first = matching.first {
+            let commitIsStash = stashShas.contains(commit.sha)
+            // Detect the "stash-tail" case: a stash lane reaches its parent
+            // commit (a real branch commit) while no non-stash lane is active
+            // at that sha. If we let the stash lane absorb the parent as
+            // primary, its `isStash=true` would propagate down through every
+            // subsequent commit on the trunk → entire master rendered dashed.
+            // Instead, close the stash lane as a merge-in here and open a
+            // fresh non-stash primary so the dashed treatment is confined
+            // strictly to "stash dot → first parent" segment.
+            let allMatchingAreStash = !matching.isEmpty
+                && matching.allSatisfy { lanes[$0].isStash }
+            if allMatchingAreStash && !commitIsStash {
+                primaryLaneId = openLane(
+                    branchId: makeBranchId(forSha: commit.sha),
+                    currentSha: commit.sha,
+                    startRow: rowIdx
+                )
+                mergesInIds = matching
+            } else if let first = matching.first {
                 primaryLaneId = first
                 mergesInIds = Array(matching.dropFirst())
             } else {
@@ -146,8 +171,7 @@ enum GraphLayoutEngine {
             // for them produces dangling "ghost branches" that look broken. Treat
             // a stash as if it were linear (single-parent) for layout purposes,
             // which is how GitKraken/Fork render them.
-            let isStashCommit = stashShas.contains(commit.sha)
-            let extraParents = isStashCommit ? [] : Array(commit.parentShas.dropFirst())
+            let extraParents = commitIsStash ? [] : Array(commit.parentShas.dropFirst())
 
             // Additional parents: reuse a lane already pointing at the parent, or open a new one.
             var mergesOutIds: [Int] = []
@@ -176,7 +200,7 @@ enum GraphLayoutEngine {
                 lanesAtBottomIds: lanesAtBottomIds,
                 mergesInIds: mergesInIds,
                 mergesOutIds: mergesOutIds,
-                isMerge: !isStashCommit && commit.parentShas.count > 1
+                isMerge: !commitIsStash && commit.parentShas.count > 1
             ))
         }
 
@@ -189,14 +213,16 @@ enum GraphLayoutEngine {
         // ── Pass 2 ─────────────────────────────────────────────────────────────
         // Greedy interval scheduling: leftmost free column for each lane.
 
-        // Sort: gitflow trunks (main/master, develop, release/*) first by their
-        // priority rank so they grab the leftmost columns and stay there for
-        // their entire lifetime. Everything else falls back to (startRow, id),
-        // preserving the previous greedy layout for feature/* and friends.
+        // Sort by (startRow, id) only — no priority pinning. The lane opened
+        // earliest takes the leftmost free column. Combined with the Pass 1
+        // rule "first-opened lane wins at convergence", this puts the
+        // long-lived absorbed lane in col 0 and short-lived feature lanes
+        // packed tight to the right of it. Pinning gitflow trunks to col 0
+        // produced a worse layout in practice: when `main`'s tip row was
+        // late in the log (typical with active feature branches above), col 0
+        // ended up with a single dot and side branches reused it later,
+        // creating branches on both sides of the visual trunk.
         let sortedLanes = lanes.sorted {
-            let aRank = $0.initialRefName.flatMap(Self.priorityRank(forName:)) ?? Int.max
-            let bRank = $1.initialRefName.flatMap(Self.priorityRank(forName:)) ?? Int.max
-            if aRank != bRank { return aRank < bRank }
             if $0.startRow != $1.startRow { return $0.startRow < $1.startRow }
             return $0.id < $1.id
         }
@@ -209,8 +235,14 @@ enum GraphLayoutEngine {
 
         for lane in sortedLanes {
             var assigned: Int?
+            // `<=` (not `<`) so a new lane can take the column another lane
+            // just closed AT this row. This is what makes the stash → trunk
+            // transition stay in col 0: the closing stash lane and the
+            // opening trunk lane share the column at the convergence row,
+            // producing a single continuous "dashed-then-solid" vertical
+            // instead of an offset.
             for col in 0..<columnLastEndRow.count {
-                if columnLastEndRow[col] < lane.startRow {
+                if columnLastEndRow[col] <= lane.startRow {
                     assigned = col
                     break
                 }

@@ -3,6 +3,10 @@ import os
 
 actor GitCLI {
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "git")
+    /// Seconds before the run watchdog gives up and kills the subprocess.
+    /// Generous on purpose: even a slow `fetch --all` over flaky wifi
+    /// finishes well within this; anything beyond is genuinely stuck.
+    static let timeout: TimeInterval = 60
 
     let workingDirectory: URL
     private let executablePath: String
@@ -27,6 +31,29 @@ actor GitCLI {
         process.currentDirectoryURL = workingDirectory
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+        // Four guards to keep git from hanging on input we can't provide:
+        //   • GIT_TERMINAL_PROMPT=0 — no stdin prompt for HTTPS credentials.
+        //   • GIT_ASKPASS=/usr/bin/true — overrides any GUI askpass that
+        //     `core.askPass` config or other tooling (GitHub CLI, third-party
+        //     helpers) might have set. Without this, a configured askpass can
+        //     pop a hidden dialog and block forever waiting on it. `true`
+        //     returns an empty string; git treats it as "no credentials" and
+        //     either uses what `credential.helper` provided or fails fast.
+        //   • GIT_SSH_COMMAND with BatchMode=yes — ssh refuses to prompt for
+        //     a passphrase when the key isn't unlocked in the agent / Keychain.
+        //   • GIT_EDITOR=/usr/bin/true — keeps merge/pull-merge/rebase from
+        //     trying to open vi for a commit message; defaults are accepted.
+        // Credential helpers (osxkeychain, GitHub CLI's gh-credential…) still
+        // run first via `credential.helper`; these env vars only suppress the
+        // fallbacks that would otherwise block on a TTY or GUI we can't drive.
+        var environment = ProcessInfo.processInfo.environment
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        environment["GIT_ASKPASS"] = "/usr/bin/true"
+        if environment["GIT_SSH_COMMAND"] == nil {
+            environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
+        }
+        environment["GIT_EDITOR"] = "/usr/bin/true"
+        process.environment = environment
 
         let startTime = Date()
         let argsString = args.joined(separator: " ")
@@ -38,6 +65,24 @@ actor GitCLI {
             Self.logger.error("git \(argsString, privacy: .public) launch failed: \(error.localizedDescription, privacy: .public)")
             throw GitError.launchFailed(error.localizedDescription)
         }
+
+        // Watchdog. If a command doesn't finish within `Self.timeout`, kill it.
+        // Local commands are milliseconds; remote commands are seconds. Anything
+        // past 60s means the subprocess is stuck — dead network, askpass deadlock,
+        // misbehaving hook — and we'd rather surface a clean failure than leave
+        // the user staring at a frozen spinner. SIGTERM first, SIGKILL after a
+        // grace window in case git ignores the soft signal.
+        let watchdog = Task { [process, argsString] in
+            try? await Task.sleep(for: .seconds(Self.timeout))
+            guard !Task.isCancelled, process.isRunning else { return }
+            Self.logger.error("watchdog: terminating `git \(argsString, privacy: .public)` after \(Self.timeout, privacy: .public)s")
+            process.terminate()
+            try? await Task.sleep(for: .milliseconds(500))
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+            }
+        }
+        defer { watchdog.cancel() }
 
         // Drain pipes and wait for exit concurrently so the child process
         // never blocks on a full pipe buffer (~64KB on Darwin).
@@ -51,7 +96,19 @@ actor GitCLI {
 
         let duration = Date().timeIntervalSince(startTime)
         let stdout = String(data: stdoutBytes, encoding: .utf8) ?? ""
-        let stderr = String(data: stderrBytes, encoding: .utf8) ?? ""
+        let capturedStderr = String(data: stderrBytes, encoding: .utf8) ?? ""
+        let stderr: String = {
+            // Watchdog killed us → captured stderr is usually empty and the
+            // generic "exit 15 / no message" toast is useless. Synthesize a
+            // message that routes through `RemoteFailure(stderr:)` as `.network`.
+            let trimmed = capturedStderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty,
+               process.terminationReason == .uncaughtSignal,
+               duration >= Self.timeout {
+                return "connection timed out after \(Int(Self.timeout))s — the remote may be unreachable, or git is stuck on something the app can't drive non-interactively."
+            }
+            return capturedStderr
+        }()
 
         let result = GitResult(
             stdout: stdout,

@@ -274,7 +274,7 @@ struct HistoryView: View {
     private var graphAndDiffColumn: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .bottom) {
-                if viewModel.commits.isEmpty && viewModel.isLoadingInitial {
+                if viewModel.commits.isEmpty && !viewModel.hasLoadedLogForCurrentScope {
                     commitLogSkeleton
                 } else {
                     CommitGraphTable(

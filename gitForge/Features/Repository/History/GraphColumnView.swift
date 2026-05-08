@@ -70,18 +70,29 @@ struct GraphColumnView: View {
             // 90° into a horizontal that lands on the commit dot. The corner is
             // a tiny quad-curve so the join reads as "rounded right-angle" rather
             // than a bezier S.
+            //
+            // Degenerate case: the closing lane and the new commit lane share
+            // the same column (happens when a stash lane converges to a fresh
+            // trunk lane the engine just opened in the same column). Then the
+            // L collapses to a straight vertical — no horizontal segment, no
+            // corner. Drawing the curve would produce a tiny right-side hook.
             let commitX = laneCenter(row.commitLane)
             for occ in row.mergesIn {
                 let startX = laneCenter(occ.lane)
-                let dir: CGFloat = startX > commitX ? -1 : 1  // toward commit
                 var path = Path()
-                path.move(to: CGPoint(x: startX, y: 0))
-                path.addLine(to: CGPoint(x: startX, y: center - cornerRadius))
-                path.addQuadCurve(
-                    to: CGPoint(x: startX + dir * cornerRadius, y: center),
-                    control: CGPoint(x: startX, y: center)
-                )
-                path.addLine(to: CGPoint(x: commitX, y: center))
+                if abs(startX - commitX) < 0.5 {
+                    path.move(to: CGPoint(x: startX, y: 0))
+                    path.addLine(to: CGPoint(x: startX, y: center))
+                } else {
+                    let dir: CGFloat = startX > commitX ? -1 : 1
+                    path.move(to: CGPoint(x: startX, y: 0))
+                    path.addLine(to: CGPoint(x: startX, y: center - cornerRadius))
+                    path.addQuadCurve(
+                        to: CGPoint(x: startX + dir * cornerRadius, y: center),
+                        control: CGPoint(x: startX, y: center)
+                    )
+                    path.addLine(to: CGPoint(x: commitX, y: center))
+                }
                 context.stroke(path, with: .color(color(for: occ)), style: style(for: occ))
             }
 

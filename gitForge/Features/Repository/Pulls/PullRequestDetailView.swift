@@ -6,8 +6,10 @@ import AppKit
 struct PullRequestDetailView: View {
     @Bindable var viewModel: RepositoryViewModel
 
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
     @State private var tab: Tab = .overview
+    @State private var showLocalMergeConfirm: Bool = false
 
     enum Tab: String, Hashable, CaseIterable, Identifiable {
         case overview, commits, files
@@ -29,6 +31,36 @@ struct PullRequestDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .confirmationDialog(
+            "Try integrating \(viewModel.selectedPullRequest?.targetBranch ?? "target") locally?",
+            isPresented: $showLocalMergeConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Try local merge") { Task { await runLocalMerge() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(localMergeMessage)
+        }
+    }
+
+    private var localMergeMessage: String {
+        guard let pr = viewModel.selectedPullRequest else { return "" }
+        return "Will fetch, check out \(pr.sourceBranch), and merge \(pr.targetBranch) into it. Conflicts route you to the Conflicts view."
+    }
+
+    private func runLocalMerge() async {
+        let outcome = await viewModel.attemptLocalMergeForPullRequest()
+        let pr = viewModel.selectedPullRequest
+        switch outcome {
+        case .clean:
+            let label = pr.map { "\($0.targetBranch) into \($0.sourceBranch)" } ?? "the target branch"
+            appState.activeToast = ToastMessage(message: "Already integrated — merged \(label) cleanly.", kind: .ok)
+        case .conflicts:
+            appState.workspaceSection = .conflict
+            appState.activeToast = ToastMessage(message: "Merge has conflicts — resolve to continue", kind: .warn)
+        case .failed(let message):
+            appState.activeToast = ToastMessage(message: message, kind: .error)
+        }
     }
 
     // MARK: Header
@@ -110,7 +142,12 @@ struct PullRequestDetailView: View {
                 }
             } else {
                 switch tab {
-                case .overview: OverviewTab(detail: viewModel.pullRequestDetail)
+                case .overview:
+                    OverviewTab(
+                        detail: viewModel.pullRequestDetail,
+                        localMergeRunning: viewModel.pullRequestLocalMergeRunning,
+                        onTryLocalMerge: { showLocalMergeConfirm = true }
+                    )
                 case .commits:  CommitsTab(commits: viewModel.pullRequestCommits, loading: viewModel.pullRequestDetailLoading)
                 case .files:    FilesTab(files: viewModel.pullRequestFiles, loading: viewModel.pullRequestDetailLoading)
                 }
@@ -155,6 +192,9 @@ private struct PullRequestStatePill: View {
 
 private struct OverviewTab: View {
     let detail: PullRequestDetail?
+    var localMergeRunning: Bool = false
+    var onTryLocalMerge: () -> Void = {}
+
     @Environment(\.appTheme) private var theme
 
     var body: some View {
@@ -242,6 +282,15 @@ private struct OverviewTab: View {
                 ciPill(ci)
             }
             mergeabilityPill(detail.mergeable)
+            if detail.mergeable == false {
+                GFButton(
+                    title: localMergeRunning ? "Resolving…" : "Resolve locally",
+                    size: .small,
+                    disabled: localMergeRunning
+                ) {
+                    onTryLocalMerge()
+                }
+            }
         }
     }
 

@@ -76,7 +76,7 @@ extension RepositoryViewModel {
             }
             await loadConflictState()
             await refreshStatus()
-            resetLog(); await loadInitial(); await loadRefs()
+            await loadRefs(); await reloadLog()
         } catch {
             Self.logger.error("Abort failed: \(error.localizedDescription, privacy: .public)")
             commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -153,7 +153,7 @@ extension RepositoryViewModel {
             }
             await loadConflictState()
             await refreshStatus()
-            resetLog(); await loadInitial(); await loadRefs()
+            await loadRefs(); await reloadLog()
         } catch {
             Self.logger.error("Continue failed: \(error.localizedDescription, privacy: .public)")
             commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
