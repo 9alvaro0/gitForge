@@ -4,8 +4,7 @@ import SwiftUI
 enum DesignTokens {
     /// Generic spacing scale — paddings, stack `spacing:`, small frame dimensions.
     /// Prefer these over raw numbers so the whole app moves together when the
-    /// scale shifts. `Density.pad` still wins where the value should respond
-    /// to the user's density preference.
+    /// scale shifts.
     enum Spacing {
         static let none: CGFloat = 0
         static let hairline: CGFloat = 1
@@ -60,6 +59,8 @@ enum DesignTokens {
         static let muted: Double = 0.14
         static let strong: Double = 0.22
         static let dim: Double = 0.30
+        /// Opacity applied to controls in their `disabled` state.
+        static let disabled: Double = 0.5
         static let prominent: Double = 0.85
     }
 

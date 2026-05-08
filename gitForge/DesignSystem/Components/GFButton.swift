@@ -26,7 +26,7 @@ struct GFButton: View {
         }
         .buttonStyle(.plain)
         .disabled(disabled)
-        .opacity(disabled ? 0.5 : 1)
+        .opacity(disabled ? DesignTokens.Opacity.disabled : 1)
         .onHover { hovering = $0 }
     }
 

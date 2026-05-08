@@ -373,6 +373,25 @@ private struct StagingRow: View {
     }
 }
 
+private extension StatusTag.Kind {
+    /// Maps a working-copy status to the visual badge. `.unmodified` collapses
+    /// to `.modified` so partially-staged files (where one side is unmodified)
+    /// still render a badge in the row instead of disappearing.
+    init(workingFile: WorkingCopyFile.Status) {
+        switch workingFile {
+        case .modified, .typeChanged: self = .modified
+        case .added:                  self = .added
+        case .deleted:                self = .deleted
+        case .renamed:                self = .renamed
+        case .copied:                 self = .copied
+        case .untracked:              self = .untracked
+        case .unmerged:               self = .unmerged
+        case .ignored:                self = .ignored
+        case .unmodified:             self = .modified
+        }
+    }
+}
+
 #if DEBUG
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()

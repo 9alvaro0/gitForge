@@ -19,7 +19,7 @@ struct SkeletonModifier: ViewModifier {
                 .phaseAnimator([0.45, 1.0]) { view, phase in
                     view.opacity(phase)
                 } animation: { _ in
-                    .easeInOut(duration: 0.9)
+                    DesignTokens.Motion.slow
                 }
                 .transition(.opacity)
         } else {

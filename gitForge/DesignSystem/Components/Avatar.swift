@@ -5,11 +5,22 @@ import SwiftUI
 /// initials still get distinguishable bg colors. Pass the email — or any
 /// stable identity string — when you have it.
 struct Avatar: View {
-    let name: String
-    var size: CGFloat = 18
-    var colorSeed: String? = nil
+    let size: CGFloat
+    private let initials: String
+    private let background: Color
 
     @Environment(\.appTheme) private var theme
+
+    init(name: String, size: CGFloat = 18, colorSeed: String? = nil) {
+        self.size = size
+        let parts = name.split(separator: " ")
+        self.initials = parts.prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
+        let seed = colorSeed ?? name
+        var h: Int = 0
+        for c in seed.unicodeScalars { h = (h &* 31) &+ Int(c.value) }
+        let lanes = ThemePalette.lanePalette
+        self.background = lanes[abs(h) % lanes.count]
+    }
 
     var body: some View {
         Text(initials)
@@ -17,19 +28,6 @@ struct Avatar: View {
             .foregroundStyle(theme.palette.accentFg)
             .frame(width: size, height: size)
             .background(Circle().fill(background))
-    }
-
-    private var initials: String {
-        let parts = name.split(separator: " ")
-        return parts.prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
-    }
-
-    private var background: Color {
-        let seed = colorSeed ?? name
-        var h: Int = 0
-        for c in seed.unicodeScalars { h = (h &* 31) &+ Int(c.value) }
-        let palette = ThemePalette.lanePalette
-        return palette[abs(h) % palette.count]
     }
 }
 

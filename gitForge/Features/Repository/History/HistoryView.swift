@@ -601,7 +601,7 @@ struct HistoryView: View {
                 EmptyState(icon: .diamond, title: "Select a commit",
                            subtitle: "Detail appears here.") { EmptyView() }
                     .overlay(alignment: .topTrailing) {
-                        IconButton(.x) { setDetailColumnCollapsed(true) }
+                        IconButton(.x, accessibilityLabel: "Hide commit detail") { setDetailColumnCollapsed(true) }
                             .help("Hide commit detail")
                             .padding(DesignTokens.Spacing.md)
                     }

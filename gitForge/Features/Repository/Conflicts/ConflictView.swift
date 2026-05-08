@@ -218,7 +218,7 @@ struct ConflictView: View {
                     .foregroundStyle(theme.palette.fg3)
                 Spacer()
                 if let pick {
-                    Pill(text: "picked → \(pick.rawValue)", kind: .clean)
+                    Pill(text: "picked → \(pick.rawValue)", kind: .neutral)
                 }
             }
             .padding(.horizontal, DesignTokens.Spacing.xl).padding(.vertical, DesignTokens.Spacing.md)

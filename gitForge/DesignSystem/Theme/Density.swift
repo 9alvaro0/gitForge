@@ -17,24 +17,6 @@ enum Density: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Generic content padding token.
-    var pad: CGFloat {
-        switch self {
-        case .compact: 10
-        case .regular: 12
-        case .comfy:   16
-        }
-    }
-
-    /// Sans-serif size token.
-    var fontSize: CGFloat {
-        switch self {
-        case .compact: 12
-        case .regular: 13
-        case .comfy:   14
-        }
-    }
-
     /// Monospace size token.
     var monoFontSize: CGFloat {
         switch self {

@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// `.gf-pill` — small ahead/behind/dirty/clean tag.
+/// `.gf-pill` — small ahead/behind/dirty/neutral tag.
 struct Pill: View {
-    enum Kind { case up, down, dirty, clean, neutral }
+    enum Kind { case up, down, dirty, neutral }
 
     let text: String
     var kind: Kind = .neutral
@@ -19,8 +19,6 @@ struct Pill: View {
                 return (p.info, p.info.opacity(DesignTokens.Opacity.subtle), p.info.opacity(DesignTokens.Opacity.dim))
             case .dirty:
                 return (p.mod, p.mod.opacity(DesignTokens.Opacity.subtle), p.mod.opacity(DesignTokens.Opacity.dim))
-            case .clean:
-                return (p.fg3, p.bg3, p.line)
             case .neutral:
                 return (p.fg3, p.bg3, p.line)
             }
@@ -49,7 +47,7 @@ struct StatusPills: View {
             Pill(text: "···", kind: .neutral)
                 .skeleton(true)
         } else if ahead == 0 && behind == 0 && dirty == 0 {
-            Pill(text: "clean", kind: .clean)
+            Pill(text: "clean", kind: .neutral)
         } else {
             HStack(spacing: DesignTokens.Spacing.xxs) {
                 if ahead > 0  { Pill(text: "↑\(ahead)",  kind: .up) }
@@ -67,7 +65,6 @@ struct StatusPills: View {
             Pill(text: "↑5", kind: .up)
             Pill(text: "↓3", kind: .down)
             Pill(text: "●2", kind: .dirty)
-            Pill(text: "clean", kind: .clean)
             Pill(text: "neutral", kind: .neutral)
         }
         StatusPills(ahead: 7, behind: 1, dirty: 3)
