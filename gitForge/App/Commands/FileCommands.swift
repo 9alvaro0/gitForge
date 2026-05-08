@@ -7,7 +7,7 @@ struct FileCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Branch...") {
+            Button("New Branch…") {
                 // Switch to Branches first so the view is mounted to host the
                 // sheet — both entry points (this menu and the "+" tool button
                 // in BranchesView) share that single presentation.
@@ -19,7 +19,7 @@ struct FileCommands: Commands {
 
             Divider()
 
-            Button("Open Repository...") {
+            Button("Open Repository…") {
                 Task { await appState.presentOpenRepositoryPanel() }
             }
             .keyboardShortcut("o", modifiers: .command)
