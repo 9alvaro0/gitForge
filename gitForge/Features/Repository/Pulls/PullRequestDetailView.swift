@@ -107,7 +107,7 @@ struct PullRequestDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(theme.palette.bg2)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(theme.palette.lineStrong).frame(height: 1)
+                Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
             }
         }
     }
@@ -127,7 +127,7 @@ struct PullRequestDetailView: View {
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg1)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.line).frame(height: 1)
+            Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular)
         }
     }
 
@@ -559,7 +559,7 @@ private struct FilesTab: View {
                     .frame(maxHeight: .infinity)
                     .background(theme.palette.bg1)
                     .overlay(alignment: .trailing) {
-                        Rectangle().fill(theme.palette.line).frame(width: 1)
+                        Rectangle().fill(theme.palette.line).frame(width: DesignTokens.Stroke.regular)
                     }
                 diffPane
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

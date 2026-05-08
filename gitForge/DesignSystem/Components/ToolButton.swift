@@ -50,7 +50,7 @@ struct ToolButton<Icon: View>: View {
                 }
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)
-            .frame(height: 28)
+            .frame(height: DesignTokens.Control.height)
             .foregroundStyle(fg)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(bg))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))

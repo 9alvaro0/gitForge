@@ -165,7 +165,7 @@ struct SettingsView: View {
             GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
-        .frame(height: 24)
+        .frame(height: DesignTokens.IconSize.xxl)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
     }
@@ -197,7 +197,7 @@ struct SettingsView: View {
                     .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
                     .foregroundStyle(theme.palette.fg1)
                     .padding(.horizontal, DesignTokens.Spacing.md)
-                    .frame(height: 24)
+                    .frame(height: DesignTokens.IconSize.xxl)
                     .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                     .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.accent, lineWidth: DesignTokens.Stroke.regular))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -257,7 +257,7 @@ struct SettingsView: View {
                         Text(label.capitalized)
                             .font(AppFont.sans(11))
                             .padding(.horizontal, DesignTokens.Spacing.lg)
-                            .frame(height: 24)
+                            .frame(height: DesignTokens.IconSize.xxl)
                             .foregroundStyle(raw == current ? theme.palette.accent : theme.palette.fg2)
                             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(raw == current ? theme.palette.accentSoft : theme.palette.bg2))
                     }
@@ -300,7 +300,7 @@ struct SettingsView: View {
                     GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
                 }
                 .padding(.horizontal, DesignTokens.Spacing.md)
-                .frame(height: 28)
+                .frame(height: DesignTokens.Control.height)
                 .foregroundStyle(theme.palette.fg1)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg2))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
