@@ -257,7 +257,7 @@ struct CommitDetailColumn: View {
         }
         .padding(DesignTokens.Spacing.huge).frame(width: 380)
         .background(theme.palette.bg1)
-        .appTheme(appState.theme)
+        .appTheme(appState.ui.theme)
     }
 
     private var newTagSheetView: some View {
@@ -282,7 +282,7 @@ struct CommitDetailColumn: View {
         }
         .padding(DesignTokens.Spacing.huge).frame(width: 420)
         .background(theme.palette.bg1)
-        .appTheme(appState.theme)
+        .appTheme(appState.ui.theme)
     }
 
     @MainActor
@@ -296,10 +296,10 @@ struct CommitDetailColumn: View {
         )
         switch result {
         case .success:
-            appState.activeToast = ToastMessage(message: "Tagged \(commit.shortSha) as \(name)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Tagged \(commit.shortSha) as \(name)", kind: .ok)
             newTagSheet = false
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error
             )
@@ -341,12 +341,12 @@ struct CommitDetailColumn: View {
                         conflicts: String) {
         switch outcome {
         case .clean:
-            appState.activeToast = ToastMessage(message: success, kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: success, kind: .ok)
         case .conflicts:
-            appState.workspaceSection = .conflict
-            appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
+            appState.ui.workspaceSection = .conflict
+            appState.ui.activeToast = ToastMessage(message: conflicts, kind: .warn)
         case .failed(let message):
-            appState.activeToast = ToastMessage(message: message, kind: .error)
+            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 }

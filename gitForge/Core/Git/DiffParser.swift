@@ -84,11 +84,13 @@ enum DiffParser {
         )
     }
 
+    private static let hunkHeaderRegex = try! NSRegularExpression(
+        pattern: #"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$"#
+    )
+
     private static func parseHunkHeader(_ raw: String) -> (oldStart: Int, oldCount: Int, newStart: Int, newCount: Int, context: String)? {
-        let pattern = #"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(raw.startIndex..<raw.endIndex, in: raw)
-        guard let match = regex.firstMatch(in: raw, options: [], range: range) else { return nil }
+        guard let match = hunkHeaderRegex.firstMatch(in: raw, options: [], range: range) else { return nil }
 
         func extract(_ groupIndex: Int) -> String? {
             let r = match.range(at: groupIndex)

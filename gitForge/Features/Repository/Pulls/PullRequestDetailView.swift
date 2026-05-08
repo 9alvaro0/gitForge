@@ -54,12 +54,12 @@ struct PullRequestDetailView: View {
         switch outcome {
         case .clean:
             let label = pr.map { "\($0.targetBranch) into \($0.sourceBranch)" } ?? "the target branch"
-            appState.activeToast = ToastMessage(message: "Already integrated — merged \(label) cleanly.", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Already integrated — merged \(label) cleanly.", kind: .ok)
         case .conflicts:
-            appState.workspaceSection = .conflict
-            appState.activeToast = ToastMessage(message: "Merge has conflicts — resolve to continue", kind: .warn)
+            appState.ui.workspaceSection = .conflict
+            appState.ui.activeToast = ToastMessage(message: "Merge has conflicts — resolve to continue", kind: .warn)
         case .failed(let message):
-            appState.activeToast = ToastMessage(message: message, kind: .error)
+            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
@@ -696,7 +696,7 @@ private extension StatusTag.Kind {
         return v
     }()
     PullRequestDetailView(viewModel: vm)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
 }
@@ -729,7 +729,7 @@ private extension StatusTag.Kind {
         return v
     }()
     PullRequestDetailView(viewModel: vm)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
 }

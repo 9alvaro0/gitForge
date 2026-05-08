@@ -33,7 +33,7 @@ struct GitNotFoundView: View {
                 .disabled(isInstalling)
 
                 Button("Recheck") {
-                    Task { await appState.refreshGitInstallation() }
+                    Task { await appState.gitEnvironment.refreshGitInstallation() }
                 }
                 .controlSize(.large)
             }
@@ -53,7 +53,7 @@ struct GitNotFoundView: View {
                 process.waitUntilExit()
             }.value
             isInstalling = false
-            await appState.refreshGitInstallation()
+            await appState.gitEnvironment.refreshGitInstallation()
         }
     }
 }

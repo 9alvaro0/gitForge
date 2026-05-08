@@ -5,6 +5,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
+    @Environment(GitEnvironment.self) private var gitEnvironment
+    @Environment(WorkspaceUI.self) private var ui
 
     @State private var editing: EditingField?
     @State private var draftValue: String = ""
@@ -33,7 +35,16 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
-        .task { await appState.refreshGlobalConfig() }
+        .task { await gitEnvironment.refreshGlobalConfig() }
+    }
+
+    /// Runs a `GitEnvironment.set*` mutation and surfaces failures via the
+    /// global alert. Centralised so each settings row stays one line.
+    private func applyConfig(_ title: String, _ work: @escaping () async throws -> Void) {
+        Task {
+            do { try await work() }
+            catch { ui.presentedError = PresentedError(error: error, title: title) }
+        }
     }
 
     // MARK: Appearance
@@ -56,16 +67,16 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             radioRow(label: "Theme",
                      values: ThemeMode.allCases.map { ($0.rawValue, $0.label) },
-                     current: appState.theme.mode.rawValue) { v in
-                if let m = ThemeMode(rawValue: v) { appState.theme.mode = m }
+                     current: ui.theme.mode.rawValue) { v in
+                if let m = ThemeMode(rawValue: v) { ui.theme.mode = m }
             }
             colorRow(label: "Accent",
                      swatches: AppTheme.accentSwatches,
-                     current: appState.theme.accent) { appState.theme.accent = $0 }
+                     current: ui.theme.accent) { ui.theme.accent = $0 }
             radioRow(label: "Density",
                      values: Density.allCases.map { ($0.rawValue, $0.label) },
-                     current: appState.theme.density.rawValue) { v in
-                if let d = Density(rawValue: v) { appState.theme.density = d }
+                     current: ui.theme.density.rawValue) { v in
+                if let d = Density(rawValue: v) { ui.theme.density = d }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -75,13 +86,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             selectRow(label: "Mono font",
                       values: MonoFontFamily.allCases.map { ($0.rawValue, $0.label) },
-                      current: appState.theme.monoFont.rawValue) { v in
-                if let f = MonoFontFamily(rawValue: v) { appState.theme.monoFont = f }
+                      current: ui.theme.monoFont.rawValue) { v in
+                if let f = MonoFontFamily(rawValue: v) { ui.theme.monoFont = f }
             }
             radioRow(label: "Diff view",
                      values: DiffPane.ViewMode.allCases.map { ($0.rawValue, $0.label) },
-                     current: appState.theme.defaultDiffMode.rawValue) { v in
-                if let m = DiffPane.ViewMode(rawValue: v) { appState.theme.defaultDiffMode = m }
+                     current: ui.theme.defaultDiffMode.rawValue) { v in
+                if let m = DiffPane.ViewMode(rawValue: v) { ui.theme.defaultDiffMode = m }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,9 +102,9 @@ struct SettingsView: View {
 
     private var identitySection: some View {
         section(title: "Identity") {
-            editableRow(label: "Name", value: appState.globalConfig.identity.name, field: .name, mono: false)
-            editableRow(label: "Email", value: appState.globalConfig.identity.email, field: .email, mono: true)
-            editableRow(label: "Signing key", value: appState.globalConfig.signingKey, field: .signingKey, mono: true,
+            editableRow(label: "Name", value: gitEnvironment.globalConfig.identity.name, field: .name, mono: false)
+            editableRow(label: "Email", value: gitEnvironment.globalConfig.identity.email, field: .email, mono: true)
+            editableRow(label: "Signing key", value: gitEnvironment.globalConfig.signingKey, field: .signingKey, mono: true,
                         placeholder: "GPG / SSH key id (optional)")
         }
     }
@@ -102,7 +113,7 @@ struct SettingsView: View {
 
     private var gitSection: some View {
         section(title: "Git") {
-            editableRow(label: "Default branch", value: appState.globalConfig.defaultBranch, field: .defaultBranch, mono: true,
+            editableRow(label: "Default branch", value: gitEnvironment.globalConfig.defaultBranch, field: .defaultBranch, mono: true,
                         placeholder: "main")
             pullStrategyRow
             autoFetchRow
@@ -112,13 +123,13 @@ struct SettingsView: View {
     private var pullStrategyRow: some View {
         HStack {
             rowLabel("Pull strategy")
-            let current = appState.globalConfig.pullStrategy ?? "default"
+            let current = gitEnvironment.globalConfig.pullStrategy ?? "default"
             Menu {
-                Button("Default (git config)") { Task { await appState.updatePullStrategy(nil) } }
+                Button("Default (git config)") { setPullStrategy(nil) }
                 Divider()
-                Button("Rebase")            { Task { await appState.updatePullStrategy("rebase") } }
-                Button("Merge")             { Task { await appState.updatePullStrategy("merge") } }
-                Button("Fast-forward only") { Task { await appState.updatePullStrategy("ff-only") } }
+                Button("Rebase")            { setPullStrategy("rebase") }
+                Button("Merge")             { setPullStrategy("merge") }
+                Button("Fast-forward only") { setPullStrategy("ff-only") }
             } label: {
                 pickerLabel(current)
             }
@@ -126,6 +137,12 @@ struct SettingsView: View {
             .frame(maxWidth: 240, alignment: .trailing)
         }
         .modifier(SettingRowChrome(theme: theme))
+    }
+
+    private func setPullStrategy(_ value: String?) {
+        applyConfig("Couldn’t update pull strategy") {
+            try await gitEnvironment.setPullStrategy(value)
+        }
     }
 
     private var autoFetchRow: some View {
@@ -133,13 +150,13 @@ struct SettingsView: View {
             rowLabel("Auto-fetch")
             let current = autoFetchLabel
             Menu {
-                Button("Off") { Task { await appState.updateAutoFetchInterval(nil) } }
+                Button("Off") { setAutoFetch(nil) }
                 Divider()
-                Button("Every 1 min")  { Task { await appState.updateAutoFetchInterval(60) } }
-                Button("Every 5 min")  { Task { await appState.updateAutoFetchInterval(300) } }
-                Button("Every 10 min") { Task { await appState.updateAutoFetchInterval(600) } }
-                Button("Every 15 min") { Task { await appState.updateAutoFetchInterval(900) } }
-                Button("Every 30 min") { Task { await appState.updateAutoFetchInterval(1800) } }
+                Button("Every 1 min")  { setAutoFetch(60) }
+                Button("Every 5 min")  { setAutoFetch(300) }
+                Button("Every 10 min") { setAutoFetch(600) }
+                Button("Every 15 min") { setAutoFetch(900) }
+                Button("Every 30 min") { setAutoFetch(1800) }
             } label: {
                 pickerLabel(current)
             }
@@ -149,8 +166,24 @@ struct SettingsView: View {
         .modifier(SettingRowChrome(theme: theme))
     }
 
+    /// Auto-fetch needs to bounce the active VM's reactivity timer once the
+    /// new interval has actually persisted to disk — otherwise runtime
+    /// polling drifts from what's saved.
+    private func setAutoFetch(_ seconds: Int?) {
+        Task {
+            do {
+                try await gitEnvironment.setAutoFetchInterval(seconds)
+                appState.catalog.activeViewModel?.startReactivity(
+                    autoFetchIntervalSeconds: gitEnvironment.globalConfig.autoFetchInterval ?? 0
+                )
+            } catch {
+                ui.presentedError = PresentedError(error: error, title: "Couldn’t update auto-fetch")
+            }
+        }
+    }
+
     private var autoFetchLabel: String {
-        guard let interval = appState.globalConfig.autoFetchInterval, interval > 0 else { return "Off" }
+        guard let interval = gitEnvironment.globalConfig.autoFetchInterval, interval > 0 else { return "Off" }
         if interval >= 60 { return "Every \(interval / 60) min" }
         return "Every \(interval) sec"
     }
@@ -231,15 +264,19 @@ struct SettingsView: View {
         let trimmed = draftValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let value: String? = trimmed.isEmpty ? nil : trimmed
         Task {
-            switch field {
-            case .name:
-                if let value { await appState.updateIdentity(name: value) }
-            case .email:
-                if let value { await appState.updateIdentity(email: value) }
-            case .signingKey:
-                await appState.updateSigningKey(value)
-            case .defaultBranch:
-                await appState.updateDefaultBranch(value)
+            do {
+                switch field {
+                case .name:
+                    if let value { try await gitEnvironment.setIdentity(name: value) }
+                case .email:
+                    if let value { try await gitEnvironment.setIdentity(email: value) }
+                case .signingKey:
+                    try await gitEnvironment.setSigningKey(value)
+                case .defaultBranch:
+                    try await gitEnvironment.setDefaultBranch(value)
+                }
+            } catch {
+                ui.presentedError = PresentedError(error: error, title: "Couldn’t update git config")
             }
             editing = nil
         }
@@ -328,7 +365,7 @@ private struct SettingRowChrome: ViewModifier {
 #Preview {
     @Previewable @State var theme = AppTheme()
     SettingsView()
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }

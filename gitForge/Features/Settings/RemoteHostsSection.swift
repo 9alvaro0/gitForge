@@ -25,7 +25,7 @@ struct RemoteHostsSection: View {
     /// GitLab / GitHub Enterprise instances appear here automatically).
     private var entries: [HostEntry] {
         var result = Self.defaults
-        if let host = appState.activeViewModel?.pullRequestsHost,
+        if let host = appState.catalog.activeViewModel?.pullRequestsHost,
            !result.contains(where: { $0.host == host.host }) {
             result.append(HostEntry(
                 provider: host.provider,

@@ -8,10 +8,14 @@ struct FileCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Branch...") {
-                appState.newBranchSheetVisible = true
+                // Switch to Branches first so the view is mounted to host the
+                // sheet — both entry points (this menu and the "+" tool button
+                // in BranchesView) share that single presentation.
+                appState.ui.workspaceSection = .branches
+                appState.ui.newBranchSheetVisible = true
             }
             .keyboardShortcut("b", modifiers: .command)
-            .disabled(appState.activeViewModel == nil)
+            .disabled(appState.catalog.activeViewModel == nil)
 
             Divider()
 
@@ -21,12 +25,12 @@ struct FileCommands: Commands {
             .keyboardShortcut("o", modifiers: .command)
 
             Menu("Open Recent") {
-                ForEach(appState.repositories) { repo in
+                ForEach(appState.catalog.repositories) { repo in
                     Button(repo.name) {
                         Task { await appState.activate(repo) }
                     }
                 }
-                if appState.repositories.isEmpty {
+                if appState.catalog.repositories.isEmpty {
                     Text("No Recent Repositories")
                 }
             }
@@ -34,10 +38,10 @@ struct FileCommands: Commands {
             Divider()
 
             Button("Close Repository") {
-                appState.closeRepository()
+                appState.catalog.close()
             }
             .keyboardShortcut("w", modifiers: [.command, .shift])
-            .disabled(appState.activeRepository == nil)
+            .disabled(appState.catalog.activeRepository == nil)
         }
     }
 }

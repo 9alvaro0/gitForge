@@ -116,10 +116,10 @@ enum ConflictParser {
 
         while i < lines.count {
             let line = lines[i]
-            if phase == .ours, line.hasPrefix("|||||||") {
+            if phase == .ours, line == "|||||||" || line.hasPrefix("||||||| ") {
                 phase = .base; i += 1; continue
             }
-            if phase != .theirs, line.hasPrefix("=======") {
+            if phase != .theirs, line == "=======" {
                 phase = .theirs; i += 1; continue
             }
             if line.hasPrefix(">>>>>>>") {
