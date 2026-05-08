@@ -50,25 +50,25 @@ struct StashesView: View {
         let outcome = await viewModel.applyStash(stash, drop: drop)
         switch outcome {
         case .clean:
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: drop ? "Popped \(stash.reference)" : "Applied \(stash.reference)",
                 kind: .ok)
         case .conflicts:
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: "Stash applied with conflicts — resolve to continue",
                 kind: .warn)
-            appState.workspaceSection = .conflict
+            appState.ui.workspaceSection = .conflict
         case .failed(let message):
-            appState.activeToast = ToastMessage(message: message, kind: .error)
+            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
     private func runDrop(_ stash: Stash) async {
         switch await viewModel.dropStash(stash) {
         case .success:
-            appState.activeToast = ToastMessage(message: "Dropped \(stash.reference)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Dropped \(stash.reference)", kind: .ok)
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
         }
@@ -167,12 +167,12 @@ struct StashesView: View {
                     Task {
                         let result = await viewModel.stashAll(message: message.isEmpty ? nil : message)
                         if case .failure(let err) = result {
-                            appState.activeToast = ToastMessage(
+                            appState.ui.activeToast = ToastMessage(
                                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                                 kind: .error
                             )
                         } else {
-                            appState.activeToast = ToastMessage(message: "Stashed", kind: .ok)
+                            appState.ui.activeToast = ToastMessage(message: "Stashed", kind: .ok)
                         }
                         stashSheet = false
                     }
@@ -181,7 +181,7 @@ struct StashesView: View {
         }
         .padding(DesignTokens.Spacing.huge).frame(width: 420)
         .background(theme.palette.bg1)
-        .appTheme(appState.theme)
+        .appTheme(appState.ui.theme)
     }
 
     private var dropAlertBinding: Binding<Bool> {
@@ -193,7 +193,7 @@ struct StashesView: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     StashesView(viewModel: RepositoryViewModel.preview)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }

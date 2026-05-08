@@ -6,7 +6,8 @@ struct BranchesView: View {
     @Bindable var viewModel: RepositoryViewModel
 
     @State private var filter: String = ""
-    @State private var newBranchSheet = false
+    /// Driven by `AppState.newBranchSheetVisible` so the File ▸ New Branch (⌘B)
+    /// menu and the local "+" button share one presentation path.
     @State private var newBranchName: String = ""
     @State private var renameTarget: GitRef?
     @State private var renameDraft: String = ""
@@ -17,6 +18,7 @@ struct BranchesView: View {
     @State private var deleteTargetTag: GitRef?
 
     @Environment(AppState.self) private var appState
+    @Environment(WorkspaceUI.self) private var ui
     @Environment(\.appTheme) private var theme
 
     /// "Merge `source` into `target`" — `target == nil` means current branch.
@@ -36,6 +38,7 @@ struct BranchesView: View {
     }
 
     var body: some View {
+        @Bindable var ui = ui
         VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Branches") {
                 EmptyView()
@@ -45,8 +48,7 @@ struct BranchesView: View {
                     Task { await runPushAllTags() }
                 }
                 ToolButton(.plus, label: "New branch", primary: true) {
-                    newBranchName = ""
-                    newBranchSheet = true
+                    ui.newBranchSheetVisible = true
                 }
             }
             ScrollView {
@@ -88,7 +90,15 @@ struct BranchesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
-        .sheet(isPresented: $newBranchSheet) { newBranchSheetView(presented: $newBranchSheet) }
+        .sheet(isPresented: $ui.newBranchSheetVisible) {
+            newBranchSheetView(presented: $ui.newBranchSheetVisible)
+        }
+        // Either entry point — local "+" or the ⌘B menu — opens with a clean
+        // input. The state is local to this view, so no extra reset is needed
+        // when the sheet closes.
+        .onChange(of: ui.newBranchSheetVisible) { _, isVisible in
+            if isVisible { newBranchName = "" }
+        }
         .sheet(item: $renameTarget) { ref in renameSheetView(ref: ref) }
         .confirmationDialog("Delete \(deleteTarget?.name ?? "")?",
                             isPresented: deleteAlertBinding,
@@ -193,12 +203,12 @@ struct BranchesView: View {
                         conflicts: String) {
         switch outcome {
         case .clean:
-            appState.activeToast = ToastMessage(message: success, kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: success, kind: .ok)
         case .conflicts:
-            appState.workspaceSection = .conflict
-            appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
+            appState.ui.workspaceSection = .conflict
+            appState.ui.activeToast = ToastMessage(message: conflicts, kind: .warn)
         case .failed(let message):
-            appState.activeToast = ToastMessage(message: message, kind: .error)
+            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
@@ -208,9 +218,9 @@ struct BranchesView: View {
         let result = await viewModel.pushTag(ref)
         switch result {
         case .success:
-            appState.activeToast = ToastMessage(message: "Pushed \(ref.name)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Pushed \(ref.name)", kind: .ok)
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
         }
@@ -220,9 +230,9 @@ struct BranchesView: View {
         let result = await viewModel.pushAllTags()
         switch result {
         case .success:
-            appState.activeToast = ToastMessage(message: "Pushed all tags", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Pushed all tags", kind: .ok)
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
         }
@@ -232,7 +242,7 @@ struct BranchesView: View {
         if alsoOnRemote {
             let remoteResult = await viewModel.pushDeleteTag(ref)
             if case .failure(let err) = remoteResult {
-                appState.activeToast = ToastMessage(
+                appState.ui.activeToast = ToastMessage(
                     message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                     kind: .error)
                 return
@@ -242,9 +252,9 @@ struct BranchesView: View {
         switch localResult {
         case .success:
             let suffix = alsoOnRemote ? " (local + remote)" : " (local)"
-            appState.activeToast = ToastMessage(message: "Deleted \(ref.name)\(suffix)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Deleted \(ref.name)\(suffix)", kind: .ok)
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
         }
@@ -269,7 +279,7 @@ struct BranchesView: View {
         }
         .padding(DesignTokens.Spacing.huge).frame(width: 380)
         .background(theme.palette.bg1)
-        .appTheme(appState.theme)
+        .appTheme(appState.ui.theme)
     }
 
     @ViewBuilder
@@ -291,7 +301,7 @@ struct BranchesView: View {
         }
         .padding(DesignTokens.Spacing.huge).frame(width: 380)
         .background(theme.palette.bg1)
-        .appTheme(appState.theme)
+        .appTheme(appState.ui.theme)
     }
 }
 
@@ -583,7 +593,7 @@ private struct TagsSection: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     BranchesView(viewModel: RepositoryViewModel.preview)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }

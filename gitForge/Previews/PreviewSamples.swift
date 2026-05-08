@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 extension Repository {
     static let preview = Repository(
@@ -167,22 +168,52 @@ extension WorkingCopyStatus {
 extension AppState {
     static var preview: AppState {
         let state = AppState()
-        state.gitStatus = .available
-        state.repositories = Repository.previewSamples
+        state.gitEnvironment.gitStatus = .available
+        state.catalog.repositories = Repository.previewSamples
         return state
     }
 
     static var previewWithActive: AppState {
         let state = preview
         let repo = Repository.previewSamples.first!
-        state.activeRepository = repo
-        state.activeViewModel = RepositoryViewModel.preview
+        state.catalog.activeRepository = repo
+        state.catalog.activeViewModel = RepositoryViewModel.preview
         return state
     }
 
     static var previewMissingGit: AppState {
         let state = AppState()
-        state.gitStatus = .notFound
+        state.gitEnvironment.gitStatus = .notFound
         return state
+    }
+}
+
+@MainActor
+extension RepositoryViewModel {
+    static var preview: RepositoryViewModel {
+        let vm = RepositoryViewModel(repository: Repository.preview)
+        vm.commits = Commit.previewSamples
+        vm.selectedCommitId = Commit.previewSamples.first?.id
+        vm.detailCache[Commit.preview.sha] = CommitDetail.preview
+        vm.refs = GitRef.previewSamples
+        vm.currentBranchName = "main"
+        vm.status = WorkingCopyStatus.preview
+        vm.recomputeGraph()
+        return vm
+    }
+}
+
+@MainActor
+extension View {
+    /// Injects `AppState` plus its four sub-stores so previews of features
+    /// that depend on `WorkspaceUI`, `RepositoryCatalog`, … find them in the
+    /// environment without each preview having to wire all five by hand.
+    func previewAppState(_ state: AppState) -> some View {
+        self
+            .environment(state)
+            .environment(state.catalog)
+            .environment(state.gitEnvironment)
+            .environment(state.clone)
+            .environment(state.ui)
     }
 }

@@ -189,7 +189,7 @@ struct PullsView: View {
                         tokenSheetHost = host
                     }
                     GFButton(title: "Open Settings") {
-                        appState.workspaceSection = .settings
+                        appState.ui.workspaceSection = .settings
                     }
                 }
             }
@@ -360,7 +360,7 @@ struct PullsView: View {
         return v
     }()
     PullsView(viewModel: vm)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
@@ -376,7 +376,7 @@ struct PullsView: View {
         return v
     }()
     PullsView(viewModel: vm)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
@@ -392,7 +392,7 @@ struct PullsView: View {
         return v
     }()
     PullsView(viewModel: vm)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }

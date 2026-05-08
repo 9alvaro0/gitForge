@@ -24,8 +24,8 @@ struct CloneView: View {
     /// name changes — same UX as GitKraken/Sourcetree.
     @AppStorage("gitForge.clone.lastParentDir") private var lastParentDir: String = ""
 
-    private var repositories: [Repository] { appState.repositories }
-    private var isCloning: Bool { appState.isCloning }
+    private var repositories: [Repository] { appState.catalog.repositories }
+    private var isCloning: Bool { appState.clone.isCloning }
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
@@ -121,13 +121,13 @@ struct CloneView: View {
 
     private var cloningPanel: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-            if case let .running(stage, percent) = appState.cloneState {
+            if case let .running(stage, percent) = appState.clone.cloneState {
                 progressRow(stage: stage, percent: percent)
             }
             HStack {
                 Spacer()
                 GFButton(title: "Cancel", style: .secondary) {
-                    appState.cancelClone()
+                    appState.clone.cancel()
                 }
             }
         }
@@ -184,14 +184,14 @@ struct CloneView: View {
             field(label: "Branch (optional)") {
                 GFTextField(placeholder: "default branch", text: $branch)
             }
-            if case let .running(stage, percent) = appState.cloneState {
+            if case let .running(stage, percent) = appState.clone.cloneState {
                 progressRow(stage: stage, percent: percent)
             }
             HStack(spacing: DesignTokens.Spacing.md) {
                 Spacer()
                 if isCloning {
                     GFButton(title: "Cancel", style: .secondary) {
-                        appState.cancelClone()
+                        appState.clone.cancel()
                     }
                 }
                 GFButton(title: isCloning ? "Cloning…" : "Clone",
@@ -338,7 +338,7 @@ struct CloneView: View {
         // Empty `lastParentDir` ≠ empty placeholder; only autofill when we
         // have a parent to compose with, otherwise we'd suggest just the leaf.
         let parent = lastParentDir.isEmpty
-            ? (NSString("~/code").expandingTildeInPath)
+            ? ("~/code" as NSString).expandingTildeInPath
             : lastParentDir
         let composed = "\(parent)/\(leaf)"
         if localPath.isEmpty || localPath == lastAutoDerived {
@@ -389,7 +389,7 @@ struct CloneView: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     CloneView()
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }

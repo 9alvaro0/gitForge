@@ -14,27 +14,27 @@ struct RepositoryCommands: Commands {
         // SwiftUI may collapse the menu when no repository is active.
         CommandMenu("Repository") {
             Button("Refresh") {
-                Task { await appState.activeViewModel?.refresh() }
+                Task { await appState.catalog.activeViewModel?.refresh() }
             }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(appState.activeViewModel == nil)
+            .disabled(appState.catalog.activeViewModel == nil)
 
             Divider()
 
             Button("Fetch") {
-                Task { await appState.activeViewModel?.fetch() }
+                Task { await appState.catalog.activeViewModel?.fetch() }
             }
             .keyboardShortcut("f", modifiers: [.command, .shift])
             .disabled(remoteBusy)
 
             Button("Pull") {
-                Task { await appState.activeViewModel?.pull() }
+                Task { await appState.catalog.activeViewModel?.pull() }
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
             .disabled(remoteBusy)
 
             Button("Push") {
-                Task { await appState.activeViewModel?.push() }
+                Task { await appState.catalog.activeViewModel?.push() }
             }
             .keyboardShortcut("p", modifiers: .command)
             .disabled(remoteBusy)
@@ -42,33 +42,37 @@ struct RepositoryCommands: Commands {
             Divider()
 
             Button("Commit...") {
-                appState.workspaceSection = .changes
+                appState.ui.workspaceSection = .changes
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
-            .disabled(appState.activeViewModel == nil)
+            .disabled(appState.catalog.activeViewModel == nil)
 
             Button("Stash All Changes") {
-                guard let viewModel = appState.activeViewModel else { return }
+                guard let viewModel = appState.catalog.activeViewModel else { return }
                 Task {
                     let result = await viewModel.stashAll()
                     if case .failure(let error) = result {
-                        appState.presentedError = PresentedError(error: error, title: "Couldn’t stash")
+                        appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t stash")
                     }
                 }
             }
-            .disabled(appState.activeViewModel?.status.isClean ?? true)
+            .disabled(appState.catalog.activeViewModel?.status.isClean ?? true)
 
             Divider()
 
             Button("Discard All Changes...") {
-                appState.discardAllConfirmVisible = true
+                // Switch to Changes first so StagingView is mounted to host
+                // the confirmation dialog — both entry points (this menu and
+                // the "Discard all" tool button) share that single dialog.
+                appState.ui.workspaceSection = .changes
+                appState.ui.discardAllConfirmVisible = true
             }
-            .disabled(appState.activeViewModel?.status.isClean ?? true)
+            .disabled(appState.catalog.activeViewModel?.status.isClean ?? true)
         }
     }
 
     private var remoteBusy: Bool {
-        guard let viewModel = appState.activeViewModel else { return true }
+        guard let viewModel = appState.catalog.activeViewModel else { return true }
         return viewModel.remoteOperation != nil
     }
 }

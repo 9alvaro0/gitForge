@@ -241,7 +241,7 @@ struct HistoryView: View {
         if (refsBySha[sha] ?? []).contains(where: {
             $0.isLocalBranch && $0.name == viewModel.currentBranchName
         }) {
-            appState.activeToast = ToastMessage(message: "Already on \(viewModel.currentBranchName ?? commit.shortSha)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Already on \(viewModel.currentBranchName ?? commit.shortSha)", kind: .ok)
             return
         }
         detachedCheckoutTarget = commit
@@ -250,9 +250,9 @@ struct HistoryView: View {
     private func runCheckoutBranch(_ ref: GitRef) async {
         switch await viewModel.checkoutBranch(ref) {
         case .success:
-            appState.activeToast = ToastMessage(message: "Checked out \(ref.displayName)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Checked out \(ref.displayName)", kind: .ok)
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
         }
@@ -261,9 +261,9 @@ struct HistoryView: View {
     private func runCheckoutCommit(_ commit: Commit) async {
         switch await viewModel.checkoutCommit(commit.sha) {
         case .success:
-            appState.activeToast = ToastMessage(message: "Detached HEAD at \(commit.shortSha)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: "Detached HEAD at \(commit.shortSha)", kind: .ok)
         case .failure(let err):
-            appState.activeToast = ToastMessage(
+            appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
         }
@@ -275,11 +275,11 @@ struct HistoryView: View {
         Task {
             switch await viewModel.moveBranch(request.branch, to: request.targetSha) {
             case .success:
-                appState.activeToast = ToastMessage(
+                appState.ui.activeToast = ToastMessage(
                     message: "Moved \(request.branch.displayName) to \(request.targetShortSha)",
                     kind: .ok)
             case .failure(let err):
-                appState.activeToast = ToastMessage(
+                appState.ui.activeToast = ToastMessage(
                     message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                     kind: .error)
             }
@@ -315,7 +315,7 @@ struct HistoryView: View {
             // so we have to be on `source` first.
             if request.source.name != viewModel.currentBranchName {
                 if case .failure(let err) = await viewModel.checkoutBranch(request.source) {
-                    appState.activeToast = ToastMessage(
+                    appState.ui.activeToast = ToastMessage(
                         message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                         kind: .error)
                     return
@@ -335,12 +335,12 @@ struct HistoryView: View {
                                    conflicts: String) {
         switch outcome {
         case .clean:
-            appState.activeToast = ToastMessage(message: success, kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: success, kind: .ok)
         case .conflicts:
-            appState.workspaceSection = .conflict
-            appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
+            appState.ui.workspaceSection = .conflict
+            appState.ui.activeToast = ToastMessage(message: conflicts, kind: .warn)
         case .failed(let message):
-            appState.activeToast = ToastMessage(message: message, kind: .error)
+            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
@@ -737,7 +737,7 @@ private struct BranchDropDialogs: ViewModifier {
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     HistoryView(viewModel: RepositoryViewModel.preview)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
 }
@@ -751,7 +751,7 @@ private struct BranchDropDialogs: ViewModifier {
         return v
     }()
     HistoryView(viewModel: vm)
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
 }

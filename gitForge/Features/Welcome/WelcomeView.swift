@@ -22,7 +22,7 @@ struct WelcomeView: View {
                     Task { await appState.presentOpenRepositoryPanel() }
                 }
                 ToolButton(.clone, label: "Clone…") {
-                    appState.workspaceSection = .clone
+                    appState.ui.workspaceSection = .clone
                 }
             }
             .padding(.top, DesignTokens.Spacing.md)
@@ -35,13 +35,13 @@ struct WelcomeView: View {
 
     @ViewBuilder
     private var recentList: some View {
-        if !appState.repositories.isEmpty {
+        if !appState.catalog.repositories.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("RECENT")
                     .font(.system(size: FontSize.footnote, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
-                ForEach(appState.repositories.prefix(5)) { repo in
+                ForEach(appState.catalog.repositories.prefix(5)) { repo in
                     Button {
                         Task { await appState.activate(repo) }
                     } label: {
@@ -72,7 +72,7 @@ struct WelcomeView: View {
                         }
                         Divider()
                         Button("Remove from Recents", role: .destructive) {
-                            Task { await appState.removeFromRecents(repo.url) }
+                            Task { await appState.catalog.remove(repo.url) }
                         }
                     }
                 }
@@ -92,7 +92,7 @@ struct WelcomeView: View {
 #Preview("With recents") {
     @Previewable @State var theme = AppTheme()
     WelcomeView()
-        .environment(AppState.preview)
+        .previewAppState(.preview)
         .frame(width: 900, height: 600)
         .appTheme(theme)
 }

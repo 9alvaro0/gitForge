@@ -4,11 +4,12 @@ import SwiftUI
 struct StagingView: View {
     @Bindable var viewModel: RepositoryViewModel
 
+    @Environment(AppState.self) private var appState
+    @Environment(WorkspaceUI.self) private var ui
     @Environment(\.appTheme) private var theme
     @State private var commitMessage: String = ""
     @State private var commitDescription: String = ""
     @State private var diffModeOverride: DiffPane.ViewMode?
-    @State private var showDiscardAllConfirm = false
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
@@ -31,13 +32,14 @@ struct StagingView: View {
     }
 
     var body: some View {
+        @Bindable var ui = ui
         VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Changes") {
                 MonoText("\(staged.count) staged · \(unstaged.count) unstaged", dim: true)
             } right: {
                 ToolButton(.stash, label: "Stash") { Task { _ = await viewModel.stashAll() } }
                 ToolButton(.x, label: "Discard all") {
-                    showDiscardAllConfirm = true
+                    ui.discardAllConfirmVisible = true
                 }
             }
             HStack(spacing: DesignTokens.Spacing.none) {
@@ -47,8 +49,11 @@ struct StagingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        // Driven by `WorkspaceUI.discardAllConfirmVisible` so the Repository ▸
+        // Discard All Changes menu and the local "Discard all" tool button
+        // share one presentation path.
         .confirmationDialog("Discard all changes?",
-                            isPresented: $showDiscardAllConfirm,
+                            isPresented: $ui.discardAllConfirmVisible,
                             titleVisibility: .visible) {
             Button("Discard all", role: .destructive) {
                 Task { await viewModel.discardChanges(viewModel.status.files) }
