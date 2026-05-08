@@ -61,6 +61,23 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Move a non-current local branch tip to `sha` via `git branch -f`. The
+    /// caller is responsible for routing HEAD moves through `reset(to:mode:)` —
+    /// git refuses `branch -f` on the checked-out branch and we'd surface the
+    /// raw stderr otherwise.
+    /// Reloads the log because moving a tip changes which commits are
+    /// reachable from `--all`, so the global graph topology can shift.
+    func moveBranch(_ ref: GitRef, to sha: String) async -> Result<Void, Error> {
+        do {
+            try await cli.forceUpdateBranch(ref.name, to: sha)
+            await refreshAfterRefMutation(reloadLog: true)
+            return .success(())
+        } catch {
+            Self.logger.error("Failed to move \(ref.name, privacy: .public) to \(sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return .failure(error)
+        }
+    }
+
     func refreshAfterRefMutation(reloadLog: Bool) async {
         await loadRefs()
         await refreshStatus()

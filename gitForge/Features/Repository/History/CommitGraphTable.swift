@@ -32,6 +32,10 @@ struct CommitGraphTable: View {
     /// last loaded commit pulls in the next page. Without this hook the log
     /// silently stops at `pageSize` even though `hasMore` is true.
     var onAppear: ((Commit) -> Void)? = nil
+    /// Fired when a `BranchChip` is dropped on a row (or on another chip).
+    /// Host inspects `BranchDropContext` to decide between move / merge /
+    /// rebase. `nil` disables drag-and-drop on this table.
+    var onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -114,7 +118,8 @@ struct CommitGraphTable: View {
                                 dimmed: isMatch.map { !$0(commit) } ?? false,
                                 columns: columns,
                                 onSelect: { onSelect(commit.sha) },
-                                onDoubleClick: { onDoubleClick?(commit.sha) }
+                                onDoubleClick: { onDoubleClick?(commit.sha) },
+                                onBranchDrop: onBranchDrop
                             )
                             .onAppear { onAppear?(commit) }
                         }
@@ -248,9 +253,11 @@ private struct CommitRow: View {
     let columns: ResizableTableModel
     let onSelect: () -> Void
     let onDoubleClick: () -> Void
+    let onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)?
 
     @Environment(\.appTheme) private var theme
     @State private var showHiddenRefs = false
+    @State private var rowDropTargeted = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -295,6 +302,14 @@ private struct CommitRow: View {
         .contentShape(.rect)
         .onTapGesture(count: 2, perform: onDoubleClick)
         .onTapGesture(perform: onSelect)
+        .modifier(RowDropModifier(
+            enabled: onBranchDrop != nil,
+            targetSha: commit.sha,
+            isTargeted: $rowDropTargeted,
+            onDrop: { dropped in
+                onBranchDrop?(dropped, .onCommit(targetSha: commit.sha))
+            }
+        ))
     }
 
     /// Re-uses the existing `GraphColumnView` so lane drawing matches the rest of the app.
@@ -310,18 +325,46 @@ private struct CommitRow: View {
     private var branchTagColumn: some View {
         HStack(spacing: 4) {
             ForEach(visibleRefs) { ref in
-                BranchChip(
-                    name: ref.displayName,
-                    current: ref.isLocalBranch && ref.name == currentBranch,
-                    remote: ref.isRemoteBranch,
-                    tag: ref.isTag,
-                    hasRemoteCounterpart: hasRemoteCounterpart(for: ref)
-                )
+                chipView(for: ref)
             }
             if let extra = overflowCount {
                 overflowPill(count: extra)
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    /// Local-branch chips become draggable (drag source) and drop targets
+    /// (chip→chip merge/rebase). Remote and tag chips render plain — drag is
+    /// gated to local branches in the v1 of this feature, and remote/tag drops
+    /// don't have a meaningful action attached.
+    @ViewBuilder
+    private func chipView(for ref: GitRef) -> some View {
+        let isCurrent = ref.isLocalBranch && ref.name == currentBranch
+        let chip = BranchChip(
+            name: ref.displayName,
+            current: isCurrent,
+            remote: ref.isRemoteBranch,
+            tag: ref.isTag,
+            hasRemoteCounterpart: hasRemoteCounterpart(for: ref)
+        )
+        if ref.isLocalBranch, let onBranchDrop {
+            chip
+                .draggable(DraggedBranch(
+                    name: ref.name,
+                    isCurrent: isCurrent,
+                    isLocal: true,
+                    sourceSha: commit.sha
+                ))
+                .modifier(ChipDropModifier(
+                    targetBranchName: ref.name,
+                    targetSha: commit.sha,
+                    onDrop: { dropped in
+                        onBranchDrop(dropped, .onBranch(targetBranchName: ref.name, targetSha: commit.sha))
+                    }
+                ))
+        } else {
+            chip
         }
     }
 
@@ -436,6 +479,7 @@ private struct CommitRow: View {
     }
 
     private var rowBackground: Color {
+        if rowDropTargeted { return theme.palette.accent.opacity(0.10) }
         if isSelected { return theme.palette.accentSoft }
         return .clear
     }
@@ -443,6 +487,62 @@ private struct CommitRow: View {
     private var relativeWhen: String {
         let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
         return f.localizedString(for: commit.authorDate, relativeTo: .now)
+    }
+}
+
+/// Wraps `.dropDestination` for a commit row. Extracted as a `ViewModifier`
+/// so the row's `body` stays simple — chained drop modifiers used to push the
+/// type-checker past its limit when combined with the rest of the row's
+/// modifier stack.
+private struct RowDropModifier: ViewModifier {
+    let enabled: Bool
+    let targetSha: String
+    @Binding var isTargeted: Bool
+    let onDrop: (DraggedBranch) -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.dropDestination(for: DraggedBranch.self) { items, _ in
+                guard let dropped = items.first else { return false }
+                // Drop on the row the chip already lives on is a no-op — skip
+                // the dialog so the user doesn't see a confirm for nothing.
+                guard dropped.sourceSha != targetSha else { return false }
+                onDrop(dropped)
+                return true
+            } isTargeted: { hovered in
+                isTargeted = hovered
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Drop target for chip→chip drops (merge / rebase). The target chip's
+/// `dropDestination` wins over the row's because it's the innermost handler
+/// — that's the GitKraken-style "drop on the chip = pick a branch action".
+private struct ChipDropModifier: ViewModifier {
+    let targetBranchName: String
+    let targetSha: String
+    let onDrop: (DraggedBranch) -> Void
+
+    @State private var hovered = false
+    @Environment(\.appTheme) private var theme
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(hovered ? 1.06 : 1.0)
+            .shadow(color: hovered ? theme.palette.accent.opacity(0.45) : .clear, radius: 4)
+            .animation(.easeOut(duration: 0.12), value: hovered)
+            .dropDestination(for: DraggedBranch.self) { items, _ in
+                guard let dropped = items.first else { return false }
+                // Dropping a branch on its own chip is a no-op.
+                guard dropped.name != targetBranchName else { return false }
+                onDrop(dropped)
+                return true
+            } isTargeted: { isHovered in
+                hovered = isHovered
+            }
     }
 }
 
