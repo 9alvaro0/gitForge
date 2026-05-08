@@ -2,6 +2,32 @@ import SwiftUI
 
 /// `.gf-view-history` — orchestrates graph table + diff pane + commit detail.
 struct HistoryView: View {
+    /// "Move local branch X to commit Y" — fired when a non-current branch
+    /// chip is dropped on another commit row.
+    struct MoveBranchRequest: Identifiable, Equatable {
+        let id = UUID()
+        let branch: GitRef
+        let targetSha: String
+        let targetShortSha: String
+    }
+
+    /// "Reset HEAD to commit Y" — fired when the current branch chip is dropped
+    /// on another commit row. The dialog asks for a reset mode (soft/mixed/hard).
+    struct ResetHeadRequest: Identifiable, Equatable {
+        let id = UUID()
+        let branchName: String
+        let targetSha: String
+        let targetShortSha: String
+    }
+
+    /// "Merge X into Y or rebase Y onto X" — fired when a chip is dropped on
+    /// another local-branch chip. The dialog offers both options plus cancel.
+    struct MergeRebaseRequest: Identifiable, Equatable {
+        let id = UUID()
+        let source: GitRef
+        let target: GitRef
+    }
+
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
@@ -10,6 +36,12 @@ struct HistoryView: View {
     /// Set when the user double-clicks a commit that no local branch points at.
     /// Drives the "checkout will be detached" confirmation dialog.
     @State private var detachedCheckoutTarget: Commit?
+    /// Drag-and-drop pending actions — one of these is set when a `BranchChip`
+    /// is dropped on a row or another chip. Each drives its own confirmation
+    /// dialog. Only one is set at a time per drop.
+    @State private var moveBranchRequest: MoveBranchRequest?
+    @State private var resetHeadRequest: ResetHeadRequest?
+    @State private var mergeRebaseRequest: MergeRebaseRequest?
     /// `nil` until the user toggles Unified/Split locally. While it stays nil
     /// the pane reads `theme.defaultDiffMode` so changes in Settings show up
     /// immediately and re-entering History always lands on the default.
@@ -134,6 +166,52 @@ struct HistoryView: View {
         } message: {
             Text("HEAD will detach from any branch. New commits won't belong to a branch — create one first if you plan to keep them.")
         }
+        .modifier(BranchDropDialogs(
+            moveRequest: $moveBranchRequest,
+            resetRequest: $resetHeadRequest,
+            mergeRebaseRequest: $mergeRebaseRequest,
+            onMove: { runMove($0) },
+            onReset: { runReset($0, mode: $1) },
+            onMerge: { runMerge($0) },
+            onRebase: { runRebase($0) }
+        ))
+    }
+
+    /// Resolve a drop event into the right confirmation dialog. Three branches:
+    /// - Drop on a chip → merge / rebase between two local branches.
+    /// - Drop of HEAD on a commit → reset (mode picker).
+    /// - Drop of any other local branch on a commit → move (`branch -f`).
+    /// Anything that can't be resolved (orphan refs, drops where source ==
+    /// target, drops on non-local target chips) falls through silently.
+    private func handleBranchDrop(dropped: DraggedBranch, context: BranchDropContext) {
+        guard let source = viewModel.refs.first(where: { $0.isLocalBranch && $0.name == dropped.name })
+        else { return }
+
+        switch context {
+        case .onCommit(let targetSha):
+            guard targetSha != dropped.sourceSha else { return }
+            let shortSha = String(targetSha.prefix(7))
+            if dropped.isCurrent {
+                resetHeadRequest = ResetHeadRequest(
+                    branchName: dropped.name,
+                    targetSha: targetSha,
+                    targetShortSha: shortSha
+                )
+            } else {
+                moveBranchRequest = MoveBranchRequest(
+                    branch: source,
+                    targetSha: targetSha,
+                    targetShortSha: shortSha
+                )
+            }
+
+        case .onBranch(let targetBranchName, _):
+            guard targetBranchName != dropped.name else { return }
+            guard let target = viewModel.refs.first(where: {
+                $0.isLocalBranch && $0.name == targetBranchName
+            }) else { return }
+            mergeRebaseRequest = MergeRebaseRequest(source: source, target: target)
+        }
     }
 
     private var detachedCheckoutBinding: Binding<Bool> {
@@ -188,6 +266,81 @@ struct HistoryView: View {
             appState.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
                 kind: .error)
+        }
+    }
+
+    // MARK: Drag-and-drop runners
+
+    private func runMove(_ request: MoveBranchRequest) {
+        Task {
+            switch await viewModel.moveBranch(request.branch, to: request.targetSha) {
+            case .success:
+                appState.activeToast = ToastMessage(
+                    message: "Moved \(request.branch.displayName) to \(request.targetShortSha)",
+                    kind: .ok)
+            case .failure(let err):
+                appState.activeToast = ToastMessage(
+                    message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                    kind: .error)
+            }
+        }
+    }
+
+    private func runReset(_ request: ResetHeadRequest, mode: GitCLI.ResetMode) {
+        Task {
+            let outcome = await viewModel.reset(to: request.targetSha, mode: mode)
+            reportIntegration(
+                outcome,
+                success: "Reset \(request.branchName) to \(request.targetShortSha) (\(mode.rawValue))",
+                conflicts: "Reset paused on conflicts — resolve to continue"
+            )
+        }
+    }
+
+    private func runMerge(_ request: MergeRebaseRequest) {
+        Task {
+            let outcome = await viewModel.mergeBranch(source: request.source, into: request.target)
+            reportIntegration(
+                outcome,
+                success: "Merged \(request.source.displayName) into \(request.target.displayName)",
+                conflicts: "Merge has conflicts — resolve to continue"
+            )
+        }
+    }
+
+    private func runRebase(_ request: MergeRebaseRequest) {
+        Task {
+            // Drop semantics: dragging X onto Y rebases X onto Y (X gets
+            // replayed on top of Y). `rebaseOnto` rebases the CURRENT branch,
+            // so we have to be on `source` first.
+            if request.source.name != viewModel.currentBranchName {
+                if case .failure(let err) = await viewModel.checkoutBranch(request.source) {
+                    appState.activeToast = ToastMessage(
+                        message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                        kind: .error)
+                    return
+                }
+            }
+            let outcome = await viewModel.rebaseOnto(request.target)
+            reportIntegration(
+                outcome,
+                success: "Rebased \(request.source.displayName) onto \(request.target.displayName)",
+                conflicts: "Rebase has conflicts — resolve to continue"
+            )
+        }
+    }
+
+    private func reportIntegration(_ outcome: RepositoryViewModel.IntegrationOutcome,
+                                   success: String,
+                                   conflicts: String) {
+        switch outcome {
+        case .clean:
+            appState.activeToast = ToastMessage(message: success, kind: .ok)
+        case .conflicts:
+            appState.workspaceSection = .conflict
+            appState.activeToast = ToastMessage(message: conflicts, kind: .warn)
+        case .failed(let message):
+            appState.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 
@@ -290,6 +443,9 @@ struct HistoryView: View {
                         onDoubleClick: { sha in handleCommitDoubleClick(sha) },
                         onAppear: { commit in
                             Task { await viewModel.loadMoreIfNeeded(currentItem: commit) }
+                        },
+                        onBranchDrop: { dropped, context in
+                            handleBranchDrop(dropped: dropped, context: context)
                         }
                     )
                 }
@@ -471,6 +627,108 @@ struct HistoryView: View {
         }
         .buttonStyle(.plain)
         .help("Show commit detail")
+    }
+}
+
+/// Hosts the three confirmation dialogs that arm when a `BranchChip` is
+/// dropped on a commit row or another chip. Extracted from the main view
+/// because chaining three more `confirmationDialog` modifiers on top of
+/// `HistoryView`'s body was tipping the type-checker into timeouts on debug
+/// builds (see `feedback_swiftui_typecheck.md`).
+private struct BranchDropDialogs: ViewModifier {
+    @Binding var moveRequest: HistoryView.MoveBranchRequest?
+    @Binding var resetRequest: HistoryView.ResetHeadRequest?
+    @Binding var mergeRebaseRequest: HistoryView.MergeRebaseRequest?
+    let onMove: (HistoryView.MoveBranchRequest) -> Void
+    let onReset: (HistoryView.ResetHeadRequest, GitCLI.ResetMode) -> Void
+    let onMerge: (HistoryView.MergeRebaseRequest) -> Void
+    let onRebase: (HistoryView.MergeRebaseRequest) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(
+                moveTitle,
+                isPresented: moveBinding,
+                titleVisibility: .visible
+            ) {
+                Button("Move") {
+                    if let r = moveRequest { onMove(r) }
+                    moveRequest = nil
+                }
+                Button("Cancel", role: .cancel) { moveRequest = nil }
+            } message: {
+                Text("Force-updates the local branch (`git branch -f`). Existing commits aren't lost — they'll just no longer be reachable from this branch.")
+            }
+            .confirmationDialog(
+                resetTitle,
+                isPresented: resetBinding,
+                titleVisibility: .visible
+            ) {
+                Button("Soft (keep changes staged)") {
+                    if let r = resetRequest { onReset(r, .soft) }
+                    resetRequest = nil
+                }
+                Button("Mixed (keep changes unstaged)") {
+                    if let r = resetRequest { onReset(r, .mixed) }
+                    resetRequest = nil
+                }
+                Button("Hard (discard everything)", role: .destructive) {
+                    if let r = resetRequest { onReset(r, .hard) }
+                    resetRequest = nil
+                }
+                Button("Cancel", role: .cancel) { resetRequest = nil }
+            } message: {
+                Text("Moves \(resetRequest?.branchName ?? "HEAD") and HEAD. Hard discards uncommitted work in the worktree.")
+            }
+            .confirmationDialog(
+                mergeRebaseTitle,
+                isPresented: mergeRebaseBinding,
+                titleVisibility: .visible
+            ) {
+                Button("Merge \(mergeRebaseRequest?.source.displayName ?? "") into \(mergeRebaseRequest?.target.displayName ?? "")") {
+                    if let r = mergeRebaseRequest { onMerge(r) }
+                    mergeRebaseRequest = nil
+                }
+                Button("Rebase \(mergeRebaseRequest?.source.displayName ?? "") onto \(mergeRebaseRequest?.target.displayName ?? "")") {
+                    if let r = mergeRebaseRequest { onRebase(r) }
+                    mergeRebaseRequest = nil
+                }
+                Button("Cancel", role: .cancel) { mergeRebaseRequest = nil }
+            } message: {
+                Text(mergeRebaseMessage)
+            }
+    }
+
+    private var moveBinding: Binding<Bool> {
+        Binding(get: { moveRequest != nil }, set: { if !$0 { moveRequest = nil } })
+    }
+    private var resetBinding: Binding<Bool> {
+        Binding(get: { resetRequest != nil }, set: { if !$0 { resetRequest = nil } })
+    }
+    private var mergeRebaseBinding: Binding<Bool> {
+        Binding(get: { mergeRebaseRequest != nil }, set: { if !$0 { mergeRebaseRequest = nil } })
+    }
+
+    private var moveTitle: String {
+        guard let r = moveRequest else { return "" }
+        return "Move \(r.branch.displayName) to \(r.targetShortSha)?"
+    }
+
+    private var resetTitle: String {
+        guard let r = resetRequest else { return "" }
+        return "Reset \(r.branchName) to \(r.targetShortSha)?"
+    }
+
+    private var mergeRebaseTitle: String {
+        guard let r = mergeRebaseRequest else { return "" }
+        return "\(r.source.displayName) → \(r.target.displayName)"
+    }
+
+    private var mergeRebaseMessage: String {
+        // Both options may need to switch branches (Merge → check out target;
+        // Rebase → check out source). Wording it generically beats spelling
+        // out two parallel sentences in one alert.
+        return "If the destination branch isn't checked out, it'll switch first. Conflicts route to the Conflicts view."
     }
 }
 

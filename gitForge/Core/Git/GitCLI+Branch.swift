@@ -22,6 +22,13 @@ extension GitCLI {
         try await run(["branch", "-m", oldName, newName])
     }
 
+    /// `git branch -f <name> <sha>` — force-updates a local branch tip.
+    /// Git refuses to touch the currently checked-out branch this way; route
+    /// HEAD moves through `reset(to:mode:)` instead.
+    func forceUpdateBranch(_ name: String, to sha: String) async throws {
+        try await run(["branch", "-f", name, sha])
+    }
+
     /// Local branch full ref-names (e.g. `refs/heads/develop`) whose tip is
     /// **not** reachable from HEAD. Used as the explicit ref scope for the
     /// graph log: branches already merged into HEAD don't need to be tips in
