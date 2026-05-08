@@ -21,7 +21,13 @@ struct GraphColumnView: View {
             // (didn't exist in a lane above this row). Existing parent lanes keep their
             // continuation line; the merge curve draws ON TOP of it.
             let newMergesOutLanes = Set(row.mergesOut.map(\.lane)).subtracting(lanesAtTopSet)
+            // A merge-in landing in the SAME column as the commit lane (degenerate
+            // L → straight vertical) already paints the row's top half in the
+            // merge-in style. Skipping the commit spine here prevents the solid
+            // post-stash spine from over-painting the dashed stash tail when a
+            // stash converges onto a fresh primary lane in the same column.
             let commitInTop = lanesAtTopSet.contains(row.commitLane)
+                && !mergesInLanes.contains(row.commitLane)
             let commitInBottom = row.lanesAtBottom.contains { $0.lane == row.commitLane }
 
             func width(for occ: LaneOccupation) -> CGFloat {
