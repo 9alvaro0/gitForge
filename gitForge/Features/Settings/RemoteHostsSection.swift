@@ -5,14 +5,12 @@ import SwiftUI
 struct RemoteHostsSection: View {
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
-    @ObservedObject private var emojiStore = EmojiShortcodeStore.shared
 
     @State private var configured: [String: Bool] = [:]
     @State private var trusted: Set<String> = []
     @State private var editing: HostEntry?
     @State private var draftToken: String = ""
     @State private var sheetError: String?
-    @State private var emojiRefreshing: Bool = false
 
     private static let defaults: [HostEntry] = [
         HostEntry(provider: .github, host: "github.com",
@@ -49,7 +47,6 @@ struct RemoteHostsSection: View {
                     hostRow(entry)
                 }
             }
-            emojiCacheRow
         }
         .onAppear { refreshConfiguredState() }
         .sheet(item: $editing) { entry in
@@ -162,38 +159,6 @@ struct RemoteHostsSection: View {
         .frame(width: 460)
         .background(theme.palette.bg1)
         .appTheme(theme)
-    }
-
-    @ViewBuilder
-    private var emojiCacheRow: some View {
-        let count = emojiStore.map.count
-        HStack {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    Text("Emoji shortcodes")
-                        .font(AppFont.sans(12, weight: .medium))
-                        .foregroundStyle(theme.palette.fg1)
-                    MonoText("api.github.com/emojis", dim: true)
-                }
-                Text(count > 0 ? "\(count) cached" : "Not loaded yet")
-                    .font(AppFont.sans(11))
-                    .foregroundStyle(count > 0 ? theme.palette.ok : theme.palette.fg3)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            GFButton(title: emojiRefreshing ? "Refreshing…" : "Refresh now",
-                     size: .small,
-                     disabled: emojiRefreshing) {
-                emojiRefreshing = true
-                Task {
-                    await EmojiShortcodeStore.shared.refreshFromNetwork()
-                    emojiRefreshing = false
-                }
-            }
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.lg)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     private func refreshConfiguredState() {
