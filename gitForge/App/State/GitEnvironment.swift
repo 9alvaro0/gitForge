@@ -15,8 +15,7 @@ final class GitEnvironment {
 
     private let configReader = GitGlobalConfigReader.shared
 
-    /// Probes `git --version` and updates `gitStatus`. The DEBUG hook lets the
-    /// "git not found" UI be exercised without uninstalling git.
+    /// Probes `git --version` and updates `gitStatus`.
     func refreshGitInstallation() async {
         // @Observable fires its didChange on every assignment, even no-op
         // ones. This guard avoids triggering a redundant view rebuild when

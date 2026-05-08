@@ -1,9 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Hosts the redesigned sidebar so its 17-parameter call site lives in one
-/// dedicated view instead of bloating `ShellView.body`. Reads `AppState` from
-/// the environment and dispatches actions directly.
+/// Adapts `RedesignedSidebar` (a presentation-only view with a long
+/// parameter list) to the `AppState` sub-stores, so `ShellView.body` doesn't
+/// have to reach into every store to wire it.
 struct SidebarHost: View {
     @Environment(AppState.self) private var appState
 
@@ -29,8 +29,8 @@ struct SidebarHost: View {
     }
 
     /// Active repo: read straight from the live ViewModel so the pills update
-    /// instantly as the user works. Other repos: cached snapshot refreshed
-    /// every 30s by AppState's background poller.
+    /// instantly as the user works. Other repos: cached snapshot refreshed by
+    /// `RepositoryCatalog`'s background poller.
     private func statusFor(_ repo: Repository) -> RepoStatusSnapshot {
         if let active = appState.catalog.activeRepository,
            active.id == repo.id,
