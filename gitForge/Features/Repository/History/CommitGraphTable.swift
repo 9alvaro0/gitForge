@@ -128,6 +128,7 @@ struct CommitGraphTable: View {
                     }
                 }
                 .frame(width: max(totalContentWidth, geo.size.width), alignment: .leading)
+                .frame(minHeight: geo.size.height, alignment: .topLeading)
             }
         }
     }
@@ -313,9 +314,9 @@ private struct CommitRow: View {
                     name: ref.displayName,
                     current: ref.isLocalBranch && ref.name == currentBranch,
                     remote: ref.isRemoteBranch,
-                    tag: ref.isTag
+                    tag: ref.isTag,
+                    hasRemoteCounterpart: hasRemoteCounterpart(for: ref)
                 )
-                .frame(maxWidth: 110, alignment: .leading)
             }
             if let extra = overflowCount {
                 overflowPill(count: extra)
@@ -324,16 +325,36 @@ private struct CommitRow: View {
         }
     }
 
+    /// Names of local branches present on this commit. Remote-tracking refs
+    /// whose `displayName` matches one of these are deduplicated — the local
+    /// chip gets the cloud icon trailing it instead of producing a second
+    /// chip with the same name.
+    private var localBranchNames: Set<String> {
+        Set(refs.filter(\.isLocalBranch).map(\.displayName))
+    }
+
+    private func hasRemoteCounterpart(for ref: GitRef) -> Bool {
+        guard ref.isLocalBranch else { return false }
+        return refs.contains { $0.isRemoteBranch && $0.displayName == ref.displayName }
+    }
+
     private var sortedRefs: [GitRef] {
-        refs.sorted { a, b in
-            let aCurrent = a.isLocalBranch && a.name == currentBranch
-            let bCurrent = b.isLocalBranch && b.name == currentBranch
-            if aCurrent != bCurrent { return aCurrent }
-            let aWeight = Self.refWeight(a)
-            let bWeight = Self.refWeight(b)
-            if aWeight != bWeight { return aWeight < bWeight }
-            return a.displayName < b.displayName
-        }
+        let names = localBranchNames
+        return refs
+            .filter { ref in
+                // Drop remote-tracking ref if a local branch with the same name
+                // is also on this commit — they collapse into a single chip.
+                !(ref.isRemoteBranch && names.contains(ref.displayName))
+            }
+            .sorted { a, b in
+                let aCurrent = a.isLocalBranch && a.name == currentBranch
+                let bCurrent = b.isLocalBranch && b.name == currentBranch
+                if aCurrent != bCurrent { return aCurrent }
+                let aWeight = Self.refWeight(a)
+                let bWeight = Self.refWeight(b)
+                if aWeight != bWeight { return aWeight < bWeight }
+                return a.displayName < b.displayName
+            }
     }
 
     private static func refWeight(_ ref: GitRef) -> Int {
@@ -395,7 +416,8 @@ private struct CommitRow: View {
                     name: ref.displayName,
                     current: ref.isLocalBranch && ref.name == currentBranch,
                     remote: ref.isRemoteBranch,
-                    tag: ref.isTag
+                    tag: ref.isTag,
+                    hasRemoteCounterpart: hasRemoteCounterpart(for: ref)
                 )
             }
         }

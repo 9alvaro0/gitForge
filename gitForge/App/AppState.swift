@@ -39,6 +39,9 @@ final class AppState {
     private let configReader = GitGlobalConfigReader.shared
     private var statusPollTask: Task<Void, Never>?
     private static let statusPollInterval: UInt64 = 30_000_000_000   // 30s
+    /// UserDefaults key for the last active repository's path. Restored on
+    /// bootstrap so the app reopens where the user left off.
+    private static let lastActiveRepoKey = "lastActiveRepositoryPath"
 
     func bootstrap() async {
         async let gitCheck: Void = refreshGitInstallation()
@@ -53,7 +56,17 @@ final class AppState {
         EmojiShortcodeStore.shared.loadCachedSync()
         Task { await EmojiShortcodeStore.shared.refreshIfNeeded() }
 
+        await restoreLastActiveRepository()
         startStatusPolling()
+    }
+
+    /// Reopens whichever repo was active at the last quit. Silently no-ops if
+    /// the saved path is gone, no longer a git repo, or never set — the user
+    /// just lands on Welcome instead of seeing an error.
+    private func restoreLastActiveRepository() async {
+        guard let path = UserDefaults.standard.string(forKey: Self.lastActiveRepoKey) else { return }
+        let url = URL(fileURLWithPath: path)
+        try? await openRepository(at: url)
     }
 
     /// Loops in the background, refreshing every repo's lightweight status
@@ -257,6 +270,7 @@ final class AppState {
         if let active, activeViewModel?.repository.url != active.url {
             activeViewModel = RepositoryViewModel(repository: active)
         }
+        UserDefaults.standard.set(url.path(percentEncoded: false), forKey: Self.lastActiveRepoKey)
         // Always land on History when entering a different repo — fresh
         // context, fresh starting point. No-op when re-touching the same one
         // so the user doesn't get yanked out of Settings/Branches/etc.
@@ -279,6 +293,7 @@ final class AppState {
     func closeRepository() {
         activeRepository = nil
         activeViewModel = nil
+        UserDefaults.standard.removeObject(forKey: Self.lastActiveRepoKey)
     }
 
     func removeFromRecents(_ url: URL) async {
@@ -286,6 +301,7 @@ final class AppState {
         if activeRepository?.url == url {
             activeRepository = nil
             activeViewModel = nil
+            UserDefaults.standard.removeObject(forKey: Self.lastActiveRepoKey)
         }
     }
 

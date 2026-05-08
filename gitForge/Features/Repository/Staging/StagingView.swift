@@ -19,11 +19,14 @@ struct StagingView: View {
     private var staged: [WorkingCopyFile]   { viewModel.status.stagedFiles }
     private var unstaged: [WorkingCopyFile] { viewModel.status.unstagedFiles }
 
-    /// True while the first status fetch is pending OR a subsequent one is
-    /// running. Lets the UI show a skeleton instead of a misleading "clean"
-    /// state during the initial `loadInitial → loadRefs → refreshStatus` chain.
+    /// True only until the first `refreshStatus()` lands for this repo VM.
+    /// Subsequent refreshes (watcher pulses, post-stage reloads…) keep the
+    /// real data on screen — folding `isLoadingStatus` in here used to trap
+    /// the skeleton on clean trees, where `staged.isEmpty && unstaged.isEmpty`
+    /// stayed true and the loading flag won the race against the (empty)
+    /// status payload arriving.
     private var statusLoading: Bool {
-        viewModel.isLoadingStatus || !viewModel.hasLoadedStatusOnce
+        !viewModel.hasLoadedStatusOnce
     }
 
     var body: some View {

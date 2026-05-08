@@ -65,8 +65,7 @@ extension RepositoryViewModel {
         await loadRefs()
         await refreshStatus()
         if reloadLog {
-            resetLog()
-            await loadInitial()
+            await self.reloadLog()
         }
     }
 }

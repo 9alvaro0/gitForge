@@ -64,8 +64,7 @@ extension RepositoryViewModel {
             commitError = nil
             await refreshStatus()
             await loadRefs()
-            resetLog()
-            await loadInitial()
+            await reloadLog()
             return true
         } catch {
             Self.logger.error("Commit failed: \(error.localizedDescription, privacy: .public)")

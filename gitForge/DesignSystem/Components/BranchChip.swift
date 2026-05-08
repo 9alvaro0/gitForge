@@ -6,6 +6,12 @@ struct BranchChip: View {
     var current: Bool = false
     var remote: Bool = false
     var tag: Bool = false
+    /// When `true` on a local-branch chip, the chip has a remote tracking
+    /// counterpart pointing at the **same sha** (the typical "in sync" case).
+    /// Renders the cloud icon trailing the name so a single chip says
+    /// "this branch exists locally AND on the remote, both at this commit",
+    /// instead of duplicating the chip side-by-side. Mirrors GitKraken.
+    var hasRemoteCounterpart: Bool = false
 
     @Environment(\.appTheme) private var theme
 
@@ -16,6 +22,9 @@ struct BranchChip: View {
                 .font(AppFont.mono(10.5, family: theme.monoFont))
                 .lineLimit(1)
                 .truncationMode(.tail)
+            if hasRemoteCounterpart {
+                GFIcon(kind: .cloud, size: 10, stroke: foreground)
+            }
         }
         .padding(.leading, 5)
         .padding(.trailing, 7)

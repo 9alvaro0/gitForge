@@ -21,6 +21,23 @@ extension GitCLI {
     func renameBranch(from oldName: String, to newName: String) async throws {
         try await run(["branch", "-m", oldName, newName])
     }
+
+    /// Local branch full ref-names (e.g. `refs/heads/develop`) whose tip is
+    /// **not** reachable from HEAD. Used as the explicit ref scope for the
+    /// graph log: branches already merged into HEAD don't need to be tips in
+    /// the walk — their commits arrive through HEAD's merge ancestry, with no
+    /// extra column allocated. Returns empty array if HEAD is unborn.
+    func unmergedLocalBranches() async throws -> [String] {
+        let result = try await run([
+            "for-each-ref",
+            "--no-merged", "HEAD",
+            "--format=%(refname)",
+            "refs/heads/"
+        ])
+        return result.stdout
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map(String.init)
+    }
 }
 
 enum BranchValidator {

@@ -17,7 +17,7 @@ struct CloneView: View {
 
     @State private var sourceTab: SourceTab = .url
 
-    enum SourceTab: Hashable { case url, github, gitlab }
+    enum SourceTab: Hashable { case local, url, github, gitlab }
 
     /// Last parent directory the user picked / cloned into. Persisted so the
     /// next clone session pre-fills with the same parent and only the leaf
@@ -29,7 +29,7 @@ struct CloneView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ContentHeader(title: "Clone a repository")
+            ContentHeader(title: "Add a repository")
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     sourceTabs
@@ -46,15 +46,17 @@ struct CloneView: View {
 
     private var sourceTabs: some View {
         SegmentedControl<SourceTab>(
-            [(.url, "URL"), (.github, "GitHub"), (.gitlab, "GitLab")],
+            [(.local, "Local"), (.url, "URL"), (.github, "GitHub"), (.gitlab, "GitLab")],
             selection: $sourceTab
         )
-        .frame(maxWidth: 320, alignment: .leading)
+        .frame(maxWidth: 380, alignment: .leading)
     }
 
     @ViewBuilder
     private var sourceTabContent: some View {
         switch sourceTab {
+        case .local:
+            localCard
         case .url:
             cloneCard
         case .github:
@@ -132,6 +134,37 @@ struct CloneView: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+    }
+
+    /// Add an existing repo from disk — no clone, just a pointer. Drops the
+    /// user straight into NSOpenPanel via the same `presentOpenRepositoryPanel`
+    /// the sidebar's `+` menu uses, so behavior stays consistent across entry
+    /// points.
+    private var localCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                GFIcon(kind: .folder, size: 22, stroke: theme.palette.fg2)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Open a folder on this Mac")
+                        .font(AppFont.sans(13, weight: .semibold))
+                        .foregroundStyle(theme.palette.fg1)
+                    Text("Add an existing git repository without cloning it again.")
+                        .font(AppFont.sans(11.5))
+                        .foregroundStyle(theme.palette.fg3)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack {
+                Spacer()
+                GFButton(title: "Choose folder…", style: .primary) {
+                    Task { await appState.presentOpenRepositoryPanel() }
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: 1))
     }
 
     private var cloneCard: some View {

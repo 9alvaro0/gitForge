@@ -39,6 +39,16 @@ extension GitCLI {
         process.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+        // Same non-interactive guards as `GitCLI.run` — keep the two spawn
+        // paths in sync. See that file for what each var prevents.
+        var environment = ProcessInfo.processInfo.environment
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        environment["GIT_ASKPASS"] = "/usr/bin/true"
+        if environment["GIT_SSH_COMMAND"] == nil {
+            environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
+        }
+        environment["GIT_EDITOR"] = "/usr/bin/true"
+        process.environment = environment
 
         let argsString = args.joined(separator: " ")
         logger.info("→ git \(argsString, privacy: .public)")

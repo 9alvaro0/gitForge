@@ -68,17 +68,23 @@ struct RedesignedSidebar: View {
                                 onRevealInFinder: { onRevealRepo(repo) }
                             )
                         }
+                        AddRepositoryRow(
+                            onOpenExisting: onOpenExisting,
+                            onCloneNew: onCloneNew
+                        )
                     }
 
-                    SidebarSectionHeader(title: "Workspace")
-                    VStack(spacing: 1) {
-                        ForEach(WorkspaceSection.workspaceItems) { section in
-                            SidebarNavItem(
-                                section: section,
-                                badge: badge(for: section),
-                                isActive: section == activeSection,
-                                onSelect: { onSelectSection(section) }
-                            )
+                    if activeRepository != nil {
+                        SidebarSectionHeader(title: "Workspace")
+                        VStack(spacing: 1) {
+                            ForEach(WorkspaceSection.workspaceItems) { section in
+                                SidebarNavItem(
+                                    section: section,
+                                    badge: badge(for: section),
+                                    isActive: section == activeSection,
+                                    onSelect: { onSelectSection(section) }
+                                )
+                            }
                         }
                     }
                 }
@@ -118,6 +124,52 @@ struct RedesignedSidebar: View {
     private func orgName(for repo: Repository) -> String {
         let parent = repo.url.deletingLastPathComponent().lastPathComponent
         return parent.isEmpty ? repo.name : parent
+    }
+}
+
+/// Explicit "add another repo" affordance under the repos list. The header `+`
+/// menu hides this — a labelled row is unmistakable, especially right after
+/// the existing repos finish.
+private struct AddRepositoryRow: View {
+    let onOpenExisting: () -> Void
+    let onCloneNew: () -> Void
+
+    @Environment(\.appTheme) private var theme
+    @State private var hovering = false
+
+    var body: some View {
+        Menu {
+            Button("Open existing folder…") { onOpenExisting() }
+            Button("Clone new…") { onCloneNew() }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(foreground.opacity(0.85))
+                    .frame(width: 14, height: 14)
+                Text("Add repository…")
+                    .font(AppFont.sans(12))
+                    .foregroundStyle(foreground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: DesignTokens.Sidebar.navRow)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
+            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
+            .padding(.horizontal, 6)
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Add a repository — open a local folder or clone a remote URL")
+    }
+
+    private var foreground: Color {
+        hovering ? theme.palette.fg1 : theme.palette.fg3
+    }
+    private var rowBackground: Color {
+        hovering ? theme.palette.bg3 : .clear
     }
 }
 
