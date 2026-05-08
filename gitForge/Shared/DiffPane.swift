@@ -5,6 +5,9 @@ struct DiffPane: View {
     let file: String?
     let hunks: [DiffHunk]
     var loading: Bool = false
+    /// Reason the diff is empty when `hunks.isEmpty`. Drives the empty-state
+    /// copy so binaries / renames don't masquerade as "No changes".
+    var emptyState: DiffEmptyState = .empty
     /// Optional handler for the "open in editor" icon button. When `nil` the
     /// button is hidden — keeps history-mode diffs free of dead chrome.
     var onOpenInEditor: (() -> Void)? = nil
@@ -70,15 +73,47 @@ struct DiffPane: View {
         if loading {
             diffSkeleton
         } else if hunks.isEmpty {
-            Text("No changes")
-                .font(AppFont.sans(12))
-                .foregroundStyle(theme.palette.fg3)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            emptyContent
         } else {
             switch viewMode {
             case .unified: unifiedContent
             case .split:   splitContent
             }
+        }
+    }
+
+    /// Empty-state messaging keyed off `emptyState`. Each branch tells the
+    /// user *why* there's nothing to render so a binary or pure rename
+    /// doesn't read as "the app forgot to load my changes".
+    @ViewBuilder
+    private var emptyContent: some View {
+        let copy = emptyStateCopy
+        VStack(spacing: DesignTokens.Spacing.sm) {
+            Text(copy.title)
+                .font(AppFont.sans(12.5, weight: .semibold))
+                .foregroundStyle(theme.palette.fg2)
+            if let subtitle = copy.subtitle {
+                Text(subtitle)
+                    .font(AppFont.sans(11.5))
+                    .foregroundStyle(theme.palette.fg3)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyStateCopy: (title: String, subtitle: String?) {
+        switch emptyState {
+        case .empty:
+            return ("No changes", nil)
+        case .binary:
+            return ("Binary file", "Diff isn't rendered for non-text content.")
+        case .untrackedBinary:
+            return ("New binary file",
+                    "This file is untracked and isn't text — open it in an external app to inspect it.")
+        case .renameOnly:
+            return ("Renamed", "The file was moved without content changes.")
         }
     }
 
