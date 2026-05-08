@@ -269,6 +269,7 @@ private struct ContentRouter: View {
     }
 }
 
+#if DEBUG
 #Preview("Welcome (no active repo)") {
     RootView()
         .environment(AppState.preview)
@@ -286,3 +287,4 @@ private struct ContentRouter: View {
         .environment(AppState.previewMissingGit)
         .frame(width: 1100, height: 720)
 }
+#endif

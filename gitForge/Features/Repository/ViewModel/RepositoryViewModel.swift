@@ -253,6 +253,7 @@ final class RepositoryViewModel {
 
 // MARK: - Preview
 
+#if DEBUG
 extension RepositoryViewModel {
     static var preview: RepositoryViewModel {
         let vm = RepositoryViewModel(repository: Repository.preview)
@@ -266,3 +267,4 @@ extension RepositoryViewModel {
         return vm
     }
 }
+#endif

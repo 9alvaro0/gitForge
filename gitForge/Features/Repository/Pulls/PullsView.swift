@@ -348,14 +348,18 @@ struct PullsView: View {
     }
 }
 
+#if DEBUG
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    let vm = RepositoryViewModel.preview
-    vm.pullRequests = PullRequest.previewSamples
-    vm.pullRequestsHost = RemoteHost(
-        provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"
-    )
-    return PullsView(viewModel: vm)
+    let vm: RepositoryViewModel = {
+        let v = RepositoryViewModel.preview
+        v.pullRequests = PullRequest.previewSamples
+        v.pullRequestsHost = RemoteHost(
+            provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"
+        )
+        return v
+    }()
+    PullsView(viewModel: vm)
         .environment(AppState.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -363,12 +367,15 @@ struct PullsView: View {
 
 #Preview("Loading") {
     @Previewable @State var theme = AppTheme()
-    let vm = RepositoryViewModel.preview
-    vm.pullRequestsLoading = true
-    vm.pullRequestsHost = RemoteHost(
-        provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"
-    )
-    return PullsView(viewModel: vm)
+    let vm: RepositoryViewModel = {
+        let v = RepositoryViewModel.preview
+        v.pullRequestsLoading = true
+        v.pullRequestsHost = RemoteHost(
+            provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"
+        )
+        return v
+    }()
+    PullsView(viewModel: vm)
         .environment(AppState.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -376,13 +383,17 @@ struct PullsView: View {
 
 #Preview("Token missing") {
     @Previewable @State var theme = AppTheme()
-    let vm = RepositoryViewModel.preview
-    vm.pullRequestsHost = RemoteHost(
-        provider: .gitlab, host: "gitlab.com", owner: "group", repo: "project"
-    )
-    vm.pullRequestsRequiresToken = true
-    return PullsView(viewModel: vm)
+    let vm: RepositoryViewModel = {
+        let v = RepositoryViewModel.preview
+        v.pullRequestsHost = RemoteHost(
+            provider: .gitlab, host: "gitlab.com", owner: "group", repo: "project"
+        )
+        v.pullRequestsRequiresToken = true
+        return v
+    }()
+    PullsView(viewModel: vm)
         .environment(AppState.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
+#endif

@@ -382,6 +382,7 @@ private struct DiffSplitCell: View {
     }
 }
 
+#if DEBUG
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var mode: DiffPane.ViewMode = .unified
@@ -408,3 +409,4 @@ private struct DiffSplitCell: View {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
+#endif

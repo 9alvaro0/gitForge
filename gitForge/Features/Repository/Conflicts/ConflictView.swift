@@ -225,9 +225,11 @@ struct ConflictView: View {
     }
 }
 
+#if DEBUG
 #Preview("Empty (clean tree)") {
     @Previewable @State var theme = AppTheme()
     ConflictView(viewModel: RepositoryViewModel.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
+#endif

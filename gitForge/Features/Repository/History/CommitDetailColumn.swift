@@ -453,6 +453,7 @@ private struct CommitActionButtonLabel: View {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     CommitDetailColumn(commit: Commit.preview, viewModel: RepositoryViewModel.preview)
@@ -460,3 +461,4 @@ private struct CommitActionButtonLabel: View {
         .background(theme.palette.bg1)
         .appTheme(theme)
 }
+#endif

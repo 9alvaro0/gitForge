@@ -133,6 +133,7 @@ private extension Array {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     CommandPaletteView(
@@ -144,3 +145,4 @@ private extension Array {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
+#endif

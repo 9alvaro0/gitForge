@@ -46,6 +46,7 @@ struct ToastView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack(spacing: 12) {
@@ -58,3 +59,4 @@ struct ToastView: View {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
+#endif
