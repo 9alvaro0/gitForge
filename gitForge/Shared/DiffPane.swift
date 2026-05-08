@@ -181,20 +181,28 @@ struct DiffPane: View {
     /// Side-by-side diff. `removed`+`context` on the left, `added`+`context`
     /// on the right, with consecutive removed / added groups paired so the
     /// changed lines align horizontally. Shorter side gets blank rows.
+    ///
+    /// Uses `Grid` so the two content columns share widths across every row —
+    /// otherwise each row's `HStack` sized independently and the centre
+    /// divider drifted horizontally between rows whose contents had different
+    /// natural widths (visible as a zigzag column boundary in dense diffs).
     private var splitContent: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                    Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
                         ForEach(hunks) { hunk in
-                            hunkHeader(hunk)
+                            GridRow {
+                                hunkHeader(hunk)
+                                    .gridCellColumns(3)
+                            }
                             ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                                HStack(spacing: DesignTokens.Spacing.none) {
+                                GridRow {
                                     DiffSplitCell(line: row.left, side: .left)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                    Rectangle().fill(theme.palette.line).frame(width: DesignTokens.Stroke.regular)
+                                    Rectangle()
+                                        .fill(theme.palette.line)
+                                        .frame(width: DesignTokens.Stroke.regular)
                                     DiffSplitCell(line: row.right, side: .right)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
                         }
