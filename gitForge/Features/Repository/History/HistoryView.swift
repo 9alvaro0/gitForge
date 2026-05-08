@@ -732,6 +732,7 @@ private struct BranchDropDialogs: ViewModifier {
     }
 }
 
+#if DEBUG
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     HistoryView(viewModel: RepositoryViewModel.preview)
@@ -742,11 +743,15 @@ private struct BranchDropDialogs: ViewModifier {
 
 #Preview("Loading initial") {
     @Previewable @State var theme = AppTheme()
-    let vm = RepositoryViewModel.preview
-    vm.commits = []
-    vm.isLoadingInitial = true
-    return HistoryView(viewModel: vm)
+    let vm: RepositoryViewModel = {
+        let v = RepositoryViewModel.preview
+        v.commits = []
+        v.isLoadingInitial = true
+        return v
+    }()
+    HistoryView(viewModel: vm)
         .environment(AppState.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
 }
+#endif

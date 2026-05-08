@@ -147,6 +147,7 @@ struct StashesView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     StashesView(viewModel: RepositoryViewModel.preview)
@@ -154,3 +155,4 @@ struct StashesView: View {
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }
+#endif

@@ -173,6 +173,7 @@ private struct AddRepositoryRow: View {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .history
@@ -198,3 +199,4 @@ private struct AddRepositoryRow: View {
     .frame(width: 256, height: 600)
     .appTheme(theme)
 }
+#endif

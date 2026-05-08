@@ -324,6 +324,7 @@ private struct SettingRowChrome: ViewModifier {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     SettingsView()
@@ -331,3 +332,4 @@ private struct SettingRowChrome: ViewModifier {
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }
+#endif

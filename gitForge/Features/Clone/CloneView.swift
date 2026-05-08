@@ -385,6 +385,7 @@ struct CloneView: View {
     private func orgInitial(_ repo: Repository) -> String { String(orgName(repo).prefix(1)) }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     CloneView()
@@ -392,3 +393,4 @@ struct CloneView: View {
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }
+#endif

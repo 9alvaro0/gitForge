@@ -88,6 +88,7 @@ struct WelcomeView: View {
     }
 }
 
+#if DEBUG
 #Preview("With recents") {
     @Previewable @State var theme = AppTheme()
     WelcomeView()
@@ -103,3 +104,4 @@ struct WelcomeView: View {
         .frame(width: 900, height: 600)
         .appTheme(theme)
 }
+#endif

@@ -313,6 +313,7 @@ private struct StagingRow: View {
     }
 }
 
+#if DEBUG
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     StagingView(viewModel: RepositoryViewModel.preview)
@@ -322,13 +323,17 @@ private struct StagingRow: View {
 
 #Preview("Loading status") {
     @Previewable @State var theme = AppTheme()
-    let vm = RepositoryViewModel.preview
-    vm.status = WorkingCopyStatus(files: [])
-    vm.isLoadingStatus = true
-    return StagingView(viewModel: vm)
+    let vm: RepositoryViewModel = {
+        let v = RepositoryViewModel.preview
+        v.status = WorkingCopyStatus(files: [])
+        v.isLoadingStatus = true
+        return v
+    }()
+    StagingView(viewModel: vm)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
+#endif
 
 /// Square checkbox styled like the design `.gf-file-row input[type=checkbox]`.
 struct GFCheckboxStyle: ToggleStyle {

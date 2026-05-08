@@ -552,6 +552,7 @@ private extension Array {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var columns = ResizableTableModel(
@@ -580,3 +581,4 @@ private extension Array {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
+#endif

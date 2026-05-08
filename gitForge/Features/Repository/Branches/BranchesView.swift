@@ -579,6 +579,7 @@ private struct TagsSection: View {
     }
 }
 
+#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     BranchesView(viewModel: RepositoryViewModel.preview)
@@ -586,3 +587,4 @@ private struct TagsSection: View {
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }
+#endif
