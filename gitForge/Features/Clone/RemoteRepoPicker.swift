@@ -202,7 +202,7 @@ struct RemoteRepoPicker: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "xmark.octagon.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(theme.palette.del)
                 Text("Couldn't load repos from \(host)")
                     .font(AppFont.sans(12, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)

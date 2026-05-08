@@ -115,11 +115,14 @@ struct ThemePalette: Equatable, Sendable {
         return base
     }
 
-    /// Lane palette used by commit graph + blame highlighting.
+    /// Hashed swatch palette used wherever we need to distinguish identities
+    /// at a glance: avatar backgrounds, lane highlighting, brand gradients.
+    /// Order matters — re-ordering reshuffles the avatar colour for existing
+    /// authors whose name hashes into a different slot.
     static let lanePalette: [Color] = [
         Color(hex: 0x7c5cff),
-        Color(hex: 0x56b497),
         Color(hex: 0xff7e6b),
+        Color(hex: 0x56b497),
         Color(hex: 0xdda44b),
         Color(hex: 0x5da4ff),
         Color(hex: 0xc976d9),

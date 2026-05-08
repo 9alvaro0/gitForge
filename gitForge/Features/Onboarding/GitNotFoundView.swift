@@ -2,13 +2,14 @@ import SwiftUI
 
 struct GitNotFoundView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.appTheme) private var theme
     @State private var isInstalling = false
 
     var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 56))
-                .foregroundStyle(.orange.gradient)
+                .foregroundStyle(theme.palette.warn.gradient)
                 .symbolRenderingMode(.hierarchical)
 
             VStack(spacing: 10) {
@@ -17,7 +18,7 @@ struct GitNotFoundView: View {
                     .fontWeight(.semibold)
                 Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.palette.fg3)
                     .frame(maxWidth: 440)
             }
 
