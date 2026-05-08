@@ -7,41 +7,33 @@ struct ShellView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
-    /// Stacking order of the floating overlays. `shellLayout` is at the
-    /// implicit base (zIndex 0).
-    private enum OverlayLayer: Double {
-        case palette = 2
-        case toast = 3
-    }
-
     /// How long a toast stays on screen before auto-dismissing.
     private static let toastLifetime: Duration = .milliseconds(2_400)
 
     var body: some View {
         let title = activeTitle()
         WindowChrome(title: title) {
-            ZStack(alignment: .top) {
-                shellLayout
-                if appState.ui.commandPaletteOpen {
-                    paletteOverlay
-                        .transition(.opacity)
-                        .zIndex(OverlayLayer.palette.rawValue)
+            shellLayout
+                .overlay {
+                    if appState.ui.commandPaletteOpen {
+                        paletteOverlay.transition(.opacity)
+                    }
                 }
-                if let toast = appState.ui.activeToast {
-                    ToastView(toast: toast) { appState.ui.activeToast = nil }
-                        .padding(.bottom, DesignTokens.Spacing.xxxhuge)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .transition(.opacity)
-                        .zIndex(OverlayLayer.toast.rawValue)
-                        .task(id: toast.id) {
-                            try? await Task.sleep(for: Self.toastLifetime)
-                            // Re-check that we're still the same toast — a
-                            // newer one may have replaced us while we slept.
-                            guard appState.ui.activeToast?.id == toast.id else { return }
-                            withAnimation { appState.ui.activeToast = nil }
-                        }
+                .overlay(alignment: .bottom) {
+                    if let toast = appState.ui.activeToast {
+                        ToastView(toast: toast) { appState.ui.activeToast = nil }
+                            .padding(.bottom, DesignTokens.Spacing.xxxhuge)
+                            .transition(.opacity)
+                            .task(id: toast.id) {
+                                try? await Task.sleep(for: Self.toastLifetime)
+                                // Re-check that we're still the same toast —
+                                // a newer one may have replaced us while we
+                                // slept.
+                                guard appState.ui.activeToast?.id == toast.id else { return }
+                                withAnimation { appState.ui.activeToast = nil }
+                            }
+                    }
                 }
-            }
         }
     }
 

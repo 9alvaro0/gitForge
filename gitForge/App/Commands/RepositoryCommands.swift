@@ -10,8 +10,6 @@ struct RepositoryCommands: Commands {
     let appState: AppState
 
     var body: some Commands {
-        // CommandMenu must contain at least one always-enabled item, otherwise
-        // SwiftUI may collapse the menu when no repository is active.
         CommandMenu("Repository") {
             Button("Refresh") {
                 Task { await appState.catalog.activeViewModel?.refresh() }

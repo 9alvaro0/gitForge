@@ -6,17 +6,14 @@ struct GitForgeApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    /// Smallest window size that still accommodates the sidebar + main column
-    /// + status bar without truncating their content.
     private static let minWindowSize = CGSize(width: 820, height: 560)
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(appState)
-                // Sub-stores exposed independently so features can depend only
-                // on what they actually need (e.g. a view that only reads the
-                // theme grabs `WorkspaceUI`, not the whole `AppState`).
+                // Each sub-store is also injected on its own so features can
+                // declare narrow `@Environment(WorkspaceUI.self)` etc.
                 .environment(appState.catalog)
                 .environment(appState.gitEnvironment)
                 .environment(appState.clone)
@@ -28,8 +25,8 @@ struct GitForgeApp: App {
                     if appState.gitEnvironment.gitStatus == .notFound {
                         Task { await appState.gitEnvironment.refreshGitInstallation() }
                     }
-                    // Pulse the active repo so external CLI changes show up
-                    // as soon as the user comes back to the app.
+                    // External CLI changes might have happened while the app
+                    // was inactive — pulse the active repo so they show up.
                     appState.catalog.activeViewModel?.pokeReactivity()
                 }
         }
