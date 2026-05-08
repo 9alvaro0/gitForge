@@ -2,7 +2,7 @@ import SwiftUI
 
 /// `.gf-sidebar` — redesigned left rail. Owned only via Environment to keep it
 /// pluggable from any host shell (App, previews).
-struct RedesignedSidebar: View {
+struct Sidebar: View {
     let repositories: [Repository]
     let activeRepository: Repository?
     /// Returns the live status for any repo. Parent decides whether to pull
@@ -149,7 +149,7 @@ private struct AddRepositoryRow<Items: View>: View {
         } label: {
             HStack(spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: "plus")
-                    .font(.system(size: FontSize.footnote, weight: .semibold))
+                    .font(.system(size: DesignTokens.IconSize.md, weight: .semibold))
                     .foregroundStyle(foreground.opacity(DesignTokens.Opacity.prominent))
                     .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
                 Text("Add repository…")
@@ -181,7 +181,7 @@ private struct AddRepositoryRow<Items: View>: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .history
-    RedesignedSidebar(
+    Sidebar(
         repositories: Repository.previewSamples,
         activeRepository: Repository.previewSamples.first,
         statusFor: { repo in

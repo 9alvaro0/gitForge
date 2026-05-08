@@ -2,9 +2,6 @@ import SwiftUI
 
 /// `.gf-nav-item` — single workspace nav row with icon, label, optional badge.
 struct SidebarNavItem: View {
-    /// Width of the accent bar that marks the active row.
-    fileprivate static let activeBarWidth: CGFloat = 2
-
     let section: WorkspaceSection
     let badge: Int?
     let isActive: Bool
@@ -33,18 +30,6 @@ struct SidebarNavItem: View {
             .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: DesignTokens.Sidebar.navRow)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
-            .overlay(alignment: .leading) {
-                if isActive {
-                    Rectangle()
-                        .fill(theme.palette.accent)
-                        .frame(width: SidebarNavItem.activeBarWidth, height: 16)
-                        .cornerRadius(SidebarNavItem.activeBarWidth / 2)
-                        // Pull the bar flush against the sidebar's left edge:
-                        // the row sits inside a `padding(.horizontal, .sm)`, and
-                        // we offset by the bar's half-width so it straddles the edge.
-                        .offset(x: -(DesignTokens.Spacing.sm + SidebarNavItem.activeBarWidth / 2))
-                }
-            }
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
             .padding(.horizontal, DesignTokens.Spacing.sm)
         }

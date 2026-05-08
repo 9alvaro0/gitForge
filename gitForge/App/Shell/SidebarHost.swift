@@ -8,7 +8,7 @@ struct SidebarHost: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        RedesignedSidebar(
+        Sidebar(
             repositories: appState.catalog.repositories,
             activeRepository: appState.catalog.activeRepository,
             statusFor: statusFor,
