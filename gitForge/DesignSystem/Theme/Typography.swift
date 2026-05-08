@@ -10,6 +10,17 @@ enum MonoFontFamily: String, CaseIterable, Identifiable, Sendable {
     var label: String { rawValue }
 }
 
+/// Semantic font sizes. Use these instead of raw numbers when calling `AppFont.sans/.mono`.
+/// Sizes here are absolute — `Density.fontSize` covers the "follows user density" case.
+enum FontSize {
+    static let caption: CGFloat = 10
+    static let footnote: CGFloat = 11
+    static let body: CGFloat = 13
+    static let headline: CGFloat = 15
+    static let title: CGFloat = 18
+    static let display: CGFloat = 56
+}
+
 /// Centralized font factory. The design uses Inter Tight for sans + a configurable mono.
 /// We prefer the bundled families; fall back to system stack if unavailable.
 enum AppFont {
