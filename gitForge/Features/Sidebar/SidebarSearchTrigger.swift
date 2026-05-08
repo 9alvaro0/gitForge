@@ -8,7 +8,7 @@ struct SidebarSearchTrigger: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .search, size: 14, stroke: theme.palette.fg3)
                 Text("Search")
                     .font(AppFont.sans(12))
@@ -16,7 +16,7 @@ struct SidebarSearchTrigger: View {
                 Spacer()
                 Kbd(text: "⌘K")
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: DesignTokens.Sidebar.searchHeight)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(hovering ? theme.palette.bg3 : theme.palette.bg2))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: 1))
@@ -31,7 +31,7 @@ struct SidebarSearchTrigger: View {
     @Previewable @State var theme = AppTheme()
     SidebarSearchTrigger(action: {})
         .frame(width: 240)
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .background(theme.palette.bg1)
         .appTheme(theme)
 }

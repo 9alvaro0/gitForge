@@ -51,21 +51,21 @@ struct RepoMark: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: 12) {
-        HStack(spacing: 8) {
+    VStack(spacing: DesignTokens.Spacing.xl) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             Avatar(name: "M. Vélez")
             Avatar(name: "L. Park")
             Avatar(name: "R. Tanaka")
             Avatar(name: "A. Singh")
             Avatar(name: "Alvaro Guerra Freitas", size: 24)
         }
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             RepoMark(letter: "G")
             RepoMark(letter: "A")
             RepoMark(letter: "M", size: 28)
         }
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

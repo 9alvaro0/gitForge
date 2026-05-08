@@ -17,8 +17,8 @@ struct ContentHeader<Subtitle: View, Right: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(spacing: DesignTokens.Spacing.xxxl) {
+            HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xl) {
                 Text(title)
                     .font(AppFont.sans(18, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
@@ -27,12 +27,12 @@ struct ContentHeader<Subtitle: View, Right: View>: View {
                     .font(AppFont.sans(12))
             }
             Spacer(minLength: 0)
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 right()
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+        .padding(.vertical, DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity)
         .background(theme.palette.bg2)
         .overlay(alignment: .bottom) {
@@ -43,7 +43,7 @@ struct ContentHeader<Subtitle: View, Right: View>: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: 0) {
+    VStack(spacing: DesignTokens.Spacing.none) {
         ContentHeader(title: "History") {
             MonoText("main · 247 commits", dim: true)
         } right: {

@@ -8,7 +8,7 @@ struct SidebarUserCard: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: DesignTokens.Spacing.lg) {
             ZStack {
                 Circle().fill(LinearGradient(colors: [theme.palette.accent, ThemePalette.lanePalette[5]],
                                               startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -17,7 +17,7 @@ struct SidebarUserCard: View {
                     .foregroundStyle(theme.palette.accentFg)
             }
             .frame(width: 26, height: 26)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
                 Text(identity.displayName)
                     .font(AppFont.sans(12, weight: .medium))
                     .foregroundStyle(theme.palette.fg1)
@@ -35,13 +35,13 @@ struct SidebarUserCard: View {
                 .frame(width: 8, height: 8)
                 .overlay(Circle().stroke(theme.palette.bg3, lineWidth: 2))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DesignTokens.Spacing.lg)
+        .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-        .padding(.top, 8)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.bottom, DesignTokens.Spacing.xs)
+        .padding(.top, DesignTokens.Spacing.md)
     }
 }
 
@@ -52,7 +52,7 @@ struct SidebarUserCard: View {
         SidebarUserCard(identity: .unknown, online: false)
     }
     .frame(width: 256)
-    .padding(.vertical, 12)
+    .padding(.vertical, DesignTokens.Spacing.xl)
     .background(theme.palette.bg1)
     .appTheme(theme)
 }

@@ -19,9 +19,9 @@ struct SidebarRepoRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 9) {
+            HStack(spacing: DesignTokens.Spacing.lg) {
                 RepoMark(letter: String(org.prefix(1)))
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
                     Text(repository.name)
                         .font(AppFont.sans(12, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
@@ -36,12 +36,12 @@ struct SidebarRepoRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 StatusPills(ahead: ahead, behind: behind, dirty: dirty, loaded: loaded)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DesignTokens.Spacing.md)
+            .padding(.vertical, DesignTokens.Spacing.sm)
             .frame(height: DesignTokens.Sidebar.repoRow)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-            .padding(.horizontal, 6)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -65,7 +65,7 @@ struct SidebarRepoRow: View {
 #if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: 1) {
+    VStack(spacing: DesignTokens.Spacing.hairline) {
         SidebarRepoRow(repository: Repository.preview, org: "9alvaro0",
                        branch: "feat/commit-graph",
                        ahead: 7, behind: 1, dirty: 3,
@@ -80,7 +80,7 @@ struct SidebarRepoRow: View {
                        isCurrent: false, onSelect: {})
     }
     .frame(width: 256)
-    .padding(.vertical, 6)
+    .padding(.vertical, DesignTokens.Spacing.sm)
     .background(theme.palette.bg1)
     .appTheme(theme)
 }

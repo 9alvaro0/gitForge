@@ -40,7 +40,7 @@ struct RemoteRepoPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             hostSelector
             if token == nil {
                 missingTokenCard
@@ -68,7 +68,7 @@ struct RemoteRepoPicker: View {
     @ViewBuilder
     private var hostSelector: some View {
         if availableHosts.count > 1 {
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 Text("Host")
                     .font(AppFont.sans(11, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
@@ -83,7 +83,7 @@ struct RemoteRepoPicker: View {
                 Spacer()
             }
         } else if let only = availableHosts.first {
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: "network")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
@@ -95,7 +95,7 @@ struct RemoteRepoPicker: View {
     }
 
     private var searchBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.md) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(theme.palette.fg3)
@@ -116,7 +116,7 @@ struct RemoteRepoPicker: View {
                 ProgressView()
                 Spacer()
             }
-            .padding(.vertical, 32)
+            .padding(.vertical, DesignTokens.Spacing.xxhuge)
         } else if repos.isEmpty {
             emptyCard
         } else {
@@ -125,7 +125,7 @@ struct RemoteRepoPicker: View {
     }
 
     private var list: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: DesignTokens.Spacing.sm) {
             ForEach(filtered) { repo in
                 row(for: repo)
             }
@@ -135,7 +135,7 @@ struct RemoteRepoPicker: View {
                          disabled: loadingMore) {
                     Task { await loadMore() }
                 }
-                .padding(.top, 4)
+                .padding(.top, DesignTokens.Spacing.xs)
             }
         }
     }
@@ -144,12 +144,12 @@ struct RemoteRepoPicker: View {
         Button {
             onSelect(repo)
         } label: {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: repo.isPrivate ? "lock.fill" : "globe")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                     .frame(width: 14)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(repo.fullName)
                         .font(AppFont.mono(12, weight: .medium, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg1)
@@ -167,8 +167,8 @@ struct RemoteRepoPicker: View {
                     .font(AppFont.sans(11, weight: .medium))
                     .foregroundStyle(theme.palette.accent)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, DesignTokens.Spacing.xl)
+            .padding(.vertical, DesignTokens.Spacing.lg)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
@@ -177,7 +177,7 @@ struct RemoteRepoPicker: View {
     }
 
     private var missingTokenCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("No token configured for \(host.isEmpty ? provider.label : host)")
                 .font(AppFont.sans(13, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
@@ -185,7 +185,7 @@ struct RemoteRepoPicker: View {
                 .font(AppFont.sans(11))
                 .foregroundStyle(theme.palette.fg3)
         }
-        .padding(16)
+        .padding(DesignTokens.Spacing.xxxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -195,12 +195,12 @@ struct RemoteRepoPicker: View {
         Text("No repositories found.")
             .font(AppFont.sans(11))
             .foregroundStyle(theme.palette.fg3)
-            .padding(.vertical, 16)
+            .padding(.vertical, DesignTokens.Spacing.xxxl)
     }
 
     private func errorCard(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: "xmark.octagon.fill")
                     .foregroundStyle(theme.palette.del)
                 Text("Couldn't load repos from \(host)")
@@ -225,7 +225,7 @@ struct RemoteRepoPicker: View {
                 Task { await retry() }
             }
         }
-        .padding(16)
+        .padding(DesignTokens.Spacing.xxxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -283,7 +283,7 @@ struct RemoteRepoPicker: View {
 #Preview("No token") {
     @Previewable @State var theme = AppTheme()
     RemoteRepoPicker(provider: .github, availableHosts: ["github.com"]) { _ in }
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(width: 600, height: 400)
         .background(theme.palette.bg2)
         .appTheme(theme)
@@ -292,7 +292,7 @@ struct RemoteRepoPicker: View {
 #Preview("Multi-host") {
     @Previewable @State var theme = AppTheme()
     RemoteRepoPicker(provider: .gitlab, availableHosts: ["gitlab.com", "gitlab.example.com"]) { _ in }
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(width: 600, height: 400)
         .background(theme.palette.bg2)
         .appTheme(theme)

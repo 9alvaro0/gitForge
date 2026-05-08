@@ -15,19 +15,19 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Settings")
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
                     appearanceSection
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)],
-                              alignment: .leading, spacing: 24) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: DesignTokens.Spacing.xhuge), GridItem(.flexible(), spacing: DesignTokens.Spacing.xhuge)],
+                              alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
                         identitySection
                         gitSection
                     }
                     RemoteHostsSection()
                 }
-                .padding(18)
+                .padding(DesignTokens.Spacing.xxxxl)
                 .frame(maxWidth: 900, alignment: .topLeading)
             }
         }
@@ -40,12 +40,12 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         section(title: "Appearance") {
-            HStack(alignment: .top, spacing: 24) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.xhuge) {
                 appearanceColumn
                 codeColumn
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
+            .padding(.horizontal, DesignTokens.Spacing.xl)
+            .padding(.vertical, DesignTokens.Spacing.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
@@ -53,7 +53,7 @@ struct SettingsView: View {
     }
 
     private var appearanceColumn: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             radioRow(label: "Theme",
                      values: ThemeMode.allCases.map { ($0.rawValue, $0.label) },
                      current: appState.theme.mode.rawValue) { v in
@@ -72,7 +72,7 @@ struct SettingsView: View {
     }
 
     private var codeColumn: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             selectRow(label: "Mono font",
                       values: MonoFontFamily.allCases.map { ($0.rawValue, $0.label) },
                       current: appState.theme.monoFont.rawValue) { v in
@@ -157,14 +157,14 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func pickerLabel(_ text: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             Text(text)
                 .font(AppFont.sans(12))
                 .foregroundStyle(theme.palette.fg1)
             Spacer(minLength: 0)
             GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, DesignTokens.Spacing.md)
         .frame(height: 24)
         .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
@@ -174,12 +174,12 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func section<C: View>(title: String, @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text(title.uppercased())
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
-            VStack(spacing: 4) { content() }
+            VStack(spacing: DesignTokens.Spacing.xs) { content() }
         }
     }
 
@@ -196,7 +196,7 @@ struct SettingsView: View {
                     .textFieldStyle(.plain)
                     .font(mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12))
                     .foregroundStyle(theme.palette.fg1)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, DesignTokens.Spacing.md)
                     .frame(height: 24)
                     .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.accent, lineWidth: 1))
@@ -249,14 +249,14 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func radioRow(label: String, values: [(String, String)], current: String, onChange: @escaping (String) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(label).font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
-            HStack(spacing: 4) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
                 ForEach(values, id: \.0) { (raw, label) in
                     Button(action: { onChange(raw) }) {
                         Text(label.capitalized)
                             .font(AppFont.sans(11))
-                            .padding(.horizontal, 10)
+                            .padding(.horizontal, DesignTokens.Spacing.lg)
                             .frame(height: 24)
                             .foregroundStyle(raw == current ? theme.palette.accent : theme.palette.fg2)
                             .background(RoundedRectangle(cornerRadius: 4).fill(raw == current ? theme.palette.accentSoft : theme.palette.bg2))
@@ -269,9 +269,9 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func colorRow(label: String, swatches: [Color], current: Color, onChange: @escaping (Color) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(label).font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 ForEach(Array(swatches.enumerated()), id: \.offset) { _, c in
                     Button(action: { onChange(c) }) {
                         Circle()
@@ -287,7 +287,7 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func selectRow(label: String, values: [(String, String)], current: String, onChange: @escaping (String) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(label).font(AppFont.sans(11, weight: .medium)).foregroundStyle(theme.palette.fg3)
             Menu {
                 ForEach(values, id: \.0) { (raw, label) in
@@ -299,7 +299,7 @@ struct SettingsView: View {
                     Spacer()
                     GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 28)
                 .foregroundStyle(theme.palette.fg1)
                 .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg2))
@@ -317,8 +317,8 @@ private struct SettingRowChrome: ViewModifier {
     let theme: AppTheme
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, DesignTokens.Spacing.xl)
+            .padding(.vertical, DesignTokens.Spacing.md)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }

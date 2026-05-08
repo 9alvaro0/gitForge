@@ -17,6 +17,7 @@ enum DesignTokens {
         static let xl: CGFloat = 12
         static let xxl: CGFloat = 14
         static let xxxl: CGFloat = 16
+        static let xxxxl: CGFloat = 18
         static let huge: CGFloat = 20
         static let xhuge: CGFloat = 24
         static let xxhuge: CGFloat = 32
