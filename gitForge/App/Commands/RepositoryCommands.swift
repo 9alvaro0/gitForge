@@ -39,7 +39,7 @@ struct RepositoryCommands: Commands {
 
             Divider()
 
-            Button("Commit...") {
+            Button("Commit") {
                 appState.ui.workspaceSection = .changes
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
@@ -58,7 +58,7 @@ struct RepositoryCommands: Commands {
 
             Divider()
 
-            Button("Discard All Changes...") {
+            Button("Discard All Changes…") {
                 // Switch to Changes first so StagingView is mounted to host
                 // the confirmation dialog — both entry points (this menu and
                 // the "Discard all" tool button) share that single dialog.

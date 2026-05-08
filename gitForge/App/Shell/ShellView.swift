@@ -5,7 +5,6 @@ import SwiftUI
 /// `gitStatus == .available`; the install gate lives in `RootView`.
 struct ShellView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.appTheme) private var theme
 
     /// How long a toast stays on screen before auto-dismissing.
     private static let toastLifetime: Duration = .milliseconds(2_400)

@@ -12,7 +12,7 @@ struct HelpCommands: Commands {
             Button("gitForge Documentation") {
                 NSWorkspace.shared.open(Self.documentationURL)
             }
-            Button("Report Issue...") {
+            Button("Report Issue") {
                 NSWorkspace.shared.open(Self.issuesURL)
             }
         }
