@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		CDA0000300000000000000A1 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = CDA0000200000000000000A1 /* Textual */; };
+		CDA0000600000000000000A1 /* HighlightSwift in Frameworks */ = {isa = PBXBuildFile; productRef = CDA0000500000000000000A1 /* HighlightSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CDA0000300000000000000A1 /* Textual in Frameworks */,
+				CDA0000600000000000000A1 /* HighlightSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = gitForge;
 			packageProductDependencies = (
 				CDA0000200000000000000A1 /* Textual */,
+				CDA0000500000000000000A1 /* HighlightSwift */,
 			);
 			productName = gitForge;
 			productReference = CD2E2B212FA8DE7300330FAF /* gitForge.app */;
@@ -203,6 +206,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				CDA0000100000000000000A1 /* XCRemoteSwiftPackageReference "textual" */,
+				CDA0000400000000000000A1 /* XCRemoteSwiftPackageReference "highlightswift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CD2E2B222FA8DE7300330FAF /* Products */;
@@ -622,6 +626,14 @@
 				minimumVersion = 0.3.1;
 			};
 		};
+		CDA0000400000000000000A1 /* XCRemoteSwiftPackageReference "highlightswift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/appstefan/highlightswift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -629,6 +641,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CDA0000100000000000000A1 /* XCRemoteSwiftPackageReference "textual" */;
 			productName = Textual;
+		};
+		CDA0000500000000000000A1 /* HighlightSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CDA0000400000000000000A1 /* XCRemoteSwiftPackageReference "highlightswift" */;
+			productName = HighlightSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
