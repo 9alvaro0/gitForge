@@ -32,7 +32,7 @@ struct DiffPane: View {
             content
         }
         .background(theme.palette.bg2)
-        .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
     }
 
     private var header: some View {
@@ -62,7 +62,7 @@ struct DiffPane: View {
         .padding(.horizontal, DesignTokens.Spacing.xxl)
         .frame(height: 34)
         .background(theme.palette.bg1)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
     }
 
     @ViewBuilder
@@ -157,7 +157,7 @@ struct DiffPane: View {
                                 HStack(spacing: DesignTokens.Spacing.none) {
                                     DiffSplitCell(line: row.left, side: .left)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                    Rectangle().fill(theme.palette.line).frame(width: 1)
+                                    Rectangle().fill(theme.palette.line).frame(width: DesignTokens.Stroke.regular)
                                     DiffSplitCell(line: row.right, side: .right)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -226,7 +226,7 @@ struct DiffPane: View {
             .padding(.vertical, DesignTokens.Spacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(theme.palette.bg3)
-            .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+            .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
     }
 }
 
@@ -240,7 +240,7 @@ private struct DiffRow: View {
             lineNumber(line.newLineNumber)
             Text(sign)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .frame(width: 18)
+                .frame(width: DesignTokens.IconSize.xl)
                 .foregroundStyle(signColor)
             Text(line.content.isEmpty ? " " : line.content)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
@@ -308,7 +308,7 @@ private struct DiffSplitCell: View {
             lineNumber
             Text(sign)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .frame(width: 18)
+                .frame(width: DesignTokens.IconSize.xl)
                 .foregroundStyle(signColor)
             Text(displayContent)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))

@@ -184,9 +184,9 @@ private struct CommitTableHeader: View {
         .tracking(0.6)
         .foregroundStyle(theme.palette.fg3)
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .frame(height: 28)
+        .frame(height: DesignTokens.Control.height)
         .background(theme.palette.bg1)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
         .contextMenu {
             Button("Reset column widths") { columns.reset() }
         }
@@ -203,35 +203,35 @@ private struct UncommittedRow: View {
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.none) {
             HStack(spacing: DesignTokens.Spacing.none) {
-                Spacer().frame(width: 18)
-                Rectangle().fill(theme.palette.mod).frame(width: 8, height: 8)
+                Spacer().frame(width: DesignTokens.IconSize.xl)
+                Rectangle().fill(theme.palette.mod).frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
                     .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: DesignTokens.Stroke.regular))
             }
             .frame(width: gutterWidth, alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Color.clear.frame(width: columns.width("branchTag"))
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             HStack(spacing: DesignTokens.Spacing.md) {
-                Circle().fill(theme.palette.mod).frame(width: 8, height: 8)
+                Circle().fill(theme.palette.mod).frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
                 Text("Uncommitted changes")
                     .font(AppFont.sans(12.5))
                     .italic()
                     .foregroundStyle(theme.palette.mod)
             }
             .frame(width: columns.width("message"), alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Text("").frame(width: columns.width("author"))
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Text("–")
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("sha"), alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Text("now")
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)
@@ -263,13 +263,13 @@ private struct CommitRow: View {
         HStack(spacing: DesignTokens.Spacing.none) {
             graphGutter
                 .frame(width: gutterWidth, alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             branchTagColumn
                 .frame(width: columns.width("branchTag"), alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             messageColumn
                 .frame(width: columns.width("message"), alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
                 Text(commit.authorName)
@@ -279,17 +279,17 @@ private struct CommitRow: View {
                     .truncationMode(.tail)
             }
             .frame(width: columns.width("author"), alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Text(commit.shortSha)
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("sha"), alignment: .leading)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Text(relativeWhen)
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
-            Color.clear.frame(width: 8)
+            Color.clear.frame(width: DesignTokens.Spacing.md)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)
@@ -315,7 +315,7 @@ private struct CommitRow: View {
     /// Re-uses the existing `GraphColumnView` so lane drawing matches the rest of the app.
     private var graphGutter: some View {
         HStack(spacing: DesignTokens.Spacing.none) {
-            Spacer().frame(width: 18)
+            Spacer().frame(width: DesignTokens.IconSize.xl)
             GraphColumnView(row: layout, maxLanes: max(maxLanes, 1))
         }
     }

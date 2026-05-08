@@ -14,7 +14,7 @@ struct WindowChrome<Content: View>: View {
             titleBar
             Rectangle()
                 .fill(theme.palette.lineStrong)
-                .frame(height: 1)
+                .frame(height: DesignTokens.Stroke.regular)
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

@@ -14,7 +14,7 @@ struct GFTextField: View {
             .font(AppFont.sans(12))
             .foregroundStyle(theme.palette.fg1)
             .padding(.horizontal, DesignTokens.Spacing.lg)
-            .frame(height: 28)
+            .frame(height: DesignTokens.Control.height)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radius.md)

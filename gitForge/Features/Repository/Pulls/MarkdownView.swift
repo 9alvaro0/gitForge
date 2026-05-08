@@ -103,7 +103,7 @@ struct MarkdownView: View {
         case .horizontalRule:
             Rectangle()
                 .fill(theme.palette.line)
-                .frame(height: 1)
+                .frame(height: DesignTokens.Stroke.regular)
                 .padding(.vertical, DesignTokens.Spacing.xs)
         }
     }
@@ -116,12 +116,12 @@ struct MarkdownView: View {
             Text(ordered ? "\(index + 1)." : "•")
                 .font(AppFont.sans(12.5))
                 .foregroundStyle(p.fg3)
-                .frame(width: 18, alignment: .trailing)
+                .frame(width: DesignTokens.IconSize.xl, alignment: .trailing)
         case .task(let checked, _):
             Text(checked ? "☑" : "☐")
                 .font(AppFont.sans(13))
                 .foregroundStyle(checked ? p.ok : p.fg3)
-                .frame(width: 18, alignment: .trailing)
+                .frame(width: DesignTokens.IconSize.xl, alignment: .trailing)
         }
     }
 

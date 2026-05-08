@@ -36,7 +36,7 @@ struct ContentHeader<Subtitle: View, Right: View>: View {
         .frame(maxWidth: .infinity)
         .background(theme.palette.bg2)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.lineStrong).frame(height: 1)
+            Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
         }
     }
 }

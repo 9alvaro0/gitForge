@@ -48,7 +48,7 @@ struct SplitToolButton<Menu: View>: View {
                 }
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)
-            .frame(height: 28)
+            .frame(height: DesignTokens.Control.height)
             .foregroundStyle(fg)
             .background(hoveringMain ? hoverBg : .clear)
             .contentShape(.rect)
@@ -61,7 +61,7 @@ struct SplitToolButton<Menu: View>: View {
     private var divider: some View {
         Rectangle()
             .fill(dividerColor)
-            .frame(width: 1, height: 18)
+            .frame(width: DesignTokens.Stroke.regular, height: DesignTokens.IconSize.xl)
     }
 
     private var chevronPill: some View {
@@ -110,12 +110,12 @@ struct SplitToolButton<Menu: View>: View {
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
         HStack {
             SplitToolButton(kind: .pull, label: "Pull", badge: 2, action: {}) {
-                Button("Pull --ff-only") {}
-                Button("Pull --rebase") {}
+                Button("Pull (only if no merge needed)") {}
+                Button("Pull and rebase my commits") {}
             }
             SplitToolButton(kind: .push, label: "Push", badge: 5, primary: true, action: {}) {
                 Button("Push") {}
-                Button("Push --force-with-lease", role: .destructive) {}
+                Button("Force push (only if remote unchanged)", role: .destructive) {}
             }
         }
         HStack {
