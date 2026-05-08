@@ -468,6 +468,7 @@ struct HistoryView: View {
                     file: viewModel.selectedCommitFile,
                     hunks: viewModel.commitFileDiff,
                     loading: viewModel.loadingCommitFileDiff,
+                    emptyState: viewModel.commitFileDiffEmptyState,
                     onClose: { setDiffPaneCollapsed(true) },
                     viewMode: diffMode
                 )

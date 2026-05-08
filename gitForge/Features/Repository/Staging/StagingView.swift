@@ -192,6 +192,7 @@ struct StagingView: View {
                     file: file.path,
                     hunks: viewModel.workingCopyDiff,
                     loading: viewModel.loadingWorkingCopyDiff,
+                    emptyState: viewModel.workingCopyDiffEmptyState,
                     onOpenInEditor: { openInEditor(file: file) },
                     viewMode: diffMode
                 )

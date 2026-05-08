@@ -2,15 +2,23 @@ import Foundation
 import os
 
 extension RepositoryViewModel {
+    /// Hard ceiling on bytes read from disk when synthesizing an untracked
+    /// file's diff. Anything larger gets a "binary"-style placeholder so we
+    /// don't blow up trying to render a 50 MB log as a single hunk.
+    private static let untrackedDiffByteCap = 1_000_000
+
     func loadCommitFileDiff(sha: String, path: String) async {
         loadingCommitFileDiff = true
         defer { loadingCommitFileDiff = false }
         do {
             let raw = try await cli.diff(sha: sha, file: path)
-            commitFileDiff = DiffParser.parse(raw)
+            let hunks = DiffParser.parse(raw)
+            commitFileDiff = hunks
+            commitFileDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
         } catch {
             Self.logger.error("Failed to load commit diff: \(error.localizedDescription, privacy: .public)")
             commitFileDiff = []
+            commitFileDiffEmptyState = .empty
         }
     }
 
@@ -18,19 +26,91 @@ extension RepositoryViewModel {
         loadingWorkingCopyDiff = true
         defer { loadingWorkingCopyDiff = false }
         do {
+            if file.isUntracked && !file.isStaged {
+                let synthesized = synthesizeUntrackedDiff(path: file.path)
+                workingCopyDiff = DiffParser.parse(synthesized.raw)
+                workingCopyDiffEmptyState = workingCopyDiff.isEmpty ? synthesized.emptyState : .empty
+                return
+            }
             let raw: String
             if file.isStaged {
                 raw = try await cli.diffStaged(file: file.path)
-            } else if file.isUntracked {
-                raw = ""
             } else {
                 raw = try await cli.diffUnstaged(file: file.path)
             }
-            workingCopyDiff = DiffParser.parse(raw)
+            let hunks = DiffParser.parse(raw)
+            workingCopyDiff = hunks
+            workingCopyDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
         } catch {
             Self.logger.error("Failed to load working-copy diff: \(error.localizedDescription, privacy: .public)")
             workingCopyDiff = []
+            workingCopyDiffEmptyState = .empty
         }
+    }
+
+    /// Reads an untracked file from disk and emits a unified-diff string
+    /// that marks every line as added. Empty files and binaries short-circuit
+    /// to an empty raw string + the matching `DiffEmptyState` so the renderer
+    /// can show a meaningful placeholder.
+    ///
+    /// Binary detection mirrors git's heuristic: a NUL byte in the first 8 KB
+    /// of the file is enough to classify as binary. Files larger than
+    /// `untrackedDiffByteCap` are also routed through the binary path — the
+    /// goal is "tell the user something exists", not "parse a 50 MB log".
+    private func synthesizeUntrackedDiff(path: String) -> (raw: String, emptyState: DiffEmptyState) {
+        let absolute = repository.url.appendingPathComponent(path)
+        guard let data = try? Data(contentsOf: absolute, options: [.mappedIfSafe]) else {
+            return ("", .empty)
+        }
+        if data.isEmpty {
+            return ("", .empty)
+        }
+        if data.count > Self.untrackedDiffByteCap {
+            return ("", .untrackedBinary)
+        }
+        let probeLength = min(8000, data.count)
+        if data.prefix(probeLength).contains(0) {
+            return ("", .untrackedBinary)
+        }
+        guard let text = String(data: data, encoding: .utf8) else {
+            return ("", .untrackedBinary)
+        }
+        return (Self.synthesizeAddDiff(text: text), .empty)
+    }
+
+    /// Builds a single `@@ -0,0 +1,N @@` hunk where every line is a `+`. The
+    /// `\ No newline at end of file` trailer matches what `git diff` emits so
+    /// the parser's existing newline handling kicks in unchanged.
+    static func synthesizeAddDiff(text: String) -> String {
+        let endsWithNewline = text.hasSuffix("\n")
+        let lines = text.components(separatedBy: "\n")
+        // `components(separatedBy:)` leaves a trailing empty element when the
+        // string ends with a newline — that element isn't a real line, drop it.
+        let actual: ArraySlice<String> = endsWithNewline ? lines.dropLast() : ArraySlice(lines)
+        guard !actual.isEmpty else { return "" }
+        var output = "@@ -0,0 +1,\(actual.count) @@\n"
+        for line in actual {
+            output += "+\(line)\n"
+        }
+        if !endsWithNewline {
+            output += "\\ No newline at end of file\n"
+        }
+        return output
+    }
+
+    /// Inspects the raw diff output to figure out *why* the parser produced no
+    /// hunks. Git emits `Binary files X and Y differ` for binaries and
+    /// `rename from`/`rename to` headers for pure renames — neither contain
+    /// `@@`, so the parser empties out and we'd otherwise fall back to the
+    /// generic "No changes" copy. Caller has already verified hunks.isEmpty.
+    static func classifyEmptyDiff(raw: String) -> DiffEmptyState {
+        if raw.contains("Binary files") || raw.contains("GIT binary patch") {
+            return .binary
+        }
+        if raw.contains("\nrename from ") || raw.hasPrefix("rename from ") {
+            return .renameOnly
+        }
+        return .empty
     }
 
     func detail(for commit: Commit) async -> CommitDetail? {

@@ -110,6 +110,10 @@ final class RepositoryViewModel {
         }
     }
     var commitFileDiff: [DiffHunk] = []
+    /// Why the current `commitFileDiff` is empty (binary, rename-only, etc.).
+    /// Lets the diff pane print a meaningful placeholder instead of the
+    /// catch-all "No changes" copy.
+    var commitFileDiffEmptyState: DiffEmptyState = .empty
     var loadingCommitFileDiff = false
 
     var selectedWorkingCopyFile: WorkingCopyFile? {
@@ -123,6 +127,9 @@ final class RepositoryViewModel {
         }
     }
     var workingCopyDiff: [DiffHunk] = []
+    /// Why the current `workingCopyDiff` is empty. Same role as
+    /// `commitFileDiffEmptyState` but for the Changes view.
+    var workingCopyDiffEmptyState: DiffEmptyState = .empty
     var loadingWorkingCopyDiff = false
 
     // MARK: Navigation
