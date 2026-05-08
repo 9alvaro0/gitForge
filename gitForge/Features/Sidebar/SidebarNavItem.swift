@@ -24,7 +24,7 @@ struct SidebarNavItem: View {
                         .foregroundStyle(badgeForeground)
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.hairline)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(badgeBackground))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(badgeBackground))
                 }
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)

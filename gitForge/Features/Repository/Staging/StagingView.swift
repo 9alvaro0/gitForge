@@ -8,6 +8,7 @@ struct StagingView: View {
     @State private var commitMessage: String = ""
     @State private var commitDescription: String = ""
     @State private var diffModeOverride: DiffPane.ViewMode?
+    @State private var showDiscardAllConfirm = false
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
@@ -36,7 +37,7 @@ struct StagingView: View {
             } right: {
                 ToolButton(.stash, label: "Stash") { Task { _ = await viewModel.stashAll() } }
                 ToolButton(.x, label: "Discard all") {
-                    Task { await viewModel.discardChanges(viewModel.status.files) }
+                    showDiscardAllConfirm = true
                 }
             }
             HStack(spacing: DesignTokens.Spacing.none) {
@@ -46,6 +47,16 @@ struct StagingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .confirmationDialog("Discard all changes?",
+                            isPresented: $showDiscardAllConfirm,
+                            titleVisibility: .visible) {
+            Button("Discard all", role: .destructive) {
+                Task { await viewModel.discardChanges(viewModel.status.files) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All uncommitted changes will be lost — staged, unstaged, and untracked files included. This can't be undone.")
+        }
     }
 
     private var filesColumn: some View {
@@ -132,7 +143,7 @@ struct StagingView: View {
     private func placeholderRow(index: Int) -> some View {
         let path = Self.placeholderPaths[index % Self.placeholderPaths.count]
         HStack(spacing: DesignTokens.Spacing.md) {
-            RoundedRectangle(cornerRadius: 3)
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
                 .fill(theme.palette.bg2)
                 .frame(width: 14, height: 14)
             StatusTag(kind: .modified)
@@ -165,8 +176,8 @@ struct StagingView: View {
                     .font(AppFont.mono(10.5, family: theme.monoFont))
                     .foregroundStyle(theme.palette.accent)
                     .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(.clear))
-                    .contentShape(.rect(cornerRadius: 3))
+                    .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(.clear))
+                    .contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
             }
             .buttonStyle(.plain)
         }
@@ -202,16 +213,16 @@ struct StagingView: View {
             TextField("Commit message", text: $commitMessage)
                 .textFieldStyle(.plain)
                 .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.md)
-                .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg3))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.palette.lineStrong, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
                 .font(AppFont.sans(12.5))
 
             TextField("Description (optional)", text: $commitDescription, axis: .vertical)
                 .lineLimit(3...3)
                 .textFieldStyle(.plain)
                 .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.md)
-                .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg3))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.palette.lineStrong, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
                 .font(AppFont.mono(12, family: theme.monoFont))
 
             HStack {
@@ -281,6 +292,49 @@ private struct StagingRow: View {
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
         )
         .help(file.isStaged ? "Double-click to unstage" : "Double-click to stage")
+        .contextMenu { contextMenu }
+    }
+
+    @ViewBuilder
+    private var contextMenu: some View {
+        if file.isStaged {
+            Button("Unstage") { Task { await viewModel.unstage([file]) } }
+        } else {
+            Button("Stage") { Task { await viewModel.stage([file]) } }
+        }
+        if file.isUntracked {
+            Button("Delete file", role: .destructive) {
+                Task { await viewModel.discardChanges([file]) }
+            }
+        } else {
+            Button(file.isUnmerged ? "Discard conflict (revert to HEAD)" : "Discard changes",
+                   role: .destructive) {
+                Task { await viewModel.discardChanges([file]) }
+            }
+        }
+        Divider()
+        Button("Open in editor") {
+            NSWorkspace.shared.open(absoluteURL)
+        }
+        Button("Reveal in Finder") {
+            NSWorkspace.shared.activateFileViewerSelecting([absoluteURL])
+        }
+        Divider()
+        Button("Copy path") { copyToPasteboard(file.path) }
+        Button("Copy filename") { copyToPasteboard(filename) }
+    }
+
+    private var absoluteURL: URL {
+        viewModel.repository.url.appendingPathComponent(file.path)
+    }
+
+    private var filename: String {
+        (file.path as NSString).lastPathComponent
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 
     private func toggleStaged() async {
@@ -344,18 +398,18 @@ struct GFCheckboxStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             ZStack {
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
                     .fill(configuration.isOn ? theme.palette.accent : theme.palette.bg2)
-                RoundedRectangle(cornerRadius: 3)
-                    .stroke(configuration.isOn ? theme.palette.accent : theme.palette.lineStrong, lineWidth: 1)
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
+                    .stroke(configuration.isOn ? theme.palette.accent : theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
                 if configuration.isOn {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: FontSize.caption, weight: .bold))
                         .foregroundStyle(theme.palette.accentFg)
                 }
             }
             .frame(width: 14, height: 14)
-            .contentShape(.rect(cornerRadius: 3))
+            .contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
         }
         .buttonStyle(.plain)
     }

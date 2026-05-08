@@ -22,7 +22,7 @@ struct GFButton: View {
                 .frame(height: size == .small ? 22 : 28)
                 .foregroundStyle(fg)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(bg))
-                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
         }
         .buttonStyle(.plain)
         .disabled(disabled)

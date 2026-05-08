@@ -40,7 +40,7 @@ struct RedesignedSidebar: View {
                             Button("Clone new…") { onCloneNew() }
                         } label: {
                             Image(systemName: "plus")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: FontSize.caption, weight: .semibold))
                                 .foregroundStyle(theme.palette.fg3)
                                 .frame(width: 16, height: 16)
                                 .contentShape(.rect)
@@ -144,8 +144,8 @@ private struct AddRepositoryRow: View {
         } label: {
             HStack(spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(foreground.opacity(0.85))
+                    .font(.system(size: FontSize.footnote, weight: .semibold))
+                    .foregroundStyle(foreground.opacity(DesignTokens.Opacity.prominent))
                     .frame(width: 14, height: 14)
                 Text("Add repository…")
                     .font(AppFont.sans(12))

@@ -24,7 +24,7 @@ struct SplitToolButton<Menu: View>: View {
             chevronPill
         }
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(bg))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
         .opacity(disabled ? 0.5 : 1)
         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.md))
     }
@@ -43,7 +43,7 @@ struct SplitToolButton<Menu: View>: View {
                         .font(AppFont.mono(10, family: theme.monoFont))
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.hairline)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(badgeBg))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(badgeBg))
                         .foregroundStyle(badgeFg)
                 }
             }

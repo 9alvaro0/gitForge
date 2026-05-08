@@ -354,11 +354,11 @@ private struct BranchSection: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Text(title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: FontSize.footnote, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 Text("\(refs.count)")
-                    .font(.system(size: 11))
+                    .font(.system(size: FontSize.footnote))
                     .foregroundStyle(theme.palette.fg3)
             }
             .padding(.leading, DesignTokens.Spacing.xxs)
@@ -388,7 +388,7 @@ private struct BranchSection: View {
             .fill(theme.palette.bg3)
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radius.lg)
-                    .stroke(theme.palette.lineStrong, lineWidth: 1)
+                    .stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
             )
     }
 
@@ -506,7 +506,7 @@ private struct BranchSection: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.sm)
-        .background(isCurrent ? theme.palette.accent.opacity(0.06) : .clear)
+        .background(isCurrent ? theme.palette.accent.opacity(DesignTokens.Opacity.faint) : .clear)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
         .contentShape(.rect)
         .onTapGesture(count: 2) {
@@ -553,7 +553,7 @@ private struct TagsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("TAGS")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: FontSize.footnote, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             FlowLayout(spacing: DesignTokens.Spacing.sm) {
@@ -569,8 +569,8 @@ private struct TagsSection: View {
                         }
                         .foregroundStyle(theme.palette.mod)
                         .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(theme.palette.mod.opacity(0.12)))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.palette.mod.opacity(0.25), lineWidth: 1))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).fill(theme.palette.mod.opacity(DesignTokens.Opacity.subtle)))
+                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).stroke(theme.palette.mod.opacity(DesignTokens.Opacity.strong), lineWidth: DesignTokens.Stroke.regular))
                     }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                 }

@@ -17,7 +17,7 @@ struct SidebarSectionHeader<Trailing: View>: View {
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: FontSize.caption, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             Spacer(minLength: 0)
@@ -35,7 +35,7 @@ struct SidebarSectionHeader<Trailing: View>: View {
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
         SidebarSectionHeader(title: "Repositories") {
             Image(systemName: "plus")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: FontSize.caption, weight: .semibold))
                 .foregroundStyle(theme.palette.fg3)
         }
         SidebarSectionHeader(title: "Workspace")

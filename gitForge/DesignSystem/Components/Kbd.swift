@@ -17,7 +17,7 @@ struct Kbd: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                    .stroke(theme.palette.lineStrong, lineWidth: 1)
+                    .stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
             )
     }
 }

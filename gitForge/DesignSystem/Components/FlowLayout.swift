@@ -54,7 +54,7 @@ struct FlowLayout: Layout {
             }
             .foregroundStyle(theme.palette.mod)
             .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)
-            .background(RoundedRectangle(cornerRadius: 12).fill(theme.palette.mod.opacity(0.12)))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).fill(theme.palette.mod.opacity(DesignTokens.Opacity.subtle)))
         }
     }
     .frame(width: 460)

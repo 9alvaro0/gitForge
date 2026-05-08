@@ -45,7 +45,7 @@ struct ToolButton<Icon: View>: View {
                         .font(AppFont.mono(10, family: theme.monoFont))
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.hairline)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(badgeBg))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(badgeBg))
                         .foregroundStyle(badgeFg)
                 }
             }
@@ -53,7 +53,7 @@ struct ToolButton<Icon: View>: View {
             .frame(height: 28)
             .foregroundStyle(fg)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(bg))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
         }
         .buttonStyle(.plain)
         .disabled(disabled || loading)

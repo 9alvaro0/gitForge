@@ -29,6 +29,8 @@ enum DesignTokens {
         static let sm: CGFloat = 5
         static let md: CGFloat = 6
         static let lg: CGFloat = 8
+        /// Chip / drag-indicator corner — slightly chunkier than `lg`.
+        static let chip: CGFloat = 10
         static let xl: CGFloat = 12
         static let pill: CGFloat = 999
     }

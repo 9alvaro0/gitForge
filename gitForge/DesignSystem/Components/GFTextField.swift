@@ -18,7 +18,7 @@ struct GFTextField: View {
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radius.md)
-                    .stroke(focused ? theme.palette.accent : theme.palette.lineStrong, lineWidth: 1)
+                    .stroke(focused ? theme.palette.accent : theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
             )
             .focused($focused)
     }
@@ -35,7 +35,7 @@ struct ChipInput: View {
             .foregroundStyle(theme.palette.accent)
             .padding(.horizontal, DesignTokens.Spacing.md)
             .padding(.vertical, DesignTokens.Spacing.xxs)
-            .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.accentSoft))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.accentSoft))
     }
 }
 

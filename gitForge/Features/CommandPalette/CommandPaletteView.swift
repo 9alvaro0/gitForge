@@ -29,7 +29,7 @@ struct CommandPaletteView: View {
                 footer
             }
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).stroke(theme.palette.lineStrong, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             .frame(maxWidth: 560)
             .shadow(color: theme.palette.shadowColor, radius: 40, y: 20)
             .padding(.top, 100)
@@ -96,14 +96,14 @@ struct CommandPaletteView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(item.tag.uppercased())
                 .font(AppFont.mono(10, family: theme.monoFont))
-                .foregroundStyle(isActive ? theme.palette.accent.opacity(0.85) : theme.palette.fg3)
+                .foregroundStyle(isActive ? theme.palette.accent.opacity(DesignTokens.Opacity.prominent) : theme.palette.fg3)
                 .padding(.horizontal, DesignTokens.Spacing.sm)
                 .padding(.vertical, DesignTokens.Spacing.hairline)
-                .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
             if let hint = item.hint {
                 Text(hint)
                     .font(AppFont.mono(11, family: theme.monoFont))
-                    .foregroundStyle(isActive ? theme.palette.accent.opacity(0.85) : theme.palette.fg3)
+                    .foregroundStyle(isActive ? theme.palette.accent.opacity(DesignTokens.Opacity.prominent) : theme.palette.fg3)
             }
         }
         .padding(.horizontal, DesignTokens.Spacing.xl)
