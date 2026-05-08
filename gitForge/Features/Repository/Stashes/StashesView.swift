@@ -16,7 +16,7 @@ struct StashesView: View {
     private var hasDirtyChanges: Bool { !viewModel.status.isClean }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Stashes") {
                 MonoText("\(viewModel.stashes.count) stashed", dim: true)
             } right: {
@@ -36,13 +36,41 @@ struct StashesView: View {
                             titleVisibility: .visible) {
             Button("Drop", role: .destructive) {
                 if let stash = dropTarget {
-                    Task { await viewModel.dropStash(stash) }
+                    Task { await runDrop(stash) }
                 }
                 dropTarget = nil
             }
             Button("Cancel", role: .cancel) { dropTarget = nil }
         } message: {
             Text("Discards the stash. This can't be undone.")
+        }
+    }
+
+    private func runApply(_ stash: Stash, drop: Bool) async {
+        let outcome = await viewModel.applyStash(stash, drop: drop)
+        switch outcome {
+        case .clean:
+            appState.activeToast = ToastMessage(
+                message: drop ? "Popped \(stash.reference)" : "Applied \(stash.reference)",
+                kind: .ok)
+        case .conflicts:
+            appState.activeToast = ToastMessage(
+                message: "Stash applied with conflicts — resolve to continue",
+                kind: .warn)
+            appState.workspaceSection = .conflict
+        case .failed(let message):
+            appState.activeToast = ToastMessage(message: message, kind: .error)
+        }
+    }
+
+    private func runDrop(_ stash: Stash) async {
+        switch await viewModel.dropStash(stash) {
+        case .success:
+            appState.activeToast = ToastMessage(message: "Dropped \(stash.reference)", kind: .ok)
+        case .failure(let err):
+            appState.activeToast = ToastMessage(
+                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                kind: .error)
         }
     }
 
@@ -58,21 +86,21 @@ struct StashesView: View {
             ) { EmptyView() }
         } else {
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: DesignTokens.Spacing.md) {
                     ForEach(viewModel.stashes) { stash in
                         stashRow(stash)
                     }
                 }
-                .padding(18)
+                .padding(DesignTokens.Spacing.xxxxl)
             }
         }
     }
 
     @ViewBuilder
     private func stashRow(_ stash: Stash) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
+        HStack(spacing: DesignTokens.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                HStack(spacing: DesignTokens.Spacing.md) {
                     Text(stash.reference)
                         .font(AppFont.mono(11.5, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
@@ -87,31 +115,45 @@ struct StashesView: View {
                     .truncationMode(.tail)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 GFButton(title: "Apply", size: .small) {
-                    Task { await viewModel.applyStash(stash, drop: false) }
+                    Task { await runApply(stash, drop: false) }
                 }
                 GFButton(title: "Pop", style: .primary, size: .small) {
-                    Task { await viewModel.applyStash(stash, drop: true) }
+                    Task { await runApply(stash, drop: true) }
                 }
                 OverflowMenu {
-                    Button("Apply (keep)")           { Task { await viewModel.applyStash(stash, drop: false) } }
-                    Button("Pop (apply + drop)")     { Task { await viewModel.applyStash(stash, drop: true)  } }
+                    Button("Apply (keep)")           { Task { await runApply(stash, drop: false) } }
+                    Button("Pop (apply + drop)")     { Task { await runApply(stash, drop: true)  } }
                     Divider()
                     Button("Drop…", role: .destructive) { dropTarget = stash }
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DesignTokens.Spacing.xxl)
+        .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .contextMenu {
+            Button("Apply (keep)")       { Task { await runApply(stash, drop: false) } }
+            Button("Pop (apply + drop)") { Task { await runApply(stash, drop: true)  } }
+            Divider()
+            Button("Drop…", role: .destructive) { dropTarget = stash }
+            Divider()
+            Button("Copy reference") { copyToPasteboard(stash.reference) }
+            Button("Copy SHA")       { copyToPasteboard(stash.sha) }
+        }
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 
     private var stashSheetView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("Stash current changes").font(AppFont.sans(14, weight: .semibold))
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("Message (optional)")
                     .font(AppFont.sans(11, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
@@ -137,7 +179,7 @@ struct StashesView: View {
                 }
             }
         }
-        .padding(20).frame(width: 420)
+        .padding(DesignTokens.Spacing.huge).frame(width: 420)
         .background(theme.palette.bg1)
         .appTheme(appState.theme)
     }

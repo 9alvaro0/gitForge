@@ -16,6 +16,17 @@ extension GitCLI {
         try await run(["restore", "--"] + paths)
     }
 
+    /// Resets unmerged paths to HEAD content — the equivalent of "abandon
+    /// this conflict and keep what HEAD says". `git restore --` (and the
+    /// equivalent `git checkout --`) refuse to touch unmerged paths because
+    /// the index has multiple stages; `git checkout HEAD --` overwrites both
+    /// the index entry and the worktree from HEAD, which is what users want
+    /// when they pick "Discard" on a conflicted file.
+    func discardUnmerged(paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        try await run(["checkout", "HEAD", "--"] + paths)
+    }
+
     /// Removes untracked files from the working copy.
     func deleteUntracked(paths: [String]) async throws {
         guard !paths.isEmpty else { return }

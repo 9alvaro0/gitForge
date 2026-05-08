@@ -10,6 +10,13 @@ extension RepositoryViewModel {
         }
         do {
             status = try await cli.status()
+            // Prune the diff-pane selection if the file no longer appears in
+            // status (e.g. discarded, deleted) so the pane doesn't keep
+            // showing a stale diff for a vanished file.
+            if let selected = selectedWorkingCopyFile,
+               !status.files.contains(where: { $0.path == selected.path }) {
+                selectedWorkingCopyFile = nil
+            }
         } catch {
             Self.logger.error("Failed to load status: \(error.localizedDescription, privacy: .public)")
         }
@@ -24,10 +31,15 @@ extension RepositoryViewModel {
     }
 
     func discardChanges(_ files: [WorkingCopyFile]) async {
-        let tracked = files.filter { !$0.isUntracked }
-        let untracked = files.filter(\.isUntracked)
+        // `git restore --` refuses unmerged paths, so they need a separate
+        // command (`git checkout HEAD --`) that overwrites both index and
+        // worktree from HEAD. Untracked files are filesystem-only deletes.
+        let unmerged = files.filter(\.isUnmerged)
+        let untracked = files.filter { $0.isUntracked && !$0.isUnmerged }
+        let tracked = files.filter { !$0.isUntracked && !$0.isUnmerged }
         await runStageOperation {
             try await self.cli.discardChanges(paths: tracked.map(\.path))
+            try await self.cli.discardUnmerged(paths: unmerged.map(\.path))
             try await self.cli.deleteUntracked(paths: untracked.map(\.path))
         }
     }

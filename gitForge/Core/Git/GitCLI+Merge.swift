@@ -4,13 +4,18 @@ enum MergeState: Sendable, Equatable {
     case clean
     case merging
     case rebasing
+    /// Unmerged paths exist but neither `MERGE_HEAD` nor `rebase-merge` are
+    /// present. Typically a `git stash apply/pop` that produced conflicts —
+    /// stash doesn't write the marker files merge/rebase rely on, so we infer
+    /// the state from `git diff --diff-filter=U`.
+    case unmerged
 
     var isInProgress: Bool { self != .clean }
 }
 
 extension GitCLI {
-    /// Inspect the `.git` directory to figure out whether a merge or rebase
-    /// is currently in progress.
+    /// Inspect the `.git` directory (and unmerged paths as a fallback) to
+    /// figure out whether the worktree is mid-integration.
     func mergeState() async -> MergeState {
         let gitDir = workingDirectory.appendingPathComponent(".git")
         let fm = FileManager.default
@@ -20,6 +25,9 @@ extension GitCLI {
         if fm.fileExists(atPath: gitDir.appendingPathComponent("rebase-merge").path(percentEncoded: false))
             || fm.fileExists(atPath: gitDir.appendingPathComponent("rebase-apply").path(percentEncoded: false)) {
             return .rebasing
+        }
+        if let paths = try? await unmergedPaths(), !paths.isEmpty {
+            return .unmerged
         }
         return .clean
     }
@@ -70,5 +78,19 @@ extension GitCLI {
     /// Stages a path so git knows the conflict is resolved.
     func markResolved(path: String) async throws {
         _ = try await run(["add", "--", path])
+    }
+
+    /// Replaces the working-tree content of an unmerged path with the "ours"
+    /// side. Caller must follow up with `markResolved(path:)` to clear the
+    /// unmerged status.
+    func checkoutOurs(path: String) async throws {
+        _ = try await run(["checkout", "--ours", "--", path])
+    }
+
+    /// Replaces the working-tree content of an unmerged path with the "theirs"
+    /// side. Caller must follow up with `markResolved(path:)` to clear the
+    /// unmerged status.
+    func checkoutTheirs(path: String) async throws {
+        _ = try await run(["checkout", "--theirs", "--", path])
     }
 }
