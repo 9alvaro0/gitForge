@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 /// Empty-state shown when no repository is active. Lives in the redesigned
 /// shell, alongside the rest of the section views.
@@ -9,19 +8,19 @@ struct WelcomeView: View {
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.xxxl) {
-            GFIcon(kind: .folder, size: 48, stroke: theme.palette.fg4)
+            GFIcon(kind: .folder, size: 40, stroke: theme.palette.fg4)
             Text("No repository open")
-                .font(AppFont.sans(16, weight: .semibold))
+                .font(AppFont.sans(14, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
             Text("Open an existing repository to start exploring its history.")
                 .font(AppFont.sans(12))
                 .foregroundStyle(theme.palette.fg3)
                 .multilineTextAlignment(.center)
             HStack(spacing: DesignTokens.Spacing.md) {
-                ToolButton(.folder, label: "Open repository…", primary: true) {
+                GFButton(title: "Open repository…", style: .primary) {
                     Task { await appState.presentOpenRepositoryPanel() }
                 }
-                ToolButton(.clone, label: "Clone…") {
+                GFButton(title: "Clone…") {
                     appState.ui.workspaceSection = .clone
                 }
             }
@@ -42,49 +41,16 @@ struct WelcomeView: View {
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 ForEach(appState.catalog.repositories.prefix(5)) { repo in
-                    Button {
-                        Task { await appState.activate(repo) }
-                    } label: {
-                        HStack(spacing: DesignTokens.Spacing.lg) {
-                            RepoMark(letter: orgInitial(repo))
-                            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                                Text(repo.name)
-                                    .font(AppFont.sans(12, weight: .medium))
-                                    .foregroundStyle(theme.palette.fg1)
-                                Text(repo.path)
-                                    .font(AppFont.mono(11, family: theme.monoFont))
-                                    .foregroundStyle(theme.palette.fg3)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            Spacer()
-                        }
-                        .padding(.horizontal, DesignTokens.Spacing.xl)
-                        .padding(.vertical, DesignTokens.Spacing.md)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
-                        .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button("Reveal in Finder") {
-                            NSWorkspace.shared.activateFileViewerSelecting([repo.url])
-                        }
-                        Divider()
-                        Button("Remove from Recents", role: .destructive) {
-                            Task { await appState.catalog.remove(repo.url) }
-                        }
-                    }
+                    RecentRepositoryRow(
+                        repo: repo,
+                        onSelect: { Task { await appState.activate(repo) } },
+                        onRemove: { Task { await appState.catalog.remove(repo.url) } }
+                    )
                 }
             }
             .frame(maxWidth: 480)
             .padding(.top, DesignTokens.Spacing.xxxxl)
         }
-    }
-
-    private func orgInitial(_ repo: Repository) -> String {
-        let parent = repo.url.deletingLastPathComponent().lastPathComponent
-        return String((parent.isEmpty ? repo.name : parent).prefix(1))
     }
 }
 
