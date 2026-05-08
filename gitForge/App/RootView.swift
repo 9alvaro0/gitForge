@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        @Bindable var ui = appState.ui
         Group {
             switch appState.gitEnvironment.gitStatus {
             case .checking:
@@ -19,20 +20,18 @@ struct RootView: View {
                 ShellView()
             }
         }
-        .appTheme(appState.ui.theme)
-        .alert(appState.ui.presentedError?.title ?? "",
-               isPresented: presentedErrorBinding) {
-            Button("OK", role: .cancel) { appState.ui.presentedError = nil }
-        } message: {
-            Text(appState.ui.presentedError?.message ?? "")
+        .appTheme(ui.theme)
+        .alert(
+            ui.presentedError?.title ?? "",
+            isPresented: $ui.presentedError.isPresent(),
+            presenting: ui.presentedError
+        ) { _ in
+            // Cancel-role buttons in `.alert` automatically clear the
+            // `isPresented` binding, which clears `presentedError` for us.
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error.message)
         }
-    }
-
-    private var presentedErrorBinding: Binding<Bool> {
-        Binding(
-            get: { appState.ui.presentedError != nil },
-            set: { if !$0 { appState.ui.presentedError = nil } }
-        )
     }
 }
 

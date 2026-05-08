@@ -7,6 +7,16 @@ struct ShellView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
+    /// Stacking order of the floating overlays. `shellLayout` is at the
+    /// implicit base (zIndex 0).
+    private enum OverlayLayer: Double {
+        case palette = 2
+        case toast = 3
+    }
+
+    /// How long a toast stays on screen before auto-dismissing.
+    private static let toastLifetime: Duration = .milliseconds(2_400)
+
     var body: some View {
         let title = activeTitle()
         WindowChrome(title: title) {
@@ -15,16 +25,16 @@ struct ShellView: View {
                 if appState.ui.commandPaletteOpen {
                     paletteOverlay
                         .transition(.opacity)
-                        .zIndex(2)
+                        .zIndex(OverlayLayer.palette.rawValue)
                 }
                 if let toast = appState.ui.activeToast {
                     ToastView(toast: toast) { appState.ui.activeToast = nil }
                         .padding(.bottom, DesignTokens.Spacing.xxxhuge)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.opacity)
-                        .zIndex(3)
+                        .zIndex(OverlayLayer.toast.rawValue)
                         .task(id: toast.id) {
-                            try? await Task.sleep(nanoseconds: 2_400_000_000)
+                            try? await Task.sleep(for: Self.toastLifetime)
                             // Re-check that we're still the same toast — a
                             // newer one may have replaced us while we slept.
                             guard appState.ui.activeToast?.id == toast.id else { return }
