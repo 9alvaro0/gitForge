@@ -18,15 +18,18 @@ final class CloneController {
     /// back to `.idle` — but only if we're still the active task, so a
     /// stale finish doesn't blow away the state of a newer start.
     func start(_ work: @escaping () async -> Void) {
+        // A newer `start()` cancels the previous task before assigning its
+        // own to `cloneTask`. The post-work block uses `Task.isCancelled`
+        // (which refers to *this* task) to detect that case and skip
+        // cleanup — comparing `Task` instances would mean capturing the
+        // task var before its assignment, which Sendable doesn't allow.
         cloneTask?.cancel()
-        var task: Task<Void, Never>!
-        task = Task { [weak self] in
+        cloneTask = Task { [weak self] in
             await work()
-            guard let self, self.cloneTask == task else { return }
+            guard let self, !Task.isCancelled else { return }
             self.cloneTask = nil
             if case .running = self.cloneState { self.cloneState = .idle }
         }
-        cloneTask = task
     }
 
     func cancel() {

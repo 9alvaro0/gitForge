@@ -6,6 +6,10 @@ struct GitForgeApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    /// Smallest window size that still accommodates the sidebar + main column
+    /// + status bar without truncating their content.
+    private static let minWindowSize = CGSize(width: 820, height: 560)
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -17,7 +21,7 @@ struct GitForgeApp: App {
                 .environment(appState.gitEnvironment)
                 .environment(appState.clone)
                 .environment(appState.ui)
-                .frame(minWidth: 820, minHeight: 560)
+                .frame(minWidth: Self.minWindowSize.width, minHeight: Self.minWindowSize.height)
                 .task { await appState.bootstrap() }
                 .onChange(of: scenePhase) { _, newPhase in
                     guard newPhase == .active else { return }

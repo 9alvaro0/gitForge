@@ -106,7 +106,7 @@ final class AppState {
                 destination: destination,
                 branch: branch,
                 onProgress: { [weak self] progress in
-                    Task { @MainActor [weak self] in
+                    Task { @MainActor in
                         self?.clone.cloneState = .running(stage: progress.stage, percent: progress.percent)
                     }
                 }

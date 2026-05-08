@@ -14,7 +14,7 @@ final class RepositoryCatalog {
 
     private let store = RepositoryStore()
     private var statusPollTask: Task<Void, Never>?
-    private static let statusPollInterval: UInt64 = 30_000_000_000   // 30s
+    private static let statusPollInterval: Duration = .seconds(30)
     private static let lastActiveRepoKey = "lastActiveRepositoryPath"
 
     // MARK: - Persistence / lifecycle
@@ -94,7 +94,7 @@ final class RepositoryCatalog {
         statusPollTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refreshAllRepoStatuses()
-                try? await Task.sleep(nanoseconds: Self.statusPollInterval)
+                try? await Task.sleep(for: Self.statusPollInterval)
             }
         }
     }

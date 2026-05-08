@@ -24,12 +24,6 @@ final class GitEnvironment {
         if gitStatus != .checking {
             gitStatus = .checking
         }
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["GITFORGE_FAKE_NO_GIT"] != nil {
-            gitStatus = .notFound
-            return
-        }
-        #endif
         let isAvailable = await GitCLI.isGitAvailable()
         gitStatus = isAvailable ? .available : .notFound
     }
