@@ -9,14 +9,15 @@ struct SidebarUserCard: View {
 
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.lg) {
-            ZStack {
-                Circle().fill(LinearGradient(colors: [theme.palette.accent, ThemePalette.lanePalette[5]],
-                                              startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text(identity.initials)
-                    .font(.system(size: FontSize.footnote, weight: .bold))
-                    .foregroundStyle(theme.palette.accentFg)
-            }
-            .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
+            Circle()
+                .fill(LinearGradient(colors: [theme.palette.accent, gradientTail],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay {
+                    Text(identity.initials)
+                        .font(.system(size: FontSize.footnote, weight: .bold))
+                        .foregroundStyle(theme.palette.accentFg)
+                }
+                .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
                 Text(identity.displayName)
                     .font(AppFont.sans(12, weight: .medium))
@@ -42,6 +43,12 @@ struct SidebarUserCard: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.bottom, DesignTokens.Spacing.xs)
         .padding(.top, DesignTokens.Spacing.md)
+    }
+
+    /// Last lane swatch — used as the bottom-right stop of the avatar gradient.
+    /// Falls back to `accent` if the palette is ever shrunk so we don't crash.
+    private var gradientTail: Color {
+        ThemePalette.lanePalette.last ?? theme.palette.accent
     }
 }
 

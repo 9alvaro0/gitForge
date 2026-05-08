@@ -36,8 +36,7 @@ struct RedesignedSidebar: View {
 
                     SidebarSectionHeader(title: "Repositories") {
                         Menu {
-                            Button("Open existing…") { onOpenExisting() }
-                            Button("Clone new…") { onCloneNew() }
+                            addRepositoryMenuItems()
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: FontSize.caption, weight: .semibold))
@@ -68,10 +67,9 @@ struct RedesignedSidebar: View {
                                 onRevealInFinder: { onRevealRepo(repo) }
                             )
                         }
-                        AddRepositoryRow(
-                            onOpenExisting: onOpenExisting,
-                            onCloneNew: onCloneNew
-                        )
+                        AddRepositoryRow {
+                            addRepositoryMenuItems()
+                        }
                     }
 
                     if activeRepository != nil {
@@ -111,6 +109,14 @@ struct RedesignedSidebar: View {
         }
     }
 
+    /// Single source of truth for the repository-add menu so the header `+`
+    /// and the labelled `AddRepositoryRow` always offer the same actions.
+    @ViewBuilder
+    private func addRepositoryMenuItems() -> some View {
+        Button("Open existing folder…") { onOpenExisting() }
+        Button("Clone new…") { onCloneNew() }
+    }
+
     private func badge(for section: WorkspaceSection) -> Int? {
         switch section {
         case .changes:  return unstagedBadge > 0 ? unstagedBadge : nil
@@ -129,18 +135,17 @@ struct RedesignedSidebar: View {
 
 /// Explicit "add another repo" affordance under the repos list. The header `+`
 /// menu hides this — a labelled row is unmistakable, especially right after
-/// the existing repos finish.
-private struct AddRepositoryRow: View {
-    let onOpenExisting: () -> Void
-    let onCloneNew: () -> Void
+/// the existing repos finish. Menu items are injected so both entry points
+/// stay in sync.
+private struct AddRepositoryRow<Items: View>: View {
+    @ViewBuilder var items: () -> Items
 
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
 
     var body: some View {
         Menu {
-            Button("Open existing folder…") { onOpenExisting() }
-            Button("Clone new…") { onCloneNew() }
+            items()
         } label: {
             HStack(spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: "plus")
@@ -173,7 +178,6 @@ private struct AddRepositoryRow: View {
     }
 }
 
-#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .history
@@ -199,4 +203,3 @@ private struct AddRepositoryRow: View {
     .frame(width: 256, height: 600)
     .appTheme(theme)
 }
-#endif

@@ -62,7 +62,6 @@ struct SidebarRepoRow: View {
     }
 }
 
-#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack(spacing: DesignTokens.Spacing.hairline) {
@@ -84,4 +83,3 @@ struct SidebarRepoRow: View {
     .background(theme.palette.bg1)
     .appTheme(theme)
 }
-#endif
