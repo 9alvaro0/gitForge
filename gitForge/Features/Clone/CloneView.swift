@@ -133,7 +133,7 @@ struct CloneView: View {
         }
         .padding(DesignTokens.Spacing.xxxl)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     /// Add an existing repo from disk — no clone, just a pointer. Drops the
@@ -164,7 +164,7 @@ struct CloneView: View {
         .padding(DesignTokens.Spacing.huge)
         .frame(maxWidth: 560, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     private var cloneCard: some View {
@@ -205,7 +205,7 @@ struct CloneView: View {
         .padding(DesignTokens.Spacing.huge)
         .frame(maxWidth: 560, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -217,7 +217,7 @@ struct CloneView: View {
                     .foregroundStyle(theme.palette.fg3)
                 if let hint {
                     Image(systemName: hint.kind.iconName)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: FontSize.caption, weight: .semibold))
                         .foregroundStyle(hint.kind.tint)
                     Text(hint.message)
                         .font(AppFont.sans(10.5))
@@ -254,7 +254,7 @@ struct CloneView: View {
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("RECENT")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: FontSize.footnote, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             ForEach(repositories) { repo in
@@ -277,7 +277,7 @@ struct CloneView: View {
                 .padding(.horizontal, DesignTokens.Spacing.xl)
                 .padding(.vertical, DesignTokens.Spacing.md)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
             }
         }
     }

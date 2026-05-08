@@ -23,7 +23,7 @@ struct ToastView: View {
         .padding(.horizontal, DesignTokens.Spacing.xxxl)
         .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg3))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.lineStrong, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
         .shadow(color: theme.palette.shadowColor, radius: 20, y: 8)
         .onTapGesture { onDismiss() }
     }

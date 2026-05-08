@@ -30,7 +30,7 @@ struct SegmentedControl<Value: Hashable>: View {
         }
         .padding(DesignTokens.Spacing.xxs)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -43,10 +43,10 @@ struct SegmentedControl<Value: Hashable>: View {
                 .frame(height: 22)
                 .foregroundStyle(isActive ? theme.palette.fg1 : theme.palette.fg3)
                 .background(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
                         .fill(isActive ? theme.palette.bg5 : .clear)
                 )
-                .contentShape(.rect(cornerRadius: 4))
+                .contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
         }
         .buttonStyle(.plain)
     }

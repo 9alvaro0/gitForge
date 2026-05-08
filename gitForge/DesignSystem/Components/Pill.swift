@@ -14,11 +14,11 @@ struct Pill: View {
         let (fg, bg, border): (Color, Color, Color) = {
             switch kind {
             case .up:
-                return (p.ok, p.ok.opacity(0.12), p.ok.opacity(0.3))
+                return (p.ok, p.ok.opacity(DesignTokens.Opacity.subtle), p.ok.opacity(DesignTokens.Opacity.dim))
             case .down:
-                return (p.info, p.info.opacity(0.12), p.info.opacity(0.3))
+                return (p.info, p.info.opacity(DesignTokens.Opacity.subtle), p.info.opacity(DesignTokens.Opacity.dim))
             case .dirty:
-                return (p.mod, p.mod.opacity(0.12), p.mod.opacity(0.3))
+                return (p.mod, p.mod.opacity(DesignTokens.Opacity.subtle), p.mod.opacity(DesignTokens.Opacity.dim))
             case .clean:
                 return (p.fg3, p.bg3, p.line)
             case .neutral:
@@ -31,7 +31,7 @@ struct Pill: View {
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.hairline)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(border, lineWidth: DesignTokens.Stroke.regular))
     }
 }
 

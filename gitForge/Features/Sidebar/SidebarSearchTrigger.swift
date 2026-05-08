@@ -19,7 +19,7 @@ struct SidebarSearchTrigger: View {
             .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: DesignTokens.Sidebar.searchHeight)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(hovering ? theme.palette.bg3 : theme.palette.bg2))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
         }
         .buttonStyle(.plain)

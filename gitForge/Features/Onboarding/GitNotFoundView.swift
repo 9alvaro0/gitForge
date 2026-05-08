@@ -8,7 +8,7 @@ struct GitNotFoundView: View {
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.xhuge) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 56))
+                .font(.system(size: FontSize.display))
                 .foregroundStyle(theme.palette.warn.gradient)
                 .symbolRenderingMode(.hierarchical)
 
