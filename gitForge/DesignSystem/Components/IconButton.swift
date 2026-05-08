@@ -11,7 +11,7 @@ struct IconButton<Content: View>: View {
     var body: some View {
         Button(action: action) {
             content()
-                .frame(width: 26, height: 26)
+                .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm).fill(hovering ? theme.palette.bg3 : .clear))
                 .foregroundStyle(hovering ? theme.palette.fg1 : theme.palette.fg3)
                 .contentShape(.rect(cornerRadius: DesignTokens.Radius.sm))

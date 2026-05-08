@@ -49,6 +49,8 @@ enum DesignTokens {
         static let lg: CGFloat = 16
         static let xl: CGFloat = 18
         static let xxl: CGFloat = 24
+        /// Avatar-sized control / repo mark.
+        static let huge: CGFloat = 26
     }
 
     /// Curated opacities for overlays, dividers, dimmed states.
@@ -70,6 +72,12 @@ enum DesignTokens {
         static let fastDuration: TimeInterval = 0.12
         static let standardDuration: TimeInterval = 0.18
         static let slowDuration: TimeInterval = 0.9
+    }
+
+    /// Standard heights for interactive controls (buttons, text fields,
+    /// toolbar pills, list rows that don't follow `Density.rowHeight`).
+    enum Control {
+        static let height: CGFloat = 28
     }
 
     enum Sidebar {

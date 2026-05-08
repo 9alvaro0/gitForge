@@ -354,7 +354,7 @@ struct HistoryView: View {
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg2)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
     }
 
     private var refsBySha: [String: [GitRef]] {
@@ -398,10 +398,10 @@ struct HistoryView: View {
             disabled: viewModel.remoteOperation != nil && viewModel.remoteOperation != .pulling,
             action: { Task { await viewModel.pull() } }
         ) {
-            Button("Pull --ff-only") {
+            Button("Pull (only if no merge needed)") {
                 Task { await viewModel.pull(ffOnly: true) }
             }
-            Button("Pull --rebase") {
+            Button("Pull and rebase my commits") {
                 Task { await viewModel.pull(rebase: true) }
             }
         }
@@ -418,7 +418,7 @@ struct HistoryView: View {
             disabled: viewModel.remoteOperation != nil && viewModel.remoteOperation != .pushing,
             action: { Task { await viewModel.push() } }
         ) {
-            Button("Push --force-with-lease", role: .destructive) {
+            Button("Force push (only if remote unchanged)", role: .destructive) {
                 Task { await viewModel.push(forceWithLease: true) }
             }
         }
@@ -500,7 +500,7 @@ struct HistoryView: View {
             .frame(height: Self.collapsedStripHeight)
             .frame(maxWidth: .infinity)
             .background(theme.palette.bg1)
-            .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
+            .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -567,8 +567,8 @@ struct HistoryView: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.sm)
-        .frame(height: 28)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .frame(height: DesignTokens.Control.height)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
     }
 
     private var loadingMoreFooter: some View {
@@ -622,7 +622,7 @@ struct HistoryView: View {
             .frame(width: Self.collapsedStripWidth)
             .frame(maxHeight: .infinity)
             .background(theme.palette.bg1)
-            .overlay(alignment: .leading) { Rectangle().fill(theme.palette.lineStrong).frame(width: 1) }
+            .overlay(alignment: .leading) { Rectangle().fill(theme.palette.lineStrong).frame(width: DesignTokens.Stroke.regular) }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

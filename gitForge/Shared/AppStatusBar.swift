@@ -54,7 +54,7 @@ struct AppStatusBar: View {
         .frame(height: DesignTokens.Window.statusbarHeight)
         .background(theme.palette.bg1)
         .overlay(alignment: .top) {
-            Rectangle().fill(theme.palette.lineStrong).frame(height: 1)
+            Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
         }
     }
 

@@ -11,7 +11,7 @@ struct StatusTag: View {
     var body: some View {
         Text(letter)
             .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
-            .frame(width: 18, height: 18)
+            .frame(width: DesignTokens.IconSize.xl, height: DesignTokens.IconSize.xl)
             .foregroundStyle(color)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(color.opacity(DesignTokens.Opacity.muted)))
     }

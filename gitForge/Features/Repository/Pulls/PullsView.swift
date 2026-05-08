@@ -218,7 +218,7 @@ struct PullsView: View {
                 .textFieldStyle(.plain)
                 .font(AppFont.mono(12, family: theme.monoFont))
                 .padding(.horizontal, DesignTokens.Spacing.md)
-                .frame(height: 28)
+                .frame(height: DesignTokens.Control.height)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             if let tokenError {

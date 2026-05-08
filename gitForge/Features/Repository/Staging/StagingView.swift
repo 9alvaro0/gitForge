@@ -96,7 +96,7 @@ struct StagingView: View {
         }
         .frame(width: DesignTokens.Staging.filesWidth)
         .background(theme.palette.bg1)
-        .overlay(alignment: .trailing) { Rectangle().fill(theme.palette.lineStrong).frame(width: 1) }
+        .overlay(alignment: .trailing) { Rectangle().fill(theme.palette.lineStrong).frame(width: DesignTokens.Stroke.regular) }
     }
 
     private static let placeholderPaths = [
@@ -145,7 +145,7 @@ struct StagingView: View {
         HStack(spacing: DesignTokens.Spacing.md) {
             RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
                 .fill(theme.palette.bg2)
-                .frame(width: 14, height: 14)
+                .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
             StatusTag(kind: .modified)
             Text(path)
                 .font(AppFont.mono(11.5, family: theme.monoFont))
@@ -156,7 +156,7 @@ struct StagingView: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.xxl)
         .padding(.vertical, DesignTokens.Spacing.xs)
-        .frame(height: 26)
+        .frame(height: DesignTokens.IconSize.huge)
     }
 
     @ViewBuilder
@@ -244,7 +244,7 @@ struct StagingView: View {
         }
         .padding(DesignTokens.Spacing.xl)
         .background(theme.palette.bg2)
-        .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
     }
 
     private func commit(push: Bool) async {
@@ -283,7 +283,7 @@ private struct StagingRow: View {
             }
             .padding(.horizontal, DesignTokens.Spacing.xxl)
             .padding(.vertical, DesignTokens.Spacing.xs)
-            .frame(height: 26)
+            .frame(height: DesignTokens.IconSize.huge)
             .background(isSelected ? theme.palette.bg4 : (hovering ? theme.palette.bg3 : .clear))
         }
         .buttonStyle(.plain)
@@ -408,7 +408,7 @@ struct GFCheckboxStyle: ToggleStyle {
                         .foregroundStyle(theme.palette.accentFg)
                 }
             }
-            .frame(width: 14, height: 14)
+            .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
         }
         .buttonStyle(.plain)

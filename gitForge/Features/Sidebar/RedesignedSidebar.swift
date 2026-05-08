@@ -42,7 +42,7 @@ struct RedesignedSidebar: View {
                             Image(systemName: "plus")
                                 .font(.system(size: FontSize.caption, weight: .semibold))
                                 .foregroundStyle(theme.palette.fg3)
-                                .frame(width: 16, height: 16)
+                                .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
                                 .contentShape(.rect)
                         }
                         .menuStyle(.button)
@@ -107,7 +107,7 @@ struct RedesignedSidebar: View {
         .frame(width: DesignTokens.Sidebar.width)
         .background(theme.palette.bg1)
         .overlay(alignment: .trailing) {
-            Rectangle().fill(theme.palette.lineStrong).frame(width: 1)
+            Rectangle().fill(theme.palette.lineStrong).frame(width: DesignTokens.Stroke.regular)
         }
     }
 
@@ -146,7 +146,7 @@ private struct AddRepositoryRow: View {
                 Image(systemName: "plus")
                     .font(.system(size: FontSize.footnote, weight: .semibold))
                     .foregroundStyle(foreground.opacity(DesignTokens.Opacity.prominent))
-                    .frame(width: 14, height: 14)
+                    .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
                 Text("Add repository…")
                     .font(AppFont.sans(12))
                     .foregroundStyle(foreground)

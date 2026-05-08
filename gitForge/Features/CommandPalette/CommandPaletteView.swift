@@ -23,9 +23,9 @@ struct CommandPaletteView: View {
             theme.palette.bg0.opacity(0.6).ignoresSafeArea().onTapGesture { onClose() }
             VStack(spacing: DesignTokens.Spacing.none) {
                 inputRow
-                Rectangle().fill(theme.palette.line).frame(height: 1)
+                Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular)
                 resultsList
-                Rectangle().fill(theme.palette.line).frame(height: 1)
+                Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular)
                 footer
             }
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).fill(theme.palette.bg1))

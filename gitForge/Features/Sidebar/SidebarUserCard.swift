@@ -16,7 +16,7 @@ struct SidebarUserCard: View {
                     .font(.system(size: FontSize.footnote, weight: .bold))
                     .foregroundStyle(theme.palette.accentFg)
             }
-            .frame(width: 26, height: 26)
+            .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
                 Text(identity.displayName)
                     .font(AppFont.sans(12, weight: .medium))
@@ -32,7 +32,7 @@ struct SidebarUserCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
-                .frame(width: 8, height: 8)
+                .frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
                 .overlay(Circle().stroke(theme.palette.bg3, lineWidth: DesignTokens.Stroke.thick))
         }
         .padding(.horizontal, DesignTokens.Spacing.lg)

@@ -394,7 +394,7 @@ private struct BranchSection: View {
 
     private var tableHeader: some View {
         HStack {
-            Spacer().frame(width: 14)
+            Spacer().frame(width: DesignTokens.IconSize.md)
             Text("NAME").frame(maxWidth: .infinity, alignment: .leading)
             Text("LAST COMMIT").frame(width: 200, alignment: .leading)
             Spacer().frame(width: 130)
@@ -405,7 +405,7 @@ private struct BranchSection: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg4)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.lineStrong).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
     }
 
     @ViewBuilder
@@ -442,7 +442,7 @@ private struct BranchSection: View {
             .background(.clear)
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
     }
 
     @ViewBuilder
@@ -451,9 +451,9 @@ private struct BranchSection: View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Spacer().frame(width: CGFloat(depth) * 16 + 14)
             if isCurrent {
-                Circle().fill(theme.palette.accent).frame(width: 6, height: 6)
+                Circle().fill(theme.palette.accent).frame(width: DesignTokens.Spacing.sm, height: DesignTokens.Spacing.sm)
             } else {
-                Color.clear.frame(width: 6, height: 6)
+                Color.clear.frame(width: DesignTokens.Spacing.sm, height: DesignTokens.Spacing.sm)
             }
             HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: ref.isRemoteBranch ? .cloud : .desktop, size: 12, stroke: theme.palette.fg2)
@@ -507,7 +507,7 @@ private struct BranchSection: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.sm)
         .background(isCurrent ? theme.palette.accent.opacity(DesignTokens.Opacity.faint) : .clear)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
         .contentShape(.rect)
         .onTapGesture(count: 2) {
             guard !isCurrent else { return }

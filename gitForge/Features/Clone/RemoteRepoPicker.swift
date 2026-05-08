@@ -148,7 +148,7 @@ struct RemoteRepoPicker: View {
                 Image(systemName: repo.isPrivate ? "lock.fill" : "globe")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
-                    .frame(width: 14)
+                    .frame(width: DesignTokens.IconSize.md)
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(repo.fullName)
                         .font(AppFont.mono(12, weight: .medium, family: theme.monoFont))

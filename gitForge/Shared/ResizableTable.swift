@@ -27,11 +27,11 @@ struct ColumnDragHandle: View {
         // its sibling Text views. Setting only `.frame(width:)` lets the
         // height stay flexible, so the handle never bloats the row.
         Color.clear
-            .frame(width: 8)
+            .frame(width: DesignTokens.Spacing.md)
             .overlay(
                 Rectangle()
                     .fill(dividerColor ?? theme.palette.line)
-                    .frame(width: 1)
+                    .frame(width: DesignTokens.Stroke.regular)
                     .allowsHitTesting(false)
             )
             .contentShape(.rect)
@@ -76,11 +76,11 @@ struct RowDragHandle: View {
 
     var body: some View {
         Color.clear
-            .frame(height: 8)
+            .frame(height: DesignTokens.Spacing.md)
             .overlay(
                 Rectangle()
                     .fill(theme.palette.lineStrong)
-                    .frame(height: 1)
+                    .frame(height: DesignTokens.Stroke.regular)
                     .allowsHitTesting(false)
             )
             .contentShape(.rect)
