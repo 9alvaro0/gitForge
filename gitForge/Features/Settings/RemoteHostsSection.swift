@@ -39,12 +39,12 @@ struct RemoteHostsSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text("Remote hosts".uppercased())
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
-            VStack(spacing: 4) {
+            VStack(spacing: DesignTokens.Spacing.xs) {
                 ForEach(entries) { entry in
                     hostRow(entry)
                 }
@@ -61,10 +61,10 @@ struct RemoteHostsSection: View {
     private func hostRow(_ entry: HostEntry) -> some View {
         let hasToken = configured[entry.host] ?? false
         let isTrusted = trusted.contains(entry.host)
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                    HStack(spacing: DesignTokens.Spacing.sm) {
                         Text(entry.provider.label)
                             .font(AppFont.sans(12, weight: .medium))
                             .foregroundStyle(theme.palette.fg1)
@@ -75,7 +75,7 @@ struct RemoteHostsSection: View {
                         .foregroundStyle(hasToken ? theme.palette.ok : theme.palette.fg3)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     GFButton(title: hasToken ? "Replace…" : "Set token…", size: .small) {
                         draftToken = ""
                         editing = entry
@@ -88,12 +88,12 @@ struct RemoteHostsSection: View {
                     }
                 }
             }
-            HStack(spacing: 6) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Button {
                     RemoteHostTrust.shared.setTrusted(entry.host, !isTrusted)
                     refreshConfiguredState()
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: DesignTokens.Spacing.sm) {
                         Text(isTrusted ? "☑" : "☐")
                             .font(AppFont.sans(13))
                             .foregroundStyle(isTrusted ? theme.palette.mod : theme.palette.fg3)
@@ -111,15 +111,15 @@ struct RemoteHostsSection: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
 
     @ViewBuilder
     private func tokenSheet(for entry: HostEntry) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("\(entry.provider.label) token")
                 .font(AppFont.sans(14, weight: .semibold))
             Text(entry.scopeHint)
@@ -129,7 +129,7 @@ struct RemoteHostsSection: View {
             SecureField("ghp_… / glpat_…", text: $draftToken)
                 .textFieldStyle(.plain)
                 .font(AppFont.mono(12, family: theme.monoFont))
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 28)
                 .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
@@ -158,7 +158,7 @@ struct RemoteHostsSection: View {
                 .disabled(draftToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(width: 460)
         .background(theme.palette.bg1)
         .appTheme(theme)
@@ -168,8 +168,8 @@ struct RemoteHostsSection: View {
     private var emojiCacheRow: some View {
         let count = emojiStore.map.count
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     Text("Emoji shortcodes")
                         .font(AppFont.sans(12, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
@@ -190,8 +190,8 @@ struct RemoteHostsSection: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DesignTokens.Spacing.xl)
+        .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
@@ -216,7 +216,7 @@ private struct HostEntry: Identifiable, Equatable {
 #Preview {
     @Previewable @State var theme = AppTheme()
     RemoteHostsSection()
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(width: 600)
         .background(theme.palette.bg2)
         .appTheme(theme)

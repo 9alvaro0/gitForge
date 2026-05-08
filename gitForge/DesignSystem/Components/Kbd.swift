@@ -9,8 +9,8 @@ struct Kbd: View {
         Text(text)
             .font(AppFont.mono(10, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg3)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.vertical, DesignTokens.Spacing.hairline)
             .background(
                 RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
                     .fill(theme.palette.bg3)
@@ -30,7 +30,7 @@ struct Kbd: View {
         Kbd(text: "esc")
         Kbd(text: "↵")
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

@@ -22,7 +22,7 @@ struct MarkdownView: View {
     @ObservedObject private var emojiStore = EmojiShortcodeStore.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             ForEach(Array(MarkdownView.parse(source, emojiMap: emojiStore.map).enumerated()), id: \.offset) { _, block in
                 view(for: block)
             }
@@ -50,9 +50,9 @@ struct MarkdownView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
         case .blockquote(let lines):
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
                 Rectangle().fill(theme.palette.fg4).frame(width: 3)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, text in
                         Text(inlineAttributed(text))
                             .font(AppFont.sans(12.5))
@@ -61,13 +61,13 @@ struct MarkdownView: View {
                     }
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, DesignTokens.Spacing.xxs)
             .frame(maxWidth: .infinity, alignment: .leading)
 
         case .list(let ordered, let items):
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
                         marker(ordered: ordered, index: idx, item: item)
                         Text(inlineAttributed(displayText(of: item)))
                             .font(AppFont.sans(12.5))
@@ -80,20 +80,20 @@ struct MarkdownView: View {
             }
 
         case .codeBlock(let language, let body):
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                 if let language, !language.isEmpty {
                     Text(language)
                         .font(AppFont.mono(10, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
-                        .padding(.horizontal, 8)
-                        .padding(.top, 6)
+                        .padding(.horizontal, DesignTokens.Spacing.md)
+                        .padding(.top, DesignTokens.Spacing.sm)
                 }
                 ScrollView(.horizontal) {
                     Text(body)
                         .font(AppFont.mono(11.5, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg1)
                         .textSelection(.enabled)
-                        .padding(8)
+                        .padding(DesignTokens.Spacing.md)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -104,7 +104,7 @@ struct MarkdownView: View {
             Rectangle()
                 .fill(theme.palette.line)
                 .frame(height: 1)
-                .padding(.vertical, 4)
+                .padding(.vertical, DesignTokens.Spacing.xs)
         }
     }
 
@@ -527,7 +527,7 @@ struct MarkdownView: View {
     """
     ScrollView {
         MarkdownView(source: sample)
-            .padding(20)
+            .padding(DesignTokens.Spacing.huge)
     }
     .frame(width: 600, height: 800)
     .background(theme.palette.bg1)

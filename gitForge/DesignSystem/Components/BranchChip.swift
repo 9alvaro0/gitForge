@@ -16,7 +16,7 @@ struct BranchChip: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DesignTokens.Spacing.xs) {
             GFIcon(kind: iconKind, size: 10, stroke: foreground)
             Text(name)
                 .font(AppFont.mono(10.5, family: theme.monoFont))
@@ -26,9 +26,9 @@ struct BranchChip: View {
                 GFIcon(kind: .cloud, size: 10, stroke: foreground)
             }
         }
-        .padding(.leading, 5)
-        .padding(.trailing, 7)
-        .padding(.vertical, 1)
+        .padding(.leading, DesignTokens.Spacing.sm)
+        .padding(.trailing, DesignTokens.Spacing.md)
+        .padding(.vertical, DesignTokens.Spacing.hairline)
         .foregroundStyle(foreground)
         .background(
             RoundedRectangle(cornerRadius: 10)
@@ -70,13 +70,13 @@ struct BranchChip: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
         BranchChip(name: "feat/commit-graph", current: true)
         BranchChip(name: "main")
         BranchChip(name: "origin/main", remote: true)
         BranchChip(name: "v2.3.1", tag: true)
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

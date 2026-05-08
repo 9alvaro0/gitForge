@@ -28,8 +28,8 @@ struct Pill: View {
         return Text(text)
             .font(AppFont.mono(10, family: theme.monoFont))
             .foregroundStyle(fg)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
+            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.vertical, DesignTokens.Spacing.hairline)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
             .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(border, lineWidth: 1))
     }
@@ -51,7 +51,7 @@ struct StatusPills: View {
         } else if ahead == 0 && behind == 0 && dirty == 0 {
             Pill(text: "clean", kind: .clean)
         } else {
-            HStack(spacing: 3) {
+            HStack(spacing: DesignTokens.Spacing.xxs) {
                 if ahead > 0  { Pill(text: "↑\(ahead)",  kind: .up) }
                 if behind > 0 { Pill(text: "↓\(behind)", kind: .down) }
                 if dirty > 0  { Pill(text: "●\(dirty)",  kind: .dirty) }
@@ -62,7 +62,7 @@ struct StatusPills: View {
 
 #Preview("Pill kinds") {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
         HStack {
             Pill(text: "↑5", kind: .up)
             Pill(text: "↓3", kind: .down)
@@ -73,7 +73,7 @@ struct StatusPills: View {
         StatusPills(ahead: 7, behind: 1, dirty: 3)
         StatusPills(ahead: 0, behind: 0, dirty: 0)
     }
-    .padding(20)
+    .padding(DesignTokens.Spacing.huge)
     .background(theme.palette.bg2)
     .appTheme(theme)
 }

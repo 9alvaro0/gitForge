@@ -28,15 +28,15 @@ struct CloneView: View {
     private var isCloning: Bool { appState.isCloning }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "Add a repository")
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxxxl) {
                     sourceTabs
                     sourceTabContent
                     recentSection
                 }
-                .padding(18)
+                .padding(DesignTokens.Spacing.xxxxl)
                 .frame(maxWidth: 720, alignment: .topLeading)
             }
         }
@@ -60,7 +60,7 @@ struct CloneView: View {
         case .url:
             cloneCard
         case .github:
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
                 RemoteRepoPicker(provider: .github, availableHosts: hostsFor(.github)) { repo in
                     selectRemoteRepo(repo)
                 }
@@ -70,7 +70,7 @@ struct CloneView: View {
             }
             .frame(maxWidth: 560, alignment: .leading)
         case .gitlab:
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
                 RemoteRepoPicker(provider: .gitlab, availableHosts: hostsFor(.gitlab)) { repo in
                     selectRemoteRepo(repo)
                 }
@@ -120,7 +120,7 @@ struct CloneView: View {
     }
 
     private var cloningPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             if case let .running(stage, percent) = appState.cloneState {
                 progressRow(stage: stage, percent: percent)
             }
@@ -131,7 +131,7 @@ struct CloneView: View {
                 }
             }
         }
-        .padding(16)
+        .padding(DesignTokens.Spacing.xxxl)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
     }
@@ -141,10 +141,10 @@ struct CloneView: View {
     /// the sidebar's `+` menu uses, so behavior stays consistent across entry
     /// points.
     private var localCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+            HStack(spacing: DesignTokens.Spacing.lg) {
                 GFIcon(kind: .folder, size: 22, stroke: theme.palette.fg2)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text("Open a folder on this Mac")
                         .font(AppFont.sans(13, weight: .semibold))
                         .foregroundStyle(theme.palette.fg1)
@@ -161,14 +161,14 @@ struct CloneView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(maxWidth: 560, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: 1))
     }
 
     private var cloneCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
             field(label: "Source URL", hint: urlHint) {
                 GFTextField(placeholder: "git@github.com:owner/repo.git", text: $sourceURL)
                     .onChange(of: sourceURL) { _, newValue in
@@ -176,7 +176,7 @@ struct CloneView: View {
                     }
             }
             field(label: "Local path", hint: pathHint) {
-                HStack(spacing: 6) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                     GFTextField(placeholder: "~/code/repo", text: $localPath)
                     GFButton(title: "Choose…") { Task { await pickPath() } }
                 }
@@ -187,7 +187,7 @@ struct CloneView: View {
             if case let .running(stage, percent) = appState.cloneState {
                 progressRow(stage: stage, percent: percent)
             }
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 Spacer()
                 if isCloning {
                     GFButton(title: "Cancel", style: .secondary) {
@@ -200,9 +200,9 @@ struct CloneView: View {
                     clone()
                 }
             }
-            .padding(.top, 4)
+            .padding(.top, DesignTokens.Spacing.xs)
         }
-        .padding(20)
+        .padding(DesignTokens.Spacing.huge)
         .frame(maxWidth: 560, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: 1))
@@ -210,8 +210,8 @@ struct CloneView: View {
 
     @ViewBuilder
     private func field<C: View>(label: String, hint: FieldHint? = nil, @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
                 Text(label)
                     .font(AppFont.sans(11, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
@@ -252,13 +252,13 @@ struct CloneView: View {
     }
 
     private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("RECENT")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             ForEach(repositories) { repo in
-                HStack(spacing: 10) {
+                HStack(spacing: DesignTokens.Spacing.lg) {
                     RepoMark(letter: orgInitial(repo))
                     Text("\(orgName(repo))/\(repo.name)")
                         .font(AppFont.mono(12, family: theme.monoFont))
@@ -274,8 +274,8 @@ struct CloneView: View {
                         Task { await appState.activate(repo) }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, DesignTokens.Spacing.xl)
+                .padding(.vertical, DesignTokens.Spacing.md)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
             }
@@ -295,8 +295,8 @@ struct CloneView: View {
 
     @ViewBuilder
     private func progressRow(stage: String, percent: Double) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 Text(stage)
                     .font(AppFont.mono(11, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
@@ -309,7 +309,7 @@ struct CloneView: View {
                 .progressViewStyle(.linear)
                 .tint(theme.palette.accent)
         }
-        .padding(.top, 4)
+        .padding(.top, DesignTokens.Spacing.xs)
     }
 
     private func pickPath() async {

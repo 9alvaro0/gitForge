@@ -8,7 +8,7 @@ struct WelcomeView: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DesignTokens.Spacing.xxxl) {
             GFIcon(kind: .folder, size: 48, stroke: theme.palette.fg4)
             Text("No repository open")
                 .font(AppFont.sans(16, weight: .semibold))
@@ -17,7 +17,7 @@ struct WelcomeView: View {
                 .font(AppFont.sans(12))
                 .foregroundStyle(theme.palette.fg3)
                 .multilineTextAlignment(.center)
-            HStack(spacing: 8) {
+            HStack(spacing: DesignTokens.Spacing.md) {
                 ToolButton(.folder, label: "Open repository…", primary: true) {
                     Task { await appState.presentOpenRepositoryPanel() }
                 }
@@ -25,18 +25,18 @@ struct WelcomeView: View {
                     appState.workspaceSection = .clone
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, DesignTokens.Spacing.md)
             recentList
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(40)
+        .padding(DesignTokens.Spacing.xxxhuge)
         .background(theme.palette.bg2)
     }
 
     @ViewBuilder
     private var recentList: some View {
         if !appState.repositories.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("RECENT")
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(0.8)
@@ -45,9 +45,9 @@ struct WelcomeView: View {
                     Button {
                         Task { await appState.activate(repo) }
                     } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: DesignTokens.Spacing.lg) {
                             RepoMark(letter: orgInitial(repo))
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                                 Text(repo.name)
                                     .font(AppFont.sans(12, weight: .medium))
                                     .foregroundStyle(theme.palette.fg1)
@@ -59,8 +59,8 @@ struct WelcomeView: View {
                             }
                             Spacer()
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, DesignTokens.Spacing.xl)
+                        .padding(.vertical, DesignTokens.Spacing.md)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
                         .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
                         .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
@@ -78,7 +78,7 @@ struct WelcomeView: View {
                 }
             }
             .frame(maxWidth: 480)
-            .padding(.top, 18)
+            .padding(.top, DesignTokens.Spacing.xxxxl)
         }
     }
 
