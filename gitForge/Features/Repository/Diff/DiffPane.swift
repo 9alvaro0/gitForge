@@ -29,6 +29,12 @@ struct DiffPane: View {
 
     @Environment(\.appTheme) private var theme
 
+    /// Per-hunk syntax-highlighted line table: `hunk.id → line.id → AttributedString`.
+    /// Populated asynchronously by `tokenizeHunks()` once the diff and theme
+    /// settle. While empty, rows fall back to plain `Text(content)` — the
+    /// existing kind-based foreground colouring carries the whole UX.
+    @State private var highlighted: [Int: [Int: AttributedString]] = [:]
+
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
             header
@@ -36,6 +42,36 @@ struct DiffPane: View {
         }
         .background(theme.palette.bg2)
         .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
+        .task(id: tokenizeKey) { await tokenizeHunks() }
+    }
+
+    /// Single value the `.task(id:)` watches. Re-tokenises when the file,
+    /// the set of hunks, or the active theme palette changes — everything
+    /// the cached attributed strings depend on.
+    private var tokenizeKey: String {
+        "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.mode.rawValue)|\(theme.accent.cssHex)"
+    }
+
+    private func tokenizeHunks() async {
+        guard let language = DiffSyntaxHighlighter.languageId(for: file), !hunks.isEmpty else {
+            highlighted = [:]
+            return
+        }
+        let css = DiffSyntaxHighlighter.css(for: theme.palette)
+        let themeId = "\(theme.mode.rawValue)-\(theme.accent.cssHex)"
+        let snapshot = hunks
+        var output: [Int: [Int: AttributedString]] = [:]
+        for hunk in snapshot {
+            let lines = await DiffSyntaxHighlighter.shared.tokenize(
+                hunk: hunk,
+                language: language,
+                css: css,
+                themeId: themeId
+            )
+            if !lines.isEmpty { output[hunk.id] = lines }
+            if Task.isCancelled { return }
+        }
+        highlighted = output
     }
 
     private var header: some View {
@@ -141,7 +177,7 @@ struct DiffPane: View {
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                         hunkHeader(Self.placeholderHunk)
                         ForEach(Self.placeholderHunk.lines) { line in
-                            DiffRow(line: line)
+                            DiffRow(line: line, attributed: nil)
                         }
                     }
                     .fixedSize(horizontal: false, vertical: true)
@@ -165,8 +201,9 @@ struct DiffPane: View {
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                         ForEach(hunks) { hunk in
                             hunkHeader(hunk)
+                            let table = highlighted[hunk.id]
                             ForEach(hunk.lines) { line in
-                                DiffRow(line: line)
+                                DiffRow(line: line, attributed: table?[line.id])
                             }
                         }
                     }
@@ -196,13 +233,14 @@ struct DiffPane: View {
                                 hunkHeader(hunk)
                                     .gridCellColumns(3)
                             }
+                            let table = highlighted[hunk.id]
                             ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
                                 GridRow {
-                                    DiffSplitCell(line: row.left, side: .left)
+                                    DiffSplitCell(line: row.left, side: .left, attributed: row.left.flatMap { table?[$0.id] })
                                     Rectangle()
                                         .fill(theme.palette.line)
                                         .frame(width: DesignTokens.Stroke.regular)
-                                    DiffSplitCell(line: row.right, side: .right)
+                                    DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
                                 }
                             }
                         }
@@ -275,6 +313,11 @@ struct DiffPane: View {
 
 private struct DiffRow: View {
     let line: DiffLine
+    /// Pre-tokenised attributed string for this line. When present, the row
+    /// trusts its embedded foreground colours and skips the kind-based
+    /// `textColor` tint — the +/− sign column and `rowBackground` already
+    /// signal added/removed without overpainting the syntax tokens.
+    let attributed: AttributedString?
     @Environment(\.appTheme) private var theme
 
     var body: some View {
@@ -285,9 +328,8 @@ private struct DiffRow: View {
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
                 .frame(width: DesignTokens.IconSize.xl)
                 .foregroundStyle(signColor)
-            Text(line.content.isEmpty ? " " : line.content)
+            content
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .foregroundStyle(textColor)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, DesignTokens.Spacing.xxl)
@@ -295,6 +337,16 @@ private struct DiffRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let attributed {
+            Text(attributed)
+        } else {
+            Text(line.content.isEmpty ? " " : line.content)
+                .foregroundStyle(textColor)
+        }
     }
 
     @ViewBuilder
@@ -343,6 +395,7 @@ private struct DiffSplitCell: View {
 
     let line: DiffLine?
     let side: Side
+    let attributed: AttributedString?
 
     @Environment(\.appTheme) private var theme
 
@@ -353,9 +406,8 @@ private struct DiffSplitCell: View {
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
                 .frame(width: DesignTokens.IconSize.xl)
                 .foregroundStyle(signColor)
-            Text(displayContent)
+            content
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .foregroundStyle(textColor)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, DesignTokens.Spacing.xxl)
@@ -363,6 +415,16 @@ private struct DiffSplitCell: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(background)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let attributed {
+            Text(attributed)
+        } else {
+            Text(displayContent)
+                .foregroundStyle(textColor)
+        }
     }
 
     @ViewBuilder
