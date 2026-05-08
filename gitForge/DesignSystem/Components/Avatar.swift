@@ -45,7 +45,7 @@ struct RepoMark: View {
             .font(.system(size: size * 0.5, weight: .bold))
             .foregroundStyle(theme.palette.accent)
             .frame(width: size, height: size)
-            .background(RoundedRectangle(cornerRadius: 5).fill(theme.palette.accentSoft))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm).fill(theme.palette.accentSoft))
     }
 }
 

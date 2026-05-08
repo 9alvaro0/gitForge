@@ -13,7 +13,7 @@ struct SidebarUserCard: View {
                 Circle().fill(LinearGradient(colors: [theme.palette.accent, ThemePalette.lanePalette[5]],
                                               startPoint: .topLeading, endPoint: .bottomTrailing))
                 Text(identity.initials)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: FontSize.footnote, weight: .bold))
                     .foregroundStyle(theme.palette.accentFg)
             }
             .frame(width: 26, height: 26)
@@ -33,12 +33,12 @@ struct SidebarUserCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
                 .frame(width: 8, height: 8)
-                .overlay(Circle().stroke(theme.palette.bg3, lineWidth: 2))
+                .overlay(Circle().stroke(theme.palette.bg3, lineWidth: DesignTokens.Stroke.thick))
         }
         .padding(.horizontal, DesignTokens.Spacing.lg)
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.bottom, DesignTokens.Spacing.xs)
         .padding(.top, DesignTokens.Spacing.md)

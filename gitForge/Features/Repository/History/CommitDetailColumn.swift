@@ -76,7 +76,7 @@ struct CommitDetailColumn: View {
         }
         .padding(DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg2))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -84,17 +84,21 @@ struct CommitDetailColumn: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack {
                 Text("FILES CHANGED")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: FontSize.footnote, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 Text("\(detail?.files.count ?? 0)")
-                    .font(.system(size: 11))
+                    .font(.system(size: FontSize.footnote))
                     .foregroundStyle(theme.palette.fg3)
             }
             if let detail {
                 LazyVStack(spacing: DesignTokens.Spacing.hairline) {
                     ForEach(detail.files) { f in
-                        FileMiniRow(file: f, isActive: viewModel.selectedCommitFile == f.path) {
+                        FileMiniRow(
+                            file: f,
+                            absoluteURL: viewModel.repository.url.appendingPathComponent(f.path),
+                            isActive: viewModel.selectedCommitFile == f.path
+                        ) {
                             viewModel.selectedCommitFile = f.path
                         }
                     }
@@ -143,7 +147,7 @@ struct CommitDetailColumn: View {
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("ACTIONS")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: FontSize.footnote, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: DesignTokens.Spacing.sm), GridItem(.flexible(), spacing: DesignTokens.Spacing.sm)], spacing: DesignTokens.Spacing.sm) {
@@ -349,6 +353,7 @@ struct CommitDetailColumn: View {
 
 private struct FileMiniRow: View {
     let file: CommitFileChange
+    let absoluteURL: URL
     let isActive: Bool
     let onSelect: () -> Void
 
@@ -367,10 +372,28 @@ private struct FileMiniRow: View {
             }
             .padding(.horizontal, DesignTokens.Spacing.md)
             .padding(.vertical, DesignTokens.Spacing.sm)
-            .background(RoundedRectangle(cornerRadius: 5).fill(isActive ? theme.palette.bg3 : .clear))
-            .contentShape(.rect(cornerRadius: 5))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm).fill(isActive ? theme.palette.bg3 : .clear))
+            .contentShape(.rect(cornerRadius: DesignTokens.Radius.sm))
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            // The file may have been deleted after the commit; the OS handles
+            // missing-file fallout (Open just fails silently).
+            Button("Open in editor") {
+                NSWorkspace.shared.open(absoluteURL)
+            }
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([absoluteURL])
+            }
+            Divider()
+            Button("Copy path") { copyToPasteboard(file.path) }
+            Button("Copy filename") { copyToPasteboard((file.path as NSString).lastPathComponent) }
+        }
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 
     private var tagKind: StatusTag.Kind {
@@ -435,7 +458,7 @@ private struct CommitActionButtonLabel: View {
         .frame(height: 30)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(background))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
         .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
     }
 

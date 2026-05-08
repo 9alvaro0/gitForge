@@ -205,7 +205,7 @@ private struct UncommittedRow: View {
             HStack(spacing: DesignTokens.Spacing.none) {
                 Spacer().frame(width: 18)
                 Rectangle().fill(theme.palette.mod).frame(width: 8, height: 8)
-                    .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: 1))
+                    .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: DesignTokens.Stroke.regular))
             }
             .frame(width: gutterWidth, alignment: .leading)
             Color.clear.frame(width: 8)
@@ -236,7 +236,7 @@ private struct UncommittedRow: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)
         .frame(height: rowHeight)
-        .background(LinearGradient(colors: [theme.palette.mod.opacity(0.07), .clear], startPoint: .leading, endPoint: .trailing))
+        .background(LinearGradient(colors: [theme.palette.mod.opacity(DesignTokens.Opacity.faint), .clear], startPoint: .leading, endPoint: .trailing))
     }
 }
 
@@ -430,14 +430,14 @@ private struct CommitRow: View {
                 .padding(.horizontal, DesignTokens.Spacing.sm)
                 .padding(.vertical, DesignTokens.Spacing.hairline)
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
                         .fill(showHiddenRefs ? theme.palette.bg4 : theme.palette.bg3)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(theme.palette.lineStrong, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
+                        .stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
                 )
-                .contentShape(.rect(cornerRadius: 10))
+                .contentShape(.rect(cornerRadius: DesignTokens.Radius.chip))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -479,7 +479,7 @@ private struct CommitRow: View {
     }
 
     private var rowBackground: Color {
-        if rowDropTargeted { return theme.palette.accent.opacity(0.10) }
+        if rowDropTargeted { return theme.palette.accent.opacity(DesignTokens.Opacity.subtle) }
         if isSelected { return theme.palette.accentSoft }
         return .clear
     }

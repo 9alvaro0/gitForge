@@ -52,7 +52,7 @@ extension View {
                     Text("OPEN")
                         .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
                         .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                         Text("Add merge request integration")
                             .font(AppFont.sans(13, weight: .medium))
@@ -65,7 +65,7 @@ extension View {
                 }
                 .padding(.horizontal, DesignTokens.Spacing.xxl).padding(.vertical, DesignTokens.Spacing.lg)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
             }
         }
         .padding(DesignTokens.Spacing.xxxxl)

@@ -48,7 +48,7 @@ struct SettingsView: View {
             .padding(.vertical, DesignTokens.Spacing.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
         }
     }
 
@@ -166,8 +166,8 @@ struct SettingsView: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
         .frame(height: 24)
-        .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
     }
 
     // MARK: Generic rows / editing
@@ -176,7 +176,7 @@ struct SettingsView: View {
     private func section<C: View>(title: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: FontSize.footnote, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             VStack(spacing: DesignTokens.Spacing.xs) { content() }
@@ -198,8 +198,8 @@ struct SettingsView: View {
                     .foregroundStyle(theme.palette.fg1)
                     .padding(.horizontal, DesignTokens.Spacing.md)
                     .frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.accent, lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
+                    .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.accent, lineWidth: DesignTokens.Stroke.regular))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .onSubmit { commit(field: field) }
                 GFButton(title: "Save", style: .primary, size: .small) { commit(field: field) }
@@ -221,7 +221,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func rowLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: FontSize.footnote, weight: .medium))
             .tracking(0.6)
             .foregroundStyle(theme.palette.fg3)
             .frame(width: 130, alignment: .leading)
@@ -259,7 +259,7 @@ struct SettingsView: View {
                             .padding(.horizontal, DesignTokens.Spacing.lg)
                             .frame(height: 24)
                             .foregroundStyle(raw == current ? theme.palette.accent : theme.palette.fg2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(raw == current ? theme.palette.accentSoft : theme.palette.bg2))
+                            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(raw == current ? theme.palette.accentSoft : theme.palette.bg2))
                     }
                     .buttonStyle(.plain)
                 }
@@ -277,7 +277,7 @@ struct SettingsView: View {
                         Circle()
                             .fill(c)
                             .frame(width: 20, height: 20)
-                            .overlay(Circle().stroke(c == current ? theme.palette.fg1 : .clear, lineWidth: 2))
+                            .overlay(Circle().stroke(c == current ? theme.palette.fg1 : .clear, lineWidth: DesignTokens.Stroke.thick))
                     }
                     .buttonStyle(.plain)
                 }
@@ -302,8 +302,8 @@ struct SettingsView: View {
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 28)
                 .foregroundStyle(theme.palette.fg1)
-                .background(RoundedRectangle(cornerRadius: 6).fill(theme.palette.bg2))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.palette.lineStrong, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg2))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -320,7 +320,7 @@ private struct SettingRowChrome: ViewModifier {
             .padding(.horizontal, DesignTokens.Spacing.xl)
             .padding(.vertical, DesignTokens.Spacing.md)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 }
 

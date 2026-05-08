@@ -85,7 +85,7 @@ struct RemoteRepoPicker: View {
         } else if let only = availableHosts.first {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: "network")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: FontSize.caption, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                 Text(only)
                     .font(AppFont.mono(11, family: theme.monoFont))
@@ -97,7 +97,7 @@ struct RemoteRepoPicker: View {
     private var searchBar: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: FontSize.footnote, weight: .medium))
                 .foregroundStyle(theme.palette.fg3)
             GFTextField(placeholder: "Filter by name or description…", text: $search)
             if loading || loadingMore {
@@ -170,7 +170,7 @@ struct RemoteRepoPicker: View {
             .padding(.horizontal, DesignTokens.Spacing.xl)
             .padding(.vertical, DesignTokens.Spacing.lg)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
         }
         .buttonStyle(.plain)
@@ -188,7 +188,7 @@ struct RemoteRepoPicker: View {
         .padding(DesignTokens.Spacing.xxxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     private var emptyCard: some View {
@@ -228,7 +228,7 @@ struct RemoteRepoPicker: View {
         .padding(DesignTokens.Spacing.xxxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     // MARK: - Loading

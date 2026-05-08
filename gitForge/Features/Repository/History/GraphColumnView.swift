@@ -169,7 +169,7 @@ struct GraphColumnView: View {
                 context.stroke(
                     Path(ellipseIn: halo),
                     with: .color(commitColor.opacity(0.7)),
-                    style: StrokeStyle(lineWidth: 1.0, dash: [1.5, 1.5])
+                    style: StrokeStyle(lineWidth: DesignTokens.Stroke.regular, dash: [1.5, 1.5])
                 )
             } else {
                 let radius = isPriorityCommit ? dotRadius + 1.0 : dotRadius
@@ -181,7 +181,7 @@ struct GraphColumnView: View {
                 )
                 if isPriorityCommit {
                     let halo = dotRect.insetBy(dx: -2.0, dy: -2.0)
-                    context.fill(Path(ellipseIn: halo), with: .color(commitColor.opacity(0.18)))
+                    context.fill(Path(ellipseIn: halo), with: .color(commitColor.opacity(DesignTokens.Opacity.muted)))
                 }
                 context.fill(Path(ellipseIn: dotRect), with: .color(commitColor))
                 if row.isMerge {

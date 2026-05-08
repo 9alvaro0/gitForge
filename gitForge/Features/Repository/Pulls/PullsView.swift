@@ -171,7 +171,7 @@ struct PullsView: View {
         .padding(.horizontal, DesignTokens.Spacing.xxl)
         .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -219,8 +219,8 @@ struct PullsView: View {
                 .font(AppFont.mono(12, family: theme.monoFont))
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             if let tokenError {
                 Text(tokenError)
                     .font(AppFont.sans(11))
@@ -306,9 +306,9 @@ struct PullsView: View {
                             .foregroundStyle(theme.palette.fg2)
                             .padding(.horizontal, DesignTokens.Spacing.md)
                             .frame(height: 22)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.line, lineWidth: 1))
-                            .contentShape(.rect(cornerRadius: 4))
+                            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
+                            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+                            .contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
                     }
                     .buttonStyle(.plain)
                 }
@@ -316,7 +316,7 @@ struct PullsView: View {
             .padding(.horizontal, DesignTokens.Spacing.xxl)
             .padding(.vertical, DesignTokens.Spacing.lg)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
             .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
         }
         .buttonStyle(.plain)
@@ -327,9 +327,9 @@ struct PullsView: View {
         let p = theme.palette
         let (label, fg, bg): (String, Color, Color) = {
             switch state {
-            case .open:   return ("OPEN",   p.ok,   p.ok.opacity(0.14))
-            case .merged: return ("MERGED", p.info, p.info.opacity(0.14))
-            case .closed: return ("CLOSED", p.del,  p.del.opacity(0.14))
+            case .open:   return ("OPEN",   p.ok,   p.ok.opacity(DesignTokens.Opacity.muted))
+            case .merged: return ("MERGED", p.info, p.info.opacity(DesignTokens.Opacity.muted))
+            case .closed: return ("CLOSED", p.del,  p.del.opacity(DesignTokens.Opacity.muted))
             case .draft:  return ("DRAFT",  p.fg3,  p.bg3)
             }
         }()
@@ -338,7 +338,7 @@ struct PullsView: View {
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)
-            .background(RoundedRectangle(cornerRadius: 3).fill(bg))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
     }
 
     private func relativeDate(_ date: Date) -> String {

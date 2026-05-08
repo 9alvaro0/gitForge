@@ -41,7 +41,7 @@ struct RemoteHostsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text("Remote hosts".uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: FontSize.footnote, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             VStack(spacing: DesignTokens.Spacing.xs) {
@@ -114,7 +114,7 @@ struct RemoteHostsSection: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -131,8 +131,8 @@ struct RemoteHostsSection: View {
                 .font(AppFont.mono(12, family: theme.monoFont))
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.lineStrong, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             if let sheetError {
                 Text(sheetError)
                     .font(AppFont.sans(11))
@@ -193,7 +193,7 @@ struct RemoteHostsSection: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.lg)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     private func refreshConfiguredState() {

@@ -13,7 +13,7 @@ struct StatusTag: View {
             .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
             .frame(width: 18, height: 18)
             .foregroundStyle(color)
-            .background(RoundedRectangle(cornerRadius: 3).fill(color.opacity(0.18)))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(color.opacity(DesignTokens.Opacity.muted)))
     }
 
     private var letter: String {

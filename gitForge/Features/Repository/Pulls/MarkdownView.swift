@@ -97,8 +97,8 @@ struct MarkdownView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 4).fill(theme.palette.bg2))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.palette.line, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
 
         case .horizontalRule:
             Rectangle()

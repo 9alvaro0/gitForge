@@ -541,7 +541,7 @@ struct HistoryView: View {
             Text("main")
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.hairline)
-                .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
                 .frame(width: 100, alignment: .leading)
             // message column
             Text(subject)
@@ -581,7 +581,7 @@ struct HistoryView: View {
         .padding(.horizontal, DesignTokens.Spacing.xxl)
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().stroke(theme.palette.line, lineWidth: 1))
+        .overlay(Capsule().stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
         .padding(.bottom, DesignTokens.Spacing.xl)
     }
 

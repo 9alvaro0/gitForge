@@ -173,9 +173,9 @@ private struct PullRequestStatePill: View {
         let p = theme.palette
         let (label, fg, bg): (String, Color, Color) = {
             switch state {
-            case .open:   return ("OPEN",   p.ok,   p.ok.opacity(0.14))
-            case .merged: return ("MERGED", p.info, p.info.opacity(0.14))
-            case .closed: return ("CLOSED", p.del,  p.del.opacity(0.14))
+            case .open:   return ("OPEN",   p.ok,   p.ok.opacity(DesignTokens.Opacity.muted))
+            case .merged: return ("MERGED", p.info, p.info.opacity(DesignTokens.Opacity.muted))
+            case .closed: return ("CLOSED", p.del,  p.del.opacity(DesignTokens.Opacity.muted))
             case .draft:  return ("DRAFT",  p.fg3,  p.bg3)
             }
         }()
@@ -184,7 +184,7 @@ private struct PullRequestStatePill: View {
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)
-            .background(RoundedRectangle(cornerRadius: 3).fill(bg))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
     }
 }
 
@@ -221,11 +221,11 @@ private struct OverviewTab: View {
             Text("CI: All checks passed")
                 .font(AppFont.sans(11))
                 .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
             Text("Mergeable")
                 .font(AppFont.sans(11))
                 .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg3))
+                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
         }
 
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
@@ -240,7 +240,7 @@ private struct OverviewTab: View {
         .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
 
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             sectionLabel("Reviewers")
@@ -248,14 +248,14 @@ private struct OverviewTab: View {
                 ForEach(["@reviewer-one", "@reviewer-two", "@reviewer-three"], id: \.self) { name in
                     MonoText(name)
                         .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                 }
             }
         }
         .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
 
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             sectionLabel("Labels")
@@ -265,14 +265,14 @@ private struct OverviewTab: View {
                         .font(AppFont.sans(11))
                         .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                         .foregroundStyle(theme.palette.fg2)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                 }
             }
         }
         .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -299,9 +299,9 @@ private struct OverviewTab: View {
         let p = theme.palette
         let (fg, bg): (Color, Color) = {
             switch ci.state {
-            case .success:  (p.ok,   p.ok.opacity(0.14))
-            case .failure:  (p.del,  p.del.opacity(0.14))
-            case .pending:  (p.mod,  p.mod.opacity(0.14))
+            case .success:  (p.ok,   p.ok.opacity(DesignTokens.Opacity.muted))
+            case .failure:  (p.del,  p.del.opacity(DesignTokens.Opacity.muted))
+            case .pending:  (p.mod,  p.mod.opacity(DesignTokens.Opacity.muted))
             case .canceled, .unknown: (p.fg3, p.bg3)
             }
         }()
@@ -315,9 +315,9 @@ private struct OverviewTab: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.sm)
         .padding(.vertical, DesignTokens.Spacing.xxs)
-        .background(RoundedRectangle(cornerRadius: 3).fill(bg))
+        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
         if let url = ci.webURL {
-            Button { NSWorkspace.shared.open(url) } label: { content.contentShape(.rect(cornerRadius: 3)) }.buttonStyle(.plain)
+            Button { NSWorkspace.shared.open(url) } label: { content.contentShape(.rect(cornerRadius: DesignTokens.Radius.xs)) }.buttonStyle(.plain)
         } else {
             content
         }
@@ -328,8 +328,8 @@ private struct OverviewTab: View {
         let p = theme.palette
         let (text, fg, bg): (String, Color, Color) = {
             switch mergeable {
-            case .some(true):  return ("Mergeable", p.ok, p.ok.opacity(0.14))
-            case .some(false): return ("Has conflicts", p.del, p.del.opacity(0.14))
+            case .some(true):  return ("Mergeable", p.ok, p.ok.opacity(DesignTokens.Opacity.muted))
+            case .some(false): return ("Has conflicts", p.del, p.del.opacity(DesignTokens.Opacity.muted))
             case .none:        return ("Mergeability unknown", p.fg3, p.bg3)
             }
         }()
@@ -338,7 +338,7 @@ private struct OverviewTab: View {
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)
-            .background(RoundedRectangle(cornerRadius: 3).fill(bg))
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
     }
 
     @ViewBuilder
@@ -356,7 +356,7 @@ private struct OverviewTab: View {
         .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -375,14 +375,14 @@ private struct OverviewTab: View {
                     }
                     .padding(.horizontal, DesignTokens.Spacing.sm)
                     .padding(.vertical, DesignTokens.Spacing.xxs)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
+                    .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                 }
             }
         }
         .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -396,20 +396,20 @@ private struct OverviewTab: View {
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.xxs)
                         .foregroundStyle(theme.palette.fg2)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(theme.palette.bg2))
+                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                 }
             }
         }
         .padding(DesignTokens.Spacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: FontSize.caption, weight: .semibold))
             .tracking(0.7)
             .foregroundStyle(theme.palette.fg3)
     }
@@ -496,7 +496,7 @@ private struct CommitsTab: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     @ViewBuilder
@@ -524,7 +524,7 @@ private struct CommitsTab: View {
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
     private func relativeDate(_ date: Date) -> String {

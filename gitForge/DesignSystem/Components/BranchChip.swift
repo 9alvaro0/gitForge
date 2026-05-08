@@ -31,12 +31,12 @@ struct BranchChip: View {
         .padding(.vertical, DesignTokens.Spacing.hairline)
         .foregroundStyle(foreground)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
                 .fill(background)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
+                .stroke(border, lineWidth: DesignTokens.Stroke.regular)
         )
     }
 
@@ -55,15 +55,15 @@ struct BranchChip: View {
         return theme.palette.fg2
     }
     private var background: Color {
-        if current { return theme.palette.accent.opacity(0.15) }
-        if tag     { return theme.palette.mod.opacity(0.12) }
+        if current { return theme.palette.accent.opacity(DesignTokens.Opacity.muted) }
+        if tag     { return theme.palette.mod.opacity(DesignTokens.Opacity.subtle) }
         if remote  { return theme.palette.bg3 }
         return theme.palette.bg3
     }
     private var border: Color {
-        if current { return theme.palette.accent.opacity(0.30) }
-        if tag     { return theme.palette.mod.opacity(0.30) }
-        if remote  { return theme.palette.info.opacity(0.30) }
+        if current { return theme.palette.accent.opacity(DesignTokens.Opacity.dim) }
+        if tag     { return theme.palette.mod.opacity(DesignTokens.Opacity.dim) }
+        if remote  { return theme.palette.info.opacity(DesignTokens.Opacity.dim) }
         return theme.palette.lineStrong
     }
 }

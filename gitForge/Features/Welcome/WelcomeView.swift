@@ -38,7 +38,7 @@ struct WelcomeView: View {
         if !appState.repositories.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("RECENT")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: FontSize.footnote, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 ForEach(appState.repositories.prefix(5)) { repo in
@@ -62,7 +62,7 @@ struct WelcomeView: View {
                         .padding(.horizontal, DesignTokens.Spacing.xl)
                         .padding(.vertical, DesignTokens.Spacing.md)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
                         .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
                     }
                     .buttonStyle(.plain)
