@@ -9,19 +9,12 @@ struct Avatar: View {
     var size: CGFloat = 18
     var colorSeed: String? = nil
 
-    private static let palette: [Color] = [
-        Color(hex: 0x7c5cff),
-        Color(hex: 0xff7e6b),
-        Color(hex: 0x56b497),
-        Color(hex: 0xdda44b),
-        Color(hex: 0x5da4ff),
-        Color(hex: 0xc976d9),
-    ]
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         Text(initials)
             .font(.system(size: size * 0.5, weight: .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(theme.palette.accentFg)
             .frame(width: size, height: size)
             .background(Circle().fill(background))
     }
@@ -35,7 +28,8 @@ struct Avatar: View {
         let seed = colorSeed ?? name
         var h: Int = 0
         for c in seed.unicodeScalars { h = (h &* 31) &+ Int(c.value) }
-        return Self.palette[abs(h) % Self.palette.count]
+        let palette = ThemePalette.lanePalette
+        return palette[abs(h) % palette.count]
     }
 }
 

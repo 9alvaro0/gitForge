@@ -10,11 +10,11 @@ struct SidebarUserCard: View {
     var body: some View {
         HStack(spacing: 9) {
             ZStack {
-                Circle().fill(LinearGradient(colors: [Color(hex: 0x7c5cff), Color(hex: 0xc976d9)],
+                Circle().fill(LinearGradient(colors: [theme.palette.accent, ThemePalette.lanePalette[5]],
                                               startPoint: .topLeading, endPoint: .bottomTrailing))
                 Text(identity.initials)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.palette.accentFg)
             }
             .frame(width: 26, height: 26)
             VStack(alignment: .leading, spacing: 1) {
