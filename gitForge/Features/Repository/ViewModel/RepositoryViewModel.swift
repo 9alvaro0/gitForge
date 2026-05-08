@@ -19,6 +19,12 @@ final class RepositoryViewModel {
     var isLoadingMore = false
     var hasMore = true
     var loadError: String?
+    /// Cumulative number of commits `git log` has produced for the current
+    /// scope, **before** client-side filters like `dropStashInternals` shrink
+    /// the array. Used as `--skip` for pagination so a filtered page never
+    /// causes the next walk to overlap with already-loaded commits (which
+    /// would surface as duplicate IDs in the History `ForEach`).
+    var loadedRawCount: Int = 0
     /// `false` until a `loadInitial()` for the current scope completes.
     /// `resetLog()` clears it so the skeleton can show again on a fresh
     /// branch/checkout. Drives the History skeleton without the

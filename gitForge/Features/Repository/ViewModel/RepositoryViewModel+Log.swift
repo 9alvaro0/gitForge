@@ -38,6 +38,7 @@ extension RepositoryViewModel {
             }
             let page = try await cli.log(limit: Self.pageSize, skip: 0, refs: graphScope())
             commits = page
+            loadedRawCount = page.count
             dropStashInternals()
             hasMore = page.count == Self.pageSize
             selectedCommitId = commits.first?.id
@@ -64,6 +65,7 @@ extension RepositoryViewModel {
             unmergedLocalBranchRefs = (try? await cli.unmergedLocalBranches()) ?? []
             let page = try await cli.log(limit: Self.pageSize, skip: 0, refs: graphScope())
             commits = page
+            loadedRawCount = page.count
             dropStashInternals()
             hasMore = page.count == Self.pageSize
             if let prev = previousSelection,
@@ -84,7 +86,8 @@ extension RepositoryViewModel {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let next = try await cli.log(limit: Self.pageSize, skip: commits.count, refs: graphScope())
+            let next = try await cli.log(limit: Self.pageSize, skip: loadedRawCount, refs: graphScope())
+            loadedRawCount += next.count
             commits.append(contentsOf: next)
             dropStashInternals()
             hasMore = next.count == Self.pageSize
@@ -108,7 +111,8 @@ extension RepositoryViewModel {
         var pagesLoaded = 0
         while hasMore && pagesLoaded < Self.maxRevealPages {
             do {
-                let next = try await cli.log(limit: Self.pageSize, skip: commits.count, refs: graphScope())
+                let next = try await cli.log(limit: Self.pageSize, skip: loadedRawCount, refs: graphScope())
+                loadedRawCount += next.count
                 commits.append(contentsOf: next)
                 dropStashInternals()
                 hasMore = next.count == Self.pageSize
@@ -157,6 +161,7 @@ extension RepositoryViewModel {
     /// commit / pull / branch ops that change HEAD.
     func resetLog() {
         commits = []
+        loadedRawCount = 0
         graphLayouts = []
         graphMaxLanes = 1
         hasMore = true

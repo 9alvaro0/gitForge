@@ -49,6 +49,30 @@ extension RepositoryViewModel {
         conflictPicks[hunkId] = pick
     }
 
+    /// One-shot conflict resolution: replaces the file content with one whole
+    /// side and stages it. Used by the "Resolve using ours/theirs" context
+    /// menu actions in `ConflictView`, where the user already knows they want
+    /// the entire side without picking hunk-by-hunk.
+    func resolveFile(at path: String, using side: ConflictHunk.Pick) async {
+        do {
+            switch side {
+            case .ours:   try await cli.checkoutOurs(path: path)
+            case .theirs: try await cli.checkoutTheirs(path: path)
+            case .both:
+                // No native git equivalent. Caller should use the per-hunk
+                // resolver (the ConflictView UI) for `.both`.
+                Self.logger.error("resolveFile(at:using: .both) is not supported — use the per-hunk resolver")
+                return
+            }
+            try await cli.markResolved(path: path)
+            await loadConflictState()
+            await refreshStatus()
+        } catch {
+            Self.logger.error("Resolve \(path, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
     /// Writes the resolved version of `selectedConflictPath` to disk and stages
     /// it. Refreshes conflict state when done.
     func resolveSelectedFile() async {
@@ -72,7 +96,10 @@ extension RepositoryViewModel {
             switch mergeState {
             case .merging:  try await cli.mergeAbort()
             case .rebasing: try await cli.rebaseAbort()
-            case .clean:    return
+            // `.unmerged` (typically a stash apply conflict) has no native
+            // abort — the user resolves manually or discards the affected
+            // paths from Changes. Treat as no-op here.
+            case .clean, .unmerged: return
             }
             await loadConflictState()
             await refreshStatus()
@@ -149,7 +176,10 @@ extension RepositoryViewModel {
             switch mergeState {
             case .merging:  try await cli.mergeContinue()
             case .rebasing: try await cli.rebaseContinue()
-            case .clean:    return
+            // `.unmerged` has no continue command — once everything is staged
+            // the user just commits. We refresh below to reflect the latest
+            // resolution state regardless.
+            case .clean, .unmerged: break
             }
             await loadConflictState()
             await refreshStatus()

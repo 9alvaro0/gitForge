@@ -8,22 +8,43 @@ import os
 ///
 /// Holds no mutable state — Keychain APIs are themselves thread-safe — so it
 /// ships as a `Sendable` value type with namespace-style methods.
+///
+/// We use the modern data-protection keychain (`kSecUseDataProtectionKeychain`)
+/// scoped to a Team-ID-prefixed access group instead of the legacy macOS
+/// keychain. The legacy keychain pins each item's ACL to the exact code
+/// signature that wrote it, so users see "GitForge wants to access…" prompts
+/// every time we ship a new build (different signature ⇒ different ACL). The
+/// data-protection keychain gates access by access group entitlement, which
+/// any binary signed with the same Developer ID team will satisfy — no
+/// prompts, even across app updates and side-by-side dev/release installs.
 struct RemoteCredentialsStore: Sendable {
     static let shared = RemoteCredentialsStore()
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "credentials")
 
     private let service = "com.warwarelabs.gitForge.remote-token"
 
+    /// Must match `keychain-access-groups` in `gitForge.entitlements`. The
+    /// `T6B3T6K6TZ.` prefix is the Team ID; expanded from `$(AppIdentifierPrefix)`
+    /// at sign time.
+    private let accessGroup = "T6B3T6K6TZ.com.warwarelabs.gitForge"
+
+    private func baseQuery() -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecUseDataProtectionKeychain as String: true,
+        ]
+    }
+
     /// Returns the token stored for `host`, or nil if none exists / Keychain
     /// access fails.
     func token(for host: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: host,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        var query = baseQuery()
+        query[kSecAttrAccount as String] = host
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess,
@@ -52,20 +73,10 @@ struct RemoteCredentialsStore: Sendable {
         }
 
         let data = Data(trimmed.utf8)
-        let attributes: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: host,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-        ]
 
         // Try update first; fall back to add when nothing existed.
-        let updateQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: host,
-        ]
+        var updateQuery = baseQuery()
+        updateQuery[kSecAttrAccount as String] = host
         let updateAttrs: [String: Any] = [kSecValueData as String: data]
         let updateStatus = SecItemUpdate(updateQuery as CFDictionary, updateAttrs as CFDictionary)
         if updateStatus == errSecSuccess { return nil }
@@ -74,6 +85,11 @@ struct RemoteCredentialsStore: Sendable {
             Self.logger.error("Keychain SecItemUpdate failed (\(updateStatus, privacy: .public)) for host \(host, privacy: .public)")
             return Self.message(for: updateStatus)
         }
+
+        var attributes = baseQuery()
+        attributes[kSecAttrAccount as String] = host
+        attributes[kSecValueData as String] = data
+        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
 
         let addStatus = SecItemAdd(attributes as CFDictionary, nil)
         if addStatus != errSecSuccess {
@@ -92,11 +108,8 @@ struct RemoteCredentialsStore: Sendable {
     }
 
     func removeToken(for host: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: host,
-        ]
+        var query = baseQuery()
+        query[kSecAttrAccount as String] = host
         _ = SecItemDelete(query as CFDictionary)
     }
 
@@ -109,12 +122,10 @@ struct RemoteCredentialsStore: Sendable {
     /// actually has configured — instead of guessing `gitlab.com` when their
     /// real host is something self-hosted.
     func knownHosts() -> [String] {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-            kSecReturnAttributes as String: true,
-        ]
+        var query = baseQuery()
+        query[kSecMatchLimit as String] = kSecMatchLimitAll
+        query[kSecReturnAttributes as String] = true
+
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess, let items = result as? [[String: Any]] else {
