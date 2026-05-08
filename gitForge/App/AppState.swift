@@ -32,17 +32,13 @@ final class AppState {
     // MARK: - Bootstrap
 
     /// Spins up the app: probes git, reads global config, loads recents,
-    /// reopens the last active repo, and starts the status poller. Also
-    /// warms the emoji shortcode cache used by PR detail rendering.
+    /// reopens the last active repo, and starts the status poller.
     func bootstrap() async {
         async let gitCheck: Void = gitEnvironment.refreshGitInstallation()
         async let configRead: Void = gitEnvironment.refreshGlobalConfig()
         await catalog.load()
         _ = await gitCheck
         _ = await configRead
-
-        EmojiShortcodeStore.shared.loadCachedSync()
-        Task { await EmojiShortcodeStore.shared.refreshIfNeeded() }
 
         if await catalog.restoreLastActive() {
             ui.workspaceSection = .history
