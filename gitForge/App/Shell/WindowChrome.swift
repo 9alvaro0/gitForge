@@ -21,12 +21,23 @@ struct WindowChrome<Content: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(theme.palette.bg2)
-        .preferredColorScheme(theme.mode == .dark ? .dark : .light)
+        .preferredColorScheme(preferredScheme)
         .configureWindow { window in
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.styleMask.insert(.fullSizeContentView)
             window.backgroundColor = .clear
+        }
+    }
+
+    /// `.system` returns `nil` so SwiftUI keeps the OS scheme; explicit
+    /// modes force the window to follow the user's pick regardless of the
+    /// menu-bar setting.
+    private var preferredScheme: ColorScheme? {
+        switch theme.mode {
+        case .system: return nil
+        case .dark:   return .dark
+        case .light:  return .light
         }
     }
 

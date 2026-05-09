@@ -41,8 +41,8 @@ struct AppearanceSection: View {
     private var codeColumn: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             menuPicker(label: "Mono font",
-                       values: MonoFontFamily.allCases.map { ($0.rawValue, $0.label) },
-                       current: ui.theme.monoFont.rawValue) { v in
+                       values: MonoFontFamily.availableCases.map { ($0.rawValue, $0.label) },
+                       current: ui.theme.monoFont.resolved().rawValue) { v in
                 if let f = MonoFontFamily(rawValue: v) { ui.theme.monoFont = f }
             }
             radioRow(label: "Diff view",
@@ -50,9 +50,35 @@ struct AppearanceSection: View {
                      current: ui.theme.defaultDiffMode.rawValue) { v in
                 if let m = DiffPane.ViewMode(rawValue: v) { ui.theme.defaultDiffMode = m }
             }
+            menuPicker(label: "Diff context lines",
+                       values: Self.contextOptions,
+                       current: String(ui.theme.diffContextLines)) { v in
+                if let n = Int(v) { ui.theme.diffContextLines = n }
+            }
+            wrapToggle
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private var wrapToggle: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            fieldLabel("Wrap long diff lines")
+            Toggle(isOn: Binding(
+                get: { ui.theme.diffWrapLongLines },
+                set: { ui.theme.diffWrapLongLines = $0 }
+            )) {
+                Text(ui.theme.diffWrapLongLines ? "Soft-wrap onto the next visual row" : "Overflow horizontally (default)")
+                    .font(AppFont.sans(11))
+                    .foregroundStyle(theme.palette.fg2)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
+    }
+
+    private static let contextOptions: [(String, String)] = [
+        ("1", "1 line"), ("3", "3 lines"), ("5", "5 lines"), ("10", "10 lines"),
+    ]
 
     @ViewBuilder
     private func radioRow(label: String,
