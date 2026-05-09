@@ -3,6 +3,7 @@ import AppKit
 
 struct StashRow: View {
     let stash: Stash
+    let onSelect: () -> Void
     let onApply: () -> Void
     let onPop: () -> Void
     let onDrop: () -> Void
@@ -10,24 +11,30 @@ struct StashRow: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.xl) {
-            metadata
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                GFButton(title: "Apply", size: .small, action: onApply)
-                GFButton(title: "Pop", style: .primary, size: .small, action: onPop)
-                OverflowMenu {
-                    Button("Apply (keep)",       action: onApply)
-                    Button("Pop (apply + drop)", action: onPop)
-                    Divider()
-                    Button("Drop…", role: .destructive, action: onDrop)
+        Button(action: onSelect) {
+            HStack(spacing: DesignTokens.Spacing.xl) {
+                metadata
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    GFButton(title: "Apply", size: .small, action: onApply)
+                    GFButton(title: "Pop", style: .primary, size: .small, action: onPop)
+                    OverflowMenu {
+                        Button("Apply (keep)",       action: onApply)
+                        Button("Pop (apply + drop)", action: onPop)
+                        Divider()
+                        Button("Drop…", role: .destructive, action: onDrop)
+                    }
                 }
             }
+            .padding(.horizontal, DesignTokens.Spacing.xxl)
+            .padding(.vertical, DesignTokens.Spacing.lg)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxl)
-        .padding(.vertical, DesignTokens.Spacing.lg)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .buttonStyle(.plain)
         .contextMenu {
+            Button("Show details",       action: onSelect)
+            Divider()
             Button("Apply (keep)",       action: onApply)
             Button("Pop (apply + drop)", action: onPop)
             Divider()
@@ -67,7 +74,7 @@ struct StashRow: View {
     @Previewable @State var theme = AppTheme()
     VStack(spacing: 8) {
         ForEach(Stash.previewSamples) { stash in
-            StashRow(stash: stash, onApply: {}, onPop: {}, onDrop: {})
+            StashRow(stash: stash, onSelect: {}, onApply: {}, onPop: {}, onDrop: {})
         }
     }
     .padding()

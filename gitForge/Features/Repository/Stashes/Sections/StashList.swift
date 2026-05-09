@@ -3,6 +3,7 @@ import SwiftUI
 struct StashList: View {
     let stashes: [Stash]
     let hasDirtyChanges: Bool
+    let onSelect: (Stash) -> Void
     let onApply: (Stash) -> Void
     let onPop: (Stash) -> Void
     let onDrop: (Stash) -> Void
@@ -22,9 +23,10 @@ struct StashList: View {
                     ForEach(stashes) { stash in
                         StashRow(
                             stash: stash,
-                            onApply: { onApply(stash) },
-                            onPop:   { onPop(stash) },
-                            onDrop:  { onDrop(stash) }
+                            onSelect: { onSelect(stash) },
+                            onApply:  { onApply(stash) },
+                            onPop:    { onPop(stash) },
+                            onDrop:   { onDrop(stash) }
                         )
                     }
                 }
@@ -38,7 +40,7 @@ struct StashList: View {
     @Previewable @State var theme = AppTheme()
     StashList(
         stashes: Stash.previewSamples, hasDirtyChanges: true,
-        onApply: { _ in }, onPop: { _ in }, onDrop: { _ in }
+        onSelect: { _ in }, onApply: { _ in }, onPop: { _ in }, onDrop: { _ in }
     )
     .frame(width: 980, height: 600)
     .background(theme.palette.bg2)
@@ -49,7 +51,7 @@ struct StashList: View {
     @Previewable @State var theme = AppTheme()
     StashList(
         stashes: [], hasDirtyChanges: false,
-        onApply: { _ in }, onPop: { _ in }, onDrop: { _ in }
+        onSelect: { _ in }, onApply: { _ in }, onPop: { _ in }, onDrop: { _ in }
     )
     .frame(width: 980, height: 600)
     .background(theme.palette.bg2)
@@ -60,7 +62,7 @@ struct StashList: View {
     @Previewable @State var theme = AppTheme()
     StashList(
         stashes: [], hasDirtyChanges: true,
-        onApply: { _ in }, onPop: { _ in }, onDrop: { _ in }
+        onSelect: { _ in }, onApply: { _ in }, onPop: { _ in }, onDrop: { _ in }
     )
     .frame(width: 980, height: 600)
     .background(theme.palette.bg2)

@@ -69,6 +69,16 @@ final class RepositoryViewModel {
     var refs: [GitRef] = []
     var currentBranchName: String?
     var stashes: [Stash] = []
+
+    // Stash detail (drives StashDetailView)
+    var selectedStash: Stash?
+    var stashDetail: StashDetail?
+    var stashDetailLoading: Bool = false
+    var stashDetailError: String?
+    var selectedStashFile: String?
+    var stashFileDiff: [DiffHunk] = []
+    var loadingStashFileDiff: Bool = false
+    var stashFileDiffEmptyState: DiffEmptyState = .empty
     /// Full ref-names of local branches whose tip is NOT reachable from HEAD.
     /// Feeds the graph log scope so we don't open a separate lane for every
     /// already-merged branch ref still lingering locally. Refreshed by

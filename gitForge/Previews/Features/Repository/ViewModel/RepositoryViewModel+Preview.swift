@@ -79,4 +79,17 @@ extension RepositoryViewModel {
         vm.stashes = Stash.previewSamples
         return vm
     }
+
+    /// Variant drilled into the first stash with detail + files preloaded
+    /// and the first file's diff selected.
+    static var previewWithStashDetail: RepositoryViewModel {
+        let vm = previewWithStashes
+        vm.selectedStash = Stash.previewSamples.first
+        vm.stashDetail = .previewSample
+        vm.selectedStashFile = StashFileChange.previewSamples.first?.path
+        // No diff hunks — preview shows the metadata + file list. Hooking up
+        // a real diff would require parsing a unified diff sample, which the
+        // shared DiffHunk preview helper already covers via its own previews.
+        return vm
+    }
 }
