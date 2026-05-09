@@ -219,36 +219,32 @@ struct DiffPane: View {
     /// on the right, with consecutive removed / added groups paired so the
     /// changed lines align horizontally. Shorter side gets blank rows.
     ///
-    /// Uses `Grid` so the two content columns share widths across every row —
-    /// otherwise each row's `HStack` sized independently and the centre
-    /// divider drifted horizontally between rows whose contents had different
-    /// natural widths (visible as a zigzag column boundary in dense diffs).
+    /// Both panels split the viewport in half via a `Grid` pinned to the
+    /// container width. Lines that would overflow truncate with an ellipsis
+    /// — split mode trades horizontal scroll for a stable two-column layout
+    /// (unified keeps the 2D scroll for full-line inspection).
     private var splitContent: some View {
         GeometryReader { geo in
-            ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
-                        ForEach(hunks) { hunk in
+            ScrollView(.vertical) {
+                Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+                    ForEach(hunks) { hunk in
+                        GridRow {
+                            hunkHeader(hunk)
+                                .gridCellColumns(3)
+                        }
+                        let table = highlighted[hunk.id]
+                        ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
                             GridRow {
-                                hunkHeader(hunk)
-                                    .gridCellColumns(3)
-                            }
-                            let table = highlighted[hunk.id]
-                            ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                                GridRow {
-                                    DiffSplitCell(line: row.left, side: .left, attributed: row.left.flatMap { table?[$0.id] })
-                                    Rectangle()
-                                        .fill(theme.palette.line)
-                                        .frame(width: DesignTokens.Stroke.regular)
-                                    DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
-                                }
+                                DiffSplitCell(line: row.left, side: .left, attributed: row.left.flatMap { table?[$0.id] })
+                                Rectangle()
+                                    .fill(theme.palette.line)
+                                    .frame(width: DesignTokens.Stroke.regular)
+                                DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
                             }
                         }
                     }
-                    .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
                 }
-                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
+                .frame(width: geo.size.width, alignment: .topLeading)
             }
         }
     }
@@ -321,22 +317,37 @@ private struct DiffRow: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
+        HStack(alignment: theme.diffWrapLongLines ? .top : .center, spacing: DesignTokens.Spacing.none) {
             lineNumber(line.oldLineNumber)
             lineNumber(line.newLineNumber)
             Text(sign)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
                 .frame(width: DesignTokens.IconSize.xl)
                 .foregroundStyle(signColor)
+            wrappedContent
+            if !theme.diffWrapLongLines { Spacer(minLength: 0) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(rowBackground)
+    }
+
+    /// Toggle between horizontal-overflow (default, matches Tower/GitHub) and
+    /// soft-wrap when the user opts in via Settings → Appearance.
+    @ViewBuilder
+    private var wrappedContent: some View {
+        if theme.diffWrapLongLines {
+            content
+                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.trailing, DesignTokens.Spacing.xxl)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
             content
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, DesignTokens.Spacing.xxl)
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground)
     }
 
     @ViewBuilder
@@ -400,7 +411,7 @@ private struct DiffSplitCell: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
             lineNumber
             Text(sign)
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
@@ -408,15 +419,18 @@ private struct DiffSplitCell: View {
                 .foregroundStyle(signColor)
             content
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.trailing, DesignTokens.Spacing.xxl)
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(background)
     }
 
+    /// Long lines wrap to multiple visual rows so the content stays readable
+    /// without horizontal scroll. `GridRow` in `splitContent` aligns both
+    /// sides to the taller wrapped height — so paired changed lines remain
+    /// horizontally aligned even when one side wraps further than the other.
     @ViewBuilder
     private var content: some View {
         if let attributed {

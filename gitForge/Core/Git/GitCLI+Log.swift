@@ -100,13 +100,14 @@ extension GitCLI {
 
     func diff(sha: String, file: String) async throws -> String {
         let parentRef = "\(sha)^"
-        let result = try? await run(["diff", parentRef, sha, "--", file])
+        let context = "-U\(AppTheme.persistedDiffContextLines())"
+        let result = try? await run(["diff", parentRef, sha, context, "--", file])
         if let result {
             return result.stdout
         }
         // Initial commit has no parent; use empty tree
         let emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-        let fallback = try await run(["diff", emptyTree, sha, "--", file])
+        let fallback = try await run(["diff", emptyTree, sha, context, "--", file])
         return fallback.stdout
     }
 }

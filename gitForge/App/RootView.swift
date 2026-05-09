@@ -5,6 +5,7 @@ import SwiftUI
 /// content router, command palette, toasts — lives in `App/Shell/ShellView`.
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var systemColorScheme
 
     var body: some View {
         @Bindable var ui = appState.ui
@@ -31,6 +32,10 @@ struct RootView: View {
             Button("OK", role: .cancel) {}
         } message: { error in
             Text(error.message)
+        }
+        .onAppear { ui.theme.systemColorScheme = systemColorScheme }
+        .onChange(of: systemColorScheme) { _, scheme in
+            ui.theme.systemColorScheme = scheme
         }
     }
 }

@@ -1,11 +1,18 @@
 import SwiftUI
 
 enum ThemeMode: String, CaseIterable, Identifiable, Sendable {
+    case system
     case dark
     case light
 
     var id: String { rawValue }
-    var label: String { rawValue.capitalized }
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .dark:   return "Dark"
+        case .light:  return "Light"
+        }
+    }
 }
 
 /// Direct port of the `:root[data-theme="…"]` CSS variables from the design bundle.
