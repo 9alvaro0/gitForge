@@ -1,45 +1,47 @@
 import SwiftUI
 
+/// Post-onboarding gate: shown when `gitEnvironment.gitStatus == .notFound`
+/// after the user has already finished the initial flow (e.g. they
+/// uninstalled git later). Mirrors the look of `GitStep.notFoundState` so
+/// the experience stays consistent across both entry points.
 struct GitNotFoundView: View {
-    @Environment(AppState.self) private var appState
+    @Environment(GitEnvironment.self) private var gitEnvironment
     @Environment(\.appTheme) private var theme
     @State private var isInstalling = false
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xhuge) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: FontSize.display))
-                .foregroundStyle(theme.palette.warn.gradient)
-                .symbolRenderingMode(.hierarchical)
-
-            VStack(spacing: DesignTokens.Spacing.lg) {
-                Text("Git is required")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(theme.palette.fg3)
-                    .frame(maxWidth: 440)
+        VStack(spacing: DesignTokens.Spacing.xxl) {
+            ZStack {
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.xl)
+                    .fill(theme.palette.warn.opacity(0.15))
+                    .frame(width: 64, height: 64)
+                GFIcon(kind: .warn, size: 28, stroke: theme.palette.warn)
             }
-
-            HStack(spacing: DesignTokens.Spacing.xl) {
-                Button {
-                    installCommandLineTools()
-                } label: {
-                    Label("Install Command Line Tools", systemImage: "arrow.down.circle")
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                Text("Git is required")
+                    .font(AppFont.sans(16, weight: .semibold))
+                    .foregroundStyle(theme.palette.fg1)
+                Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
+                    .font(AppFont.sans(12))
+                    .foregroundStyle(theme.palette.fg3)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
+            HStack(spacing: DesignTokens.Spacing.md) {
+                GFButton(
+                    title: isInstalling ? "Installing…" : "Install Command Line Tools",
+                    style: .primary,
+                    disabled: isInstalling,
+                    action: installCommandLineTools
+                )
+                GFButton(title: "Recheck") {
+                    Task { await gitEnvironment.refreshGitInstallation() }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(isInstalling)
-
-                Button("Recheck") {
-                    Task { await appState.gitEnvironment.refreshGitInstallation() }
-                }
-                .controlSize(.large)
             }
         }
-        .padding(48)
+        .padding(DesignTokens.Spacing.xxxhuge)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.palette.bg2)
     }
 
     private func installCommandLineTools() {
@@ -53,13 +55,15 @@ struct GitNotFoundView: View {
                 process.waitUntilExit()
             }.value
             isInstalling = false
-            await appState.gitEnvironment.refreshGitInstallation()
+            await gitEnvironment.refreshGitInstallation()
         }
     }
 }
 
 #Preview {
+    @Previewable @State var theme = AppTheme()
     GitNotFoundView()
-        .environment(AppState())
+        .previewAppState(.previewMissingGit)
         .frame(width: 720, height: 480)
+        .appTheme(theme)
 }
