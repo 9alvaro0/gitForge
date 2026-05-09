@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>gitForge</title>
+        <link>https://9alvaro0.github.io/gitForge/appcast.xml</link>
+        <description>Updates for gitForge — native macOS git client.</description>
+        <language>en</language>
+        <!--
+          New <item> entries are prepended by scripts/update-appcast.sh after
+          each release. The first Sparkle-signed release will be v1.0.2;
+          v1.0.1 is intentionally absent because it shipped without Sparkle
+          and cannot self-update — users on v1.0.1 must download v1.0.2
+          manually from GitHub Releases the one time.
+        -->
+    </channel>
+</rss>

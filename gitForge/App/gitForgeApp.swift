@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct GitForgeApp: App {
     @State private var appState = AppState()
+    @State private var updater = Updater()
     @Environment(\.scenePhase) private var scenePhase
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
@@ -34,7 +35,7 @@ struct GitForgeApp: App {
             FileCommands(appState: appState)
             ViewCommands(appState: appState)
             RepositoryCommands(appState: appState)
-            HelpCommands()
+            HelpCommands(updater: updater)
         }
     }
 }

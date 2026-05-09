@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		CDA0000300000000000000A1 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = CDA0000200000000000000A1 /* Textual */; };
 		CDA0000600000000000000A1 /* HighlightSwift in Frameworks */ = {isa = PBXBuildFile; productRef = CDA0000500000000000000A1 /* HighlightSwift */; };
+		CDA0000900000000000000A1 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CDA0000800000000000000A1 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,9 +35,22 @@
 		CD2E2B382FA8DE7600330FAF /* gitForgeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gitForgeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CDA0000A00000000000000A1 /* Exceptions for "gitForge" folder in "gitForge" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CD2E2B202FA8DE7300330FAF /* gitForge */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CD2E2B232FA8DE7300330FAF /* gitForge */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CDA0000A00000000000000A1 /* Exceptions for "gitForge" folder in "gitForge" target */,
+			);
 			path = gitForge;
 			sourceTree = "<group>";
 		};
@@ -59,6 +73,7 @@
 			files = (
 				CDA0000300000000000000A1 /* Textual in Frameworks */,
 				CDA0000600000000000000A1 /* HighlightSwift in Frameworks */,
+				CDA0000900000000000000A1 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,6 +136,7 @@
 			packageProductDependencies = (
 				CDA0000200000000000000A1 /* Textual */,
 				CDA0000500000000000000A1 /* HighlightSwift */,
+				CDA0000800000000000000A1 /* Sparkle */,
 			);
 			productName = gitForge;
 			productReference = CD2E2B212FA8DE7300330FAF /* gitForge.app */;
@@ -207,6 +223,7 @@
 			packageReferences = (
 				CDA0000100000000000000A1 /* XCRemoteSwiftPackageReference "textual" */,
 				CDA0000400000000000000A1 /* XCRemoteSwiftPackageReference "highlightswift" */,
+				CDA0000700000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CD2E2B222FA8DE7300330FAF /* Products */;
@@ -425,6 +442,7 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = gitForge/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -472,6 +490,7 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = gitForge/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -634,6 +653,14 @@
 				minimumVersion = 1.1.0;
 			};
 		};
+		CDA0000700000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -646,6 +673,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CDA0000400000000000000A1 /* XCRemoteSwiftPackageReference "highlightswift" */;
 			productName = HighlightSwift;
+		};
+		CDA0000800000000000000A1 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CDA0000700000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
