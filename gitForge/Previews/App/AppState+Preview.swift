@@ -23,6 +23,14 @@ extension AppState {
         state.gitEnvironment.gitStatus = .notFound
         return state
     }
+
+    /// First-run-style state — git is available but the catalog is empty.
+    /// Used by `WelcomeView` previews to render the "no recents" branch.
+    static var previewEmpty: AppState {
+        let state = AppState()
+        state.gitEnvironment.gitStatus = .available
+        return state
+    }
 }
 
 @MainActor

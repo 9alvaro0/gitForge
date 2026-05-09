@@ -64,19 +64,20 @@ struct SidebarRepoRow: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
+    let samples = Repository.previewSamples
     VStack(spacing: DesignTokens.Spacing.hairline) {
-        SidebarRepoRow(repository: Repository.preview, org: "9alvaro0",
-                       branch: "feat/commit-graph",
-                       ahead: 7, behind: 1, dirty: 3,
-                       isCurrent: true, onSelect: {})
-        SidebarRepoRow(repository: Repository(url: URL(fileURLWithPath: "/code/api-core")),
-                       org: "acme", branch: "main",
-                       ahead: 0, behind: 0, dirty: 0,
-                       isCurrent: false, onSelect: {})
-        SidebarRepoRow(repository: Repository(url: URL(fileURLWithPath: "/code/mobile-app")),
-                       org: "acme", branch: nil,
-                       ahead: 0, behind: 0, dirty: 12,
-                       isCurrent: false, onSelect: {})
+        ForEach(samples) { repo in
+            let isCurrent = repo.id == samples.first?.id
+            let status: RepoStatusSnapshot = isCurrent ? .previewActive : .previewClean
+            SidebarRepoRow(repository: repo,
+                           org: "9alvaro0",
+                           branch: status.branch,
+                           ahead: status.ahead,
+                           behind: status.behind,
+                           dirty: status.dirty,
+                           isCurrent: isCurrent,
+                           onSelect: {})
+        }
     }
     .frame(width: 256)
     .padding(.vertical, DesignTokens.Spacing.sm)

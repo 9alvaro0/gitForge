@@ -55,7 +55,7 @@ struct SidebarUserCard: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack {
-        SidebarUserCard(identity: GitIdentity(name: "Alvaro Guerra", email: "9alvaro0@gmail.com"), online: true)
+        SidebarUserCard(identity: .preview, online: true)
         SidebarUserCard(identity: .unknown, online: false)
     }
     .frame(width: 256)

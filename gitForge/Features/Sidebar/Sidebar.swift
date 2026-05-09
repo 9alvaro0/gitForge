@@ -181,17 +181,14 @@ private struct AddRepositoryRow<Items: View>: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .history
+    let active = Repository.previewSamples.first
     Sidebar(
         repositories: Repository.previewSamples,
-        activeRepository: Repository.previewSamples.first,
-        statusFor: { repo in
-            repo.id == Repository.previewSamples.first?.id
-                ? RepoStatusSnapshot(branch: "feat/commit-graph", dirty: 3, ahead: 7, behind: 1)
-                : RepoStatusSnapshot(branch: "main", dirty: 0, ahead: 0, behind: 0)
-        },
+        activeRepository: active,
+        statusFor: RepoStatusSnapshot.previewStatusFor(active: active),
         activeSection: section,
         unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
-        identity: GitIdentity(name: "Alvaro Guerra", email: "9alvaro0@gmail.com"),
+        identity: .preview,
         onSelectRepo: { _ in },
         onRemoveRepo: { _ in },
         onRevealRepo: { _ in },
