@@ -95,3 +95,63 @@ struct CommitRow: View {
         return .clear
     }
 }
+
+#Preview {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var columns = ResizableTableModel(
+        id: "history.row.preview",
+        columns: [
+            (id: "graph",     defaultWidth: 110, minWidth: 80),
+            (id: "branchTag", defaultWidth: 220, minWidth: 80),
+            (id: "message",   defaultWidth: 480, minWidth: 240),
+            (id: "author",    defaultWidth: 130, minWidth: 80),
+            (id: "sha",       defaultWidth: 80,  minWidth: 60),
+            (id: "when",      defaultWidth: 70,  minWidth: 50),
+        ]
+    )
+    let commit = Commit.previewSamples[0]
+    VStack(spacing: 0) {
+        CommitRow(
+            commit: commit,
+            layout: [GraphRowLayout].previewSamples[1],
+            maxLanes: 2,
+            rowHeight: 36,
+            gutterWidth: 110,
+            refs: GitRef.previewSamples,
+            currentBranch: "main",
+            isSelected: true,
+            dimmed: false,
+            columns: columns,
+            onSelect: {}, onDoubleClick: {}, onBranchDrop: nil
+        )
+        CommitRow(
+            commit: Commit.previewSamples[1],
+            layout: [GraphRowLayout].previewSamples[2],
+            maxLanes: 2,
+            rowHeight: 36,
+            gutterWidth: 110,
+            refs: [],
+            currentBranch: "main",
+            isSelected: false,
+            dimmed: false,
+            columns: columns,
+            onSelect: {}, onDoubleClick: {}, onBranchDrop: nil
+        )
+        CommitRow(
+            commit: Commit.previewSamples[2],
+            layout: [GraphRowLayout].previewSamples[3],
+            maxLanes: 2,
+            rowHeight: 36,
+            gutterWidth: 110,
+            refs: [],
+            currentBranch: "main",
+            isSelected: false,
+            dimmed: true,
+            columns: columns,
+            onSelect: {}, onDoubleClick: {}, onBranchDrop: nil
+        )
+    }
+    .frame(width: 1100)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}

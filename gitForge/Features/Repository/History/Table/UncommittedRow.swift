@@ -49,3 +49,22 @@ struct UncommittedRow: View {
         .background(LinearGradient(colors: [theme.palette.mod.opacity(DesignTokens.Opacity.faint), .clear], startPoint: .leading, endPoint: .trailing))
     }
 }
+
+#Preview {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var columns = ResizableTableModel(
+        id: "history.uncommitted.preview",
+        columns: [
+            (id: "graph",     defaultWidth: 110, minWidth: 80),
+            (id: "branchTag", defaultWidth: 220, minWidth: 80),
+            (id: "message",   defaultWidth: 480, minWidth: 240),
+            (id: "author",    defaultWidth: 130, minWidth: 80),
+            (id: "sha",       defaultWidth: 80,  minWidth: 60),
+            (id: "when",      defaultWidth: 70,  minWidth: 50),
+        ]
+    )
+    UncommittedRow(rowHeight: 36, gutterWidth: 110, columns: columns)
+        .frame(width: 1100)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
+}
