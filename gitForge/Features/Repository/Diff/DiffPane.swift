@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// `.gf-diff` — file diff viewer used in History and Changes.
+/// File diff viewer used in History and Changes.
 struct DiffPane: View {
     let file: String?
     let hunks: [DiffHunk]
@@ -29,25 +29,46 @@ struct DiffPane: View {
 
     @Environment(\.appTheme) private var theme
 
-    /// Per-hunk syntax-highlighted line table: `hunk.id → line.id → AttributedString`.
-    /// Populated asynchronously by `tokenizeHunks()` once the diff and theme
-    /// settle. While empty, rows fall back to plain `Text(content)` — the
-    /// existing kind-based foreground colouring carries the whole UX.
+    /// `hunk.id → line.id → AttributedString`. While empty, rows fall back
+    /// to plain `Text(content)` — kind-based foreground colouring carries
+    /// the UX until tokenisation settles.
     @State private var highlighted: [Int: [Int: AttributedString]] = [:]
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            header
+            DiffHeader(
+                file: file,
+                viewMode: $viewMode,
+                onOpenInEditor: onOpenInEditor,
+                onClose: onClose
+            )
             content
         }
         .background(theme.palette.bg2)
-        .overlay(alignment: .top) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(theme.palette.lineStrong)
+                .frame(height: DesignTokens.Stroke.regular)
+        }
         .task(id: tokenizeKey) { await tokenizeHunks() }
     }
 
-    /// Single value the `.task(id:)` watches. Re-tokenises when the file,
-    /// the set of hunks, or the active theme palette changes — everything
-    /// the cached attributed strings depend on.
+    @ViewBuilder
+    private var content: some View {
+        if loading {
+            DiffLoadingSkeleton()
+        } else if hunks.isEmpty {
+            DiffEmptyContent(state: emptyState)
+        } else {
+            switch viewMode {
+            case .unified: DiffUnifiedContent(hunks: hunks, highlighted: highlighted)
+            case .split:   DiffSplitContent(hunks: hunks, highlighted: highlighted)
+            }
+        }
+    }
+
+    /// Re-tokenises when file, hunks, theme mode, or accent change —
+    /// everything the cached attributed strings depend on.
     private var tokenizeKey: String {
         "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.mode.rawValue)|\(theme.accent.cssHex)"
     }
@@ -73,438 +94,24 @@ struct DiffPane: View {
         }
         highlighted = output
     }
-
-    private var header: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                GFIcon(kind: .diff, size: 12, stroke: theme.palette.fg1)
-                Text(file ?? "—")
-                    .font(AppFont.mono(12, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg1)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-            }
-            Spacer()
-            SegmentedControl<ViewMode>(
-                [(.unified, "Unified"), (.split, "Split")],
-                selection: $viewMode
-            )
-            if let onOpenInEditor {
-                IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
-                    .help("Open in editor")
-            }
-            if let onClose {
-                IconButton(.x, accessibilityLabel: "Hide diff pane", action: onClose)
-                    .help("Hide diff pane")
-            }
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xxl)
-        .frame(height: 34)
-        .background(theme.palette.bg1)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if loading {
-            diffSkeleton
-        } else if hunks.isEmpty {
-            emptyContent
-        } else {
-            switch viewMode {
-            case .unified: unifiedContent
-            case .split:   splitContent
-            }
-        }
-    }
-
-    /// Empty-state messaging keyed off `emptyState`. Each branch tells the
-    /// user *why* there's nothing to render so a binary or pure rename
-    /// doesn't read as "the app forgot to load my changes".
-    @ViewBuilder
-    private var emptyContent: some View {
-        let copy = emptyStateCopy
-        VStack(spacing: DesignTokens.Spacing.sm) {
-            Text(copy.title)
-                .font(AppFont.sans(12.5, weight: .semibold))
-                .foregroundStyle(theme.palette.fg2)
-            if let subtitle = copy.subtitle {
-                Text(subtitle)
-                    .font(AppFont.sans(11.5))
-                    .foregroundStyle(theme.palette.fg3)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var emptyStateCopy: (title: String, subtitle: String?) {
-        switch emptyState {
-        case .empty:
-            return ("No changes", nil)
-        case .binary:
-            return ("Binary file", "Diff isn't rendered for non-text content.")
-        case .untrackedBinary:
-            return ("New binary file",
-                    "This file is untracked and isn't text — open it in an external app to inspect it.")
-        case .renameOnly:
-            return ("Renamed", "The file was moved without content changes.")
-        }
-    }
-
-    private static let placeholderHunk = DiffHunk(
-        id: 0,
-        oldStart: 1, oldCount: 7, newStart: 1, newCount: 8,
-        header: "@@ -1,7 +1,8 @@ func loadData() {",
-        lines: [
-            DiffLine(id: 0, kind: .context, content: "    func loadData() async throws {",                      oldLineNumber: 1,    newLineNumber: 1),
-            DiffLine(id: 1, kind: .context, content: "        let token = credentials.token(for: host)",        oldLineNumber: 2,    newLineNumber: 2),
-            DiffLine(id: 2, kind: .removed, content: "        guard token != nil else { return }",              oldLineNumber: 3,    newLineNumber: nil),
-            DiffLine(id: 3, kind: .added,   content: "        guard let token else { return }",                 oldLineNumber: nil,  newLineNumber: 3),
-            DiffLine(id: 4, kind: .context, content: "        let response = try await fetcher.fetch()",        oldLineNumber: 4,    newLineNumber: 4),
-            DiffLine(id: 5, kind: .added,   content: "        items = response.items",                          oldLineNumber: nil,  newLineNumber: 5),
-            DiffLine(id: 6, kind: .added,   content: "        lastSync = Date()",                               oldLineNumber: nil,  newLineNumber: 6),
-            DiffLine(id: 7, kind: .context, content: "        return items",                                    oldLineNumber: 5,    newLineNumber: 7),
-            DiffLine(id: 8, kind: .context, content: "    }",                                                   oldLineNumber: 6,    newLineNumber: 8),
-        ]
-    )
-
-    private var diffSkeleton: some View {
-        GeometryReader { geo in
-            ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                        hunkHeader(Self.placeholderHunk)
-                        ForEach(Self.placeholderHunk.lines) { line in
-                            DiffRow(line: line, attributed: nil)
-                        }
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
-            }
-        }
-        .skeleton(true)
-    }
-
-    private var unifiedContent: some View {
-        // Two-level VStack: the inner one is `.fixedSize` vertically so rows
-        // keep their natural height (no stretching when the diff is short),
-        // and the outer one extends to the viewport with a trailing Spacer
-        // that anchors the content to the top — preventing the bidirectional
-        // ScrollView from centering it.
-        GeometryReader { geo in
-            ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                        ForEach(hunks) { hunk in
-                            hunkHeader(hunk)
-                            let table = highlighted[hunk.id]
-                            ForEach(hunk.lines) { line in
-                                DiffRow(line: line, attributed: table?[line.id])
-                            }
-                        }
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
-            }
-        }
-    }
-
-    /// Side-by-side diff. `removed`+`context` on the left, `added`+`context`
-    /// on the right, with consecutive removed / added groups paired so the
-    /// changed lines align horizontally. Shorter side gets blank rows.
-    ///
-    /// Both panels split the viewport in half via a `Grid` pinned to the
-    /// container width. Lines that would overflow truncate with an ellipsis
-    /// — split mode trades horizontal scroll for a stable two-column layout
-    /// (unified keeps the 2D scroll for full-line inspection).
-    private var splitContent: some View {
-        GeometryReader { geo in
-            ScrollView(.vertical) {
-                Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
-                    ForEach(hunks) { hunk in
-                        GridRow {
-                            hunkHeader(hunk)
-                                .gridCellColumns(3)
-                        }
-                        let table = highlighted[hunk.id]
-                        ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                            GridRow {
-                                DiffSplitCell(line: row.left, side: .left, attributed: row.left.flatMap { table?[$0.id] })
-                                Rectangle()
-                                    .fill(theme.palette.line)
-                                    .frame(width: DesignTokens.Stroke.regular)
-                                DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
-                            }
-                        }
-                    }
-                }
-                .frame(width: geo.size.width, alignment: .topLeading)
-            }
-        }
-    }
-
-    /// Pair consecutive `removed` runs with `added` runs so changed lines
-    /// align side-by-side; pad the shorter run with blanks.
-    private func splitRows(for hunk: DiffHunk) -> [SplitRow] {
-        var out: [SplitRow] = []
-        var pendingRemoved: [DiffLine] = []
-        var pendingAdded: [DiffLine] = []
-
-        func flush() {
-            let count = max(pendingRemoved.count, pendingAdded.count)
-            for i in 0..<count {
-                out.append(SplitRow(
-                    left:  i < pendingRemoved.count ? pendingRemoved[i] : nil,
-                    right: i < pendingAdded.count   ? pendingAdded[i]   : nil
-                ))
-            }
-            pendingRemoved.removeAll()
-            pendingAdded.removeAll()
-        }
-
-        for line in hunk.lines {
-            switch line.kind {
-            case .context:
-                flush()
-                out.append(SplitRow(left: line, right: line))
-            case .removed:
-                pendingRemoved.append(line)
-            case .added:
-                pendingAdded.append(line)
-            case .noNewline:
-                // Marker — show on whichever side just had content.
-                flush()
-                out.append(SplitRow(left: line, right: line))
-            }
-        }
-        flush()
-        return out
-    }
-
-    private struct SplitRow {
-        let left: DiffLine?
-        let right: DiffLine?
-    }
-
-    @ViewBuilder
-    private func hunkHeader(_ hunk: DiffHunk) -> some View {
-        Text(hunk.header.isEmpty ? "@@" : hunk.header)
-            .font(AppFont.mono(11, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg3)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
-            .padding(.vertical, DesignTokens.Spacing.xs)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.palette.bg3)
-            .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
-    }
 }
 
-private struct DiffRow: View {
-    let line: DiffLine
-    /// Pre-tokenised attributed string for this line. When present, the row
-    /// trusts its embedded foreground colours and skips the kind-based
-    /// `textColor` tint — the +/− sign column and `rowBackground` already
-    /// signal added/removed without overpainting the syntax tokens.
-    let attributed: AttributedString?
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack(alignment: theme.diffWrapLongLines ? .top : .center, spacing: DesignTokens.Spacing.none) {
-            lineNumber(line.oldLineNumber)
-            lineNumber(line.newLineNumber)
-            Text(sign)
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .frame(width: DesignTokens.IconSize.xl)
-                .foregroundStyle(signColor)
-            wrappedContent
-            if !theme.diffWrapLongLines { Spacer(minLength: 0) }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground)
-    }
-
-    /// Toggle between horizontal-overflow (default, matches Tower/GitHub) and
-    /// soft-wrap when the user opts in via Settings → Appearance.
-    @ViewBuilder
-    private var wrappedContent: some View {
-        if theme.diffWrapLongLines {
-            content
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, DesignTokens.Spacing.xxl)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            content
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.trailing, DesignTokens.Spacing.xxl)
-        }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if let attributed {
-            Text(attributed)
-        } else {
-            Text(line.content.isEmpty ? " " : line.content)
-                .foregroundStyle(textColor)
-        }
-    }
-
-    @ViewBuilder
-    private func lineNumber(_ n: Int?) -> some View {
-        Text(n.map(String.init) ?? "")
-            .font(AppFont.mono(11, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg4)
-            .frame(width: 44, alignment: .trailing)
-            .padding(.horizontal, DesignTokens.Spacing.md)
-    }
-
-    private var sign: String {
-        switch line.kind {
-        case .added: return "+"
-        case .removed: return "−"
-        case .context: return " "
-        case .noNewline: return "\\"
-        }
-    }
-    private var signColor: Color {
-        switch line.kind {
-        case .added:    return theme.palette.add
-        case .removed:  return theme.palette.del
-        case .context:  return theme.palette.fg3
-        case .noNewline: return theme.palette.fg3
-        }
-    }
-    private var textColor: Color {
-        switch line.kind {
-        case .added:   return theme.palette.add
-        case .removed: return theme.palette.del
-        default:       return theme.palette.fg2
-        }
-    }
-    private var rowBackground: Color {
-        switch line.kind {
-        case .added:   return theme.palette.addSoft
-        case .removed: return theme.palette.delSoft
-        default:       return .clear
-        }
-    }
-}
-
-private struct DiffSplitCell: View {
-    enum Side { case left, right }
-
-    let line: DiffLine?
-    let side: Side
-    let attributed: AttributedString?
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
-            lineNumber
-            Text(sign)
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .frame(width: DesignTokens.IconSize.xl)
-                .foregroundStyle(signColor)
-            content
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, DesignTokens.Spacing.xxl)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(background)
-    }
-
-    /// Long lines wrap to multiple visual rows so the content stays readable
-    /// without horizontal scroll. `GridRow` in `splitContent` aligns both
-    /// sides to the taller wrapped height — so paired changed lines remain
-    /// horizontally aligned even when one side wraps further than the other.
-    @ViewBuilder
-    private var content: some View {
-        if let attributed {
-            Text(attributed)
-        } else {
-            Text(displayContent)
-                .foregroundStyle(textColor)
-        }
-    }
-
-    @ViewBuilder
-    private var lineNumber: some View {
-        let number: Int? = {
-            guard let line else { return nil }
-            return side == .left ? line.oldLineNumber : line.newLineNumber
-        }()
-        Text(number.map(String.init) ?? "")
-            .font(AppFont.mono(11, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg4)
-            .frame(width: 44, alignment: .trailing)
-            .padding(.horizontal, DesignTokens.Spacing.md)
-    }
-
-    private var displayContent: String {
-        guard let line, !line.content.isEmpty else { return " " }
-        return line.content
-    }
-
-    private var sign: String {
-        guard let line else { return " " }
-        switch line.kind {
-        case .added:    return side == .right ? "+" : " "
-        case .removed:  return side == .left  ? "−" : " "
-        case .context:  return " "
-        case .noNewline: return "\\"
-        }
-    }
-
-    private var signColor: Color {
-        guard let line else { return .clear }
-        switch line.kind {
-        case .added:    return theme.palette.add
-        case .removed:  return theme.palette.del
-        case .context:  return theme.palette.fg3
-        case .noNewline: return theme.palette.fg3
-        }
-    }
-
-    private var textColor: Color {
-        guard let line else { return .clear }
-        switch line.kind {
-        case .added:   return theme.palette.add
-        case .removed: return theme.palette.del
-        default:       return theme.palette.fg2
-        }
-    }
-
-    /// Standard split-diff convention: nil cells render as a muted gray
-    /// "this line doesn't exist here" indicator — subtler than tinting them
-    /// like a change so the actual changes still pop.
-    private var background: Color {
-        guard let line else { return theme.palette.bg3.opacity(0.5) }
-        switch line.kind {
-        case .added:   return theme.palette.addSoft
-        case .removed: return theme.palette.delSoft
-        default:       return .clear
-        }
-    }
-}
-
-#if DEBUG
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var mode: DiffPane.ViewMode = .unified
+    DiffPane(
+        file: "src/components/CommitGraph.tsx",
+        hunks: DiffHunk.previewSamples,
+        viewMode: $mode
+    )
+    .frame(width: 720, height: 320)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+
+#Preview("Split") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var mode: DiffPane.ViewMode = .split
     DiffPane(
         file: "src/components/CommitGraph.tsx",
         hunks: DiffHunk.previewSamples,
@@ -528,4 +135,17 @@ private struct DiffSplitCell: View {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
-#endif
+
+#Preview("Empty (binary)") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var mode: DiffPane.ViewMode = .unified
+    DiffPane(
+        file: "assets/logo.png",
+        hunks: [],
+        emptyState: .binary,
+        viewMode: $mode
+    )
+    .frame(width: 720, height: 320)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
