@@ -1,24 +1,30 @@
 import SwiftUI
 
-/// Top of the view tree. Gates the UI on `gitStatus` (checking · notFound ·
-/// available) and hosts the global error alert. The actual app shell — sidebar,
-/// content router, command palette, toasts — lives in `App/Shell/ShellView`.
+/// Top of the view tree. Gates the UI on the onboarding flag first
+/// (`OnboardingFlow` until completed) and then on `gitStatus` (checking ·
+/// notFound · available). The actual app shell — sidebar, content router,
+/// command palette, toasts — lives in `App/Shell/ShellView`.
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var systemColorScheme
+    @AppStorage("gitForge.onboarding.completed") private var onboardingCompleted = false
 
     var body: some View {
         @Bindable var ui = appState.ui
         Group {
-            switch appState.gitEnvironment.gitStatus {
-            case .checking:
-                ProgressView()
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .notFound:
-                GitNotFoundView()
-            case .available:
-                ShellView()
+            if !onboardingCompleted {
+                OnboardingFlow(onComplete: { onboardingCompleted = true })
+            } else {
+                switch appState.gitEnvironment.gitStatus {
+                case .checking:
+                    ProgressView()
+                        .controlSize(.large)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .notFound:
+                    GitNotFoundView()
+                case .available:
+                    ShellView()
+                }
             }
         }
         .appTheme(ui.theme)
@@ -70,4 +76,16 @@ private extension Binding {
     RootView()
         .previewAppState(.previewMissingGit)
         .frame(width: 1100, height: 720)
+}
+
+#Preview("First-run onboarding") {
+    RootView()
+        .previewAppState(.previewEmpty)
+        .frame(width: 1100, height: 720)
+        .onAppear {
+            // Reset the persisted flag so the preview always shows the flow,
+            // not whatever the host machine has stored. Scoped to DEBUG so it
+            // never ships.
+            UserDefaults.standard.set(false, forKey: "gitForge.onboarding.completed")
+        }
 }
