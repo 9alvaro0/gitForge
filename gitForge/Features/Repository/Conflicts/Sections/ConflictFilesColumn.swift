@@ -56,3 +56,11 @@ struct ConflictFilesColumn: View {
         return [match]
     }
 }
+
+#Preview {
+    @Previewable @State var theme = AppTheme()
+    ConflictFilesColumn(viewModel: .previewWithConflicts)
+        .frame(height: 480)
+        .appTheme(theme)
+}
+
