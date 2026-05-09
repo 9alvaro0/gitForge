@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Theme + density + diff-mode + mono font picker. Contains the only
-/// two-column layout in the Settings page; the rest of the sections stack
-/// rows vertically.
+/// The only section that uses a two-column layout — visual choices
+/// (theme/accent/density) sit alongside code-display ones (font, diff
+/// view, context, wrap, dates) so the eye scans them in pairs.
 struct AppearanceSection: View {
     @Environment(\.appTheme) private var theme
     @Environment(WorkspaceUI.self) private var ui

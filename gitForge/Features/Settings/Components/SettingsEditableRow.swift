@@ -1,16 +1,16 @@
 import SwiftUI
 
-/// Settings row with inline edit affordance: shows the current value with an
-/// "Edit" button; tapping it swaps in a `TextField` with Save/Cancel. State
-/// is local so the caller only provides the current value and a commit
-/// callback — no parent-level `editing` enum needed.
+/// Editing state lives here on purpose — earlier revisions hoisted it to a
+/// parent-level `EditingField` enum, which forced every section using more
+/// than one editable row to coordinate which one was active. Keeping it
+/// local lets each row stay independent.
 struct SettingsEditableRow: View {
     let label: String
     let value: String?
     var mono: Bool = false
     var placeholder: String = ""
-    /// Called with the trimmed string, or `nil` if the user blanked the
-    /// field. The caller is responsible for persisting and surfacing errors.
+    /// Receives the trimmed string, or `nil` when the user blanked the
+    /// field. Caller persists and surfaces errors.
     let onCommit: (String?) -> Void
 
     @Environment(\.appTheme) private var theme

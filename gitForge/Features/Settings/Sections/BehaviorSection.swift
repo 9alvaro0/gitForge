@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Day-to-day behavior switches that aren't strictly git config or visuals:
-/// destructive-action confirmations, default flags for stash/commit, and
-/// commit signing. Sits between Git and Remote hosts in the page so the
-/// user reads "what git does → what the app guards → who you are to git
-/// servers".
+/// Sits between Git and Remote hosts on purpose: the user reads top-down
+/// as "what git does → what the app guards on top → who you are to git
+/// servers". Anything that's neither pure git config nor visuals lives
+/// here — destructive-action guards, default flags, signing.
 struct BehaviorSection: View {
     @Environment(\.appTheme) private var theme
     @Environment(GitEnvironment.self) private var gitEnvironment

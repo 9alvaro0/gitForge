@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// `.gf-view-settings` — appearance, identity, git config, remote hosts.
-/// Pure compositor: stacks the four sections vertically inside a scroll
-/// view. Each section owns its own state and persistence calls.
+/// Pure compositor for the Settings page — every section owns its own
+/// state and persistence so this file never grows past stacking + padding.
 struct SettingsView: View {
     @Environment(\.appTheme) private var theme
     @Environment(GitEnvironment.self) private var gitEnvironment

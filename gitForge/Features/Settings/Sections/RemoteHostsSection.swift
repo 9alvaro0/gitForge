@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Personal Access Tokens for remote hosting platforms. Tokens land in the
-/// Keychain via `RemoteCredentialsStore`; per-host TLS trust is tracked in
-/// `RemoteHostTrust`. Defaults cover github.com / gitlab.com; the active
-/// repo's host is appended automatically so self-hosted instances appear.
+/// Tokens land in the Keychain via `RemoteCredentialsStore`; per-host TLS
+/// trust lives in `RemoteHostTrust`. The default list (github.com /
+/// gitlab.com) gets the active repo's host appended at render time so
+/// self-hosted instances show up without per-user configuration.
 struct RemoteHostsSection: View {
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
