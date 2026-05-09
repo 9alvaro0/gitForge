@@ -33,6 +33,14 @@ struct ShellView: View {
                             }
                     }
                 }
+                // Centralised error reporting for fetch/pull/push/tag pushes —
+                // covers every entry point (Repository menu, History toolbar,
+                // command palette) so silent failures stop happening.
+                .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
+                    guard let failure else { return }
+                    appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error)
+                    appState.catalog.activeViewModel?.remoteFailure = nil
+                }
         }
     }
 

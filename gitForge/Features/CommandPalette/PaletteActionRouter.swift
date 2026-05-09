@@ -41,17 +41,15 @@ struct PaletteActionRouter {
         }
     }
 
-    /// Runs a remote VM operation that signals failure via `remoteFailure`.
-    /// Clears the previous failure first so we can detect a fresh one and emit
-    /// the matching toast — success or error — instead of always claiming OK.
+    /// Runs a remote VM operation. Only emits the success toast — failures
+    /// are surfaced by the global `remoteFailure` observer in `ShellView`,
+    /// so menu / toolbar / palette entry points all share the same error UX.
     private func runRemote(label: String, _ block: @escaping (RepositoryViewModel) async -> Void) {
         Task {
             guard let vm = appState.catalog.activeViewModel else { return }
             vm.remoteFailure = nil
             await block(vm)
-            if let failure = vm.remoteFailure {
-                appState.ui.activeToast = ToastMessage(message: failure.title, kind: .error)
-            } else {
+            if vm.remoteFailure == nil {
                 appState.ui.activeToast = ToastMessage(message: label, kind: .ok)
             }
         }

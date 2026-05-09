@@ -57,6 +57,7 @@ extension GitCLI {
 enum RemoteFailure: Sendable, Equatable {
     case authentication
     case nonFastForward
+    case divergentBranches
     case conflict
     case network
     case noUpstream
@@ -69,6 +70,12 @@ enum RemoteFailure: Sendable, Equatable {
             || lower.contains("could not read username")
             || lower.contains("publickey") {
             self = .authentication
+        } else if lower.contains("divergent branches")
+                    || lower.contains("need to specify how to reconcile") {
+            // git ≥ 2.27 refuses ambiguous pulls until pull.rebase /
+            // pull.ff is configured — surface this as its own failure
+            // rather than the generic "rejected" bucket.
+            self = .divergentBranches
         } else if lower.contains("non-fast-forward")
                     || lower.contains("rejected")
                     || lower.contains("updates were rejected") {
@@ -93,6 +100,7 @@ enum RemoteFailure: Sendable, Equatable {
         switch self {
         case .authentication: "Authentication failed"
         case .nonFastForward: "Push rejected"
+        case .divergentBranches: "Pull rejected"
         case .conflict: "Merge conflict"
         case .network: "Network unreachable"
         case .noUpstream: "No upstream branch"
@@ -106,6 +114,8 @@ enum RemoteFailure: Sendable, Equatable {
             "Check your SSH key or credential helper. Try running the command in Terminal first to verify access."
         case .nonFastForward:
             "The remote has commits you don't have locally. Pull first to merge or rebase, then push again."
+        case .divergentBranches:
+            "Local and remote have diverged. Pick \"Pull and rebase\" or \"Pull (only if no merge needed)\" from the Pull menu."
         case .conflict:
             "Merging produced conflicts. Resolve them in the working copy, then commit the result."
         case .network:
@@ -116,6 +126,9 @@ enum RemoteFailure: Sendable, Equatable {
             raw.isEmpty ? "The git command failed without a message." : raw
         }
     }
+
+    /// Combined headline + actionable detail for a single-line toast.
+    var toastMessage: String { "\(title) — \(message)" }
 }
 
 extension RemoteFailure {
