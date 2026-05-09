@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Card wrapper for a Settings section: uppercase header on top of a bordered
-/// container that hosts the section's rows. Rows are separated by
-/// `SettingsDivider`s that the caller intersperses between children — this
-/// keeps the API transparent without needing variadic-view tricks.
+/// Bordered card with an uppercase header that hosts a section's rows.
+/// Callers intersperse `SettingsDivider` between children manually — that
+/// keeps the API a plain `@ViewBuilder` instead of needing variadic-view
+/// tricks to auto-insert separators.
 struct SettingsSection<Content: View>: View {
     let title: String
     var subtitle: String? = nil
@@ -40,8 +40,6 @@ struct SettingsSection<Content: View>: View {
     }
 }
 
-/// Hairline divider used between rows inside a `SettingsSection`. Painted
-/// with the theme's `line` colour so it tracks light/dark variants.
 struct SettingsDivider: View {
     @Environment(\.appTheme) private var theme
 

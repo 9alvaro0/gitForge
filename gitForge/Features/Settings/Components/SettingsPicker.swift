@@ -1,9 +1,5 @@
 import SwiftUI
 
-/// `.gf-pick` — pill-shaped dropdown trigger used by Settings rows that pick
-/// from a fixed list (pull strategy, auto-fetch, mono font…). The caller
-/// supplies the menu items as a `@ViewBuilder`; this view only renders the
-/// trigger label with the trailing chevron.
 struct SettingsPicker<Items: View>: View {
     let current: String
     @ViewBuilder var items: () -> Items

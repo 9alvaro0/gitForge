@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Default branch + pull strategy + auto-fetch interval. Auto-fetch needs
-/// to bounce the active VM's reactivity timer once the value persists,
-/// otherwise runtime polling drifts from what's saved.
+/// Auto-fetch needs to bounce the active VM's reactivity timer once the
+/// new interval persists — otherwise runtime polling keeps the old period
+/// and drifts from what's saved on disk.
 struct GitSection: View {
     @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState

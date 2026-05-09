@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Name + email + signing key. All three are persisted to global git config
-/// via `GitEnvironment`; failures bubble up through the global error alert.
 struct IdentitySection: View {
     @Environment(GitEnvironment.self) private var gitEnvironment
     @Environment(WorkspaceUI.self) private var ui

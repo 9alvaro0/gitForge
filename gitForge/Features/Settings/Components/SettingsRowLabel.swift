@@ -1,12 +1,10 @@
 import SwiftUI
 
-/// `.gf-row-label` — the small uppercase label that opens every Settings row.
-/// Width is fixed so labels and controls line up vertically across the page.
 struct SettingsRowLabel: View {
     let text: String
 
-    /// Shared label width so adjacent rows align even when their contents
-    /// have different intrinsic widths.
+    /// Shared so adjacent rows line up even when their controls have
+    /// different intrinsic widths. Bumping this re-aligns the whole page.
     static let width: CGFloat = 130
 
     @Environment(\.appTheme) private var theme
