@@ -64,3 +64,35 @@ extension Array {
     }
 }
 
+#Preview("RowDropModifier — drop target") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var targeted = false
+    Text("Drag a DraggedBranch onto me")
+        .font(AppFont.sans(12))
+        .foregroundStyle(theme.palette.fg1)
+        .padding(40)
+        .frame(width: 360, height: 80)
+        .background(targeted ? theme.palette.accent.opacity(DesignTokens.Opacity.subtle) : theme.palette.bg1)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.palette.line, lineWidth: 1))
+        .modifier(RowDropModifier(
+            enabled: true,
+            targetSha: "abc1234",
+            isTargeted: $targeted,
+            onDrop: { _ in }
+        ))
+        .appTheme(theme)
+}
+
+#Preview("ChipDropModifier — drop target") {
+    @Previewable @State var theme = AppTheme()
+    BranchChip(name: "main", current: true, remote: false, tag: false, hasRemoteCounterpart: false)
+        .modifier(ChipDropModifier(
+            targetBranchName: "main",
+            targetSha: "abc1234",
+            onDrop: { _ in }
+        ))
+        .padding(40)
+        .background(theme.palette.bg1)
+        .appTheme(theme)
+}
+

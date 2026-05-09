@@ -53,3 +53,27 @@ struct CommitTableHeader: View {
         }
     }
 }
+
+#Preview {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var columns = ResizableTableModel(
+        id: "history.header.preview",
+        columns: [
+            (id: "graph",     defaultWidth: 110, minWidth: 80),
+            (id: "branchTag", defaultWidth: 220, minWidth: 80),
+            (id: "message",   defaultWidth: 480, minWidth: 240),
+            (id: "author",    defaultWidth: 130, minWidth: 80),
+            (id: "sha",       defaultWidth: 80,  minWidth: 60),
+            (id: "when",      defaultWidth: 70,  minWidth: 50),
+        ]
+    )
+    CommitTableHeader(
+        gutterWidth: 110,
+        graphHandle: columns.binding(for: "graph"),
+        graphMinWidth: 80,
+        columns: columns
+    )
+    .frame(width: 1100)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
