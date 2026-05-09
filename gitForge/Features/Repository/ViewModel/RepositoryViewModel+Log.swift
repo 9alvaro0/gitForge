@@ -36,11 +36,11 @@ extension RepositoryViewModel {
             if unmergedLocalBranchRefs.isEmpty {
                 unmergedLocalBranchRefs = (try? await cli.unmergedLocalBranches()) ?? []
             }
-            let page = try await cli.log(limit: Self.pageSize, skip: 0, refs: graphScope())
+            let page = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: 0, refs: graphScope())
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
-            hasMore = page.count == Self.pageSize
+            hasMore = page.count == AppTheme.persistedCommitPageSize()
             selectedCommitId = commits.first?.id
             recomputeGraph()
         } catch {
@@ -63,11 +63,11 @@ extension RepositoryViewModel {
         do {
             stashes = (try? await cli.stashes()) ?? []
             unmergedLocalBranchRefs = (try? await cli.unmergedLocalBranches()) ?? []
-            let page = try await cli.log(limit: Self.pageSize, skip: 0, refs: graphScope())
+            let page = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: 0, refs: graphScope())
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
-            hasMore = page.count == Self.pageSize
+            hasMore = page.count == AppTheme.persistedCommitPageSize()
             if let prev = previousSelection,
                !commits.contains(where: { $0.id == prev }) {
                 selectedCommitId = commits.first?.id
@@ -86,11 +86,11 @@ extension RepositoryViewModel {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let next = try await cli.log(limit: Self.pageSize, skip: loadedRawCount, refs: graphScope())
+            let next = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: loadedRawCount, refs: graphScope())
             loadedRawCount += next.count
             commits.append(contentsOf: next)
             dropStashInternals()
-            hasMore = next.count == Self.pageSize
+            hasMore = next.count == AppTheme.persistedCommitPageSize()
             recomputeGraph()
         } catch {
             Self.logger.error("Failed to load more: \(error.localizedDescription, privacy: .public)")
@@ -111,11 +111,11 @@ extension RepositoryViewModel {
         var pagesLoaded = 0
         while hasMore && pagesLoaded < Self.maxRevealPages {
             do {
-                let next = try await cli.log(limit: Self.pageSize, skip: loadedRawCount, refs: graphScope())
+                let next = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: loadedRawCount, refs: graphScope())
                 loadedRawCount += next.count
                 commits.append(contentsOf: next)
                 dropStashInternals()
-                hasMore = next.count == Self.pageSize
+                hasMore = next.count == AppTheme.persistedCommitPageSize()
                 recomputeGraph()
                 pagesLoaded += 1
                 if commits.contains(where: { $0.sha == sha }) {

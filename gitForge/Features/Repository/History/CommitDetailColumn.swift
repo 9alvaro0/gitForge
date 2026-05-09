@@ -307,8 +307,7 @@ struct CommitDetailColumn: View {
     }
 
     private var relativeWhen: String {
-        let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
-        return f.localizedString(for: commit.authorDate, relativeTo: .now)
+        theme.dateDisplayMode.format(commit.authorDate)
     }
 
     @MainActor

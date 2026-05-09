@@ -47,6 +47,23 @@ final class AppTheme {
     var stashIncludeUntracked: Bool {
         didSet { persistStashIncludeUntracked() }
     }
+    /// How history / pulls / branches surface dates: relative ("2h ago")
+    /// or absolute ("2026-05-09 14:32"). Default relative — that's what
+    /// existed before the toggle.
+    var dateDisplayMode: DateDisplayMode {
+        didSet { persistDateDisplayMode() }
+    }
+    /// `git log -n <commitPageSize>` per page. Bigger = fewer round-trips
+    /// on huge repos at the cost of slower first paint.
+    var commitPageSize: Int {
+        didSet { persistCommitPageSize() }
+    }
+    /// Watchdog timeout (seconds) before the `git` subprocess is killed.
+    /// 60 is the default; users on slow networks or with large repos may
+    /// want to push it higher. `GitCLI` reads it directly from disk.
+    var gitTimeoutSeconds: Int {
+        didSet { persistGitTimeout() }
+    }
     /// Live `ColorScheme` reported by the OS. The shell view keeps this in
     /// sync via `.onChange(of: \.colorScheme)`. Read by `effectiveMode` so
     /// `.system` resolves to the right palette without forcing a scheme.
@@ -82,6 +99,9 @@ final class AppTheme {
         let savedContext = UserDefaults.standard.object(forKey: Keys.diffContext) as? Int ?? 3
         let savedConfirmForce = UserDefaults.standard.object(forKey: Keys.confirmForcePush) as? Bool ?? true
         let savedStashUntracked = UserDefaults.standard.object(forKey: Keys.stashIncludeUntracked) as? Bool ?? true
+        let savedDateMode = UserDefaults.standard.string(forKey: Keys.dateMode).flatMap(DateDisplayMode.init(rawValue:)) ?? .relative
+        let savedPageSize = UserDefaults.standard.object(forKey: Keys.commitPageSize) as? Int ?? 200
+        let savedTimeout = UserDefaults.standard.object(forKey: Keys.gitTimeout) as? Int ?? 60
 
         self.mode = savedMode
         self.accent = savedAccent
@@ -92,6 +112,9 @@ final class AppTheme {
         self.diffContextLines = savedContext
         self.confirmForcePush = savedConfirmForce
         self.stashIncludeUntracked = savedStashUntracked
+        self.dateDisplayMode = savedDateMode
+        self.commitPageSize = savedPageSize
+        self.gitTimeoutSeconds = savedTimeout
         refreshPalette()
     }
 
@@ -130,6 +153,15 @@ final class AppTheme {
     private func persistStashIncludeUntracked() {
         UserDefaults.standard.set(stashIncludeUntracked, forKey: Keys.stashIncludeUntracked)
     }
+    private func persistDateDisplayMode() {
+        UserDefaults.standard.set(dateDisplayMode.rawValue, forKey: Keys.dateMode)
+    }
+    private func persistCommitPageSize() {
+        UserDefaults.standard.set(commitPageSize, forKey: Keys.commitPageSize)
+    }
+    private func persistGitTimeout() {
+        UserDefaults.standard.set(gitTimeoutSeconds, forKey: Keys.gitTimeout)
+    }
 
     /// Numeric default exposed for code paths that can't easily inject the
     /// active `AppTheme` (currently the `GitCLI` diff helpers, which read
@@ -146,6 +178,12 @@ final class AppTheme {
     nonisolated static func persistedStashIncludeUntracked() -> Bool {
         UserDefaults.standard.object(forKey: Keys.stashIncludeUntracked) as? Bool ?? true
     }
+    nonisolated static func persistedCommitPageSize() -> Int {
+        UserDefaults.standard.object(forKey: Keys.commitPageSize) as? Int ?? 200
+    }
+    nonisolated static func persistedGitTimeoutSeconds() -> Int {
+        UserDefaults.standard.object(forKey: Keys.gitTimeout) as? Int ?? 60
+    }
 
     private enum Keys {
         static let mode = "appTheme.mode"
@@ -157,6 +195,9 @@ final class AppTheme {
         static let diffContext = "appTheme.diffContext"
         static let confirmForcePush = "appTheme.confirmForcePush"
         static let stashIncludeUntracked = "appTheme.stashIncludeUntracked"
+        static let dateMode = "appTheme.dateMode"
+        static let commitPageSize = "appTheme.commitPageSize"
+        static let gitTimeout = "appTheme.gitTimeout"
     }
 }
 

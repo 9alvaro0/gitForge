@@ -342,9 +342,7 @@ struct PullsView: View {
     }
 
     private func relativeDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: .now)
+        theme.dateDisplayMode.format(date)
     }
 }
 
