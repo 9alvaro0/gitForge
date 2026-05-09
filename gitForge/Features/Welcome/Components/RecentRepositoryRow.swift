@@ -60,7 +60,6 @@ struct RecentRepositoryRow: View {
     }
 }
 
-#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack(spacing: DesignTokens.Spacing.md) {
@@ -73,4 +72,3 @@ struct RecentRepositoryRow: View {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
-#endif
