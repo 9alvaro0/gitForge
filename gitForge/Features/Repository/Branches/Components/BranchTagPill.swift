@@ -41,8 +41,7 @@ struct BranchTagPill: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    let tag = GitRef(name: "v1.2.3", kind: .tag, targetSha: "deadbeef", isHead: false)
-    return BranchTagPill(tag: tag, onPush: { _ in }, onDelete: { _ in })
+    BranchTagPill(tag: .previewTag, onPush: { _ in }, onDelete: { _ in })
         .padding()
         .background(theme.palette.bg2)
         .appTheme(theme)

@@ -122,31 +122,28 @@ struct BranchLeafRow: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    let main = GitRef(name: "main", kind: .localBranch, targetSha: "a1b2c3d4", isHead: true)
-    let feature = GitRef(name: "feature/awesome", kind: .localBranch, targetSha: "deadbeef", isHead: false)
-    let remote = GitRef(name: "origin/main", kind: .remoteBranch(remote: "origin"),
-                        targetSha: "a1b2c3d4", isHead: false)
-    return VStack(spacing: 0) {
+    let targets: [GitRef] = [.previewLocalMain, .previewLocalFeature]
+    VStack(spacing: 0) {
         BranchLeafRow(
-            ref: main, leafName: "main", depth: 0,
+            ref: .previewLocalMain, leafName: "main", depth: 0,
             currentBranchName: "main",
-            availableTargets: [main, feature],
+            availableTargets: targets,
             lastCommitLabel: "2026-05-09",
             onCheckout: { _ in }, onRename: { _ in }, onDelete: { _ in },
             onMerge: { _, _ in }, onRebase: { _ in }
         )
         BranchLeafRow(
-            ref: feature, leafName: "awesome", depth: 1,
+            ref: .previewLocalFeature, leafName: "awesome", depth: 1,
             currentBranchName: "main",
-            availableTargets: [main, feature],
+            availableTargets: targets,
             lastCommitLabel: "deadbee",
             onCheckout: { _ in }, onRename: { _ in }, onDelete: { _ in },
             onMerge: { _, _ in }, onRebase: { _ in }
         )
         BranchLeafRow(
-            ref: remote, leafName: "main", depth: 0,
+            ref: .previewRemoteMain, leafName: "main", depth: 0,
             currentBranchName: nil,
-            availableTargets: [main, feature],
+            availableTargets: targets,
             lastCommitLabel: "2026-05-08",
             onCheckout: { _ in }, onRename: nil, onDelete: nil,
             onMerge: { _, _ in }, onRebase: { _ in }
