@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct CommitRow: View {
     let commit: Commit
@@ -14,6 +15,8 @@ struct CommitRow: View {
     let onSelect: () -> Void
     let onDoubleClick: () -> Void
     let onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)?
+    /// `nil` disables the click-to-filter affordance on the author cell.
+    var onFilterByAuthor: ((String) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @State private var rowDropTargeted = false
@@ -38,15 +41,8 @@ struct CommitRow: View {
                 .truncationMode(.tail)
                 .frame(width: columns.width("message"), alignment: .leading)
             Color.clear.frame(width: DesignTokens.Spacing.md)
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
-                Text(commit.authorName)
-                    .font(AppFont.sans(12))
-                    .foregroundStyle(theme.palette.fg2)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            .frame(width: columns.width("author"), alignment: .leading)
+            authorCell
+                .frame(width: columns.width("author"), alignment: .leading)
             Color.clear.frame(width: DesignTokens.Spacing.md)
             Text(commit.shortSha)
                 .font(AppFont.mono(11, family: theme.monoFont))
@@ -78,6 +74,51 @@ struct CommitRow: View {
                 onBranchDrop?(dropped, .onCommit(targetSha: commit.sha))
             }
         ))
+        .contextMenu {
+            Button("Copy SHA")        { copy(commit.sha) }
+            Button("Copy short SHA")  { copy(commit.shortSha) }
+            Button("Copy subject")    { copy(commit.subject) }
+            Divider()
+            Button("Copy author name")  { copy(commit.authorName) }
+            Button("Copy author email") { copy(commit.authorEmail) }
+            if let onFilterByAuthor {
+                Divider()
+                Button("Filter by \(commit.authorName)") {
+                    onFilterByAuthor(commit.authorName)
+                }
+            }
+        }
+    }
+
+    /// Author column. When the host wires `onFilterByAuthor`, clicking the
+    /// cell prefills the History search with the author's name — common
+    /// shortcut to scope the log to one person without typing.
+    @ViewBuilder
+    private var authorCell: some View {
+        let row = HStack(spacing: DesignTokens.Spacing.sm) {
+            Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
+            Text(commit.authorName)
+                .font(AppFont.sans(12))
+                .foregroundStyle(theme.palette.fg2)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        if let onFilterByAuthor {
+            Button {
+                onFilterByAuthor(commit.authorName)
+            } label: {
+                row.contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .help("Filter history by \(commit.authorName)")
+        } else {
+            row
+        }
+    }
+
+    private func copy(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 
     /// Re-uses the existing `GraphColumnView` so lane drawing matches the

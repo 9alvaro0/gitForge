@@ -11,6 +11,10 @@ struct HistoryToolbar: View {
 
     var body: some View {
         Group {
+            if let label = lastFetchedLabel {
+                MonoText(label, dim: true)
+                    .help(viewModel.lastFetchedAt.map { "Last fetched \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "")
+            }
             ToolButton(
                 .fetch,
                 label: "Fetch",
@@ -22,6 +26,18 @@ struct HistoryToolbar: View {
             pullSplitButton
             pushSplitButton
         }
+    }
+
+    /// Coarse "fetched X ago" label. SwiftUI re-renders this view on its own
+    /// cadence (state changes / view switches) so the value drifts a little
+    /// — that's acceptable for a hint, not for a clock.
+    private var lastFetchedLabel: String? {
+        guard let last = viewModel.lastFetchedAt else { return nil }
+        let interval = -last.timeIntervalSinceNow
+        if interval < 60     { return "fetched now" }
+        if interval < 3600   { return "fetched \(Int(interval / 60))m ago" }
+        if interval < 86400  { return "fetched \(Int(interval / 3600))h ago" }
+        return "fetched \(Int(interval / 86400))d ago"
     }
 
     @ViewBuilder
