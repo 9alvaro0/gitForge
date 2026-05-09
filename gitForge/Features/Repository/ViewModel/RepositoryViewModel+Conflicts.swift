@@ -15,11 +15,9 @@ extension RepositoryViewModel {
             var entries: [ConflictFile] = []
             for path in paths {
                 let absolute = repository.url.appendingPathComponent(path)
-                let resolved = (try? String(contentsOf: absolute, encoding: .utf8))
-                    .map { ConflictParser.parse($0).hunks.isEmpty } ?? true
-                let count = (try? String(contentsOf: absolute, encoding: .utf8))
-                    .map { ConflictParser.parse($0).hunks.count } ?? 0
-                entries.append(ConflictFile(path: path, resolved: resolved, conflicts: count))
+                let hunks = (try? String(contentsOf: absolute, encoding: .utf8))
+                    .map { ConflictParser.parse($0).hunks } ?? []
+                entries.append(ConflictFile(path: path, resolved: hunks.isEmpty, conflicts: hunks.count))
             }
             conflictFiles = entries
             if let first = entries.first(where: { !$0.resolved }) {
