@@ -19,8 +19,7 @@ struct SettingsView: View {
                     RemoteHostsSection()
                 }
                 .padding(DesignTokens.Spacing.xxxxl)
-                .frame(maxWidth: 760, alignment: .topLeading)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
