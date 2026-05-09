@@ -160,18 +160,8 @@ struct PullRequestOverviewTab: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    PullRequestOverviewTab(
-        detail: PullRequestDetail(
-            pull: PullRequest.previewSamples[0],
-            descriptionMarkdown: "Adds the **PR/MR** integration with the detail view.",
-            labels: ["feature", "phase-2"],
-            reviewers: [.init(login: "reviewer1", approved: true), .init(login: "reviewer2", approved: false)],
-            assignees: ["9alvaro0"],
-            mergeable: true,
-            ciStatus: CIStatus(state: .success, description: "All checks passed", webURL: nil)
-        )
-    )
-    .frame(width: 1100, height: 700)
-    .background(theme.palette.bg2)
-    .appTheme(theme)
+    PullRequestOverviewTab(detail: .previewSample)
+        .frame(width: 1100, height: 700)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
 }

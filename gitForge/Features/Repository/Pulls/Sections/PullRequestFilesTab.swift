@@ -88,18 +88,10 @@ struct PullRequestFilesTab: View {
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    PullRequestFilesTab(
-        files: [
-            .init(path: "Sources/Foo.swift", oldPath: nil, status: .modified, additions: 42, deletions: 5,
-                  patch: "@@ -1,3 +1,5 @@\n line1\n-old\n+new\n+added\n line3"),
-            .init(path: "README.md", oldPath: nil, status: .added, additions: 10, deletions: 0,
-                  patch: "@@ -0,0 +1,3 @@\n+# Title\n+\n+Body"),
-        ],
-        loading: false
-    )
-    .frame(width: 1200, height: 720)
-    .background(theme.palette.bg2)
-    .appTheme(theme)
+    PullRequestFilesTab(files: PullRequestFileChange.previewSamples, loading: false)
+        .frame(width: 1200, height: 720)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
 }
 
 #Preview("Loading") {

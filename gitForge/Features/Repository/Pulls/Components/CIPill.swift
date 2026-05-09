@@ -41,9 +41,9 @@ struct CIPill: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack(alignment: .leading, spacing: 8) {
-        CIPill(ci: CIStatus(state: .success, description: "All checks passed", webURL: nil))
-        CIPill(ci: CIStatus(state: .failure, description: "1 check failed", webURL: nil))
-        CIPill(ci: CIStatus(state: .pending, description: "Running…", webURL: nil))
+        ForEach(Array(CIStatus.previewSamples.enumerated()), id: \.offset) { _, status in
+            CIPill(ci: status)
+        }
     }
     .padding()
     .appTheme(theme)

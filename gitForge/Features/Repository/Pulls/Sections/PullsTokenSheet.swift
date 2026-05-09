@@ -59,7 +59,7 @@ struct PullsTokenSheet: View {
     @Previewable @State var draft = ""
     @Previewable @State var error: String? = nil
     PullsTokenSheet(
-        host: RemoteHost(provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"),
+        host: .previewGitHub,
         draft: $draft,
         error: $error,
         onCancel: {}, onSave: {}

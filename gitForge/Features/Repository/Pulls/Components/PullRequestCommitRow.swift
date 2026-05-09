@@ -35,14 +35,9 @@ struct PullRequestCommitRow: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack(spacing: 8) {
-        PullRequestCommitRow(commit: PullRequestCommit(
-            sha: "abc1234abcdef", subject: "feat: add PR detail view",
-            authorName: "9alvaro0", authorDate: Date(timeIntervalSinceNow: -3600)
-        ))
-        PullRequestCommitRow(commit: PullRequestCommit(
-            sha: "def5678abcdef", subject: "refactor: split provider",
-            authorName: "9alvaro0", authorDate: Date(timeIntervalSinceNow: -7200)
-        ))
+        ForEach(PullRequestCommit.previewSamples.prefix(3)) { commit in
+            PullRequestCommitRow(commit: commit)
+        }
     }
     .padding()
     .frame(width: 720)

@@ -102,14 +102,7 @@ struct PullRequestDetailView: View {
 
 #Preview("Detail — Loading") {
     @Previewable @State var theme = AppTheme()
-    let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.preview
-        v.pullRequestsHost = RemoteHost(provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge")
-        v.selectedPullRequest = PullRequest.previewSamples.first
-        v.pullRequestDetailLoading = true
-        return v
-    }()
-    PullRequestDetailView(viewModel: vm)
+    PullRequestDetailView(viewModel: .previewLoadingPullRequest)
         .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
@@ -117,32 +110,7 @@ struct PullRequestDetailView: View {
 
 #Preview("Detail") {
     @Previewable @State var theme = AppTheme()
-    let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.preview
-        v.pullRequestsHost = RemoteHost(provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge")
-        v.selectedPullRequest = PullRequest.previewSamples.first
-        v.pullRequestDetail = PullRequestDetail(
-            pull: PullRequest.previewSamples.first!,
-            descriptionMarkdown: "Adds the **PR/MR** integration with `Phase 2` detail view.\n\n- Description\n- Commits\n- Files",
-            labels: ["feature", "phase-2"],
-            reviewers: [.init(login: "reviewer1", approved: true), .init(login: "reviewer2", approved: false)],
-            assignees: ["9alvaro0"],
-            mergeable: true,
-            ciStatus: CIStatus(state: .success, description: "All checks passed", webURL: nil)
-        )
-        v.pullRequestCommits = [
-            PullRequestCommit(sha: "abc1234abcdef", subject: "feat: add PR detail view", authorName: "9alvaro0", authorDate: Date(timeIntervalSinceNow: -3600)),
-            PullRequestCommit(sha: "def5678abcdef", subject: "refactor: split provider", authorName: "9alvaro0", authorDate: Date(timeIntervalSinceNow: -7200)),
-        ]
-        v.pullRequestFiles = [
-            PullRequestFileChange(path: "Sources/Foo.swift", oldPath: nil, status: .modified, additions: 42, deletions: 5,
-                                  patch: "@@ -1,3 +1,5 @@\n line1\n-old\n+new\n+added\n line3"),
-            PullRequestFileChange(path: "README.md", oldPath: nil, status: .added, additions: 10, deletions: 0,
-                                  patch: "@@ -0,0 +1,3 @@\n+# Title\n+\n+Body"),
-        ]
-        return v
-    }()
-    PullRequestDetailView(viewModel: vm)
+    PullRequestDetailView(viewModel: .previewWithPullRequestDetail)
         .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
