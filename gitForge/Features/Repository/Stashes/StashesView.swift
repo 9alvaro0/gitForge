@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// List of `git stash` entries with apply / pop / drop per row, and a
-/// "Stash changes…" button when the working tree is dirty.
+/// List of `git stash` entries with apply / pop / drop per row, drill-in to
+/// detail (overview + files), and a "Stash changes…" button when the working
+/// tree is dirty.
 struct StashesView: View {
     @Bindable var viewModel: RepositoryViewModel
 
@@ -15,23 +16,12 @@ struct StashesView: View {
     private var hasDirtyChanges: Bool { !viewModel.status.isClean }
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Stashes") {
-                MonoText("\(viewModel.stashes.count) stashed", dim: true)
-            } right: {
-                ToolButton(.stash, label: "Stash changes…", primary: true,
-                           disabled: !hasDirtyChanges) {
-                    stashMessage = ""
-                    stashSheet = true
-                }
+        Group {
+            if viewModel.selectedStash != nil {
+                StashDetailView(viewModel: viewModel)
+            } else {
+                listLayout
             }
-            StashList(
-                stashes: viewModel.stashes,
-                hasDirtyChanges: hasDirtyChanges,
-                onApply: { stash in Task { await runApply(stash, drop: false) } },
-                onPop:   { stash in Task { await runApply(stash, drop: true)  } },
-                onDrop:  { stash in dropTarget = stash }
-            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
@@ -54,6 +44,28 @@ struct StashesView: View {
             Button("Cancel", role: .cancel) { dropTarget = nil }
         } message: {
             Text("Discards the stash. This can't be undone.")
+        }
+    }
+
+    private var listLayout: some View {
+        VStack(spacing: DesignTokens.Spacing.none) {
+            ContentHeader(title: "Stashes") {
+                MonoText("\(viewModel.stashes.count) stashed", dim: true)
+            } right: {
+                ToolButton(.stash, label: "Stash changes…", primary: true,
+                           disabled: !hasDirtyChanges) {
+                    stashMessage = ""
+                    stashSheet = true
+                }
+            }
+            StashList(
+                stashes: viewModel.stashes,
+                hasDirtyChanges: hasDirtyChanges,
+                onSelect: { viewModel.selectStash($0) },
+                onApply:  { stash in Task { await runApply(stash, drop: false) } },
+                onPop:    { stash in Task { await runApply(stash, drop: true)  } },
+                onDrop:   { stash in dropTarget = stash }
+            )
         }
     }
 
@@ -117,5 +129,13 @@ struct StashesView: View {
     StashesView(viewModel: .preview)
         .previewAppState(.preview)
         .frame(width: 980, height: 620)
+        .appTheme(theme)
+}
+
+#Preview("Detail") {
+    @Previewable @State var theme = AppTheme()
+    StashesView(viewModel: .previewWithStashDetail)
+        .previewAppState(.preview)
+        .frame(width: 1200, height: 720)
         .appTheme(theme)
 }
