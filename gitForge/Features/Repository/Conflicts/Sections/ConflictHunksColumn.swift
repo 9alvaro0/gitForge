@@ -54,3 +54,12 @@ struct ConflictHunksColumn: View {
         .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
     }
 }
+
+#Preview {
+    @Previewable @State var theme = AppTheme()
+    ConflictHunksColumn(viewModel: .previewWithConflicts)
+        .frame(width: 760, height: 720)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
+}
+

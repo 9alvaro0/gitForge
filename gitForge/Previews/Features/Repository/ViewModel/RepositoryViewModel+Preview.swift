@@ -13,4 +13,18 @@ extension RepositoryViewModel {
         vm.recomputeGraph()
         return vm
     }
+
+    /// Variant in the middle of a merge with parsed hunks ready to pick —
+    /// used by ConflictView and its column previews.
+    static var previewWithConflicts: RepositoryViewModel {
+        let vm = preview
+        vm.mergeState = .merging
+        vm.conflictFiles = ConflictFile.previewSamples
+        vm.selectedConflictPath = ConflictFile.previewSamples.first?.path
+        vm.conflictHunks = ConflictHunk.previewSamples
+        if let firstHunk = ConflictHunk.previewSamples.first {
+            vm.conflictPicks = [firstHunk.id: .ours]
+        }
+        return vm
+    }
 }
