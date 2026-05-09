@@ -80,3 +80,33 @@ struct PullsContentSection: View {
         return lower.contains("tls") || lower.contains("certificate") || lower.contains("secure connection")
     }
 }
+
+#Preview("List") {
+    @Previewable @State var theme = AppTheme()
+    PullsContentSection(
+        viewModel: .previewWithPullRequests,
+        nounPlural: "pull requests",
+        onAddToken: {}, onOpenSettings: {}
+    )
+    .frame(width: 1100, height: 600)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+
+#Preview("Token missing") {
+    @Previewable @State var theme = AppTheme()
+    let vm: RepositoryViewModel = {
+        let v = RepositoryViewModel.previewWithPullRequests
+        v.pullRequestsRequiresToken = true
+        return v
+    }()
+    PullsContentSection(
+        viewModel: vm,
+        nounPlural: "pull requests",
+        onAddToken: {}, onOpenSettings: {}
+    )
+    .frame(width: 1100, height: 600)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+

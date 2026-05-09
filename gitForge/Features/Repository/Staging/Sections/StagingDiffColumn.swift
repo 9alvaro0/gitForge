@@ -36,3 +36,46 @@ struct StagingDiffColumn: View {
         NSWorkspace.shared.open(absolute)
     }
 }
+
+#Preview("Pick a file") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var mode: DiffPane.ViewMode = .unified
+    StagingDiffColumn(
+        viewModel: .preview,
+        hasFiles: true,
+        statusLoading: false,
+        diffMode: $mode
+    )
+    .frame(width: 720, height: 600)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+
+#Preview("Clean tree") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var mode: DiffPane.ViewMode = .unified
+    StagingDiffColumn(
+        viewModel: .previewCleanTree,
+        hasFiles: false,
+        statusLoading: false,
+        diffMode: $mode
+    )
+    .frame(width: 720, height: 600)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+
+#Preview("Loading") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var mode: DiffPane.ViewMode = .unified
+    StagingDiffColumn(
+        viewModel: .previewLoadingStatus,
+        hasFiles: false,
+        statusLoading: true,
+        diffMode: $mode
+    )
+    .frame(width: 720, height: 600)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
+}
+
