@@ -10,25 +10,6 @@ nonisolated indirect enum BranchTreeNode: Sendable, Identifiable, Hashable {
         case .ref(_, let ref): "ref:\(ref.id)"
         }
     }
-
-    var displayName: String {
-        switch self {
-        case .folder(_, let name, _): name
-        case .ref(let leaf, _): leaf
-        }
-    }
-
-    /// Used by `OutlineGroup`. `nil` marks a leaf so the outline shows no chevron.
-    var children: [BranchTreeNode]? {
-        switch self {
-        case .folder(_, _, let kids): kids
-        case .ref: nil
-        }
-    }
-
-    var ref: GitRef? {
-        if case .ref(_, let ref) = self { return ref } else { return nil }
-    }
 }
 
 enum BranchTreeBuilder {

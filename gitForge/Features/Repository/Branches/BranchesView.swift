@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// `.gf-view-branches` — local + remote + tags listing, organised hierarchically
-/// by folder (`feature/`, `release/`, …) so big repos don't drown the list.
+/// Local + remote + tags grouped by folder (`feature/`, `release/`, …) so
+/// big repos don't drown the list.
 struct BranchesView: View {
     @Bindable var viewModel: RepositoryViewModel
 
@@ -21,7 +21,7 @@ struct BranchesView: View {
     @Environment(WorkspaceUI.self) private var ui
     @Environment(\.appTheme) private var theme
 
-    /// "Merge `source` into `target`" — `target == nil` means current branch.
+    /// `target == nil` means the current branch.
     struct MergeRequest: Identifiable, Equatable {
         let id = UUID()
         let source: GitRef
@@ -72,9 +72,7 @@ struct BranchesView: View {
                 }
             )
         }
-        // Either entry point — local "+" or the ⌘B menu — opens with a clean
-        // input. The state is local to this view, so no extra reset is needed
-        // when the sheet closes.
+        // Either entry point — local "+" or the ⌘B menu — opens with a clean input.
         .onChange(of: ui.newBranchSheetVisible) { _, isVisible in
             if isVisible { newBranchName = "" }
         }
@@ -232,100 +230,6 @@ struct BranchesView: View {
         }
     }
 }
-
-// MARK: - Confirmation dialogs
-
-/// All four confirmation dialogs presented by `BranchesView` packaged as a
-/// `ViewModifier` so the view body stays small. Each dialog is driven by a
-/// binding on the parent state — clearing the binding dismisses it.
-private struct BranchDialogs: ViewModifier {
-    @Binding var deleteTarget: GitRef?
-    @Binding var deleteForce: Bool
-    @Binding var mergeRequest: BranchesView.MergeRequest?
-    @Binding var rebaseTarget: GitRef?
-    @Binding var deleteTargetTag: GitRef?
-    let currentBranchName: String?
-    let confirmDelete: (GitRef) -> Void
-    let confirmMerge: (BranchesView.MergeRequest) -> Void
-    let confirmRebase: (GitRef) -> Void
-    let confirmDeleteTag: (GitRef, _ alsoOnRemote: Bool) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .confirmationDialog("Delete \(deleteTarget?.name ?? "")?",
-                                isPresented: presence($deleteTarget),
-                                titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    if let ref = deleteTarget { confirmDelete(ref) }
-                    deleteTarget = nil
-                }
-                Button("Cancel", role: .cancel) { deleteTarget = nil }
-            } message: {
-                Text("This removes the local branch reference. Use force-delete if it has unmerged commits.")
-            }
-            .confirmationDialog(mergeTitle,
-                                isPresented: presence($mergeRequest),
-                                titleVisibility: .visible) {
-                Button("Merge") {
-                    if let req = mergeRequest { confirmMerge(req) }
-                    mergeRequest = nil
-                }
-                Button("Cancel", role: .cancel) { mergeRequest = nil }
-            } message: {
-                Text(mergeMessage)
-            }
-            .confirmationDialog("Rebase \(currentBranchName ?? "current") onto \(rebaseTarget?.displayName ?? "")?",
-                                isPresented: presence($rebaseTarget),
-                                titleVisibility: .visible) {
-                Button("Rebase") {
-                    if let ref = rebaseTarget { confirmRebase(ref) }
-                    rebaseTarget = nil
-                }
-                Button("Cancel", role: .cancel) { rebaseTarget = nil }
-            } message: {
-                Text("Replays \(currentBranchName ?? "current") on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
-            }
-            .confirmationDialog("Delete tag \(deleteTargetTag?.name ?? "")?",
-                                isPresented: presence($deleteTargetTag),
-                                titleVisibility: .visible) {
-                Button("Delete locally", role: .destructive) {
-                    if let ref = deleteTargetTag { confirmDeleteTag(ref, false) }
-                    deleteTargetTag = nil
-                }
-                Button("Delete locally + remote", role: .destructive) {
-                    if let ref = deleteTargetTag { confirmDeleteTag(ref, true) }
-                    deleteTargetTag = nil
-                }
-                Button("Cancel", role: .cancel) { deleteTargetTag = nil }
-            } message: {
-                Text("Local-only is reversible (re-tag the same sha). Removing from origin notifies anyone who already pulled it.")
-            }
-    }
-
-    private var mergeTitle: String {
-        guard let req = mergeRequest else { return "" }
-        let target = req.target?.displayName ?? currentBranchName ?? "current"
-        return "Merge \(req.source.displayName) into \(target)?"
-    }
-
-    private var mergeMessage: String {
-        guard let req = mergeRequest else { return "" }
-        let target = req.target?.displayName ?? currentBranchName ?? "current"
-        if let t = req.target, t.name != currentBranchName {
-            return "Will check out \(target) first, then merge \(req.source.displayName) into it. Conflicts route you to the Conflicts view."
-        }
-        return "Brings \(req.source.displayName) into \(target). Conflicts route you to the Conflicts view."
-    }
-
-    /// `confirmationDialog(isPresented:)` insists on a `Bool` binding even
-    /// when the trigger state is an optional — bridge with a presence check.
-    private func presence<T>(_ binding: Binding<T?>) -> Binding<Bool> {
-        Binding(get: { binding.wrappedValue != nil },
-                set: { if !$0 { binding.wrappedValue = nil } })
-    }
-}
-
-// MARK: - Error → toast string
 
 private extension Error {
     var toastMessage: String {
