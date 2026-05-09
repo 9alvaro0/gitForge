@@ -6,7 +6,7 @@ struct BranchesView: View {
     @Bindable var viewModel: RepositoryViewModel
 
     @State private var filter: String = ""
-    /// Driven by `AppState.newBranchSheetVisible` so the File ▸ New Branch (⌘B)
+    /// Driven by `WorkspaceUI.newBranchSheetVisible` so the File ▸ New Branch (⌘B)
     /// menu and the local "+" button share one presentation path.
     @State private var newBranchName: String = ""
     @State private var renameTarget: GitRef?
@@ -28,6 +28,8 @@ struct BranchesView: View {
         let target: GitRef?
     }
 
+    // MARK: Filtered slices
+
     private var localBranches: [GitRef]  { viewModel.localBranches.filter(matchesFilter) }
     private var remoteBranches: [GitRef] { viewModel.remoteBranches.filter(matchesFilter) }
     private var tags: [GitRef]           { viewModel.tags.filter(matchesFilter) }
@@ -37,61 +39,38 @@ struct BranchesView: View {
         filter.isEmpty || ref.name.localizedCaseInsensitiveContains(filter)
     }
 
+    /// Built once per body render so each leaf row is an O(1) lookup instead
+    /// of an O(commits) scan — this matters once a repo accumulates branches.
+    private var commitDateBySha: [String: Date] {
+        Dictionary(viewModel.commits.map { ($0.sha, $0.authorDate) },
+                   uniquingKeysWith: { first, _ in first })
+    }
+
+    // MARK: Body
+
     var body: some View {
         @Bindable var ui = ui
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Branches") {
-                EmptyView()
-            } right: {
-                GFTextField(placeholder: "Filter branches…", text: $filter).frame(width: 220)
-                ToolButton(.push, label: "Push tags", disabled: viewModel.tags.isEmpty) {
-                    Task { await runPushAllTags() }
-                }
-                ToolButton(.plus, label: "New branch", primary: true) {
-                    ui.newBranchSheetVisible = true
-                }
-            }
-            ScrollView {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
-                    BranchSection(
-                        title: "Local",
-                        refs: localBranches,
-                        availableTargets: viewModel.localBranches,
-                        currentBranchName: currentBranchName,
-                        viewModel: viewModel,
-                        onCheckout: handleCheckout,
-                        onRename: { renameTarget = $0; renameDraft = $0.name },
-                        onDelete: { deleteTarget = $0; deleteForce = false },
-                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
-                        onRebase: { rebaseTarget = $0 }
-                    )
-                    BranchSection(
-                        title: "Remote",
-                        refs: remoteBranches,
-                        availableTargets: viewModel.localBranches,
-                        currentBranchName: nil,
-                        viewModel: viewModel,
-                        onCheckout: handleCheckout,
-                        onRename: nil,
-                        onDelete: nil,
-                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
-                        onRebase: { rebaseTarget = $0 }
-                    )
-                    if !tags.isEmpty {
-                        TagsSection(
-                            tags: tags,
-                            onPush:   { ref in Task { await runPushTag(ref) } },
-                            onDelete: { ref in deleteTargetTag = ref }
-                        )
-                    }
-                }
-                .padding(DesignTokens.Spacing.xxxxl)
-            }
+            header
+            content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
         .sheet(isPresented: $ui.newBranchSheetVisible) {
-            newBranchSheetView(presented: $ui.newBranchSheetVisible)
+            BranchInputSheet(
+                title: "New branch",
+                placeholder: "feat/awesome",
+                confirmTitle: "Create & checkout",
+                text: $newBranchName,
+                confirmDisabled: newBranchName.isEmpty,
+                onCancel: { ui.newBranchSheetVisible = false },
+                onConfirm: { name in
+                    Task {
+                        _ = await viewModel.createBranch(name: name, checkout: true)
+                        ui.newBranchSheetVisible = false
+                    }
+                }
+            )
         }
         // Either entry point — local "+" or the ⌘B menu — opens with a clean
         // input. The state is local to this view, so no extra reset is needed
@@ -99,89 +78,96 @@ struct BranchesView: View {
         .onChange(of: ui.newBranchSheetVisible) { _, isVisible in
             if isVisible { newBranchName = "" }
         }
-        .sheet(item: $renameTarget) { ref in renameSheetView(ref: ref) }
-        .confirmationDialog("Delete \(deleteTarget?.name ?? "")?",
-                            isPresented: deleteAlertBinding,
-                            titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                if let ref = deleteTarget {
-                    Task { _ = await viewModel.deleteBranch(ref, force: deleteForce) }
+        .sheet(item: $renameTarget) { ref in
+            BranchInputSheet(
+                title: "Rename \(ref.name)",
+                placeholder: ref.name,
+                confirmTitle: "Rename",
+                text: $renameDraft,
+                confirmDisabled: renameDraft.isEmpty || renameDraft == ref.name,
+                onCancel: { renameTarget = nil },
+                onConfirm: { newName in
+                    Task {
+                        _ = await viewModel.renameBranch(from: ref.name, to: newName)
+                        renameTarget = nil
+                    }
                 }
-                deleteTarget = nil
-            }
-            Button("Cancel", role: .cancel) { deleteTarget = nil }
-        } message: {
-            Text("This removes the local branch reference. Use force-delete if it has unmerged commits.")
+            )
         }
-        .confirmationDialog(mergeDialogTitle,
-                            isPresented: mergeAlertBinding,
-                            titleVisibility: .visible) {
-            Button("Merge") {
-                if let req = mergeRequest { Task { await runMerge(request: req) } }
-                mergeRequest = nil
+        .modifier(BranchDialogs(
+            deleteTarget: $deleteTarget,
+            deleteForce: $deleteForce,
+            mergeRequest: $mergeRequest,
+            rebaseTarget: $rebaseTarget,
+            deleteTargetTag: $deleteTargetTag,
+            currentBranchName: currentBranchName,
+            confirmDelete: { ref in Task { _ = await viewModel.deleteBranch(ref, force: deleteForce) } },
+            confirmMerge: { req in Task { await runMerge(request: req) } },
+            confirmRebase: { ref in Task { await runRebase(ref: ref) } },
+            confirmDeleteTag: { ref, alsoRemote in Task { await runDeleteTag(ref, alsoOnRemote: alsoRemote) } }
+        ))
+    }
+
+    // MARK: Layout
+
+    private var header: some View {
+        ContentHeader(title: "Branches") {
+            EmptyView()
+        } right: {
+            GFTextField(placeholder: "Filter branches…", text: $filter).frame(width: 220)
+            ToolButton(.push, label: "Push tags", disabled: viewModel.tags.isEmpty) {
+                Task { await runPushAllTags() }
             }
-            Button("Cancel", role: .cancel) { mergeRequest = nil }
-        } message: {
-            Text(mergeDialogMessage)
-        }
-        .confirmationDialog("Rebase \(currentBranchName ?? "current") onto \(rebaseTarget?.displayName ?? "")?",
-                            isPresented: rebaseAlertBinding,
-                            titleVisibility: .visible) {
-            Button("Rebase") {
-                if let ref = rebaseTarget { Task { await runRebase(ref: ref) } }
-                rebaseTarget = nil
+            ToolButton(.plus, label: "New branch", primary: true) {
+                ui.newBranchSheetVisible = true
             }
-            Button("Cancel", role: .cancel) { rebaseTarget = nil }
-        } message: {
-            Text("Replays \(currentBranchName ?? "current") on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
-        }
-        .confirmationDialog("Delete tag \(deleteTargetTag?.name ?? "")?",
-                            isPresented: deleteTagAlertBinding,
-                            titleVisibility: .visible) {
-            Button("Delete locally", role: .destructive) {
-                if let ref = deleteTargetTag { Task { await runDeleteTag(ref, alsoOnRemote: false) } }
-                deleteTargetTag = nil
-            }
-            Button("Delete locally + remote", role: .destructive) {
-                if let ref = deleteTargetTag { Task { await runDeleteTag(ref, alsoOnRemote: true) } }
-                deleteTargetTag = nil
-            }
-            Button("Cancel", role: .cancel) { deleteTargetTag = nil }
-        } message: {
-            Text("Local-only is reversible (re-tag the same sha). Removing from origin notifies anyone who already pulled it.")
         }
     }
 
-    private var deleteTagAlertBinding: Binding<Bool> {
-        Binding(get: { deleteTargetTag != nil }, set: { if !$0 { deleteTargetTag = nil } })
-    }
-
-    private var deleteAlertBinding: Binding<Bool> {
-        Binding(get: { deleteTarget != nil }, set: { if !$0 { deleteTarget = nil } })
-    }
-    private var mergeAlertBinding: Binding<Bool> {
-        Binding(get: { mergeRequest != nil }, set: { if !$0 { mergeRequest = nil } })
-    }
-
-    private var mergeDialogTitle: String {
-        guard let req = mergeRequest else { return "" }
-        let target = req.target?.displayName ?? currentBranchName ?? "current"
-        return "Merge \(req.source.displayName) into \(target)?"
-    }
-
-    private var mergeDialogMessage: String {
-        guard let req = mergeRequest else { return "" }
-        let target = req.target?.displayName ?? currentBranchName ?? "current"
-        if let t = req.target, t.name != currentBranchName {
-            return "Will check out \(target) first, then merge \(req.source.displayName) into it. Conflicts route you to the Conflicts view."
+    private var content: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
+                BranchListSection(
+                    title: "Local",
+                    refs: localBranches,
+                    availableTargets: viewModel.localBranches,
+                    currentBranchName: currentBranchName,
+                    commitDateBySha: commitDateBySha,
+                    onCheckout: handleCheckout,
+                    onRename: { renameTarget = $0; renameDraft = $0.name },
+                    onDelete: { deleteTarget = $0; deleteForce = false },
+                    onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+                    onRebase: { rebaseTarget = $0 }
+                )
+                BranchListSection(
+                    title: "Remote",
+                    refs: remoteBranches,
+                    availableTargets: viewModel.localBranches,
+                    currentBranchName: nil,
+                    commitDateBySha: commitDateBySha,
+                    onCheckout: handleCheckout,
+                    onRename: nil,
+                    onDelete: nil,
+                    onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+                    onRebase: { rebaseTarget = $0 }
+                )
+                if !tags.isEmpty {
+                    BranchTagsSection(
+                        tags: tags,
+                        onPush:   { ref in Task { await runPushTag(ref) } },
+                        onDelete: { ref in deleteTargetTag = ref }
+                    )
+                }
+            }
+            .padding(DesignTokens.Spacing.xxxxl)
         }
-        return "Brings \(req.source.displayName) into \(target). Conflicts route you to the Conflicts view."
-    }
-    private var rebaseAlertBinding: Binding<Bool> {
-        Binding(get: { rebaseTarget != nil }, set: { if !$0 { rebaseTarget = nil } })
     }
 
-    private func handleCheckout(_ ref: GitRef) { Task { _ = await viewModel.checkoutBranch(ref) } }
+    // MARK: Handlers
+
+    private func handleCheckout(_ ref: GitRef) {
+        Task { _ = await viewModel.checkoutBranch(ref) }
+    }
 
     private func runMerge(request: MergeRequest) async {
         let outcome = await viewModel.mergeBranch(source: request.source, into: request.target)
@@ -203,392 +189,150 @@ struct BranchesView: View {
                         conflicts: String) {
         switch outcome {
         case .clean:
-            appState.ui.activeToast = ToastMessage(message: success, kind: .ok)
+            toast(success, kind: .ok)
         case .conflicts:
             appState.ui.workspaceSection = .conflict
-            appState.ui.activeToast = ToastMessage(message: conflicts, kind: .warn)
+            toast(conflicts, kind: .warn)
         case .failed(let message):
-            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
+            toast(message, kind: .error)
         }
     }
 
     // MARK: Tag handlers
 
     private func runPushTag(_ ref: GitRef) async {
-        let result = await viewModel.pushTag(ref)
-        switch result {
-        case .success:
-            appState.ui.activeToast = ToastMessage(message: "Pushed \(ref.name)", kind: .ok)
-        case .failure(let err):
-            appState.ui.activeToast = ToastMessage(
-                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                kind: .error)
-        }
+        toast(await viewModel.pushTag(ref), success: "Pushed \(ref.name)")
     }
 
     private func runPushAllTags() async {
-        let result = await viewModel.pushAllTags()
-        switch result {
-        case .success:
-            appState.ui.activeToast = ToastMessage(message: "Pushed all tags", kind: .ok)
-        case .failure(let err):
-            appState.ui.activeToast = ToastMessage(
-                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                kind: .error)
-        }
+        toast(await viewModel.pushAllTags(), success: "Pushed all tags")
     }
 
     private func runDeleteTag(_ ref: GitRef, alsoOnRemote: Bool) async {
         if alsoOnRemote {
-            let remoteResult = await viewModel.pushDeleteTag(ref)
-            if case .failure(let err) = remoteResult {
-                appState.ui.activeToast = ToastMessage(
-                    message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                    kind: .error)
+            if case .failure(let err) = await viewModel.pushDeleteTag(ref) {
+                toast(err.toastMessage, kind: .error)
                 return
             }
         }
-        let localResult = await viewModel.deleteTag(ref)
-        switch localResult {
-        case .success:
-            let suffix = alsoOnRemote ? " (local + remote)" : " (local)"
-            appState.ui.activeToast = ToastMessage(message: "Deleted \(ref.name)\(suffix)", kind: .ok)
-        case .failure(let err):
-            appState.ui.activeToast = ToastMessage(
-                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                kind: .error)
-        }
+        let suffix = alsoOnRemote ? " (local + remote)" : " (local)"
+        toast(await viewModel.deleteTag(ref), success: "Deleted \(ref.name)\(suffix)")
     }
 
-    @ViewBuilder
-    private func newBranchSheetView(presented: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
-            Text("New branch").font(AppFont.sans(14, weight: .semibold))
-            GFTextField(placeholder: "feat/awesome", text: $newBranchName)
-            HStack {
-                GFButton(title: "Cancel") { presented.wrappedValue = false }
-                Spacer()
-                GFButton(title: "Create & checkout", style: .primary, disabled: newBranchName.isEmpty) {
-                    let target = newBranchName
-                    Task {
-                        _ = await viewModel.createBranch(name: target, checkout: true)
-                        presented.wrappedValue = false
-                    }
-                }
-            }
-        }
-        .padding(DesignTokens.Spacing.huge).frame(width: 380)
-        .background(theme.palette.bg1)
-        .appTheme(appState.ui.theme)
+    // MARK: Toast helpers
+
+    private func toast(_ message: String, kind: ToastMessage.Kind) {
+        appState.ui.activeToast = ToastMessage(message: message, kind: kind)
     }
 
-    @ViewBuilder
-    private func renameSheetView(ref: GitRef) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
-            Text("Rename \(ref.name)").font(AppFont.sans(14, weight: .semibold))
-            GFTextField(placeholder: ref.name, text: $renameDraft)
-            HStack {
-                GFButton(title: "Cancel") { renameTarget = nil }
-                Spacer()
-                GFButton(title: "Rename", style: .primary, disabled: renameDraft.isEmpty || renameDraft == ref.name) {
-                    let target = renameDraft
-                    Task {
-                        _ = await viewModel.renameBranch(from: ref.name, to: target)
-                        renameTarget = nil
-                    }
-                }
-            }
+    private func toast(_ result: Result<Void, Error>, success: String) {
+        switch result {
+        case .success:           toast(success, kind: .ok)
+        case .failure(let err):  toast(err.toastMessage, kind: .error)
         }
-        .padding(DesignTokens.Spacing.huge).frame(width: 380)
-        .background(theme.palette.bg1)
-        .appTheme(appState.ui.theme)
     }
 }
 
-// MARK: - Section
+// MARK: - Confirmation dialogs
 
-private struct FlatRow: Identifiable {
-    enum Kind {
-        case folder(path: String, name: String, count: Int, collapsed: Bool)
-        case leaf(ref: GitRef, leafName: String)
-    }
-    let id: String
-    let depth: Int
-    let kind: Kind
-}
-
-private struct BranchSection: View {
-    let title: String
-    let refs: [GitRef]
-    /// Local branches that can be the destination of a merge.
-    let availableTargets: [GitRef]
+/// All four confirmation dialogs presented by `BranchesView` packaged as a
+/// `ViewModifier` so the view body stays small. Each dialog is driven by a
+/// binding on the parent state — clearing the binding dismisses it.
+private struct BranchDialogs: ViewModifier {
+    @Binding var deleteTarget: GitRef?
+    @Binding var deleteForce: Bool
+    @Binding var mergeRequest: BranchesView.MergeRequest?
+    @Binding var rebaseTarget: GitRef?
+    @Binding var deleteTargetTag: GitRef?
     let currentBranchName: String?
-    let viewModel: RepositoryViewModel
-    let onCheckout: (GitRef) -> Void
-    let onRename: ((GitRef) -> Void)?
-    let onDelete: ((GitRef) -> Void)?
-    /// `(source, target)` — `target == nil` means current branch.
-    let onMerge: ((GitRef, GitRef?) -> Void)?
-    let onRebase: ((GitRef) -> Void)?
+    let confirmDelete: (GitRef) -> Void
+    let confirmMerge: (BranchesView.MergeRequest) -> Void
+    let confirmRebase: (GitRef) -> Void
+    let confirmDeleteTag: (GitRef, _ alsoOnRemote: Bool) -> Void
 
-    @State private var collapsedFolders: Set<String> = []
-    @Environment(\.appTheme) private var theme
-
-    private var tree: [BranchTreeNode] { BranchTreeBuilder.build(from: refs) }
-
-    /// Flatten the (possibly collapsed) tree into a single ordered list so the
-    /// view body can be a flat `ForEach` instead of a recursive ViewBuilder.
-    private var flatRows: [FlatRow] {
-        var out: [FlatRow] = []
-        func walk(_ nodes: [BranchTreeNode], depth: Int) {
-            for node in nodes {
-                switch node {
-                case .ref(let leaf, let ref):
-                    out.append(FlatRow(id: node.id, depth: depth,
-                                       kind: .leaf(ref: ref, leafName: leaf)))
-                case .folder(let path, let name, let children):
-                    let collapsed = collapsedFolders.contains(path)
-                    out.append(FlatRow(id: node.id, depth: depth,
-                                       kind: .folder(path: path, name: name,
-                                                      count: leafCount(in: children),
-                                                      collapsed: collapsed)))
-                    if !collapsed { walk(children, depth: depth + 1) }
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog("Delete \(deleteTarget?.name ?? "")?",
+                                isPresented: presence($deleteTarget),
+                                titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    if let ref = deleteTarget { confirmDelete(ref) }
+                    deleteTarget = nil
                 }
+                Button("Cancel", role: .cancel) { deleteTarget = nil }
+            } message: {
+                Text("This removes the local branch reference. Use force-delete if it has unmerged commits.")
             }
-        }
-        walk(tree, depth: 0)
-        return out
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Text(title.uppercased())
-                    .font(.system(size: FontSize.footnote, weight: .semibold))
-                    .tracking(0.8)
-                    .foregroundStyle(theme.palette.fg3)
-                Text("\(refs.count)")
-                    .font(.system(size: FontSize.footnote))
-                    .foregroundStyle(theme.palette.fg3)
-            }
-            .padding(.leading, DesignTokens.Spacing.xxs)
-            if refs.isEmpty {
-                Text("No branches.")
-                    .font(AppFont.sans(12))
-                    .foregroundStyle(theme.palette.fg3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, DesignTokens.Spacing.xxl)
-                    .padding(.vertical, DesignTokens.Spacing.xxl)
-                    .background(card)
-            } else {
-                VStack(spacing: DesignTokens.Spacing.none) {
-                    tableHeader
-                    ForEach(flatRows) { row in
-                        renderFlatRow(row)
-                    }
+            .confirmationDialog(mergeTitle,
+                                isPresented: presence($mergeRequest),
+                                titleVisibility: .visible) {
+                Button("Merge") {
+                    if let req = mergeRequest { confirmMerge(req) }
+                    mergeRequest = nil
                 }
-                .background(card)
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg))
+                Button("Cancel", role: .cancel) { mergeRequest = nil }
+            } message: {
+                Text(mergeMessage)
             }
-        }
-    }
-
-    private var card: some View {
-        RoundedRectangle(cornerRadius: DesignTokens.Radius.lg)
-            .fill(theme.palette.bg3)
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.lg)
-                    .stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
-            )
-    }
-
-    private var tableHeader: some View {
-        HStack {
-            Spacer().frame(width: DesignTokens.IconSize.md)
-            Text("NAME").frame(maxWidth: .infinity, alignment: .leading)
-            Text("LAST COMMIT").frame(width: 200, alignment: .leading)
-            Spacer().frame(width: 130)
-        }
-        .font(AppFont.mono(10.5, family: theme.monoFont))
-        .tracking(0.6)
-        .foregroundStyle(theme.palette.fg3)
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
-        .background(theme.palette.bg4)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular) }
-    }
-
-    @ViewBuilder
-    private func renderFlatRow(_ row: FlatRow) -> some View {
-        switch row.kind {
-        case .leaf(let ref, let leafName):
-            leafRow(ref: ref, leafName: leafName, depth: row.depth)
-        case .folder(let path, let name, let count, _):
-            folderRow(path: path, name: name, depth: row.depth, count: count)
-        }
-    }
-
-    @ViewBuilder
-    private func folderRow(path: String, name: String, depth: Int, count: Int) -> some View {
-        let collapsed = collapsedFolders.contains(path)
-        Button {
-            if collapsed { collapsedFolders.remove(path) } else { collapsedFolders.insert(path) }
-        } label: {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Spacer().frame(width: CGFloat(depth) * 16 + 14)
-                GFIcon(kind: collapsed ? .chevR : .chevD, size: 10, stroke: theme.palette.fg3)
-                GFIcon(kind: .folder, size: 12, stroke: theme.palette.fg2)
-                Text(name)
-                    .font(AppFont.sans(12, weight: .medium))
-                    .foregroundStyle(theme.palette.fg1)
-                Text("\(count)")
-                    .font(AppFont.mono(10.5, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg3)
-                Spacer()
-            }
-            .padding(.horizontal, DesignTokens.Spacing.xl)
-            .padding(.vertical, DesignTokens.Spacing.sm)
-            .contentShape(.rect)
-            .background(.clear)
-        }
-        .buttonStyle(.plain)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
-    }
-
-    @ViewBuilder
-    private func leafRow(ref: GitRef, leafName: String, depth: Int) -> some View {
-        let isCurrent = (ref.name == currentBranchName) && ref.isLocalBranch
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            Spacer().frame(width: CGFloat(depth) * 16 + 14)
-            if isCurrent {
-                Circle().fill(theme.palette.accent).frame(width: DesignTokens.Spacing.sm, height: DesignTokens.Spacing.sm)
-            } else {
-                Color.clear.frame(width: DesignTokens.Spacing.sm, height: DesignTokens.Spacing.sm)
-            }
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                GFIcon(kind: ref.isRemoteBranch ? .cloud : .desktop, size: 12, stroke: theme.palette.fg2)
-                Text(leafName)
-                    .font(AppFont.mono(12, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg1)
-                if isCurrent {
-                    Pill(text: "HEAD", kind: .neutral)
+            .confirmationDialog("Rebase \(currentBranchName ?? "current") onto \(rebaseTarget?.displayName ?? "")?",
+                                isPresented: presence($rebaseTarget),
+                                titleVisibility: .visible) {
+                Button("Rebase") {
+                    if let ref = rebaseTarget { confirmRebase(ref) }
+                    rebaseTarget = nil
                 }
+                Button("Cancel", role: .cancel) { rebaseTarget = nil }
+            } message: {
+                Text("Replays \(currentBranchName ?? "current") on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Text(lastCommitLabel(for: ref))
-                .font(AppFont.mono(12, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-                .frame(width: 200, alignment: .leading)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            HStack(spacing: DesignTokens.Spacing.xs) {
-                if !isCurrent {
-                    GFButton(title: "Checkout", size: .small) { onCheckout(ref) }
+            .confirmationDialog("Delete tag \(deleteTargetTag?.name ?? "")?",
+                                isPresented: presence($deleteTargetTag),
+                                titleVisibility: .visible) {
+                Button("Delete locally", role: .destructive) {
+                    if let ref = deleteTargetTag { confirmDeleteTag(ref, false) }
+                    deleteTargetTag = nil
                 }
-                OverflowMenu {
-                    if !isCurrent { Button("Checkout") { onCheckout(ref) } }
-                    if let onMerge {
-                        Menu("Merge \(ref.displayName) into…") {
-                            // Quick path for merging into the current branch.
-                            if let current = currentBranchName, ref.name != current {
-                                Button("\(current) (current)") { onMerge(ref, nil) }
-                                Divider()
-                            }
-                            ForEach(otherTargets(excluding: ref)) { target in
-                                Button(target.name) { onMerge(ref, target) }
-                            }
-                        }
-                    }
-                    if let onRebase, !isCurrent {
-                        Button("Rebase \(currentBranchName ?? "current") onto this…") { onRebase(ref) }
-                    }
-                    if let onRename {
-                        Divider()
-                        Button("Rename…") { onRename(ref) }
-                    }
-                    if let onDelete, !isCurrent {
-                        Divider()
-                        Button("Delete…", role: .destructive) { onDelete(ref) }
-                    }
+                Button("Delete locally + remote", role: .destructive) {
+                    if let ref = deleteTargetTag { confirmDeleteTag(ref, true) }
+                    deleteTargetTag = nil
                 }
+                Button("Cancel", role: .cancel) { deleteTargetTag = nil }
+            } message: {
+                Text("Local-only is reversible (re-tag the same sha). Removing from origin notifies anyone who already pulled it.")
             }
-            .frame(width: 130, alignment: .trailing)
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.sm)
-        .background(isCurrent ? theme.palette.accent.opacity(DesignTokens.Opacity.faint) : .clear)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
-        .contentShape(.rect)
-        .onTapGesture(count: 2) {
-            guard !isCurrent else { return }
-            onCheckout(ref)
-        }
     }
 
-    /// Local branches usable as a merge target, excluding `excluded` and the
-    /// current branch (handled separately as the "quick" item).
-    private func otherTargets(excluding excluded: GitRef) -> [GitRef] {
-        availableTargets.filter { target in
-            target.id != excluded.id && target.name != currentBranchName
-        }
+    private var mergeTitle: String {
+        guard let req = mergeRequest else { return "" }
+        let target = req.target?.displayName ?? currentBranchName ?? "current"
+        return "Merge \(req.source.displayName) into \(target)?"
     }
 
-    private func leafCount(in nodes: [BranchTreeNode]) -> Int {
-        nodes.reduce(0) { acc, node in
-            switch node {
-            case .ref:                            return acc + 1
-            case .folder(_, _, let children):     return acc + leafCount(in: children)
-            }
+    private var mergeMessage: String {
+        guard let req = mergeRequest else { return "" }
+        let target = req.target?.displayName ?? currentBranchName ?? "current"
+        if let t = req.target, t.name != currentBranchName {
+            return "Will check out \(target) first, then merge \(req.source.displayName) into it. Conflicts route you to the Conflicts view."
         }
+        return "Brings \(req.source.displayName) into \(target). Conflicts route you to the Conflicts view."
     }
 
-    private func lastCommitLabel(for ref: GitRef) -> String {
-        if let commit = viewModel.commits.first(where: { $0.sha == ref.targetSha }) {
-            return theme.dateDisplayMode.format(commit.authorDate)
-        }
-        return String(ref.targetSha.prefix(7))
+    /// `confirmationDialog(isPresented:)` insists on a `Bool` binding even
+    /// when the trigger state is an optional — bridge with a presence check.
+    private func presence<T>(_ binding: Binding<T?>) -> Binding<Bool> {
+        Binding(get: { binding.wrappedValue != nil },
+                set: { if !$0 { binding.wrappedValue = nil } })
     }
 }
 
-// MARK: - Tags
+// MARK: - Error → toast string
 
-private struct TagsSection: View {
-    let tags: [GitRef]
-    let onPush: (GitRef) -> Void
-    let onDelete: (GitRef) -> Void
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            Text("TAGS")
-                .font(.system(size: FontSize.footnote, weight: .semibold))
-                .tracking(0.8)
-                .foregroundStyle(theme.palette.fg3)
-            FlowLayout(spacing: DesignTokens.Spacing.sm) {
-                ForEach(tags) { tag in
-                    Menu {
-                        Button("Push to origin") { onPush(tag) }
-                        Divider()
-                        Button("Delete…", role: .destructive) { onDelete(tag) }
-                    } label: {
-                        HStack(spacing: DesignTokens.Spacing.sm) {
-                            GFIcon(kind: .tag, size: 10, stroke: theme.palette.mod)
-                            Text(tag.name).font(AppFont.mono(11.5, family: theme.monoFont))
-                        }
-                        .foregroundStyle(theme.palette.mod)
-                        .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).fill(theme.palette.mod.opacity(DesignTokens.Opacity.subtle)))
-                        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).stroke(theme.palette.mod.opacity(DesignTokens.Opacity.strong), lineWidth: DesignTokens.Stroke.regular))
-                    }
-                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                }
-            }
-        }
+private extension Error {
+    var toastMessage: String {
+        (self as? LocalizedError)?.errorDescription ?? localizedDescription
     }
 }
 
-#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     BranchesView(viewModel: RepositoryViewModel.preview)
@@ -596,4 +340,3 @@ private struct TagsSection: View {
         .frame(width: 980, height: 620)
         .appTheme(theme)
 }
-#endif
