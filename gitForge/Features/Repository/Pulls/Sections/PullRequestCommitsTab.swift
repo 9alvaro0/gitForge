@@ -53,16 +53,10 @@ struct PullRequestCommitsTab: View {
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    PullRequestCommitsTab(
-        commits: [
-            .init(sha: "abc1234abcdef", subject: "feat: add PR detail view", authorName: "9alvaro0", authorDate: Date(timeIntervalSinceNow: -3600)),
-            .init(sha: "def5678abcdef", subject: "refactor: split provider", authorName: "9alvaro0", authorDate: Date(timeIntervalSinceNow: -7200)),
-        ],
-        loading: false
-    )
-    .frame(width: 1100, height: 600)
-    .background(theme.palette.bg2)
-    .appTheme(theme)
+    PullRequestCommitsTab(commits: PullRequestCommit.previewSamples, loading: false)
+        .frame(width: 1100, height: 600)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
 }
 
 #Preview("Loading") {

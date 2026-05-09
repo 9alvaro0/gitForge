@@ -84,15 +84,7 @@ struct PullsView: View {
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.preview
-        v.pullRequests = PullRequest.previewSamples
-        v.pullRequestsHost = RemoteHost(
-            provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"
-        )
-        return v
-    }()
-    PullsView(viewModel: vm)
+    PullsView(viewModel: .previewWithPullRequests)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -101,11 +93,9 @@ struct PullsView: View {
 #Preview("Loading") {
     @Previewable @State var theme = AppTheme()
     let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.preview
+        let v = RepositoryViewModel.previewWithPullRequests
+        v.pullRequests = []
         v.pullRequestsLoading = true
-        v.pullRequestsHost = RemoteHost(
-            provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"
-        )
         return v
     }()
     PullsView(viewModel: vm)
@@ -118,9 +108,7 @@ struct PullsView: View {
     @Previewable @State var theme = AppTheme()
     let vm: RepositoryViewModel = {
         let v = RepositoryViewModel.preview
-        v.pullRequestsHost = RemoteHost(
-            provider: .gitlab, host: "gitlab.com", owner: "group", repo: "project"
-        )
+        v.pullRequestsHost = .previewGitLab
         v.pullRequestsRequiresToken = true
         return v
     }()

@@ -27,4 +27,31 @@ extension RepositoryViewModel {
         }
         return vm
     }
+
+    /// Variant with a populated PR list against a GitHub host.
+    static var previewWithPullRequests: RepositoryViewModel {
+        let vm = preview
+        vm.pullRequests = PullRequest.previewSamples
+        vm.pullRequestsHost = .previewGitHub
+        return vm
+    }
+
+    /// Variant with the user already drilled into a single PR, with detail /
+    /// commits / files all populated.
+    static var previewWithPullRequestDetail: RepositoryViewModel {
+        let vm = previewWithPullRequests
+        vm.selectedPullRequest = PullRequest.previewSamples.first
+        vm.pullRequestDetail = PullRequestDetail.previewSample
+        vm.pullRequestCommits = PullRequestCommit.previewSamples
+        vm.pullRequestFiles = PullRequestFileChange.previewSamples
+        return vm
+    }
+
+    /// Variant mid-load on the PR list (no detail yet).
+    static var previewLoadingPullRequest: RepositoryViewModel {
+        let vm = previewWithPullRequests
+        vm.selectedPullRequest = PullRequest.previewSamples.first
+        vm.pullRequestDetailLoading = true
+        return vm
+    }
 }

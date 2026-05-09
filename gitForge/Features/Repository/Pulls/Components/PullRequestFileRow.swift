@@ -49,17 +49,14 @@ extension StatusTag.Kind {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
+    let samples = PullRequestFileChange.previewSamples
     VStack(spacing: 0) {
-        PullRequestFileRow(
-            file: PullRequestFileChange(path: "Sources/Foo.swift", oldPath: nil, status: .modified, additions: 42, deletions: 5, patch: nil),
-            isSelected: true,
-            onSelect: {}
-        )
-        PullRequestFileRow(
-            file: PullRequestFileChange(path: "README.md", oldPath: nil, status: .added, additions: 10, deletions: 0, patch: nil),
-            isSelected: false,
-            onSelect: {}
-        )
+        if let first = samples.first {
+            PullRequestFileRow(file: first, isSelected: true, onSelect: {})
+        }
+        ForEach(samples.dropFirst()) { file in
+            PullRequestFileRow(file: file, isSelected: false, onSelect: {})
+        }
     }
     .padding()
     .frame(width: 480)

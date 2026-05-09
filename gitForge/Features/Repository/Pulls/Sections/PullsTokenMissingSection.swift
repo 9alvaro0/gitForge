@@ -31,7 +31,7 @@ struct PullsTokenMissingSection: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     PullsTokenMissingSection(
-        host: RemoteHost(provider: .github, host: "github.com", owner: "9alvaro0", repo: "gitForge"),
+        host: .previewGitHub,
         nounPlural: "pull requests",
         onAddToken: {}, onOpenSettings: {}
     )
