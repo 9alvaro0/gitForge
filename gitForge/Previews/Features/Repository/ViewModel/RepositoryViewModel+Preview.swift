@@ -54,4 +54,22 @@ extension RepositoryViewModel {
         vm.pullRequestDetailLoading = true
         return vm
     }
+
+    /// Empty status that hasn't finished its first refresh — drives the
+    /// staging skeleton.
+    static var previewLoadingStatus: RepositoryViewModel {
+        let vm = preview
+        vm.status = WorkingCopyStatus(files: [])
+        vm.hasLoadedStatusOnce = false
+        return vm
+    }
+
+    /// Empty status with the first refresh completed — drives the
+    /// "Working tree is clean" empty state.
+    static var previewCleanTree: RepositoryViewModel {
+        let vm = preview
+        vm.status = WorkingCopyStatus(files: [])
+        vm.hasLoadedStatusOnce = true
+        return vm
+    }
 }
