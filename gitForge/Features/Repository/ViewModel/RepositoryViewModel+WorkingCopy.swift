@@ -23,24 +23,35 @@ extension RepositoryViewModel {
     }
 
     func stage(_ files: [WorkingCopyFile]) async {
-        await runStageOperation { try await self.cli.stage(paths: files.map(\.path)) }
+        // Use `allPaths` so renames (staged or unstaged-detected) carry both
+        // the new and old paths into a single `git add` invocation. Without
+        // the old path, git stages the new file as an "add" and leaves the
+        // delete unstaged, breaking the rename detection in the index.
+        await runStageOperation { try await self.cli.stage(paths: files.flatMap(\.allPaths)) }
     }
 
     func unstage(_ files: [WorkingCopyFile]) async {
-        await runStageOperation { try await self.cli.unstage(paths: files.map(\.path)) }
+        await runStageOperation { try await self.cli.unstage(paths: files.flatMap(\.allPaths)) }
     }
 
     func discardChanges(_ files: [WorkingCopyFile]) async {
         // `git restore --` refuses unmerged paths, so they need a separate
         // command (`git checkout HEAD --`) that overwrites both index and
         // worktree from HEAD. Untracked files are filesystem-only deletes.
+        // Detected unstaged renames need both: restore the old path from
+        // HEAD (it's been deleted on disk) and remove the new path.
         let unmerged = files.filter(\.isUnmerged)
-        let untracked = files.filter { $0.isUntracked && !$0.isUnmerged }
-        let tracked = files.filter { !$0.isUntracked && !$0.isUnmerged }
+        let detectedRenames = files.filter { $0.unstagedStatus == .renamed && !$0.isStaged }
+        let untracked = files.filter { $0.isUntracked && !$0.isUnmerged && $0.unstagedStatus != .renamed }
+        let tracked = files.filter {
+            !$0.isUntracked && !$0.isUnmerged && $0.unstagedStatus != .renamed
+        }
+        let renameRestores = detectedRenames.compactMap(\.originalPath)
+        let renameDeletes = detectedRenames.map(\.path)
         await runStageOperation {
-            try await self.cli.discardChanges(paths: tracked.map(\.path))
+            try await self.cli.discardChanges(paths: tracked.map(\.path) + renameRestores)
             try await self.cli.discardUnmerged(paths: unmerged.map(\.path))
-            try await self.cli.deleteUntracked(paths: untracked.map(\.path))
+            try await self.cli.deleteUntracked(paths: untracked.map(\.path) + renameDeletes)
         }
     }
 

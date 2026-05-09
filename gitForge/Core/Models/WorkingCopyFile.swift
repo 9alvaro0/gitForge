@@ -56,4 +56,12 @@ nonisolated struct WorkingCopyFile: Sendable, Equatable, Identifiable, Hashable 
     var isUnstaged: Bool { unstagedStatus != .unmodified && unstagedStatus != .ignored }
     var isUntracked: Bool { stagedStatus == .untracked || unstagedStatus == .untracked }
     var isUnmerged: Bool { stagedStatus == .unmerged || unstagedStatus == .unmerged }
+
+    /// Paths that need to travel together when staging/unstaging this file.
+    /// For renames (staged or detected unstaged), git only records the move
+    /// in the index when both sides — the old path's deletion and the new
+    /// path's add — go through `git add` / `git restore --staged` together.
+    var allPaths: [String] {
+        if let originalPath { [path, originalPath] } else { [path] }
+    }
 }

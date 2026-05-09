@@ -366,10 +366,20 @@ private struct StagingRow: View {
         else             { await viewModel.stage([file]) }
     }
 
+    @ViewBuilder
     private var pathView: some View {
-        let parts = file.path.split(separator: "/")
+        if let originalPath = file.originalPath {
+            renamedPathView(from: originalPath, to: file.path)
+        } else {
+            singlePathView(file.path)
+        }
+    }
+
+    /// Standard `dim/dir/` + `bold name` rendering for non-rename rows.
+    private func singlePathView(_ path: String) -> some View {
+        let parts = path.split(separator: "/")
         let directory = parts.dropLast().joined(separator: "/")
-        let name = parts.last.map(String.init) ?? file.path
+        let name = parts.last.map(String.init) ?? path
         return HStack(spacing: DesignTokens.Spacing.none) {
             if !directory.isEmpty {
                 Text("\(directory)/")
@@ -382,6 +392,45 @@ private struct StagingRow: View {
                 .font(AppFont.mono(11.5, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
                 .lineLimit(1)
+        }
+    }
+
+    /// Renamed-row layout: `oldDir/ → newDir/name`. When both sides share
+    /// a basename (the common case — file moved between directories) we
+    /// only show the directories around the arrow and append the basename
+    /// once at the end. Different basenames render as `oldPath → newPath`.
+    private func renamedPathView(from oldPath: String, to newPath: String) -> some View {
+        let oldName = (oldPath as NSString).lastPathComponent
+        let newName = (newPath as NSString).lastPathComponent
+        let oldDir = (oldPath as NSString).deletingLastPathComponent
+        let newDir = (newPath as NSString).deletingLastPathComponent
+        let sameName = oldName == newName
+        return HStack(spacing: DesignTokens.Spacing.xxs) {
+            Text(sameName ? "\(oldDir)/" : oldPath)
+                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg3)
+                .lineLimit(1)
+                .truncationMode(.head)
+            Text("→")
+                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .foregroundStyle(theme.palette.fg4)
+            if sameName {
+                Text("\(newDir)/")
+                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.fg3)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                Text(newName)
+                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.fg1)
+                    .lineLimit(1)
+            } else {
+                Text(newPath)
+                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .foregroundStyle(theme.palette.fg1)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
         }
     }
 
