@@ -42,11 +42,12 @@ struct CommitFilesSection: View {
         }
     }
 
+    // Bland filler — visible only while the commit detail is loading.
     private static let placeholderPaths = [
-        "Sources/Features/Repository/RepositoryView.swift",
-        "Sources/Core/Git/GitCLI.swift",
-        "Sources/DesignSystem/Components/EmptyState.swift",
-        "README.md",
+        "Loading file path…",
+        "Loading file path…",
+        "Loading file path…",
+        "Loading file path…",
     ]
 
     private var placeholder: some View {

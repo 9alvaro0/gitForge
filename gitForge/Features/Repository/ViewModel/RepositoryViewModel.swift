@@ -66,7 +66,14 @@ final class RepositoryViewModel {
     }
 
     // MARK: Refs / branches / stashes
-    var refs: [GitRef] = []
+    var refs: [GitRef] = [] {
+        didSet { refsBySha = Dictionary(grouping: refs) { $0.targetSha } }
+    }
+    /// Pre-grouped index of refs by their target SHA. Recomputed only when
+    /// `refs` is reassigned (in `loadRefs`), instead of every time a row's
+    /// chip cell asks for it during scroll. The graph row count is bounded by
+    /// the number of refs in the repo, not by the visible commits.
+    var refsBySha: [String: [GitRef]] = [:]
     var currentBranchName: String?
     var stashes: [Stash] = []
 
@@ -258,10 +265,6 @@ final class RepositoryViewModel {
     var selectedCommit: Commit? {
         guard let id = selectedCommitId else { return nil }
         return commits.first { $0.id == id }
-    }
-
-    var refsBySha: [String: [GitRef]] {
-        Dictionary(grouping: refs) { $0.targetSha }
     }
 
     var localBranches: [GitRef] {

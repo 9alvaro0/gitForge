@@ -95,8 +95,8 @@ extension HistoryView {
     func runReset(_ request: ResetHeadRequest, mode: GitCLI.ResetMode) {
         Task {
             let outcome = await viewModel.reset(to: request.targetSha, mode: mode)
-            reportIntegration(
-                outcome,
+            appState.ui.emitToast(
+                for: outcome,
                 success: "Reset \(request.branchName) to \(request.targetShortSha) (\(mode.rawValue))",
                 conflicts: "Reset paused on conflicts — resolve to continue"
             )
@@ -106,8 +106,8 @@ extension HistoryView {
     func runMerge(_ request: MergeRebaseRequest) {
         Task {
             let outcome = await viewModel.mergeBranch(source: request.source, into: request.target)
-            reportIntegration(
-                outcome,
+            appState.ui.emitToast(
+                for: outcome,
                 success: "Merged \(request.source.displayName) into \(request.target.displayName)",
                 conflicts: "Merge has conflicts — resolve to continue"
             )
@@ -128,25 +128,11 @@ extension HistoryView {
                 }
             }
             let outcome = await viewModel.rebaseOnto(request.target)
-            reportIntegration(
-                outcome,
+            appState.ui.emitToast(
+                for: outcome,
                 success: "Rebased \(request.source.displayName) onto \(request.target.displayName)",
                 conflicts: "Rebase has conflicts — resolve to continue"
             )
-        }
-    }
-
-    func reportIntegration(_ outcome: RepositoryViewModel.IntegrationOutcome,
-                           success: String,
-                           conflicts: String) {
-        switch outcome {
-        case .clean:
-            appState.ui.activeToast = ToastMessage(message: success, kind: .ok)
-        case .conflicts:
-            appState.ui.workspaceSection = .conflict
-            appState.ui.activeToast = ToastMessage(message: conflicts, kind: .warn)
-        case .failed(let message):
-            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 }

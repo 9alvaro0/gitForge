@@ -166,41 +166,29 @@ struct CommitActionsSection: View {
 
     @MainActor
     private func runCherryPick() async {
-        let outcome = await viewModel.cherryPick(commit)
-        report(outcome,
-               success: "Cherry-picked \(commit.shortSha)",
-               conflicts: "Cherry-pick has conflicts — resolve to continue")
+        appState.ui.emitToast(
+            for: await viewModel.cherryPick(commit),
+            success: "Cherry-picked \(commit.shortSha)",
+            conflicts: "Cherry-pick has conflicts — resolve to continue"
+        )
     }
 
     @MainActor
     private func runRevert() async {
-        let outcome = await viewModel.revert(commit)
-        report(outcome,
-               success: "Reverted \(commit.shortSha)",
-               conflicts: "Revert has conflicts — resolve to continue")
+        appState.ui.emitToast(
+            for: await viewModel.revert(commit),
+            success: "Reverted \(commit.shortSha)",
+            conflicts: "Revert has conflicts — resolve to continue"
+        )
     }
 
     @MainActor
     private func runReset(mode: GitCLI.ResetMode) async {
-        let outcome = await viewModel.reset(to: commit.sha, mode: mode)
-        report(outcome,
-               success: "Reset \(mode.rawValue) to \(commit.shortSha)",
-               conflicts: "Reset has conflicts — resolve to continue")
-    }
-
-    @MainActor
-    private func report(_ outcome: RepositoryViewModel.IntegrationOutcome,
-                        success: String,
-                        conflicts: String) {
-        switch outcome {
-        case .clean:
-            appState.ui.activeToast = ToastMessage(message: success, kind: .ok)
-        case .conflicts:
-            appState.ui.workspaceSection = .conflict
-            appState.ui.activeToast = ToastMessage(message: conflicts, kind: .warn)
-        case .failed(let message):
-            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
-        }
+        appState.ui.emitToast(
+            for: await viewModel.reset(to: commit.sha, mode: mode),
+            success: "Reset \(mode.rawValue) to \(commit.shortSha)",
+            conflicts: "Reset has conflicts — resolve to continue"
+        )
     }
 }
 

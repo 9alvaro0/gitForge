@@ -6,15 +6,18 @@ import SwiftUI
 struct HistorySkeleton: View {
     @Environment(\.appTheme) private var theme
 
+    // Deliberately bland fillers — they show only while the real log is
+    // loading, and shouldn't ever look like a real commit subject the user
+    // is about to see.
     private static let placeholderSubjects = [
-        "feat: add merge request integration",
-        "fix: handle nil reviewer avatar URLs",
-        "refactor: split provider-specific mappers",
-        "chore: bump dependency versions",
-        "feat: skeleton loaders for first-fetch states",
-        "test: cover empty merge request payloads",
-        "fix: history scroll jumps on selection",
-        "feat: graph perf improvements",
+        "Loading commit subject…",
+        "Loading commit subject…",
+        "Loading commit subject…",
+        "Loading commit subject…",
+        "Loading commit subject…",
+        "Loading commit subject…",
+        "Loading commit subject…",
+        "Loading commit subject…",
     ]
 
     var body: some View {
