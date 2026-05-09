@@ -272,6 +272,10 @@ private struct StagingRow: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
+    /// Drives a per-row confirmation when the user picks "Discard changes"
+    /// or "Delete file" on an untracked entry. Always confirms — there's no
+    /// undo for this and the all-files variant already gates behind a dialog.
+    @State private var pendingDiscard = false
 
     var body: some View {
         let isSelected = viewModel.selectedWorkingCopyFile?.id == file.id
@@ -299,6 +303,20 @@ private struct StagingRow: View {
         )
         .help(file.isStaged ? "Double-click to unstage" : "Double-click to stage")
         .contextMenu { contextMenu }
+        .confirmationDialog(
+            file.isUntracked ? "Delete \(filename)?" : "Discard changes to \(filename)?",
+            isPresented: $pendingDiscard,
+            titleVisibility: .visible
+        ) {
+            Button(file.isUntracked ? "Delete file" : "Discard changes",
+                   role: .destructive) {
+                Task { await viewModel.discardChanges([file]) }
+            }
+        } message: {
+            Text(file.isUntracked
+                 ? "The file will be removed from disk. This can't be undone from the app."
+                 : "Local changes will be reverted to the last committed version. This can't be undone.")
+        }
     }
 
     @ViewBuilder
@@ -310,12 +328,12 @@ private struct StagingRow: View {
         }
         if file.isUntracked {
             Button("Delete file", role: .destructive) {
-                Task { await viewModel.discardChanges([file]) }
+                pendingDiscard = true
             }
         } else {
             Button(file.isUnmerged ? "Discard conflict (revert to HEAD)" : "Discard changes",
                    role: .destructive) {
-                Task { await viewModel.discardChanges([file]) }
+                pendingDiscard = true
             }
         }
         Divider()

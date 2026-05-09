@@ -19,6 +19,10 @@ nonisolated struct GitGlobalConfig: Sendable, Equatable {
     var defaultBranch: String?
     var pullStrategy: String?     // rebase / merge / ff-only
     var signingKey: String?       // user.signingkey
+    /// `commit.gpgsign` — `nil` when unset (git defaults to false), `true`
+    /// or `false` when explicitly set. The Settings toggle treats `nil`
+    /// and `false` identically as "off".
+    var signCommits: Bool?
     var autoFetchInterval: Int?   // gitForge.autoFetchInterval (custom key)
 
     static let unknown = GitGlobalConfig(
@@ -26,6 +30,7 @@ nonisolated struct GitGlobalConfig: Sendable, Equatable {
         defaultBranch: nil,
         pullStrategy: nil,
         signingKey: nil,
+        signCommits: nil,
         autoFetchInterval: nil
     )
 }
