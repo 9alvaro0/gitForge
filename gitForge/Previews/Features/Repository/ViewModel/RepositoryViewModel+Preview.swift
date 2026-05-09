@@ -72,4 +72,11 @@ extension RepositoryViewModel {
         vm.hasLoadedStatusOnce = true
         return vm
     }
+
+    /// Variant with a populated stash list.
+    static var previewWithStashes: RepositoryViewModel {
+        let vm = preview
+        vm.stashes = Stash.previewSamples
+        return vm
+    }
 }
