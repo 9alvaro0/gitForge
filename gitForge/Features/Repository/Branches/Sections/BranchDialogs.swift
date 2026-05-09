@@ -88,3 +88,39 @@ struct BranchDialogs: ViewModifier {
                 set: { if !$0 { binding.wrappedValue = nil } })
     }
 }
+
+#Preview {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var deleteTarget: GitRef? = nil
+    @Previewable @State var deleteForce: Bool = false
+    @Previewable @State var mergeRequest: BranchesView.MergeRequest? = nil
+    @Previewable @State var rebaseTarget: GitRef? = nil
+    @Previewable @State var deleteTargetTag: GitRef? = nil
+
+    VStack(spacing: 12) {
+        Button("Trigger delete") {
+            deleteTarget = GitRef.previewSamples.first
+        }
+        Button("Trigger rebase") {
+            rebaseTarget = GitRef.previewSamples.first
+        }
+        Text("Click a button to surface the corresponding confirmation dialog.")
+            .font(AppFont.sans(11))
+            .foregroundStyle(theme.palette.fg3)
+    }
+    .padding(24)
+    .frame(width: 360, height: 200)
+    .background(theme.palette.bg2)
+    .modifier(BranchDialogs(
+        deleteTarget: $deleteTarget,
+        deleteForce: $deleteForce,
+        mergeRequest: $mergeRequest,
+        rebaseTarget: $rebaseTarget,
+        deleteTargetTag: $deleteTargetTag,
+        currentBranchName: "main",
+        confirmDelete: { _ in }, confirmMerge: { _ in }, confirmRebase: { _ in },
+        confirmDeleteTag: { _, _ in }
+    ))
+    .appTheme(theme)
+}
+
