@@ -66,7 +66,7 @@ struct WelcomeView: View {
 #Preview("No recents") {
     @Previewable @State var theme = AppTheme()
     WelcomeView()
-        .environment(AppState())
+        .previewAppState(.previewEmpty)
         .frame(width: 900, height: 600)
         .appTheme(theme)
 }
