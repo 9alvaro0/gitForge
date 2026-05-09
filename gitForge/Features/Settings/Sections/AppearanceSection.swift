@@ -56,6 +56,11 @@ struct AppearanceSection: View {
                 if let n = Int(v) { ui.theme.diffContextLines = n }
             }
             wrapToggle
+            radioRow(label: "Dates",
+                     values: DateDisplayMode.allCases.map { ($0.rawValue, $0.label) },
+                     current: ui.theme.dateDisplayMode.rawValue) { v in
+                if let m = DateDisplayMode(rawValue: v) { ui.theme.dateDisplayMode = m }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

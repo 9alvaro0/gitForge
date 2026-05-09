@@ -5,7 +5,10 @@ import os
 @Observable
 @MainActor
 final class RepositoryViewModel {
-    static let pageSize = 200
+    /// Cap on `git log` pagination during `revealCommit(...)` — prevents a
+    /// stray ref from quietly walking the entire history. The page size
+    /// itself lives in `AppTheme.persistedCommitPageSize()` so the user
+    /// can tune it from Settings.
     static let maxRevealPages = 10
 
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "repo-vm")

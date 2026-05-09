@@ -3,10 +3,6 @@ import os
 
 actor GitCLI {
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "git")
-    /// Seconds before the run watchdog gives up and kills the subprocess.
-    /// Generous on purpose: even a slow `fetch --all` over flaky wifi
-    /// finishes well within this; anything beyond is genuinely stuck.
-    static let timeout: TimeInterval = 60
 
     let workingDirectory: URL
     private let executablePath: String
@@ -57,6 +53,10 @@ actor GitCLI {
 
         let startTime = Date()
         let argsString = args.joined(separator: " ")
+        // Resolve once per invocation so the watchdog and the synthesized
+        // timeout-message use a consistent value even if the user flips
+        // the setting mid-fetch.
+        let timeout = TimeInterval(AppTheme.persistedGitTimeoutSeconds())
         Self.logger.debug("→ git \(argsString, privacy: .public)")
 
         do {
@@ -66,16 +66,17 @@ actor GitCLI {
             throw GitError.launchFailed(error.localizedDescription)
         }
 
-        // Watchdog. If a command doesn't finish within `Self.timeout`, kill it.
+        // Watchdog. If a command doesn't finish within `timeout`, kill it.
         // Local commands are milliseconds; remote commands are seconds. Anything
-        // past 60s means the subprocess is stuck — dead network, askpass deadlock,
-        // misbehaving hook — and we'd rather surface a clean failure than leave
-        // the user staring at a frozen spinner. SIGTERM first, SIGKILL after a
-        // grace window in case git ignores the soft signal.
-        let watchdog = Task { [process, argsString] in
-            try? await Task.sleep(for: .seconds(Self.timeout))
+        // past the timeout means the subprocess is stuck — dead network,
+        // askpass deadlock, misbehaving hook — and we'd rather surface a clean
+        // failure than leave the user staring at a frozen spinner. SIGTERM
+        // first, SIGKILL after a grace window in case git ignores the soft
+        // signal. Default 60s, configurable from Settings → Behavior.
+        let watchdog = Task { [process, argsString, timeout] in
+            try? await Task.sleep(for: .seconds(timeout))
             guard !Task.isCancelled, process.isRunning else { return }
-            Self.logger.error("watchdog: terminating `git \(argsString, privacy: .public)` after \(Self.timeout, privacy: .public)s")
+            Self.logger.error("watchdog: terminating `git \(argsString, privacy: .public)` after \(timeout, privacy: .public)s")
             process.terminate()
             try? await Task.sleep(for: .milliseconds(500))
             if process.isRunning {
@@ -104,8 +105,8 @@ actor GitCLI {
             let trimmed = capturedStderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty,
                process.terminationReason == .uncaughtSignal,
-               duration >= Self.timeout {
-                return "connection timed out after \(Int(Self.timeout))s — the remote may be unreachable, or git is stuck on something the app can't drive non-interactively."
+               duration >= timeout {
+                return "connection timed out after \(Int(timeout))s — the remote may be unreachable, or git is stuck on something the app can't drive non-interactively."
             }
             return capturedStderr
         }()

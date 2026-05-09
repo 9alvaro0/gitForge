@@ -544,8 +544,7 @@ private struct BranchSection: View {
 
     private func lastCommitLabel(for ref: GitRef) -> String {
         if let commit = viewModel.commits.first(where: { $0.sha == ref.targetSha }) {
-            let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
-            return f.localizedString(for: commit.authorDate, relativeTo: .now)
+            return theme.dateDisplayMode.format(commit.authorDate)
         }
         return String(ref.targetSha.prefix(7))
     }
