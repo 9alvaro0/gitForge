@@ -56,11 +56,16 @@ struct ConflictView: View {
     }
 }
 
-#if DEBUG
-#Preview("Empty (clean tree)") {
+#Preview("Resolving merge") {
     @Previewable @State var theme = AppTheme()
-    ConflictView(viewModel: RepositoryViewModel.preview)
+    ConflictView(viewModel: .previewWithConflicts)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
-#endif
+
+#Preview("Empty (clean tree)") {
+    @Previewable @State var theme = AppTheme()
+    ConflictView(viewModel: .preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
