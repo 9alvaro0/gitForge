@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// "Tags" section under the Branches view — wraps a `FlowLayout` of
-/// `BranchTagPill`s with a header label.
 struct BranchTagsSection: View {
     let tags: [GitRef]
     let onPush: (GitRef) -> Void

@@ -71,7 +71,7 @@ enum ConflictParser {
             case .conflict:
                 let originalId = hunks[hIdx].id
                 if let pick = picks[originalId] {
-                    out.append(contentsOf: pickedLines(parsedHunks[hIdx], pick: pick))
+                    out.append(contentsOf: parsedHunks[hIdx].lines(for: pick))
                 } else {
                     out.append(contentsOf: rebuildMarkers(parsedHunks[hIdx]))
                 }
@@ -79,14 +79,6 @@ enum ConflictParser {
             }
         }
         return out.joined(separator: "\n")
-    }
-
-    private static func pickedLines(_ hunk: ConflictHunk, pick: ConflictHunk.Pick) -> [String] {
-        switch pick {
-        case .ours:   return hunk.ours
-        case .theirs: return hunk.theirs
-        case .both:   return hunk.ours + hunk.theirs
-        }
     }
 
     private static func rebuildMarkers(_ hunk: ConflictHunk) -> [String] {

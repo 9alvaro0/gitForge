@@ -1,11 +1,7 @@
 import SwiftUI
 
-/// One section of the Branches view ("Local" / "Remote") rendered as a
-/// hierarchical card with collapsible folders.
-///
-/// The section flattens the tree once per render into `[FlatRow]` so the body
-/// can use a single `ForEach` (no recursive ViewBuilder) — and so each folder
-/// already knows its leaf count without re-walking subtrees on every render.
+/// Flattens the tree via `BranchFlatRowBuilder` so the body is a single
+/// `ForEach` instead of a recursive ViewBuilder.
 struct BranchListSection: View {
     let title: String
     let refs: [GitRef]
@@ -13,8 +9,8 @@ struct BranchListSection: View {
     let availableTargets: [GitRef]
     /// `nil` for the Remote section (no inline Checkout, no HEAD pill).
     let currentBranchName: String?
-    /// `sha → authorDate`, built once by the parent so each row is an O(1)
-    /// lookup instead of an O(commits) `first(where:)`.
+    /// Built once by the parent so each row is an O(1) lookup instead of an
+    /// O(commits) `first(where:)`.
     let commitDateBySha: [String: Date]
     let onCheckout: (GitRef) -> Void
     let onRename: ((GitRef) -> Void)?
@@ -26,7 +22,7 @@ struct BranchListSection: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        let rows = flatRows
+        let rows = BranchFlatRowBuilder.build(refs: refs, collapsedFolders: collapsedFolders)
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             sectionHeader
             if rows.isEmpty {
@@ -98,7 +94,7 @@ struct BranchListSection: View {
     }
 
     @ViewBuilder
-    private func renderRow(_ row: FlatRow) -> some View {
+    private func renderRow(_ row: BranchFlatRow) -> some View {
         switch row.kind {
         case .leaf(let ref, let leafName):
             BranchLeafRow(
@@ -122,65 +118,6 @@ struct BranchListSection: View {
                 isCollapsed: collapsedFolders.contains(path),
                 onToggle: { toggleFolder(path) }
             )
-        }
-    }
-
-    // MARK: Tree → flat rows
-
-    private struct FlatRow: Identifiable {
-        enum Kind {
-            case folder(path: String, name: String, leafCount: Int)
-            case leaf(ref: GitRef, leafName: String)
-        }
-        let id: String
-        let depth: Int
-        let kind: Kind
-    }
-
-    private var flatRows: [FlatRow] {
-        let tree = BranchTreeBuilder.build(from: refs)
-        var out: [FlatRow] = []
-        walk(tree, depth: 0, into: &out)
-        return out
-    }
-
-    /// Walks the tree once and emits flat rows. `leafCount` is computed
-    /// bottom-up here so folder rows don't recurse on every render.
-    @discardableResult
-    private func walk(_ nodes: [BranchTreeNode], depth: Int, into out: inout [FlatRow]) -> Int {
-        var total = 0
-        for node in nodes {
-            switch node {
-            case .ref(let leaf, let ref):
-                out.append(FlatRow(id: node.id, depth: depth, kind: .leaf(ref: ref, leafName: leaf)))
-                total += 1
-            case .folder(let path, let name, let children):
-                let collapsed = collapsedFolders.contains(path)
-                let placeholderIndex = out.count
-                out.append(FlatRow(id: node.id, depth: depth,
-                                   kind: .folder(path: path, name: name, leafCount: 0)))
-                let leafCount: Int
-                if collapsed {
-                    leafCount = countLeaves(in: children)
-                } else {
-                    leafCount = walk(children, depth: depth + 1, into: &out)
-                }
-                out[placeholderIndex] = FlatRow(
-                    id: node.id, depth: depth,
-                    kind: .folder(path: path, name: name, leafCount: leafCount)
-                )
-                total += leafCount
-            }
-        }
-        return total
-    }
-
-    private func countLeaves(in nodes: [BranchTreeNode]) -> Int {
-        nodes.reduce(0) { acc, node in
-            switch node {
-            case .ref:                          acc + 1
-            case .folder(_, _, let children):   acc + countLeaves(in: children)
-            }
         }
     }
 
