@@ -185,7 +185,7 @@ final class AppTheme {
         UserDefaults.standard.object(forKey: Keys.gitTimeout) as? Int ?? 60
     }
 
-    private enum Keys {
+    private nonisolated enum Keys {
         static let mode = "appTheme.mode"
         static let density = "appTheme.density"
         static let accent = "appTheme.accent"
