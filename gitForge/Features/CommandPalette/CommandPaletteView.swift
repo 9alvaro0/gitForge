@@ -128,7 +128,6 @@ struct CommandPaletteView: View {
 }
 
 
-#if DEBUG
 #Preview {
     @Previewable @State var theme = AppTheme()
     CommandPaletteView(
@@ -140,4 +139,3 @@ struct CommandPaletteView: View {
     .background(theme.palette.bg2)
     .appTheme(theme)
 }
-#endif
