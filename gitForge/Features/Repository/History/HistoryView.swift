@@ -46,7 +46,7 @@ struct HistoryView: View {
     private static let minDetailWidth: CGFloat = 280
     private static let maxDetailWidth: CGFloat = 600
 
-    @State private var diffPaneHeightValue: CGFloat = {
+    @State private var diffPaneHeight: CGFloat = {
         let stored = UserDefaults.standard.double(forKey: HistoryView.diffHeightKey)
         return stored > 0 ? CGFloat(stored) : 280
     }()
@@ -60,10 +60,6 @@ struct HistoryView: View {
     @State private var diffPaneCollapsed: Bool = UserDefaults.standard.bool(forKey: HistoryView.diffCollapsedKey)
     @State private var detailColumnCollapsed: Bool = UserDefaults.standard.bool(forKey: HistoryView.detailCollapsedKey)
 
-    private var diffPaneHeight: Binding<CGFloat> {
-        Binding(get: { diffPaneHeightValue }, set: { diffPaneHeightValue = $0 })
-    }
-
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
             get: { diffModeOverride ?? theme.defaultDiffMode },
@@ -72,7 +68,14 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
+        // Build the search matcher once so the count below and the filter
+        // pass to the table share the same closure (and the same single
+        // O(n) walk over commits when search is active).
+        let matcher = searchMatcher
+        let matchCount = matcher.map { fn in viewModel.commits.lazy.filter(fn).count }
+            ?? viewModel.commits.count
+
+        return VStack(spacing: DesignTokens.Spacing.none) {
             ContentHeader(title: "History") {
                 MonoText("\(viewModel.currentBranchName ?? "—") · \(viewModel.commits.count) commits", dim: true)
             } right: {
@@ -84,7 +87,7 @@ struct HistoryView: View {
                 matchCount: matchCount
             )
             HStack(spacing: DesignTokens.Spacing.none) {
-                graphAndDiffColumn
+                graphAndDiffColumn(matcher: matcher)
                 if detailColumnCollapsed {
                     CollapsedPaneStrip(kind: .detail) { setDetailColumnCollapsed(false) }
                 } else {
@@ -126,7 +129,7 @@ struct HistoryView: View {
         ))
     }
 
-    private var graphAndDiffColumn: some View {
+    private func graphAndDiffColumn(matcher: ((Commit) -> Bool)?) -> some View {
         VStack(spacing: DesignTokens.Spacing.none) {
             ZStack(alignment: .bottom) {
                 if viewModel.commits.isEmpty && !viewModel.hasLoadedLogForCurrentScope {
@@ -140,7 +143,7 @@ struct HistoryView: View {
                         selectedSha: viewModel.selectedCommitId,
                         workingCopyDirty: !viewModel.status.isClean,
                         columns: columns,
-                        isMatch: searchMatcher,
+                        isMatch: matcher,
                         onSelect: { sha in viewModel.selectedCommitId = sha },
                         onDoubleClick: { sha in handleDoubleClick(sha) },
                         onAppear: { commit in
@@ -160,7 +163,7 @@ struct HistoryView: View {
                 CollapsedPaneStrip(kind: .diff) { setDiffPaneCollapsed(false) }
             } else {
                 RowDragHandle(
-                    height: diffPaneHeight,
+                    height: $diffPaneHeight,
                     minHeight: 36,
                     maxHeight: 800,
                     onCommit: { persistDiffPaneHeight() }
@@ -173,7 +176,7 @@ struct HistoryView: View {
                     onClose: { setDiffPaneCollapsed(true) },
                     viewMode: diffMode
                 )
-                .frame(height: diffPaneHeight.wrappedValue)
+                .frame(height: diffPaneHeight)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -181,9 +184,9 @@ struct HistoryView: View {
             // Auto-expand when a file is selected and the diff pane has been
             // shrunk to a sliver — a fully collapsed pane stays put.
             guard newFile != nil, !diffPaneCollapsed,
-                  diffPaneHeight.wrappedValue < Self.collapsedThreshold else { return }
+                  diffPaneHeight < Self.collapsedThreshold else { return }
             withAnimation(.easeOut(duration: 0.18)) {
-                diffPaneHeight.wrappedValue = Self.defaultDiffHeight
+                diffPaneHeight = Self.defaultDiffHeight
             }
         }
     }
@@ -218,7 +221,7 @@ struct HistoryView: View {
     // MARK: Persistence + collapse helpers
 
     private func persistDiffPaneHeight() {
-        UserDefaults.standard.set(Double(diffPaneHeightValue), forKey: Self.diffHeightKey)
+        UserDefaults.standard.set(Double(diffPaneHeight), forKey: Self.diffHeightKey)
     }
 
     private func persistDetailWidth() {
@@ -237,29 +240,18 @@ struct HistoryView: View {
 
     // MARK: Search
 
-    private var trimmedQuery: String {
-        search.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var matchCount: Int {
-        guard !trimmedQuery.isEmpty else { return viewModel.commits.count }
-        return viewModel.commits.lazy.filter { commitMatches($0, query: trimmedQuery) }.count
-    }
-
-    private func commitMatches(_ commit: Commit, query: String) -> Bool {
-        let q = query.lowercased()
-        return commit.subject.lowercased().contains(q)
-            || commit.authorName.lowercased().contains(q)
-            || commit.authorEmail.lowercased().contains(q)
-            || commit.sha.lowercased().hasPrefix(q)
-    }
-
     /// Closure passed to the table — `nil` when search is empty so every row
-    /// renders at full opacity.
+    /// renders at full opacity. `body` evaluates this once per render and
+    /// reuses it for both the match-count badge and the table's dim filter.
     private var searchMatcher: ((Commit) -> Bool)? {
-        let query = trimmedQuery
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !query.isEmpty else { return nil }
-        return { commitMatches($0, query: query) }
+        return { commit in
+            commit.subject.lowercased().contains(query)
+                || commit.authorName.lowercased().contains(query)
+                || commit.authorEmail.lowercased().contains(query)
+                || commit.sha.lowercased().hasPrefix(query)
+        }
     }
 
     private var detachedCheckoutBinding: Binding<Bool> {

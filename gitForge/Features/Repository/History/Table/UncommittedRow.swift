@@ -30,7 +30,7 @@ struct UncommittedRow: View {
             }
             .frame(width: columns.width("message"), alignment: .leading)
             Color.clear.frame(width: DesignTokens.Spacing.md)
-            Text("").frame(width: columns.width("author"))
+            Color.clear.frame(width: columns.width("author"))
             Color.clear.frame(width: DesignTokens.Spacing.md)
             Text("–")
                 .font(AppFont.mono(11, family: theme.monoFont))

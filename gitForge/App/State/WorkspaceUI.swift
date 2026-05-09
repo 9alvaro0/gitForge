@@ -17,4 +17,21 @@ final class WorkspaceUI {
     /// the matching sheet/alert; menus only flip the bool.
     var newBranchSheetVisible: Bool = false
     var discardAllConfirmVisible: Bool = false
+
+    /// Shared toast emission for git operations that return an
+    /// `IntegrationOutcome` (merge / rebase / cherry-pick / revert / reset /
+    /// stash apply). `.conflicts` also routes the user to the conflict
+    /// resolver. Avoids copy-pasting the same switch in every action runner.
+    func emitToast(for outcome: RepositoryViewModel.IntegrationOutcome,
+                   success: String, conflicts: String) {
+        switch outcome {
+        case .clean:
+            activeToast = ToastMessage(message: success, kind: .ok)
+        case .conflicts:
+            workspaceSection = .conflict
+            activeToast = ToastMessage(message: conflicts, kind: .warn)
+        case .failed(let message):
+            activeToast = ToastMessage(message: message, kind: .error)
+        }
+    }
 }
