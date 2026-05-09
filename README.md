@@ -50,7 +50,17 @@ The full action set is also exposed through the native menu bar (File / View / R
 - SwiftUI + `@Observable`
 - Shell-out to the system `git` CLI via `Process`
 - No backend, no telemetry, no analytics
-- Distribution: signed and notarized DMG
+- Distribution: signed and notarized DMG, with Sparkle for auto-updates
+
+## Updates
+
+gitForge ships with [Sparkle](https://sparkle-project.org). New versions are
+fetched in the background once a day from
+`https://9alvaro0.github.io/gitForge/appcast.xml`. The DMG must pass an EdDSA
+signature check against the embedded `SUPublicEDKey` before installation, so
+unsigned or tampered builds are rejected even if served from the right URL.
+
+Manual check: **Help → Check for Updates…**
 
 ## License
 

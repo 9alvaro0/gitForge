@@ -2,8 +2,9 @@
 #
 # Build, sign, notarize and package gitForge as a distributable DMG.
 # Requires: Xcode, a Developer ID Application certificate in the Keychain,
-# a stored notarytool profile (see scripts/notarize-credentials.md), and
-# create-dmg (brew install create-dmg).
+# and a stored notarytool profile (see scripts/notarize-credentials.md).
+# DMG layout uses hdiutil directly (no create-dmg) so no Finder Automation
+# permissions are needed.
 #
 # Usage: ./scripts/release.sh
 # Output: dist/gitForge-<version>.dmg
@@ -37,7 +38,6 @@ require() {
 # ---- Preflight -------------------------------------------------------------
 require xcodebuild
 require xcrun
-require create-dmg
 require ditto
 
 cd "$(dirname "$0")/.."
@@ -144,3 +144,12 @@ spctl --assess --type open --context context:primary-signature --verbose "${DMG_
 log "Done"
 echo "Artifact: ${DMG_PATH}"
 ls -la "${DMG_PATH}"
+
+cat <<EOM
+
+Next steps for distribution:
+  1) gh release create v${VERSION} ${DMG_PATH} \\
+       --title "gitForge ${VERSION}" --notes-file <release-notes.md>
+  2) ./scripts/update-appcast.sh ${VERSION}
+  3) git add docs/appcast.xml docs/releases/ && git commit -m "release: v${VERSION}" && git push
+EOM
