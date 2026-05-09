@@ -26,10 +26,8 @@ struct BranchTagsSection: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    let tags: [GitRef] = (1...8).map { i in
-        GitRef(name: "v1.\(i).0", kind: .tag, targetSha: "sha\(i)", isHead: false)
-    }
-    return BranchTagsSection(tags: tags, onPush: { _ in }, onDelete: { _ in })
+    BranchTagsSection(tags: GitRef.previewTagSamples,
+                      onPush: { _ in }, onDelete: { _ in })
         .frame(width: 760)
         .padding()
         .background(theme.palette.bg2)

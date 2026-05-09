@@ -202,14 +202,10 @@ struct BranchListSection: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    let main    = GitRef(name: "main", kind: .localBranch, targetSha: "a", isHead: true)
-    let feat1   = GitRef(name: "feature/awesome", kind: .localBranch, targetSha: "b", isHead: false)
-    let feat2   = GitRef(name: "feature/repository/branches", kind: .localBranch, targetSha: "c", isHead: false)
-    let release = GitRef(name: "release/2026.05", kind: .localBranch, targetSha: "d", isHead: false)
-    return BranchListSection(
+    BranchListSection(
         title: "Local",
-        refs: [main, feat1, feat2, release],
-        availableTargets: [main, feat1, feat2, release],
+        refs: GitRef.previewLocalNested,
+        availableTargets: GitRef.previewLocalNested,
         currentBranchName: "main",
         commitDateBySha: [:],
         onCheckout: { _ in }, onRename: { _ in }, onDelete: { _ in },
