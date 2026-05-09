@@ -42,6 +42,10 @@ struct HistoryView: View {
     @State private var moveBranchRequest: MoveBranchRequest?
     @State private var resetHeadRequest: ResetHeadRequest?
     @State private var mergeRebaseRequest: MergeRebaseRequest?
+    /// Set by the split-button's force-push action when the user has
+    /// `confirmForcePush` on. The actual push fires from the dialog's
+    /// destructive button so the click→push gap is always intentional.
+    @State private var pendingForcePush = false
     /// `nil` until the user toggles Unified/Split locally. While it stays nil
     /// the pane reads `theme.defaultDiffMode` so changes in Settings show up
     /// immediately and re-entering History always lands on the default.
@@ -419,8 +423,23 @@ struct HistoryView: View {
             action: { Task { await viewModel.push() } }
         ) {
             Button("Force push (only if remote unchanged)", role: .destructive) {
+                if theme.confirmForcePush {
+                    pendingForcePush = true
+                } else {
+                    Task { await viewModel.push(forceWithLease: true) }
+                }
+            }
+        }
+        .confirmationDialog(
+            "Force push to \(viewModel.currentBranchName ?? "remote")?",
+            isPresented: $pendingForcePush,
+            titleVisibility: .visible
+        ) {
+            Button("Force push", role: .destructive) {
                 Task { await viewModel.push(forceWithLease: true) }
             }
+        } message: {
+            Text("Uses --force-with-lease, so the push only succeeds if the remote hasn't moved since your last fetch. This still rewrites remote history.")
         }
     }
 

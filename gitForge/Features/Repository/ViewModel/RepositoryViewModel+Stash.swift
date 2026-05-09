@@ -7,7 +7,8 @@ extension RepositoryViewModel {
             return .failure(StashError.nothingToStash)
         }
         do {
-            try await cli.stashPush(message: message, includeUntracked: true)
+            try await cli.stashPush(message: message,
+                                    includeUntracked: AppTheme.persistedStashIncludeUntracked())
             await loadRefs()
             await refreshStatus()
             return .success(())

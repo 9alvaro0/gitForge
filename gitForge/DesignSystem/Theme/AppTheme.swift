@@ -35,6 +35,18 @@ final class AppTheme {
     var diffContextLines: Int {
         didSet { persistDiffContext() }
     }
+    /// When `true`, hitting "Force push" pops a confirmation dialog before
+    /// the push fires. Default on — `--force-with-lease` is safer than bare
+    /// `--force` but it still rewrites remote history.
+    var confirmForcePush: Bool {
+        didSet { persistConfirmForcePush() }
+    }
+    /// When `true`, the toolbar Stash button (and Stash All menu) pass
+    /// `--include-untracked` to git. Default on — losing untracked files
+    /// because a quick stash skipped them is the more painful failure mode.
+    var stashIncludeUntracked: Bool {
+        didSet { persistStashIncludeUntracked() }
+    }
     /// Live `ColorScheme` reported by the OS. The shell view keeps this in
     /// sync via `.onChange(of: \.colorScheme)`. Read by `effectiveMode` so
     /// `.system` resolves to the right palette without forcing a scheme.
@@ -68,6 +80,8 @@ final class AppTheme {
             .flatMap(DiffPane.ViewMode.init(rawValue:)) ?? .unified
         let savedWrap = UserDefaults.standard.object(forKey: Keys.diffWrap) as? Bool ?? false
         let savedContext = UserDefaults.standard.object(forKey: Keys.diffContext) as? Int ?? 3
+        let savedConfirmForce = UserDefaults.standard.object(forKey: Keys.confirmForcePush) as? Bool ?? true
+        let savedStashUntracked = UserDefaults.standard.object(forKey: Keys.stashIncludeUntracked) as? Bool ?? true
 
         self.mode = savedMode
         self.accent = savedAccent
@@ -76,6 +90,8 @@ final class AppTheme {
         self.defaultDiffMode = savedDiffMode
         self.diffWrapLongLines = savedWrap
         self.diffContextLines = savedContext
+        self.confirmForcePush = savedConfirmForce
+        self.stashIncludeUntracked = savedStashUntracked
         refreshPalette()
     }
 
@@ -108,6 +124,12 @@ final class AppTheme {
     private func persistDiffContext() {
         UserDefaults.standard.set(diffContextLines, forKey: Keys.diffContext)
     }
+    private func persistConfirmForcePush() {
+        UserDefaults.standard.set(confirmForcePush, forKey: Keys.confirmForcePush)
+    }
+    private func persistStashIncludeUntracked() {
+        UserDefaults.standard.set(stashIncludeUntracked, forKey: Keys.stashIncludeUntracked)
+    }
 
     /// Numeric default exposed for code paths that can't easily inject the
     /// active `AppTheme` (currently the `GitCLI` diff helpers, which read
@@ -118,6 +140,13 @@ final class AppTheme {
         UserDefaults.standard.object(forKey: Keys.diffContext) as? Int ?? 3
     }
 
+    /// Same escape hatch as `persistedDiffContextLines` — `RepositoryViewModel`
+    /// reads it from the stash code path so we don't have to wire the theme
+    /// through the view-model layer.
+    nonisolated static func persistedStashIncludeUntracked() -> Bool {
+        UserDefaults.standard.object(forKey: Keys.stashIncludeUntracked) as? Bool ?? true
+    }
+
     private enum Keys {
         static let mode = "appTheme.mode"
         static let density = "appTheme.density"
@@ -126,6 +155,8 @@ final class AppTheme {
         static let diffMode = "appTheme.diffMode"
         static let diffWrap = "appTheme.diffWrap"
         static let diffContext = "appTheme.diffContext"
+        static let confirmForcePush = "appTheme.confirmForcePush"
+        static let stashIncludeUntracked = "appTheme.stashIncludeUntracked"
     }
 }
 

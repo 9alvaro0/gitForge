@@ -43,6 +43,11 @@ final class GitEnvironment {
         await refreshGlobalConfig()
     }
 
+    func setSignCommits(_ enabled: Bool) async throws {
+        try await configReader.setSignCommits(enabled)
+        await refreshGlobalConfig()
+    }
+
     func setDefaultBranch(_ name: String?) async throws {
         try await configReader.setDefaultBranch(name)
         await refreshGlobalConfig()

@@ -15,6 +15,7 @@ actor GitGlobalConfigReader {
         async let defaultBranch  = get("init.defaultBranch")
         async let pullStrategy   = pullStrategyFromConfig()
         async let signingKey     = get("user.signingkey")
+        async let signCommits    = get("commit.gpgsign")
         async let autoFetch      = get("gitForge.autoFetchInterval")
 
         return await GitGlobalConfig(
@@ -22,6 +23,7 @@ actor GitGlobalConfigReader {
             defaultBranch: defaultBranch,
             pullStrategy: pullStrategy,
             signingKey: signingKey,
+            signCommits: signCommits.flatMap(Self.parseBool),
             autoFetchInterval: autoFetch.flatMap(Int.init)
         )
     }
@@ -39,6 +41,27 @@ actor GitGlobalConfigReader {
             try await set("user.signingkey", value: key)
         } else {
             try await unset("user.signingkey")
+        }
+    }
+
+    /// Writes `commit.gpgsign true` when on, otherwise unsets the key so
+    /// git falls back to its default (off). Avoids leaving a stale `false`
+    /// behind, which would override a future repo-level override.
+    func setSignCommits(_ enabled: Bool) async throws {
+        if enabled {
+            try await set("commit.gpgsign", value: "true")
+        } else {
+            try await unset("commit.gpgsign")
+        }
+    }
+
+    /// Parses git config bool values — `true`/`false`, `1`/`0`, `yes`/`no`,
+    /// `on`/`off`. Anything else is treated as nil (unrecognised).
+    private static func parseBool(_ raw: String) -> Bool? {
+        switch raw.lowercased() {
+        case "true", "1", "yes", "on":   return true
+        case "false", "0", "no", "off":  return false
+        default:                          return nil
         }
     }
 
