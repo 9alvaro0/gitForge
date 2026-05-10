@@ -6,20 +6,17 @@ import os
 /// to celebrate, route to the conflict resolver, or surface the error.
 extension RepositoryViewModel {
     func cherryPick(_ commit: Commit) async -> IntegrationOutcome {
+        commitError = nil
         let mainline = commit.isMerge ? 1 : nil
         do {
             try await cli.cherryPick(sha: commit.sha, mainline: mainline)
-            await refreshAfterRefMutation(reloadLog: true)
-            await loadConflictState()
+            await refreshAfterIntegration()
             return .clean
         } catch {
-            await loadConflictState()
-            await refreshStatus()
-            if mergeState.isInProgress {
-                return .conflicts
-            }
-            // cherry-pick may pause without triggering MERGE_HEAD; check unmerged paths.
-            if !conflictFiles.isEmpty {
+            await refreshAfterIntegration()
+            // cherry-pick may pause without setting MERGE_HEAD; check both
+            // `mergeState` and unmerged paths so the resolver still opens.
+            if mergeState.isInProgress || !conflictFiles.isEmpty {
                 return .conflicts
             }
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -29,15 +26,15 @@ extension RepositoryViewModel {
     }
 
     func revert(_ commit: Commit) async -> IntegrationOutcome {
+        commitError = nil
         let mainline = commit.isMerge ? 1 : nil
         do {
             try await cli.revert(sha: commit.sha, mainline: mainline)
-            await refreshAfterRefMutation(reloadLog: true)
+            await refreshAfterIntegration()
             return .clean
         } catch {
-            await refreshStatus()
-            await loadConflictState()
-            if !conflictFiles.isEmpty {
+            await refreshAfterIntegration()
+            if mergeState.isInProgress || !conflictFiles.isEmpty {
                 return .conflicts
             }
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -47,11 +44,13 @@ extension RepositoryViewModel {
     }
 
     func reset(to sha: String, mode: GitCLI.ResetMode) async -> IntegrationOutcome {
+        commitError = nil
         do {
             try await cli.reset(to: sha, mode: mode)
-            await refreshAfterRefMutation(reloadLog: true)
+            await refreshAfterIntegration()
             return .clean
         } catch {
+            await refreshAfterIntegration()
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             commitError = message
             return .failed(message)
