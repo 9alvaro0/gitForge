@@ -229,7 +229,9 @@ extension RepositoryViewModel {
     /// `loadConflictState`, `refreshStatus` and `loadRefs` are independent so
     /// they run in parallel; only `reloadLog` waits on the fresh refs (its
     /// graphScope reads `unmergedLocalBranchRefs` and `stashes`).
-    private func refreshAfterIntegration() async {
+    /// Shared with `+Operations` so cherry-pick / revert / reset get the
+    /// same parallel refresh as merge / rebase.
+    func refreshAfterIntegration() async {
         async let conflicts: Void = loadConflictState()
         async let status: Void = refreshStatus()
         async let refs: Void = loadRefs()
