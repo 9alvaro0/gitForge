@@ -8,6 +8,7 @@ extension GitCLI {
     func cherryPick(sha: String, mainline: Int? = nil) async throws {
         var args: [String] = ["cherry-pick"]
         if let mainline { args += ["-m", String(mainline)] }
+        args.append(Self.endOfOptions)
         args.append(sha)
         _ = try await run(args)
     }
@@ -26,6 +27,7 @@ extension GitCLI {
         var args: [String] = ["revert", "--no-edit"]
         if let mainline { args += ["-m", String(mainline)] }
         if noCommit     { args.append("--no-commit") }
+        args.append(Self.endOfOptions)
         args.append(sha)
         _ = try await run(args)
     }
@@ -44,6 +46,6 @@ extension GitCLI {
     }
 
     func reset(to sha: String, mode: ResetMode) async throws {
-        _ = try await run(["reset", mode.flag, sha])
+        _ = try await run(["reset", mode.flag, Self.endOfOptions, sha])
     }
 }

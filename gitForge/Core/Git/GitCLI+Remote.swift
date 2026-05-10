@@ -20,11 +20,13 @@ extension GitCLI {
         if forceWithLease { args.append("--force-with-lease") }
         if setUpstream {
             args.append("--set-upstream")
+            args.append(Self.endOfOptions)
             args.append(remote)
             if let branch { args.append(branch) }
         } else if let branch, forceWithLease {
             // force-with-lease without --set-upstream still needs the
             // remote+branch when the user explicitly wants to be safe.
+            args.append(Self.endOfOptions)
             args.append(remote)
             args.append(branch)
         }
@@ -42,7 +44,7 @@ extension GitCLI {
     }
 
     func aheadBehind(branch: String, upstream: String) async throws -> (ahead: Int, behind: Int) {
-        let result = try await run(["rev-list", "--left-right", "--count", "\(branch)...\(upstream)"])
+        let result = try await run(["rev-list", "--left-right", "--count", Self.endOfOptions, "\(branch)...\(upstream)"])
         let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmed.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
         guard parts.count == 2,

@@ -5,28 +5,30 @@ extension GitCLI {
         // `git checkout -b` is one operation: git refuses if the switch would
         // be unsafe (dirty worktree, etc.) without leaving an orphan branch.
         // Splitting `branch` + `checkout` left orphans behind on partial fail.
-        var args: [String] = checkout ? ["checkout", "-b", name] : ["branch", name]
+        var args: [String] = checkout ? ["checkout", "-b"] : ["branch"]
+        args.append(Self.endOfOptions)
+        args.append(name)
         if let startingAt { args.append(startingAt) }
         try await run(args)
     }
 
     func checkout(branch: String) async throws {
-        try await run(["checkout", branch])
+        try await run(["checkout", Self.endOfOptions, branch])
     }
 
     func deleteBranch(_ name: String, force: Bool = false) async throws {
-        try await run(["branch", force ? "-D" : "-d", name])
+        try await run(["branch", force ? "-D" : "-d", Self.endOfOptions, name])
     }
 
     func renameBranch(from oldName: String, to newName: String) async throws {
-        try await run(["branch", "-m", oldName, newName])
+        try await run(["branch", "-m", Self.endOfOptions, oldName, newName])
     }
 
     /// `git branch -f <name> <sha>` — force-updates a local branch tip.
     /// Git refuses to touch the currently checked-out branch this way; route
     /// HEAD moves through `reset(to:mode:)` instead.
     func forceUpdateBranch(_ name: String, to sha: String) async throws {
-        try await run(["branch", "-f", name, sha])
+        try await run(["branch", "-f", Self.endOfOptions, name, sha])
     }
 
     /// Local branch full ref-names (e.g. `refs/heads/develop`) whose tip is
@@ -52,6 +54,9 @@ enum BranchValidator {
     static func isValidName(_ raw: String) -> Bool {
         let trimmed = raw.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return false }
+        // A leading `-` would let the name slip through as a flag in argv even
+        // before reaching git's own validator.
+        guard !trimmed.hasPrefix("-") else { return false }
         guard !trimmed.contains(" ") else { return false }
         guard !trimmed.hasPrefix(".") else { return false }
         guard !trimmed.hasSuffix("/") else { return false }

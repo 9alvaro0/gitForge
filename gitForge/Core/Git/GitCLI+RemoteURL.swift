@@ -6,7 +6,7 @@ extension GitCLI {
     /// supported provider.
     func remoteHost(named remoteName: String = "origin") async -> RemoteHost? {
         do {
-            let result = try await run(["remote", "get-url", remoteName])
+            let result = try await run(["remote", "get-url", Self.endOfOptions, remoteName])
             let url = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             return RemoteHost.parse(url)
         } catch {

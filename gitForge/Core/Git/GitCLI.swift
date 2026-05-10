@@ -4,6 +4,12 @@ import os
 actor GitCLI {
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "git")
 
+    /// Inserted before any user-controlled ref / SHA / branch / URL so a value
+    /// starting with `--` can't be reinterpreted by git as a flag (the
+    /// CVE-2017-1000117 family). Distinct from `--`, which separates revisions
+    /// from paths. Available since git 2.24 (Nov 2019).
+    static let endOfOptions = "--end-of-options"
+
     let workingDirectory: URL
     private let executablePath: String
 
@@ -52,21 +58,28 @@ actor GitCLI {
         process.environment = environment
 
         let startTime = Date()
-        let argsString = args.joined(separator: " ")
+        // Logged form. Strips the userinfo segment from any URL-shaped argv so
+        // a token embedded in `https://oauth2:TOKEN@host/...` doesn't survive
+        // into Console / sysdiagnose. Same redaction is applied to stderr.
+        let safeArgsString = Self.redacted(args.joined(separator: " "))
         // Resolve once per invocation so the watchdog and the synthesized
         // timeout-message use a consistent value even if the user flips
         // the setting mid-fetch.
         let timeout = TimeInterval(AppTheme.persistedGitTimeoutSeconds())
         if Diagnostics.traceGitCommands {
-            Self.logger.debug("→ git \(argsString, privacy: .public)")
+            Self.logger.debug("→ git \(safeArgsString, privacy: .public)")
         }
 
         do {
             try process.run()
         } catch {
-            Self.logger.error("git \(argsString, privacy: .public) launch failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("git \(safeArgsString, privacy: .public) launch failed: \(error.localizedDescription, privacy: .public)")
             throw GitError.launchFailed(error.localizedDescription)
         }
+
+        // Process supports `terminate()` from any thread, so capturing it for
+        // the cancel handler is safe.
+        let processRef = process
 
         // Watchdog. If a command doesn't finish within `timeout`, kill it.
         // Local commands are milliseconds; remote commands are seconds. Anything
@@ -75,10 +88,10 @@ actor GitCLI {
         // failure than leave the user staring at a frozen spinner. SIGTERM
         // first, SIGKILL after a grace window in case git ignores the soft
         // signal. Default 60s, configurable from Settings → Behavior.
-        let watchdog = Task { [process, argsString, timeout] in
+        let watchdog = Task { [process, safeArgsString, timeout] in
             try? await Task.sleep(for: .seconds(timeout))
             guard !Task.isCancelled, process.isRunning else { return }
-            Self.logger.error("watchdog: terminating `git \(argsString, privacy: .public)` after \(timeout, privacy: .public)s")
+            Self.logger.error("watchdog: terminating `git \(safeArgsString, privacy: .public)` after \(timeout, privacy: .public)s")
             process.terminate()
             try? await Task.sleep(for: .milliseconds(500))
             if process.isRunning {
@@ -87,55 +100,79 @@ actor GitCLI {
         }
         defer { watchdog.cancel() }
 
-        // Drain pipes and wait for exit concurrently so the child process
-        // never blocks on a full pipe buffer (~64KB on Darwin).
-        async let stdoutData = Self.readToEnd(stdoutPipe.fileHandleForReading)
-        async let stderrData = Self.readToEnd(stderrPipe.fileHandleForReading)
-        async let exitWait: Void = Self.waitForExit(process)
+        return try await withTaskCancellationHandler {
+            // Drain pipes and wait for exit concurrently so the child process
+            // never blocks on a full pipe buffer (~64KB on Darwin).
+            async let stdoutData = Self.readToEnd(stdoutPipe.fileHandleForReading)
+            async let stderrData = Self.readToEnd(stderrPipe.fileHandleForReading)
+            async let exitWait: Void = Self.waitForExit(process)
 
-        let stdoutBytes = await stdoutData
-        let stderrBytes = await stderrData
-        _ = await exitWait
+            let stdoutBytes = await stdoutData
+            let stderrBytes = await stderrData
+            _ = await exitWait
 
-        let duration = Date().timeIntervalSince(startTime)
-        let stdout = String(data: stdoutBytes, encoding: .utf8) ?? ""
-        let capturedStderr = String(data: stderrBytes, encoding: .utf8) ?? ""
-        let stderr: String = {
-            // Watchdog killed us → captured stderr is usually empty and the
-            // generic "exit 15 / no message" toast is useless. Synthesize a
-            // message that routes through `RemoteFailure(stderr:)` as `.network`.
-            let trimmed = capturedStderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty,
-               process.terminationReason == .uncaughtSignal,
-               duration >= timeout {
-                return "connection timed out after \(Int(timeout))s — the remote may be unreachable, or git is stuck on something the app can't drive non-interactively."
+            // Caller cancelled → the onCancel handler SIGTERM'd the process.
+            // Surface CancellationError so callers can distinguish user-cancel
+            // from a real `commandFailed`, mirroring `clone`'s contract.
+            if Task.isCancelled, process.terminationReason == .uncaughtSignal {
+                throw CancellationError()
             }
-            return capturedStderr
-        }()
 
-        let result = GitResult(
-            stdout: stdout,
-            stderr: stderr,
-            exitCode: process.terminationStatus,
-            duration: duration
-        )
+            let duration = Date().timeIntervalSince(startTime)
+            let stdout = String(data: stdoutBytes, encoding: .utf8) ?? ""
+            let capturedStderr = String(data: stderrBytes, encoding: .utf8) ?? ""
+            let stderr: String = {
+                // Watchdog killed us → captured stderr is usually empty and the
+                // generic "exit 15 / no message" toast is useless. Synthesize a
+                // message that routes through `RemoteFailure(stderr:)` as `.network`.
+                let trimmed = capturedStderr.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty,
+                   process.terminationReason == .uncaughtSignal,
+                   duration >= timeout {
+                    return "connection timed out after \(Int(timeout))s — the remote may be unreachable, or git is stuck on something the app can't drive non-interactively."
+                }
+                return capturedStderr
+            }()
 
-        let durationMs = String(format: "%.0f", duration * 1000)
-        if result.isSuccess {
-            if Diagnostics.traceGitCommands {
-                Self.logger.debug("✓ git \(argsString, privacy: .public) (\(durationMs, privacy: .public) ms)")
-            }
-        } else {
-            let trimmedStderr = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            Self.logger.error("✗ git \(argsString, privacy: .public) exited \(result.exitCode) in \(durationMs, privacy: .public) ms: \(trimmedStderr, privacy: .public)")
-            throw GitError.commandFailed(
-                args: args,
-                exitCode: result.exitCode,
-                stderr: stderr
+            let result = GitResult(
+                stdout: stdout,
+                stderr: stderr,
+                exitCode: process.terminationStatus,
+                duration: duration
             )
-        }
 
-        return result
+            let durationMs = String(format: "%.0f", duration * 1000)
+            if result.isSuccess {
+                if Diagnostics.traceGitCommands {
+                    Self.logger.debug("✓ git \(safeArgsString, privacy: .public) (\(durationMs, privacy: .public) ms)")
+                }
+            } else {
+                let trimmedStderr = Self.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+                Self.logger.error("✗ git \(safeArgsString, privacy: .public) exited \(result.exitCode) in \(durationMs, privacy: .public) ms: \(trimmedStderr, privacy: .public)")
+                throw GitError.commandFailed(
+                    args: args,
+                    exitCode: result.exitCode,
+                    stderr: stderr
+                )
+            }
+
+            return result
+        } onCancel: {
+            processRef.terminate()
+        }
+    }
+
+    /// Replaces `scheme://userinfo@` with `scheme://****@` so embedded
+    /// credentials don't survive into Console logs or sysdiagnose. Leaves the
+    /// SCP form (`user@host:path`) alone — SSH doesn't carry credentials in
+    /// the URL and the username there is part of what the operator is
+    /// debugging.
+    static func redacted(_ text: String) -> String {
+        guard text.contains("://") else { return text }
+        let pattern = "://[^@/\\s]+@"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "://****@")
     }
 
     private static func readToEnd(_ handle: FileHandle) async -> Data {

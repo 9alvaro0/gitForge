@@ -9,6 +9,52 @@ struct CloneProgress: Sendable {
     let percent: Double
 }
 
+/// Whitelist for clone URLs. Accepting raw strings here is the path that lets
+/// a malicious repo URL like `--upload-pack=evil` reach git as a flag (the
+/// CVE-2017-1000117 family). We reject the dash prefix outright and require
+/// one of the network schemes git is normally driven with — local paths and
+/// `file://` are intentionally out for now; if a user needs them, surface a
+/// dedicated affordance instead of widening this gate.
+enum CloneURLValidator {
+    enum Failure: Error, LocalizedError, Equatable {
+        case empty
+        case startsWithDash
+        case unsupportedScheme(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .empty:
+                "Clone URL is empty."
+            case .startsWithDash:
+                "Clone URL can't start with '-' — git would treat it as an option."
+            case .unsupportedScheme(let raw):
+                "Unsupported clone URL: \(raw). Use https://, http://, ssh://, git://, or git@host:path."
+            }
+        }
+    }
+
+    /// Returns the trimmed URL on success.
+    @discardableResult
+    nonisolated static func validate(_ raw: String) throws -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw Failure.empty }
+        guard !trimmed.hasPrefix("-") else { throw Failure.startsWithDash }
+        let lower = trimmed.lowercased()
+        let allowedSchemes = ["https://", "http://", "ssh://", "git://"]
+        if allowedSchemes.contains(where: { lower.hasPrefix($0) }) { return trimmed }
+        // SCP-like: `user@host:path`. Require `@` strictly before the first `:`
+        // and a non-empty user segment so a stray `:` in some other shape can't
+        // pass.
+        if let atIndex = trimmed.firstIndex(of: "@"),
+           let colonIndex = trimmed.firstIndex(of: ":"),
+           atIndex < colonIndex,
+           atIndex != trimmed.startIndex {
+            return trimmed
+        }
+        throw Failure.unsupportedScheme(trimmed)
+    }
+}
+
 extension GitCLI {
     /// `git clone <url> <destination>`. Doesn't need an existing repo —
     /// runs from `$HOME` so `Process` has a valid cwd. The destination's parent
@@ -22,9 +68,22 @@ extension GitCLI {
                       destination: URL,
                       branch: String? = nil,
                       onProgress: (@Sendable (CloneProgress) -> Void)? = nil) async throws {
+        let safeURL = try CloneURLValidator.validate(url)
+        let safeBranch: String? = try {
+            guard let branch else { return nil }
+            let trimmed = branch.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return nil }
+            // `--branch` consumes the next argv as its value; without this guard,
+            // a name starting with `-` would be re-parsed by git as a flag.
+            guard !trimmed.hasPrefix("-") else {
+                throw GitError.launchFailed("Branch name can't start with '-'.")
+            }
+            return trimmed
+        }()
         var args: [String] = ["clone", "--progress"]
-        if let branch, !branch.isEmpty { args += ["--branch", branch] }
-        args += [url, destination.path(percentEncoded: false)]
+        if let safeBranch { args += ["--branch", safeBranch] }
+        args.append(endOfOptions)
+        args += [safeURL, destination.path(percentEncoded: false)]
 
         let parent = destination.deletingLastPathComponent()
         if !FileManager.default.fileExists(atPath: parent.path(percentEncoded: false)) {
@@ -50,7 +109,7 @@ extension GitCLI {
         environment["GIT_EDITOR"] = "/usr/bin/true"
         process.environment = environment
 
-        let argsString = args.joined(separator: " ")
+        let argsString = redacted(args.joined(separator: " "))
         logger.info("→ git \(argsString, privacy: .public)")
 
         do {
