@@ -254,7 +254,10 @@ final class RepositoryViewModel {
     /// `user.name` / `user.email` resolved for this repo (local override
     /// wins over global). Refreshed by `refreshIdentity()` on bootstrap and
     /// after external changes; nil before the first read lands.
-    private(set) var repoIdentity: RepoIdentity?
+    /// Writers live in `+Identity` only — `private(set)` would be the
+    /// stricter contract but Swift treats it as file-private, so the
+    /// extension across files can't write. Trust the convention instead.
+    var repoIdentity: RepoIdentity?
     /// Bumped at the start of every identity op (refresh / apply / clear).
     /// `refreshIdentity` snapshots it on entry and drops its write if the
     /// token moved while it was awaiting — keeps a slow watcher-driven read
