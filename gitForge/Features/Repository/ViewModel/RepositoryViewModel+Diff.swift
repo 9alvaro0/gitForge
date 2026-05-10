@@ -8,14 +8,23 @@ extension RepositoryViewModel {
     private static let untrackedDiffByteCap = 1_000_000
 
     func loadCommitFileDiff(sha: String, path: String) async {
+        // Snapshot the selection generation on entry. If anyone moves the
+        // selection while we await on the CLI, our token will fall behind and
+        // we drop the write-back so the user keeps seeing the diff for their
+        // *current* selection, not whichever async call happens to finish last.
+        let gen = commitFileDiffGen
         loadingCommitFileDiff = true
-        defer { loadingCommitFileDiff = false }
+        defer {
+            if gen == commitFileDiffGen { loadingCommitFileDiff = false }
+        }
         do {
             let raw = try await cli.diff(sha: sha, file: path)
+            guard gen == commitFileDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             commitFileDiff = hunks
             commitFileDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
         } catch {
+            guard gen == commitFileDiffGen else { return }
             Self.logger.error("Failed to load commit diff: \(error.localizedDescription, privacy: .public)")
             commitFileDiff = []
             commitFileDiffEmptyState = .empty
@@ -23,11 +32,15 @@ extension RepositoryViewModel {
     }
 
     func loadWorkingCopyDiff(file: WorkingCopyFile) async {
+        let gen = workingCopyDiffGen
         loadingWorkingCopyDiff = true
-        defer { loadingWorkingCopyDiff = false }
+        defer {
+            if gen == workingCopyDiffGen { loadingWorkingCopyDiff = false }
+        }
         do {
             if file.isUntracked && !file.isStaged {
                 let synthesized = synthesizeUntrackedDiff(path: file.path)
+                guard gen == workingCopyDiffGen else { return }
                 workingCopyDiff = DiffParser.parse(synthesized.raw)
                 workingCopyDiffEmptyState = workingCopyDiff.isEmpty ? synthesized.emptyState : .empty
                 return
@@ -38,10 +51,12 @@ extension RepositoryViewModel {
             } else {
                 raw = try await cli.diffUnstaged(file: file.path)
             }
+            guard gen == workingCopyDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             workingCopyDiff = hunks
             workingCopyDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
         } catch {
+            guard gen == workingCopyDiffGen else { return }
             Self.logger.error("Failed to load working-copy diff: \(error.localizedDescription, privacy: .public)")
             workingCopyDiff = []
             workingCopyDiffEmptyState = .empty

@@ -5,10 +5,8 @@ import os
 @Observable
 @MainActor
 final class RepositoryViewModel {
-    /// Cap on `git log` pagination during `revealCommit(...)` — prevents a
-    /// stray ref from quietly walking the entire history. The page size
-    /// itself lives in `AppTheme.persistedCommitPageSize()` so the user
-    /// can tune it from Settings.
+    /// Hard cap on `revealCommit(...)` pagination — without it a stray ref
+    /// can quietly walk the entire history.
     static let maxRevealPages = 10
 
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "repo-vm")
@@ -17,32 +15,43 @@ final class RepositoryViewModel {
     let cli: GitCLI
 
     // MARK: Log
-    var commits: [Commit] = []
+    var commits: [Commit] = [] {
+        // `uniquingKeysWith: { _, new in new }` instead of
+        // `uniqueKeysWithValues:` — the latter traps on duplicate ids, and a
+        // duplicate would only happen if the `--skip` invariant in
+        // `loadedRawCount` ever leaks. Don't crash the app on a leak.
+        didSet {
+            commitsById = Dictionary(commits.map { ($0.id, $0) },
+                                     uniquingKeysWith: { _, new in new })
+        }
+    }
+    /// Mirror of `commits` keyed by id, kept in sync by `commits.didSet`.
+    private(set) var commitsById: [Commit.ID: Commit] = [:]
     var isLoadingInitial = false
     var isLoadingMore = false
     var hasMore = true
     var loadError: String?
-    /// Cumulative number of commits `git log` has produced for the current
-    /// scope, **before** client-side filters like `dropStashInternals` shrink
-    /// the array. Used as `--skip` for pagination so a filtered page never
-    /// causes the next walk to overlap with already-loaded commits (which
-    /// would surface as duplicate IDs in the History `ForEach`).
+    /// Raw commits produced by `git log` for the current scope, *before*
+    /// `dropStashInternals` shrinks `commits`. Used as `--skip` so the next
+    /// page can't overlap with what's already loaded.
     var loadedRawCount: Int = 0
-    /// `false` until a `loadInitial()` for the current scope completes.
-    /// `resetLog()` clears it so the skeleton can show again on a fresh
-    /// branch/checkout. Drives the History skeleton without the
-    /// "in-flight loadInitial" race that flickered `isLoadingInitial` and
-    /// could trap the placeholder when two checkouts overlapped.
+    /// Drives the History skeleton. Kept separate from `isLoadingInitial`
+    /// because two overlapping checkouts could trap the placeholder when
+    /// the boolean alone was the trigger.
     var hasLoadedLogForCurrentScope = false
 
     var selectedCommitId: Commit.ID? {
         didSet {
             guard oldValue != selectedCommitId else { return }
+            // Invalidate in-flight diff loads from the previous commit.
+            commitFileDiffGen &+= 1
             selectedCommitFile = nil
             commitFileDiff = []
+            commitFileDiffEmptyState = .empty
+            loadingCommitFileDiff = false
             guard
                 let id = selectedCommitId,
-                let commit = commits.first(where: { $0.id == id })
+                let commit = commitsById[id]
             else { return }
             Task { await selectFirstFile(for: commit) }
         }
@@ -52,9 +61,8 @@ final class RepositoryViewModel {
     var detailCache: [String: CommitDetail] = [:]
     var loadingDetailFor: String?
 
-    /// Auto-selects the first changed file once the detail is available so the
-    /// diff pane reflects the freshly clicked commit instead of keeping the
-    /// previous selection.
+    /// Re-checks `selectedCommitId` after the await so a slow detail load
+    /// can't auto-select a file in a commit the user already left.
     private func selectFirstFile(for commit: Commit) async {
         let loaded = await detail(for: commit)
         guard
@@ -67,17 +75,19 @@ final class RepositoryViewModel {
 
     // MARK: Refs / branches / stashes
     var refs: [GitRef] = [] {
-        didSet { refsBySha = Dictionary(grouping: refs) { $0.targetSha } }
+        didSet {
+            // Watcher reassigns refs on every fs tick — skip the rebuild when
+            // nothing changed to avoid chip re-paint storms during scroll.
+            guard refs != oldValue else { return }
+            refsBySha = Dictionary(grouping: refs) { $0.targetSha }
+        }
     }
-    /// Pre-grouped index of refs by their target SHA. Recomputed only when
-    /// `refs` is reassigned (in `loadRefs`), instead of every time a row's
-    /// chip cell asks for it during scroll. The graph row count is bounded by
-    /// the number of refs in the repo, not by the visible commits.
+    /// Cached so chip cells don't regroup `refs` on every scroll tick.
     var refsBySha: [String: [GitRef]] = [:]
     var currentBranchName: String?
     var stashes: [Stash] = []
 
-    // Stash detail (drives StashDetailView)
+    // MARK: Stash detail
     var selectedStash: Stash?
     var stashDetail: StashDetail?
     var stashDetailLoading: Bool = false
@@ -86,10 +96,8 @@ final class RepositoryViewModel {
     var stashFileDiff: [DiffHunk] = []
     var loadingStashFileDiff: Bool = false
     var stashFileDiffEmptyState: DiffEmptyState = .empty
-    /// Full ref-names of local branches whose tip is NOT reachable from HEAD.
-    /// Feeds the graph log scope so we don't open a separate lane for every
-    /// already-merged branch ref still lingering locally. Refreshed by
-    /// `loadRefs`. Empty by default (no filter applied) until first refresh.
+    /// Local branches whose tip isn't reachable from HEAD. Fed to `git log`
+    /// so already-merged branches don't open redundant lanes in the graph.
     var unmergedLocalBranchRefs: [String] = []
 
     // MARK: Graph
@@ -99,23 +107,20 @@ final class RepositoryViewModel {
     // MARK: Working copy
     var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
     var isLoadingStatus = false
-    /// `false` until the first `refreshStatus()` completes for this VM.
-    /// Lets the UI distinguish "never loaded" from "loaded and clean", so
-    /// the Changes view doesn't briefly flash "Working tree is clean"
-    /// during the initial load chain (loadInitial → loadRefs → refreshStatus).
+    /// Distinguishes "never loaded" from "loaded and clean" so the Changes
+    /// view doesn't briefly flash "Working tree is clean" on first paint.
     var hasLoadedStatusOnce = false
     var commitSubject: String = ""
     var commitBody: String = ""
     var amendMode: Bool = false {
         didSet {
-            guard oldValue != amendMode, amendMode else {
-                if !amendMode {
-                    commitSubject = ""
-                    commitBody = ""
-                }
-                return
+            guard oldValue != amendMode else { return }
+            if amendMode {
+                Task { await prefillFromHead() }
+            } else {
+                commitSubject = ""
+                commitBody = ""
             }
-            Task { await prefillFromHead() }
         }
     }
     var commitError: String?
@@ -124,33 +129,43 @@ final class RepositoryViewModel {
     var selectedCommitFile: String? {
         didSet {
             guard oldValue != selectedCommitFile else { return }
+            // Bump even on nil so an in-flight load can't write back over
+            // the now-empty pane.
+            commitFileDiffGen &+= 1
             if let path = selectedCommitFile, let commit = selectedCommit {
                 Task { await loadCommitFileDiff(sha: commit.sha, path: path) }
             }
         }
     }
     var commitFileDiff: [DiffHunk] = []
-    /// Why the current `commitFileDiff` is empty (binary, rename-only, etc.).
-    /// Lets the diff pane print a meaningful placeholder instead of the
-    /// catch-all "No changes" copy.
+    /// Why the diff is empty (binary, rename-only, …) so the pane can show
+    /// something better than a catch-all "No changes".
     var commitFileDiffEmptyState: DiffEmptyState = .empty
     var loadingCommitFileDiff = false
+    /// Selection-change token. Bumped by the didSets that own this pane
+    /// (`selectedCommitId`, `selectedCommitFile`); loaders snapshot it on
+    /// entry and drop their write-back if it moves while they're awaiting.
+    var commitFileDiffGen: UInt64 = 0
 
     var selectedWorkingCopyFile: WorkingCopyFile? {
         didSet {
             guard oldValue != selectedWorkingCopyFile else { return }
+            workingCopyDiffGen &+= 1
             if let file = selectedWorkingCopyFile {
                 Task { await loadWorkingCopyDiff(file: file) }
             } else {
                 workingCopyDiff = []
+                workingCopyDiffEmptyState = .empty
+                loadingWorkingCopyDiff = false
             }
         }
     }
     var workingCopyDiff: [DiffHunk] = []
-    /// Why the current `workingCopyDiff` is empty. Same role as
-    /// `commitFileDiffEmptyState` but for the Changes view.
+    /// Counterpart to `commitFileDiffEmptyState` for the Changes view.
     var workingCopyDiffEmptyState: DiffEmptyState = .empty
     var loadingWorkingCopyDiff = false
+    /// Counterpart to `commitFileDiffGen` for the working-copy diff pane.
+    var workingCopyDiffGen: UInt64 = 0
 
     // MARK: Navigation
     var scrollTargetSha: String?
@@ -170,20 +185,20 @@ final class RepositoryViewModel {
     var pullRequestsHost: RemoteHost?
     var pullRequestsLoading: Bool = false
     var pullRequestsError: String?
-    /// Set when the host is detected but no token is configured. Drives the
-    /// "Connect a host" empty state in `PullsView`.
+    /// Host detected but no token configured — drives the "Connect a host"
+    /// empty state in `PullsView`.
     var pullRequestsRequiresToken: Bool = false
     var pullRequestsLastLoadedAt: Date?
 
-    // Detail (drives PullRequestDetailView)
+    // MARK: PR detail
     var selectedPullRequest: PullRequest?
     var pullRequestDetail: PullRequestDetail?
     var pullRequestCommits: [PullRequestCommit] = []
     var pullRequestFiles: [PullRequestFileChange] = []
     var pullRequestDetailLoading: Bool = false
     var pullRequestDetailError: String?
-    /// True while a "try local merge" attempt is running for the open PR.
-    /// Drives the spinner / disabled state on the resolve-locally button.
+    /// Drives the spinner on the "Resolve locally" button while a try-merge
+    /// attempt is in flight.
     var pullRequestLocalMergeRunning: Bool = false
 
     // MARK: Conflicts
@@ -202,9 +217,8 @@ final class RepositoryViewModel {
         self.cli = GitCLI(workingDirectory: repository.url)
     }
 
-    /// Wire the filesystem watcher and (optional) auto-fetch timer. Called by
-    /// the host view once after `loadInitial` so the first reads aren't
-    /// fighting with refresh notifications. Idempotent.
+    /// Idempotent. Call after `loadInitial` so the first reads aren't
+    /// racing with watcher-driven refreshes.
     func startReactivity(autoFetchIntervalSeconds: Int) {
         if watcher == nil {
             watcher = RepositoryWatcher(repository: repository.url) { [weak self] in
@@ -221,33 +235,39 @@ final class RepositoryViewModel {
         autoFetcher.stop()
     }
 
-    /// Manually pulse the watcher pipeline (e.g. when the app comes back to
-    /// the foreground) so the user immediately sees external changes.
+    /// Force a watcher refresh — used when the app returns to foreground.
     func pokeReactivity() {
         watcher?.poke()
     }
 
-    /// Refresh path for filesystem-driven changes. `loadRefs` already calls
-    /// `loadAheadBehind` internally, and we skip the log reload when nothing
-    /// HEAD-changing happened to keep things cheap. The log refresh is
-    /// triggered explicitly by remote/branch operations elsewhere — letting
-    /// the watcher reload it on every tick was the source of feedback loops.
+    /// Watcher-driven refresh. Skips the log reload unless HEAD actually
+    /// moved — letting the watcher reload it on every tick was the source
+    /// of feedback loops with our own write paths.
     private func refreshFromExternalChange() async {
-        let previousHeadSha = commits.first?.sha
+        // Snapshot what HEAD looked like before refresh. We use both pieces:
+        //  · branch name change (covers attaching/detaching HEAD externally,
+        //    `git switch` to a different branch, …).
+        //  · tip sha change (covers normal commits/pulls on the same branch).
+        // A pure detached→detached HEAD move via another tool isn't caught
+        // here without an extra `rev-parse HEAD` round-trip; very rare in
+        // practice, accept it.
+        let previousBranch = currentBranchName
+        let previousHeadSha = previousBranch.flatMap { branch in
+            refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
+        }
         await refreshStatus()
         await loadRefs()
         await loadConflictState()
-        // Only refresh the log if HEAD actually moved. We detect that via the
-        // ref of the current branch — much cheaper than re-running git log.
-        if let currentBranch = currentBranchName,
-           let headSha = refs.first(where: { $0.isLocalBranch && $0.name == currentBranch })?.targetSha,
-           headSha != previousHeadSha {
+        let newHeadSha = currentBranchName.flatMap { branch in
+            refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
+        }
+        if currentBranchName != previousBranch || newHeadSha != previousHeadSha {
             await reloadLog()
         }
     }
 
-    /// Silent fetch: never surfaces a toast on success, only logs failures.
-    /// Used by the AutoFetcher timer.
+    /// Background fetch driven by `AutoFetcher` — failures are logged, not
+    /// toasted.
     private func fetchSilently() async {
         guard remoteOperation == nil else { return }
         do {
@@ -264,7 +284,7 @@ final class RepositoryViewModel {
 
     var selectedCommit: Commit? {
         guard let id = selectedCommitId else { return nil }
-        return commits.first { $0.id == id }
+        return commitsById[id]
     }
 
     var localBranches: [GitRef] {
