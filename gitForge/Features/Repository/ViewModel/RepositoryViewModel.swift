@@ -250,6 +250,12 @@ final class RepositoryViewModel {
     /// Counterpart to `commitFileDiffGen` for the conflict hunks pane.
     var conflictHunksGen: UInt64 = 0
 
+    // MARK: Identity
+    /// `user.name` / `user.email` resolved for this repo (local override
+    /// wins over global). Refreshed by `refreshIdentity()` on bootstrap and
+    /// after external changes; nil before the first read lands.
+    var repoIdentity: RepoIdentity?
+
     // MARK: Reactivity
     private var watcher: RepositoryWatcher?
     private let autoFetcher = AutoFetcher()
@@ -300,6 +306,7 @@ final class RepositoryViewModel {
         await refreshStatus()
         await loadRefs()
         await loadConflictState()
+        await refreshIdentity()
         let newHeadSha = currentBranchName.flatMap { branch in
             refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
         }

@@ -15,6 +15,11 @@ struct Sidebar: View {
     let pullsBadge: Int
     let conflictsBadge: Int
     let identity: GitIdentity
+    let scopeTag: SidebarUserCard.ScopeTag
+    let profiles: [GitProfile]
+    let activeProfileId: GitProfile.ID?
+    let canResetIdentityToGlobal: Bool
+    let identityMenuEnabled: Bool
     let onSelectRepo: (Repository) -> Void
     let onRemoveRepo: (Repository) -> Void
     let onRevealRepo: (Repository) -> Void
@@ -22,6 +27,9 @@ struct Sidebar: View {
     let onCloneNew: () -> Void
     let onSelectSection: (WorkspaceSection) -> Void
     let onOpenCommandPalette: () -> Void
+    let onApplyProfile: (GitProfile) -> Void
+    let onResetToGlobal: () -> Void
+    let onManageProfiles: () -> Void
 
     @Environment(\.appTheme) private var theme
 
@@ -100,7 +108,18 @@ struct Sidebar: View {
                 }
             }
 
-            SidebarUserCard(identity: identity, online: true)
+            SidebarUserCard(
+                identity: identity,
+                scopeTag: scopeTag,
+                online: true,
+                profiles: profiles,
+                activeProfileId: activeProfileId,
+                canResetToGlobal: canResetIdentityToGlobal,
+                menuEnabled: identityMenuEnabled,
+                onApplyProfile: onApplyProfile,
+                onResetToGlobal: onResetToGlobal,
+                onManageProfiles: onManageProfiles
+            )
         }
         .frame(width: DesignTokens.Sidebar.width)
         .background(theme.palette.bg1)
@@ -189,13 +208,21 @@ private struct AddRepositoryRow<Items: View>: View {
         activeSection: section,
         unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
         identity: .preview,
+        scopeTag: .profile("Personal"),
+        profiles: GitProfile.previewSamples,
+        activeProfileId: GitProfile.previewPersonal.id,
+        canResetIdentityToGlobal: false,
+        identityMenuEnabled: true,
         onSelectRepo: { _ in },
         onRemoveRepo: { _ in },
         onRevealRepo: { _ in },
         onOpenExisting: {},
         onCloneNew: {},
         onSelectSection: { section = $0 },
-        onOpenCommandPalette: {}
+        onOpenCommandPalette: {},
+        onApplyProfile: { _ in },
+        onResetToGlobal: {},
+        onManageProfiles: {}
     )
     .frame(width: 256, height: 600)
     .appTheme(theme)

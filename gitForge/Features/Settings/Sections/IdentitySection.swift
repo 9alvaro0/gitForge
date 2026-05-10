@@ -5,7 +5,10 @@ struct IdentitySection: View {
     @Environment(WorkspaceUI.self) private var ui
 
     var body: some View {
-        SettingsSection(title: "Identity") {
+        SettingsSection(
+            title: "Default identity",
+            subtitle: "Global `~/.gitconfig`. Used as the fallback when a repository has no identity of its own."
+        ) {
             SettingsEditableRow(label: "Name",
                                 value: gitEnvironment.globalConfig.identity.name) { value in
                 guard let value else { return }

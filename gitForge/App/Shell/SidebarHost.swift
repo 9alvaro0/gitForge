@@ -1,13 +1,14 @@
 import SwiftUI
 import AppKit
 
-/// Adapts `RedesignedSidebar` (a presentation-only view with a long
-/// parameter list) to the `AppState` sub-stores, so `ShellView.body` doesn't
-/// have to reach into every store to wire it.
+/// Adapts `Sidebar` (a presentation-only view with a long parameter list) to
+/// the `AppState` sub-stores, so `ShellView.body` doesn't have to reach into
+/// every store to wire it.
 struct SidebarHost: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        let identitySnapshot = resolveIdentity()
         Sidebar(
             repositories: appState.catalog.repositories,
             activeRepository: appState.catalog.activeRepository,
@@ -17,14 +18,76 @@ struct SidebarHost: View {
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
             pullsBadge: appState.catalog.activeViewModel?.pullRequests.count ?? 0,
             conflictsBadge: appState.catalog.activeViewModel?.conflictFiles.filter { !$0.resolved }.count ?? 0,
-            identity: appState.gitEnvironment.globalConfig.identity,
+            identity: identitySnapshot.identity,
+            scopeTag: identitySnapshot.scopeTag,
+            profiles: appState.profiles.profiles,
+            activeProfileId: identitySnapshot.activeProfileId,
+            canResetIdentityToGlobal: identitySnapshot.canResetToGlobal,
+            identityMenuEnabled: appState.catalog.activeViewModel != nil,
             onSelectRepo: { repo in Task { await appState.activate(repo) } },
             onRemoveRepo: { repo in Task { await appState.catalog.remove(repo.url) } },
             onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
             onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
             onCloneNew: { appState.ui.workspaceSection = .clone },
             onSelectSection: { appState.ui.workspaceSection = $0 },
-            onOpenCommandPalette: { appState.ui.commandPaletteOpen = true }
+            onOpenCommandPalette: { appState.ui.commandPaletteOpen = true },
+            onApplyProfile: { profile in
+                guard let vm = appState.catalog.activeViewModel else { return }
+                Task {
+                    do { try await vm.applyProfile(profile) }
+                    catch { appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t switch identity") }
+                }
+            },
+            onResetToGlobal: {
+                guard let vm = appState.catalog.activeViewModel else { return }
+                Task { await vm.clearLocalIdentity() }
+            },
+            onManageProfiles: {
+                appState.ui.workspaceSection = .settings
+            }
+        )
+    }
+
+    /// Computes what the user card should display: the effective identity
+    /// (active repo's local override or global fallback), plus a tag and the
+    /// profile id matching its email — used to checkmark the active profile
+    /// in the menu and to label the chip.
+    private func resolveIdentity() -> IdentitySnapshot {
+        // No active repo → fall back to the global identity, no scope chip,
+        // no menu actions beyond "Manage profiles…".
+        guard let vm = appState.catalog.activeViewModel else {
+            let global = appState.gitEnvironment.globalConfig.identity
+            return IdentitySnapshot(
+                identity: global,
+                scopeTag: .none,
+                activeProfileId: appState.profiles.profiles.first {
+                    $0.userEmail.lowercased() == (global.email ?? "").lowercased()
+                }?.id,
+                canResetToGlobal: false
+            )
+        }
+        // Repo active but identity not yet read → fall back to global so the
+        // card never flashes "—" during the brief refresh window.
+        guard let repoIdentity = vm.repoIdentity else {
+            let global = appState.gitEnvironment.globalConfig.identity
+            return IdentitySnapshot(
+                identity: global,
+                scopeTag: .inherited,
+                activeProfileId: nil,
+                canResetToGlobal: false
+            )
+        }
+        let identity = GitIdentity(name: repoIdentity.name, email: repoIdentity.email)
+        let matched = appState.profiles.match(for: repoIdentity)
+        let tag: SidebarUserCard.ScopeTag = {
+            if let matched { return .profile(matched.name) }
+            return repoIdentity.isLocal ? .custom : .inherited
+        }()
+        return IdentitySnapshot(
+            identity: identity,
+            scopeTag: tag,
+            activeProfileId: matched?.id,
+            canResetToGlobal: repoIdentity.isLocal
         )
     }
 
@@ -45,6 +108,13 @@ struct SidebarHost: View {
             )
         }
         return appState.catalog.repositoryStatuses[repo.url] ?? .empty
+    }
+
+    private struct IdentitySnapshot {
+        let identity: GitIdentity
+        let scopeTag: SidebarUserCard.ScopeTag
+        let activeProfileId: GitProfile.ID?
+        let canResetToGlobal: Bool
     }
 }
 

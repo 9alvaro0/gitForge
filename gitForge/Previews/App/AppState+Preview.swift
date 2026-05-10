@@ -45,5 +45,6 @@ extension View {
             .environment(state.gitEnvironment)
             .environment(state.clone)
             .environment(state.ui)
+            .environment(state.profiles)
     }
 }

@@ -19,6 +19,7 @@ struct GitForgeApp: App {
                 .environment(appState.gitEnvironment)
                 .environment(appState.clone)
                 .environment(appState.ui)
+                .environment(appState.profiles)
                 .frame(minWidth: Self.minWindowSize.width, minHeight: Self.minWindowSize.height)
                 .task { await appState.bootstrap() }
                 .onChange(of: scenePhase) { _, newPhase in
