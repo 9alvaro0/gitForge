@@ -31,11 +31,17 @@ struct RepositoryHost: View {
             guard let viewModel = appState.catalog.activeViewModel else { return }
             // Identity first — two cheap config reads — so the sidebar doesn't
             // briefly badge a custom-overridden repo as "Global" while a slow
-            // `git log` is still loading.
+            // `git log` is still loading. After that, status / log / refs run
+            // concurrently: cli is an actor so they serialize internally, but
+            // submitting `git status` alongside the heavier work lets the
+            // Changes view paint without waiting for `git log` to finish.
             await viewModel.refreshIdentity()
-            await viewModel.loadInitial()
-            await viewModel.loadRefs()
-            await viewModel.refreshStatus()
+            async let statusTask: Void = viewModel.refreshStatus()
+            async let initialTask: Void = viewModel.loadInitial()
+            async let refsTask: Void = viewModel.loadRefs()
+            _ = await statusTask
+            _ = await initialTask
+            _ = await refsTask
             viewModel.startReactivity(
                 autoFetchIntervalSeconds: appState.gitEnvironment.globalConfig.autoFetchInterval ?? 0
             )
