@@ -39,6 +39,11 @@ final class RepositoryViewModel {
     /// because two overlapping checkouts could trap the placeholder when
     /// the boolean alone was the trigger.
     var hasLoadedLogForCurrentScope = false
+    /// Bumped at the start of every log op (initial / reload / pagination /
+    /// reveal). Each op snapshots it on entry and drops its writes if the
+    /// token moved while it was awaiting — keeps a slow `git log` from
+    /// stomping a fresher reload.
+    var logGen: UInt64 = 0
 
     var selectedCommitId: Commit.ID? {
         didSet {

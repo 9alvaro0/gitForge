@@ -2,13 +2,12 @@ import Foundation
 import os
 
 extension RepositoryViewModel {
-    /// Refs the graph walks. **HEAD goes first** so its tip anchors the top of
-    /// the topo-ordered log (matches GitKraken's "current branch on top"
-    /// behaviour). Then we add **only local branches NOT merged into HEAD** —
-    /// merged branches' commits are reached via HEAD's merge ancestry, so
-    /// passing them as separate tips just opens redundant lanes that bloat
-    /// the column count. Plus tags (labels on already-walked commits, no
-    /// extra lanes) and stashes (their own dashed lanes).
+    /// Refs the graph walks. HEAD goes first so its tip anchors the top of
+    /// the topo-ordered log (matches GitKraken). Local branches not merged
+    /// into HEAD become their own lanes; merged ones ride along via HEAD's
+    /// merge ancestry — passing them as separate tips would just bloat the
+    /// column count. Tags are labels on already-walked commits; stashes
+    /// surface as their own dashed lanes.
     func graphScope() -> [String] {
         var refs: [String] = ["HEAD"]
         refs.append(contentsOf: unmergedLocalBranchRefs)
@@ -19,62 +18,80 @@ extension RepositoryViewModel {
 
     func loadInitial() async {
         guard commits.isEmpty, !isLoadingInitial else { return }
+        logGen &+= 1
+        let gen = logGen
         isLoadingInitial = true
+        loadError = nil
         defer {
-            isLoadingInitial = false
-            hasLoadedLogForCurrentScope = true
+            if gen == logGen {
+                isLoadingInitial = false
+                hasLoadedLogForCurrentScope = true
+            }
         }
+        let pageSize = AppTheme.persistedCommitPageSize()
         do {
-            // Stashes and unmerged-branch refs are both part of the graph scope.
-            // Pull them inline if loadRefs hasn't populated them yet — otherwise
-            // the first paint walks an incomplete scope (missing unmerged
-            // branches → no separate lanes for `feature/foo` work; missing
-            // stashes → no dashed dots) and we'd need a full reload to fix it.
-            if stashes.isEmpty {
-                stashes = (try? await cli.stashes()) ?? []
+            // Stashes + unmerged-branch refs feed graphScope(); without them
+            // the first paint walks an incomplete scope. Run both in
+            // parallel when neither has been seeded by an earlier loadRefs().
+            if stashes.isEmpty || unmergedLocalBranchRefs.isEmpty {
+                async let stashTask = cli.stashes()
+                async let unmergedTask = cli.unmergedLocalBranches()
+                if stashes.isEmpty {
+                    stashes = (try? await stashTask) ?? []
+                }
+                if unmergedLocalBranchRefs.isEmpty {
+                    unmergedLocalBranchRefs = (try? await unmergedTask) ?? []
+                }
+                guard gen == logGen else { return }
             }
-            if unmergedLocalBranchRefs.isEmpty {
-                unmergedLocalBranchRefs = (try? await cli.unmergedLocalBranches()) ?? []
-            }
-            let page = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: 0, refs: graphScope())
+            let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
+            guard gen == logGen else { return }
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
-            hasMore = page.count == AppTheme.persistedCommitPageSize()
+            hasMore = page.count == pageSize
             selectedCommitId = commits.first?.id
             recomputeGraph()
         } catch {
+            guard gen == logGen else { return }
             Self.logger.error("Failed to load log: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    /// Refetches the first page using the current `graphScope()` and swaps it
-    /// into `commits` atomically — without first emptying the array. Keeps the
-    /// old rows on screen during the fetch so the History view doesn't flash
-    /// empty (and the ScrollView keeps its offset) when HEAD moves: branch
-    /// checkout, pull, commit, merge, watcher-detected external change…
+    /// Refetches the first page using the current graph scope and swaps it
+    /// into `commits` atomically — no flash of empty during the fetch, and
+    /// the ScrollView keeps its offset when HEAD moves (checkout, pull,
+    /// commit, merge, watcher tick…).
     ///
-    /// The user's selection is preserved when the previously-selected commit
-    /// is still in the new page; otherwise it falls back to the new first
+    /// Preserves the user's selection when the previously-selected commit
+    /// is still in the new page; otherwise falls back to the new first
     /// commit (matching `loadInitial`'s default).
     func reloadLog() async {
         let previousSelection = selectedCommitId
+        logGen &+= 1
+        let gen = logGen
+        loadError = nil
+        let pageSize = AppTheme.persistedCommitPageSize()
         do {
-            stashes = (try? await cli.stashes()) ?? []
-            unmergedLocalBranchRefs = (try? await cli.unmergedLocalBranches()) ?? []
-            let page = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: 0, refs: graphScope())
+            async let stashTask = cli.stashes()
+            async let unmergedTask = cli.unmergedLocalBranches()
+            stashes = (try? await stashTask) ?? []
+            unmergedLocalBranchRefs = (try? await unmergedTask) ?? []
+            guard gen == logGen else { return }
+            let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
+            guard gen == logGen else { return }
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
-            hasMore = page.count == AppTheme.persistedCommitPageSize()
-            if let prev = previousSelection,
-               !commits.contains(where: { $0.id == prev }) {
+            hasMore = page.count == pageSize
+            if let prev = previousSelection, commitsById[prev] == nil {
                 selectedCommitId = commits.first?.id
             }
             recomputeGraph()
             hasLoadedLogForCurrentScope = true
         } catch {
+            guard gen == logGen else { return }
             Self.logger.error("Failed to reload log: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -83,50 +100,64 @@ extension RepositoryViewModel {
     func loadMoreIfNeeded(currentItem: Commit) async {
         guard hasMore, !isLoadingMore else { return }
         guard let last = commits.last, last.id == currentItem.id else { return }
+        logGen &+= 1
+        let gen = logGen
         isLoadingMore = true
-        defer { isLoadingMore = false }
+        loadError = nil
+        defer { if gen == logGen { isLoadingMore = false } }
+        let pageSize = AppTheme.persistedCommitPageSize()
         do {
-            let next = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: loadedRawCount, refs: graphScope())
-            loadedRawCount += next.count
-            commits.append(contentsOf: next)
-            dropStashInternals()
-            hasMore = next.count == AppTheme.persistedCommitPageSize()
-            recomputeGraph()
+            _ = try await paginateNextPage(gen: gen, pageSize: pageSize)
         } catch {
+            guard gen == logGen else { return }
             Self.logger.error("Failed to load more: \(error.localizedDescription, privacy: .public)")
             loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    /// Scrolls the log to the given SHA, paginating in if it isn't loaded yet.
-    /// Stops at `maxRevealPages` so a stray ref doesn't load the entire history.
+    /// Scrolls the log to `sha`, paginating in if it isn't loaded yet. Caps
+    /// at `maxRevealPages` so a stray ref can't quietly walk the entire
+    /// history.
     func revealCommit(sha: String) async {
-        if commits.contains(where: { $0.sha == sha }) {
+        if commitsById[sha] != nil {
             scrollTargetSha = sha
             return
         }
         guard hasMore else { return }
+        logGen &+= 1
+        let gen = logGen
         isRevealingCommit = true
-        defer { isRevealingCommit = false }
+        defer { if gen == logGen { isRevealingCommit = false } }
+        let pageSize = AppTheme.persistedCommitPageSize()
         var pagesLoaded = 0
         while hasMore && pagesLoaded < Self.maxRevealPages {
             do {
-                let next = try await cli.log(limit: AppTheme.persistedCommitPageSize(), skip: loadedRawCount, refs: graphScope())
-                loadedRawCount += next.count
-                commits.append(contentsOf: next)
-                dropStashInternals()
-                hasMore = next.count == AppTheme.persistedCommitPageSize()
-                recomputeGraph()
+                guard try await paginateNextPage(gen: gen, pageSize: pageSize) != nil else { return }
                 pagesLoaded += 1
-                if commits.contains(where: { $0.sha == sha }) {
+                if commitsById[sha] != nil {
                     scrollTargetSha = sha
                     return
                 }
             } catch {
+                guard gen == logGen else { return }
                 Self.logger.error("Reveal pagination failed: \(error.localizedDescription, privacy: .public)")
                 return
             }
         }
+    }
+
+    /// Fetches the next page from `loadedRawCount` and merges it. Returns
+    /// the freshly fetched commits, or nil when the gen token moved during
+    /// the await (a fresher reload kicked in; caller should bail).
+    private func paginateNextPage(gen: UInt64, pageSize: Int) async throws -> [Commit]? {
+        let next = try await cli.log(limit: pageSize, skip: loadedRawCount, refs: graphScope())
+        guard gen == logGen else { return nil }
+        loadedRawCount += next.count
+        commits.append(contentsOf: next)
+        dropStashInternals()
+        hasMore = next.count == pageSize
+        recomputeGraph()
+        return next
     }
 
     func recomputeGraph() {
@@ -137,12 +168,9 @@ extension RepositoryViewModel {
     }
 
     /// Removes stash *internal* commits — `parent[1]` (index tree) and
-    /// `parent[2]` (untracked tree) of each stash. Those are git plumbing the
-    /// user never asked for; surfacing them as separate rows ("index on main:
-    /// …", "untracked files on main: …") clutters the log. `git log` walks
-    /// them automatically when we pass the stash sha as a ref, so we filter
-    /// them here. Does not touch the stash commit itself — that one stays
-    /// visible as the dashed dot in the graph. Matches GitKraken's behaviour.
+    /// `parent[2]` (untracked tree) of each stash. Those are git plumbing
+    /// the user never asked for; surfacing them as separate rows clutters
+    /// the log. The stash commit itself stays as the dashed dot.
     func dropStashInternals() {
         let stashShas = Set(stashes.map(\.sha))
         guard !stashShas.isEmpty else { return }
@@ -157,8 +185,8 @@ extension RepositoryViewModel {
         commits.removeAll { internals.contains($0.sha) }
     }
 
-    /// Wipes log state so the next `loadInitial` reads a fresh head. Used by
-    /// commit / pull / branch ops that change HEAD.
+    /// Wipes log state so the next `loadInitial` reads a fresh head. Used
+    /// by commit / pull / branch ops that change HEAD.
     func resetLog() {
         commits = []
         loadedRawCount = 0
