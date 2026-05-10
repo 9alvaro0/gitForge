@@ -207,6 +207,8 @@ final class RepositoryViewModel {
     var conflictHunks: [ConflictHunk] = []
     var selectedConflictPath: String?
     var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
+    /// Counterpart to `commitFileDiffGen` for the conflict hunks pane.
+    var conflictHunksGen: UInt64 = 0
 
     // MARK: Reactivity
     private var watcher: RepositoryWatcher?

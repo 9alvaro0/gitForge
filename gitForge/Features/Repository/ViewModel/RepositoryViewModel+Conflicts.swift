@@ -3,64 +3,100 @@ import os
 
 /// Conflict-resolution state on top of `RepositoryViewModel`.
 extension RepositoryViewModel {
+    /// Sides supported when resolving an entire conflicted file in one shot.
+    /// `.both` only makes sense per-hunk so it stays in `ConflictHunk.Pick`,
+    /// not here.
+    enum WholeFilePick: Sendable, Equatable { case ours, theirs }
+
+    /// Inspects worktree state, lists unmerged paths, and reads each one off
+    /// the main thread to count conflict hunks. Preserves the user's current
+    /// selection when the watcher fires mid-resolve so they don't get
+    /// yanked back to the top of the list.
     func loadConflictState() async {
         mergeState = await cli.mergeState()
         guard mergeState.isInProgress else {
             conflictFiles = []
             conflictHunks = []
+            conflictPicks = [:]
+            selectedConflictPath = nil
             return
         }
         do {
             let paths = try await cli.unmergedPaths()
-            var entries: [ConflictFile] = []
-            for path in paths {
-                let absolute = repository.url.appendingPathComponent(path)
-                let hunks = (try? String(contentsOf: absolute, encoding: .utf8))
-                    .map { ConflictParser.parse($0).hunks } ?? []
-                entries.append(ConflictFile(path: path, resolved: hunks.isEmpty, conflicts: hunks.count))
-            }
+            let entries = await Self.scanConflictFiles(paths: paths,
+                                                      repositoryURL: repository.url)
             conflictFiles = entries
-            if let first = entries.first(where: { !$0.resolved }) {
-                await loadConflictHunks(for: first.path)
-            } else if let first = entries.first {
-                await loadConflictHunks(for: first.path)
+
+            if let current = selectedConflictPath,
+               entries.contains(where: { $0.path == current }) {
+                return
+            }
+            let candidate = entries.first(where: { !$0.resolved }) ?? entries.first
+            if let candidate {
+                await loadConflictHunks(for: candidate.path)
             }
         } catch {
             Self.logger.error("Failed to list unmerged paths: \(error.localizedDescription, privacy: .public)")
         }
     }
 
+    /// Reads each conflicted file off-MainActor and in parallel — a big merge
+    /// can surface dozens of files and reading them serially on the main
+    /// thread froze the UI.
+    private nonisolated static func scanConflictFiles(paths: [String], repositoryURL: URL) async -> [ConflictFile] {
+        await withTaskGroup(of: (Int, ConflictFile).self) { group in
+            for (idx, path) in paths.enumerated() {
+                group.addTask {
+                    let abs = repositoryURL.appendingPathComponent(path)
+                    let hunks = (try? String(contentsOf: abs, encoding: .utf8))
+                        .map { ConflictParser.parse($0).hunks } ?? []
+                    return (idx, ConflictFile(path: path,
+                                              resolved: hunks.isEmpty,
+                                              conflicts: hunks.count))
+                }
+            }
+            var collected: [(Int, ConflictFile)] = []
+            for await pair in group { collected.append(pair) }
+            return collected.sorted { $0.0 < $1.0 }.map(\.1)
+        }
+    }
+
+    /// Loads conflict hunks for `path` and resets pending picks. Bumps
+    /// `conflictHunksGen` so a slow load triggered for an older path can't
+    /// stomp the freshly selected file.
     func loadConflictHunks(for path: String) async {
+        conflictHunksGen &+= 1
+        let gen = conflictHunksGen
         selectedConflictPath = path
         let absolute = repository.url.appendingPathComponent(path)
         do {
-            let content = try String(contentsOf: absolute, encoding: .utf8)
+            let content = try await Self.readFile(at: absolute)
+            guard gen == conflictHunksGen else { return }
             conflictHunks = ConflictParser.parse(content).hunks
             conflictPicks = [:]
         } catch {
+            guard gen == conflictHunksGen else { return }
             Self.logger.error("Failed to read \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             conflictHunks = []
+            conflictPicks = [:]
         }
+    }
+
+    private nonisolated static func readFile(at url: URL) async throws -> String {
+        try await Task.detached { try String(contentsOf: url, encoding: .utf8) }.value
     }
 
     func setConflictPick(hunkId: UUID, pick: ConflictHunk.Pick) {
         conflictPicks[hunkId] = pick
     }
 
-    /// One-shot conflict resolution: replaces the file content with one whole
-    /// side and stages it. Used by the "Resolve using ours/theirs" context
-    /// menu actions in `ConflictView`, where the user already knows they want
-    /// the entire side without picking hunk-by-hunk.
-    func resolveFile(at path: String, using side: ConflictHunk.Pick) async {
+    /// Replaces the file content with one whole side and stages it. Used by
+    /// the "Resolve using ours/theirs" context menu in `ConflictView`.
+    func resolveFile(at path: String, using side: WholeFilePick) async {
         do {
             switch side {
             case .ours:   try await cli.checkoutOurs(path: path)
             case .theirs: try await cli.checkoutTheirs(path: path)
-            case .both:
-                // No native git equivalent. Caller should use the per-hunk
-                // resolver (the ConflictView UI) for `.both`.
-                Self.logger.error("resolveFile(at:using: .both) is not supported — use the per-hunk resolver")
-                return
             }
             try await cli.markResolved(path: path)
             await loadConflictState()
@@ -71,13 +107,21 @@ extension RepositoryViewModel {
         }
     }
 
-    /// Writes the resolved version of `selectedConflictPath` to disk and stages
-    /// it. Refreshes conflict state when done.
+    /// Applies the user's per-hunk picks to `selectedConflictPath` and stages
+    /// it. Aborts before writing if the file's hunk count has shifted under
+    /// us — that means an external edit landed and the picks no longer line
+    /// up with the on-disk content; better to ask the user to reload than
+    /// silently overwrite their changes.
     func resolveSelectedFile() async {
         guard let path = selectedConflictPath else { return }
         let absolute = repository.url.appendingPathComponent(path)
         do {
-            let original = try String(contentsOf: absolute, encoding: .utf8)
+            let original = try await Self.readFile(at: absolute)
+            let parsedNow = ConflictParser.parse(original).hunks
+            guard parsedNow.count == conflictHunks.count else {
+                commitError = "“\(path)” changed on disk — reload conflicts before resolving."
+                return
+            }
             let resolved = ConflictParser.apply(content: original, picks: conflictPicks, hunks: conflictHunks)
             try resolved.write(to: absolute, atomically: true, encoding: .utf8)
             try await cli.markResolved(path: path)
@@ -89,27 +133,25 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Drops a merge or rebase in progress and returns the worktree to clean.
+    /// `.unmerged` (typically a stash apply conflict) has no native abort —
+    /// the user resolves manually or discards from Changes.
     func abortMerge() async {
         do {
             switch mergeState {
             case .merging:  try await cli.mergeAbort()
             case .rebasing: try await cli.rebaseAbort()
-            // `.unmerged` (typically a stash apply conflict) has no native
-            // abort — the user resolves manually or discards the affected
-            // paths from Changes. Treat as no-op here.
             case .clean, .unmerged: return
             }
-            await loadConflictState()
-            await refreshStatus()
-            await loadRefs(); await reloadLog()
+            await refreshAfterIntegration()
         } catch {
             Self.logger.error("Abort failed: \(error.localizedDescription, privacy: .public)")
             commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    /// Merges another branch into the current one. The result encodes whether
-    /// the operation finished cleanly, paused on conflicts, or failed outright.
+    /// Outcome of an integration op (merge / rebase / cherry-pick). Encodes
+    /// whether the op finished cleanly, paused on conflicts, or failed.
     enum IntegrationOutcome: Sendable, Equatable {
         case clean
         case conflicts
@@ -121,9 +163,9 @@ extension RepositoryViewModel {
         await mergeBranch(source: source, into: nil)
     }
 
-    /// Merges `source` into `target`. If `target` is nil or already the
-    /// current branch, behaves like a direct `git merge`. Otherwise checks
-    /// out `target` first so the merge lands on the right ref.
+    /// Merges `source` into `target`. If `target` is nil or already current,
+    /// behaves like a direct `git merge`. Otherwise checks out `target` first
+    /// so the merge lands on the right ref.
     func mergeBranch(source: GitRef, into target: GitRef?) async -> IntegrationOutcome {
         let sourceName = source.isLocalBranch ? source.name : source.displayName
         do {
@@ -135,12 +177,10 @@ extension RepositoryViewModel {
                 await refreshAfterRefMutation(reloadLog: true)
             }
             try await cli.merge(branch: sourceName)
-            await refreshAfterRefMutation(reloadLog: true)
-            await loadConflictState()
+            await refreshAfterIntegration()
             return .clean
         } catch {
-            await loadConflictState()
-            await refreshStatus()
+            await refreshAfterIntegration()
             if mergeState.isInProgress {
                 return .conflicts
             }
@@ -150,16 +190,16 @@ extension RepositoryViewModel {
         }
     }
 
+    /// `git rebase <upstream>` against the current HEAD. Routes conflicts to
+    /// the resolver via the `IntegrationOutcome`.
     func rebaseOnto(_ ref: GitRef) async -> IntegrationOutcome {
         let upstream = ref.isLocalBranch ? ref.name : ref.displayName
         do {
             try await cli.rebase(onto: upstream)
-            await refreshAfterRefMutation(reloadLog: true)
-            await loadConflictState()
+            await refreshAfterIntegration()
             return .clean
         } catch {
-            await loadConflictState()
-            await refreshStatus()
+            await refreshAfterIntegration()
             if mergeState.isInProgress {
                 return .conflicts
             }
@@ -169,22 +209,31 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Continues a paused merge or rebase. `.unmerged` has no continue command —
+    /// once everything is staged the user just commits; we still refresh so
+    /// the UI catches up either way.
     func continueMerge() async {
         do {
             switch mergeState {
             case .merging:  try await cli.mergeContinue()
             case .rebasing: try await cli.rebaseContinue()
-            // `.unmerged` has no continue command — once everything is staged
-            // the user just commits. We refresh below to reflect the latest
-            // resolution state regardless.
             case .clean, .unmerged: break
             }
-            await loadConflictState()
-            await refreshStatus()
-            await loadRefs(); await reloadLog()
+            await refreshAfterIntegration()
         } catch {
             Self.logger.error("Continue failed: \(error.localizedDescription, privacy: .public)")
             commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    /// `loadConflictState`, `refreshStatus` and `loadRefs` are independent so
+    /// they run in parallel; only `reloadLog` waits on the fresh refs (its
+    /// graphScope reads `unmergedLocalBranchRefs` and `stashes`).
+    private func refreshAfterIntegration() async {
+        async let conflicts: Void = loadConflictState()
+        async let status: Void = refreshStatus()
+        async let refs: Void = loadRefs()
+        _ = await (conflicts, status, refs)
+        await reloadLog()
     }
 }
