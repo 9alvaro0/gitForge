@@ -98,13 +98,10 @@ final class WorkingTreeWatcher {
         // correctness. We do filter to cut the wakeup count: at high event
         // rates (a dependency install hitting node_modules) the bounce-to-
         // main alone adds up.
-        var triggered = false
         for path in paths {
             if path.contains("/.git/") || path.hasSuffix("/.git") { continue }
-            triggered = true
-            break
+            Task { @MainActor [onChange] in onChange() }
+            return
         }
-        guard triggered else { return }
-        Task { @MainActor [onChange] in onChange() }
     }
 }
