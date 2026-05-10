@@ -57,7 +57,9 @@ actor GitCLI {
         // timeout-message use a consistent value even if the user flips
         // the setting mid-fetch.
         let timeout = TimeInterval(AppTheme.persistedGitTimeoutSeconds())
-        Self.logger.debug("→ git \(argsString, privacy: .public)")
+        if Diagnostics.traceGitCommands {
+            Self.logger.debug("→ git \(argsString, privacy: .public)")
+        }
 
         do {
             try process.run()
@@ -120,7 +122,9 @@ actor GitCLI {
 
         let durationMs = String(format: "%.0f", duration * 1000)
         if result.isSuccess {
-            Self.logger.info("✓ git \(argsString, privacy: .public) (\(durationMs, privacy: .public) ms)")
+            if Diagnostics.traceGitCommands {
+                Self.logger.debug("✓ git \(argsString, privacy: .public) (\(durationMs, privacy: .public) ms)")
+            }
         } else {
             let trimmedStderr = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             Self.logger.error("✗ git \(argsString, privacy: .public) exited \(result.exitCode) in \(durationMs, privacy: .public) ms: \(trimmedStderr, privacy: .public)")
