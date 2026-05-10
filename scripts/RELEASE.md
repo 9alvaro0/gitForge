@@ -48,30 +48,32 @@ docs**. The feed will be served at
 
 ## Per-release steps
 
-For every new version (e.g. 1.0.2):
+One command does the full pipeline:
 
 ```bash
-# 1. Bump MARKETING_VERSION in Xcode (target → General → Version)
-
-# 2. Optional: write release notes for Sparkle's update sheet
-#    docs/releases/v1.0.2.html  (plain HTML body — no <html> wrapper needed)
-
-# 3. Build, sign, notarize, package
-./scripts/release.sh
-
-# 4. Publish DMG to GitHub Releases (Sparkle reads the URL from the appcast)
-gh release create v1.0.2 dist/gitForge-1.0.2.dmg \
-   --title "gitForge 1.0.2" \
-   --notes-file path/to/release-notes.md
-
-# 5. Sign DMG with EdDSA and prepend a new <item> to docs/appcast.xml
-./scripts/update-appcast.sh 1.0.2
-
-# 6. Commit and push the appcast (triggers GitHub Pages rebuild ~30s later)
-git add docs/appcast.xml docs/releases/
-git commit -m "release: v1.0.2"
-git push
+./scripts/ship.sh 1.0.2
 ```
+
+This orchestrates: validate → bump `MARKETING_VERSION` → generate release
+notes from `git log v{prev}..HEAD` (grouped into New / Fixes / Improvements)
+→ commit → `release.sh` → tag → `gh release create` → `update-appcast.sh`
+→ commit appcast → push commits + tag.
+
+Useful flags:
+
+- `--dry-run` — print every step without doing anything.
+- `--skip-notes` — skip auto-generation; expects `docs/releases/v<version>.html`
+  to already exist (write notes by hand first).
+- `--skip-push` — stop before pushing to origin.
+- `--yes` / `-y` — skip the interactive confirmation prompt.
+
+Preflight refuses to run if: not on `main`, working tree dirty, local out of
+sync with `origin/main`, tag already exists, or version already in
+`docs/appcast.xml`.
+
+If you prefer to drive each step manually, the underlying scripts still work
+standalone: `release.sh` (build/sign/notarize), `update-appcast.sh <version>`
+(EdDSA-sign + prepend `<item>`).
 
 Within 24 hours, every running gitForge ≥ 1.0.2 picks up the update on its
 next background check. Users can also force a check from **Help → Check for
@@ -90,6 +92,7 @@ After the first Sparkle-signed release ships, validate the loop end-to-end:
 
 ## Files involved
 
+- `scripts/ship.sh` — single-command release orchestrator.
 - `scripts/release.sh` — build / sign / notarize / DMG.
 - `scripts/update-appcast.sh` — EdDSA-sign DMG and update appcast.
 - `gitForge/Info.plist` — `SUFeedURL`, `SUPublicEDKey`, check policy.
