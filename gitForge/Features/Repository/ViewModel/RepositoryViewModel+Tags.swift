@@ -26,6 +26,7 @@ extension RepositoryViewModel {
     func pushTag(_ ref: GitRef) async -> Result<Void, Error> {
         guard remoteOperation == nil else { return .failure(GitError.busy) }
         remoteOperation = .pushing
+        remoteFailure = nil
         defer { remoteOperation = nil }
         do {
             try await cli.pushTag(name: ref.name)
@@ -41,6 +42,7 @@ extension RepositoryViewModel {
     func pushDeleteTag(_ ref: GitRef) async -> Result<Void, Error> {
         guard remoteOperation == nil else { return .failure(GitError.busy) }
         remoteOperation = .pushing
+        remoteFailure = nil
         defer { remoteOperation = nil }
         do {
             try await cli.pushDeleteTag(name: ref.name)
@@ -54,6 +56,7 @@ extension RepositoryViewModel {
     func pushAllTags() async -> Result<Void, Error> {
         guard remoteOperation == nil else { return .failure(GitError.busy) }
         remoteOperation = .pushing
+        remoteFailure = nil
         defer { remoteOperation = nil }
         do {
             try await cli.pushAllTags()
