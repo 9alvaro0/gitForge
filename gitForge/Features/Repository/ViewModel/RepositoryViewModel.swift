@@ -254,7 +254,12 @@ final class RepositoryViewModel {
     /// `user.name` / `user.email` resolved for this repo (local override
     /// wins over global). Refreshed by `refreshIdentity()` on bootstrap and
     /// after external changes; nil before the first read lands.
-    var repoIdentity: RepoIdentity?
+    private(set) var repoIdentity: RepoIdentity?
+    /// Bumped at the start of every identity op (refresh / apply / clear).
+    /// `refreshIdentity` snapshots it on entry and drops its write if the
+    /// token moved while it was awaiting — keeps a slow watcher-driven read
+    /// from stomping a fresher apply/clear.
+    var identityGen: UInt64 = 0
 
     // MARK: Reactivity
     private var watcher: RepositoryWatcher?
