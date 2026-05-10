@@ -8,8 +8,10 @@ extension RepositoryViewModel {
         do {
             try await cli.stashPush(message: message,
                                     includeUntracked: AppTheme.persistedStashIncludeUntracked())
-            await loadRefs()
-            await refreshStatus()
+            // refreshAfterIntegration also reloads the log, which is what
+            // surfaces the new dashed stash dot in the graph — without it
+            // the row only appeared on the next external refresh.
+            await refreshAfterIntegration()
             return .success(())
         } catch {
             return .failure(error)
@@ -22,19 +24,15 @@ extension RepositoryViewModel {
     func applyStash(_ stash: Stash, drop: Bool) async -> IntegrationOutcome {
         do {
             try await cli.stashApply(index: stash.index, drop: drop)
-            await loadRefs()
-            await refreshStatus()
-            await loadConflictState()
+            await refreshAfterIntegration()
             return .clean
         } catch {
-            await loadRefs()
-            await refreshStatus()
             // `git stash apply/pop` with conflicts exits non-zero but leaves
             // unmerged paths in the worktree (no MERGE_HEAD). Our `mergeState`
             // detects this as `.unmerged`, so the same conflict resolver
             // pipeline used by merge/rebase covers stash apply too. `pop`
             // preserves the stash automatically when there are conflicts.
-            await loadConflictState()
+            await refreshAfterIntegration()
             if mergeState.isInProgress {
                 return .conflicts
             }
@@ -45,7 +43,10 @@ extension RepositoryViewModel {
     func dropStash(_ stash: Stash) async -> Result<Void, Error> {
         do {
             try await cli.stashDrop(index: stash.index)
-            await loadRefs()
+            // Dropping a stash leaves its dashed-dot row in `commits` until
+            // a reloadLog runs — `refreshAfterIntegration` does that, so
+            // the phantom row disappears immediately.
+            await refreshAfterIntegration()
             return .success(())
         } catch {
             return .failure(error)
