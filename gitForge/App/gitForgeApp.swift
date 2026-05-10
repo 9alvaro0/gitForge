@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @main
 struct GitForgeApp: App {
@@ -27,9 +28,18 @@ struct GitForgeApp: App {
                     if appState.gitEnvironment.gitStatus == .notFound {
                         Task { await appState.gitEnvironment.refreshGitInstallation() }
                     }
-                    // External CLI changes might have happened while the app
-                    // was inactive — pulse the active repo so they show up.
-                    appState.catalog.activeViewModel?.pokeReactivity()
+                }
+                // AppKit's didBecomeActive fires more reliably than SwiftUI's
+                // scenePhase on macOS (single-window scenes don't always
+                // re-emit `.active` on Cmd-Tab returns) and didBecomeKey
+                // covers focus moving between our own windows. We force-poke
+                // here so the watcher's cooldown can't drop a user-visible
+                // refresh.
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    appState.catalog.activeViewModel?.pokeReactivity(force: true)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                    appState.catalog.activeViewModel?.pokeReactivity(force: true)
                 }
         }
         .commands {

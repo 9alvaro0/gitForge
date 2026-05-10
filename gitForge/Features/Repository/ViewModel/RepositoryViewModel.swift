@@ -294,9 +294,11 @@ final class RepositoryViewModel {
         autoFetcher.stop()
     }
 
-    /// Force a watcher refresh — used when the app returns to foreground.
-    func pokeReactivity() {
-        watcher?.poke()
+    /// Trigger a watcher refresh — used when the app returns to foreground.
+    /// `force` skips the watcher cooldown so user-visible signals (becoming
+    /// active, window key) always produce a refresh.
+    func pokeReactivity(force: Bool = false) {
+        watcher?.poke(force: force)
     }
 
     /// Watcher-driven refresh. Skips the log reload unless HEAD actually

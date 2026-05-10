@@ -26,6 +26,7 @@ final class RepositoryWatcher {
     private static let cooldown: TimeInterval = 1.5
 
     private var sources: [DispatchSourceFileSystemObject] = []
+    private var workingTreeWatcher: WorkingTreeWatcher?
     private var pendingRefresh: Task<Void, Never>?
     private var isRefreshing = false
     private var lastRefresh: Date = .distantPast
@@ -44,6 +45,12 @@ final class RepositoryWatcher {
         watch(gitDir.appendingPathComponent("refs/heads"))
         watch(gitDir.appendingPathComponent("refs/remotes"))
         watch(gitDir.appendingPathComponent("refs/tags"))
+        // Working-tree watcher catches IDE saves and external edits — the
+        // .git/ sources above only fire on git ops, so without this the
+        // Changes pane sat stale until the user ran a git command.
+        workingTreeWatcher = WorkingTreeWatcher(root: repository) { [weak self] in
+            self?.scheduleRefresh()
+        }
     }
 
     deinit {
@@ -51,8 +58,10 @@ final class RepositoryWatcher {
         pendingRefresh?.cancel()
     }
 
-    /// Manually trigger a debounced refresh. Useful from `didBecomeActive`.
-    func poke() { scheduleRefresh() }
+    /// Manually trigger a refresh. `force` skips the cooldown — use it for
+    /// user signals (window became key, app became active) where dropping
+    /// the request would be visible as stale state.
+    func poke(force: Bool = false) { scheduleRefresh(force: force) }
 
     // MARK: private
 
@@ -80,18 +89,22 @@ final class RepositoryWatcher {
         sources.append(source)
     }
 
-    private func scheduleRefresh() {
+    private func scheduleRefresh(force: Bool = false) {
         // If we're mid-refresh, the in-flight task will already pick up the
         // newest state when it completes. No need to queue another.
         if isRefreshing { return }
         // Ignore events that arrive immediately after our own refresh —
         // those are git's own mtime jiggling, not real external work.
-        if Date().timeIntervalSince(lastRefresh) < Self.cooldown { return }
+        // `force` overrides this for user-initiated signals (foreground,
+        // window key) where staleness would be user-visible.
+        if !force, Date().timeIntervalSince(lastRefresh) < Self.cooldown { return }
 
         pendingRefresh?.cancel()
-        let delay = Self.debounce
+        // Forced pokes also collapse the debounce — the user just told us
+        // something changed, no point waiting another second to find out.
+        let delay = force ? 0 : Self.debounce
         pendingRefresh = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
+            if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
             guard let self, !Task.isCancelled else { return }
             self.isRefreshing = true
             await self.onChange()
