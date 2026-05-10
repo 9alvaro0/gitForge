@@ -225,6 +225,12 @@ final class RepositoryViewModel {
     var aheadCount: Int = 0
     var behindCount: Int = 0
     var lastFetchedAt: Date?
+    /// Bumped at the start of every `loadAheadBehind()` call. Overlapping
+    /// invocations (watcher tick + manual fetch both end up walking
+    /// `loadRefs → loadAheadBehind`) snapshot it on entry and drop their
+    /// `upstream` / `aheadCount` / `behindCount` writes if it moves while
+    /// they're awaiting.
+    var aheadBehindGen: UInt64 = 0
 
     // MARK: Pull / merge requests
     var pullRequests: [PullRequest] = []
