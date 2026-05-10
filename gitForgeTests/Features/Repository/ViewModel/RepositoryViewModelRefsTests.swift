@@ -4,7 +4,7 @@ import Testing
 
 @Suite("RepositoryViewModel — refs loader", .serialized)
 @MainActor
-struct RepositoryViewModelRefsTests {
+struct RepositoryViewModelRefsLoaderTests {
 
     private static func makeVM() -> RepositoryViewModel {
         // Bogus working dir → every cli call throws on the first guard, so
