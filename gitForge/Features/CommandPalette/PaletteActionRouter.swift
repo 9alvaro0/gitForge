@@ -34,7 +34,7 @@ struct PaletteActionRouter {
                 appState.ui.activeToast = ToastMessage(message: "Stashed", kind: .ok)
             case .failure(let error):
                 appState.ui.activeToast = ToastMessage(
-                    message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
+                    message: error.userMessage,
                     kind: .error
                 )
             }

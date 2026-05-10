@@ -36,7 +36,7 @@ extension RepositoryViewModel {
                 await loadConflictHunks(for: candidate.path)
             }
         } catch {
-            Self.logger.error("Failed to list unmerged paths: \(error.localizedDescription, privacy: .public)")
+            // Underlying `git ls-files --unmerged` failure is logged by GitCLI.
         }
     }
 
@@ -102,8 +102,7 @@ extension RepositoryViewModel {
             await loadConflictState()
             await refreshStatus()
         } catch {
-            Self.logger.error("Resolve \(path, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
-            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = error.userMessage
         }
     }
 
@@ -128,8 +127,7 @@ extension RepositoryViewModel {
             await loadConflictState()
             await refreshStatus()
         } catch {
-            Self.logger.error("Resolve failed: \(error.localizedDescription, privacy: .public)")
-            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = error.userMessage
         }
     }
 
@@ -145,8 +143,7 @@ extension RepositoryViewModel {
             }
             await refreshAfterIntegration()
         } catch {
-            Self.logger.error("Abort failed: \(error.localizedDescription, privacy: .public)")
-            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = error.userMessage
         }
     }
 
@@ -184,7 +181,7 @@ extension RepositoryViewModel {
             if mergeState.isInProgress {
                 return .conflicts
             }
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             commitError = message
             return .failed(message)
         }
@@ -203,7 +200,7 @@ extension RepositoryViewModel {
             if mergeState.isInProgress {
                 return .conflicts
             }
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             commitError = message
             return .failed(message)
         }
@@ -221,8 +218,7 @@ extension RepositoryViewModel {
             }
             await refreshAfterIntegration()
         } catch {
-            Self.logger.error("Continue failed: \(error.localizedDescription, privacy: .public)")
-            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = error.userMessage
         }
     }
 

@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 extension RepositoryViewModel {
     func stashAll(message: String? = nil) async -> Result<Void, Error> {
@@ -13,7 +12,6 @@ extension RepositoryViewModel {
             await refreshStatus()
             return .success(())
         } catch {
-            Self.logger.error("Stash push failed: \(error.localizedDescription, privacy: .public)")
             return .failure(error)
         }
     }
@@ -29,7 +27,6 @@ extension RepositoryViewModel {
             await loadConflictState()
             return .clean
         } catch {
-            Self.logger.error("Stash apply failed: \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             await refreshStatus()
             // `git stash apply/pop` with conflicts exits non-zero but leaves
@@ -51,13 +48,12 @@ extension RepositoryViewModel {
             await loadRefs()
             return .success(())
         } catch {
-            Self.logger.error("Stash drop failed: \(error.localizedDescription, privacy: .public)")
             return .failure(error)
         }
     }
 
     private func friendlyStashApplyMessage(for error: Error) -> String {
-        let raw = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        let raw = error.userMessage
         if raw.contains("would be overwritten") {
             return "Commit, stash, or discard your current changes before applying this stash."
         }

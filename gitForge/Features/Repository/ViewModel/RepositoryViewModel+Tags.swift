@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 /// Tag operations on top of `RepositoryViewModel`. All methods return a
 /// `Result` so the caller can route success/failure to the toast pipeline.
@@ -10,7 +9,6 @@ extension RepositoryViewModel {
             await loadRefs()
             return .success(())
         } catch {
-            Self.logger.error("Create tag \(name, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
             return .failure(error)
         }
     }
@@ -21,7 +19,6 @@ extension RepositoryViewModel {
             await loadRefs()
             return .success(())
         } catch {
-            Self.logger.error("Delete tag \(ref.name, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
             return .failure(error)
         }
     }

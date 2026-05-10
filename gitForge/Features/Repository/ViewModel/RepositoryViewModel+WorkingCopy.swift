@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 extension RepositoryViewModel {
     func refreshStatus() async {
@@ -18,7 +17,7 @@ extension RepositoryViewModel {
                 selectedWorkingCopyFile = nil
             }
         } catch {
-            Self.logger.error("Failed to load status: \(error.localizedDescription, privacy: .public)")
+            // Underlying `git status` failure is already logged by GitCLI.
         }
     }
 
@@ -60,8 +59,7 @@ extension RepositoryViewModel {
             try await block()
             await refreshStatus()
         } catch {
-            Self.logger.error("Stage operation failed: \(error.localizedDescription, privacy: .public)")
-            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = error.userMessage
         }
     }
 
@@ -90,8 +88,7 @@ extension RepositoryViewModel {
             await reloadLog()
             return true
         } catch {
-            Self.logger.error("Commit failed: \(error.localizedDescription, privacy: .public)")
-            commitError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            commitError = error.userMessage
             return false
         }
     }
@@ -108,7 +105,7 @@ extension RepositoryViewModel {
                 commitBody = ""
             }
         } catch {
-            Self.logger.error("Failed to read HEAD message: \(error.localizedDescription, privacy: .public)")
+            // Underlying `git log` failure is already logged by GitCLI.
         }
     }
 }

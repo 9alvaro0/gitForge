@@ -15,6 +15,6 @@ struct PresentedError: Identifiable, Sendable {
 
     init(error: Error, title: String = "Couldn’t open repository") {
         self.title = title
-        self.message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        self.message = error.userMessage
     }
 }

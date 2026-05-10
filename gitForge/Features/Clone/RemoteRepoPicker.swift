@@ -274,8 +274,7 @@ struct RemoteRepoPicker: View {
             hasMore = chunk.count >= 50
             loadError = nil
         } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            loadError = message
+            loadError = error.userMessage
         }
     }
 }
