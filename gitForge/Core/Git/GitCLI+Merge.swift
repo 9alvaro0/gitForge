@@ -66,13 +66,14 @@ extension GitCLI {
         if let message {
             args.append(contentsOf: ["-m", message])
         }
+        args.append(Self.endOfOptions)
         args.append(branch)
         _ = try await run(args)
     }
 
     /// `git rebase <upstream>`. Throws on conflicts.
     func rebase(onto upstream: String) async throws {
-        _ = try await run(["rebase", upstream])
+        _ = try await run(["rebase", Self.endOfOptions, upstream])
     }
 
     /// Stages a path so git knows the conflict is resolved.
