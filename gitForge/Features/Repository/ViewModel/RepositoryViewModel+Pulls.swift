@@ -4,7 +4,12 @@ import os
 extension RepositoryViewModel {
     /// Open the detail view for a PR/MR — clears any prior detail state and
     /// kicks off a parallel fetch of detail / commits / files.
+    ///
+    /// Bumps `pullRequestDetailGen` so an in-flight fetch from a previous
+    /// selection drops its write-back when it resumes — fixes the
+    /// "rapid-click PR#1 → PR#2 paints PR#1's data into PR#2's pane" race.
     func selectPullRequest(_ pr: PullRequest) {
+        pullRequestDetailGen &+= 1
         selectedPullRequest = pr
         pullRequestDetail = nil
         pullRequestCommits = []
@@ -15,6 +20,7 @@ extension RepositoryViewModel {
 
     /// Close the detail view and clear cached data.
     func closePullRequestDetail() {
+        pullRequestDetailGen &+= 1
         selectedPullRequest = nil
         pullRequestDetail = nil
         pullRequestCommits = []
@@ -24,9 +30,16 @@ extension RepositoryViewModel {
 
     /// Fetch the three detail payloads in parallel. Errors are collected into
     /// `pullRequestDetailError` (any one failure surfaces an error state).
+    ///
+    /// Each post-await write is gated on `pullRequestDetailGen` so a fresh
+    /// `selectPullRequest` / `closePullRequestDetail` invalidates this loader
+    /// — previously the `!pullRequestDetailLoading` guard rebounded the new
+    /// selection's load entirely, leaving the user staring at the old PR's
+    /// data under a new selection.
     func loadPullRequestDetail() async {
+        pullRequestDetailGen &+= 1
+        let gen = pullRequestDetailGen
         guard let pr = selectedPullRequest, let host = pullRequestsHost else { return }
-        guard !pullRequestDetailLoading else { return }
         guard let token = RemoteCredentialsStore.shared.token(for: host.host) else {
             pullRequestDetailError = "No token configured for \(host.host)."
             return
@@ -34,7 +47,7 @@ extension RepositoryViewModel {
 
         pullRequestDetailLoading = true
         pullRequestDetailError = nil
-        defer { pullRequestDetailLoading = false }
+        defer { if gen == pullRequestDetailGen { pullRequestDetailLoading = false } }
 
         let provider = PullRequestProviderFactory.make(for: host)
         let number = pr.number
@@ -46,6 +59,8 @@ extension RepositoryViewModel {
         let detailResult = await detail
         let commitsResult = await commits
         let filesResult = await files
+
+        guard gen == pullRequestDetailGen else { return }
 
         switch detailResult {
         case .success(let value): pullRequestDetail = value
@@ -124,13 +139,15 @@ extension RepositoryViewModel {
 
         do {
             try await cli.merge(branch: targetSpec)
-            await refreshAfterRefMutation(reloadLog: true)
-            await loadConflictState()
+            await refreshAfterIntegration()
             return .clean
         } catch {
-            await loadConflictState()
-            await refreshStatus()
-            if mergeState.isInProgress {
+            // Mirror `+Operations`: parallel conflicts+status+refs+reloadLog
+            // in both branches. Without `loadRefs` in the catch, a merge that
+            // mutated refs before failing on a hook would leave the sidebar
+            // chips stale.
+            await refreshAfterIntegration()
+            if mergeState.isInProgress || !conflictFiles.isEmpty {
                 return .conflicts
             }
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
