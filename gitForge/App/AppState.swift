@@ -13,12 +13,14 @@ final class AppState {
     let gitEnvironment: GitEnvironment
     let clone: CloneController
     let ui: WorkspaceUI
+    let profiles: ProfileStore
 
     init(
         catalog: RepositoryCatalog? = nil,
         gitEnvironment: GitEnvironment? = nil,
         clone: CloneController? = nil,
-        ui: WorkspaceUI? = nil
+        ui: WorkspaceUI? = nil,
+        profiles: ProfileStore? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
@@ -27,6 +29,7 @@ final class AppState {
         self.gitEnvironment = gitEnvironment ?? GitEnvironment()
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
+        self.profiles = profiles ?? ProfileStore()
     }
 
     // MARK: - Bootstrap
@@ -39,6 +42,13 @@ final class AppState {
         await catalog.load()
         _ = await gitCheck
         _ = await configRead
+
+        // After the global config has landed, materialise it as a profile if
+        // none exists yet. Onboarding handles the empty-config first-run case
+        // by creating a profile alongside the global write; this seed covers
+        // existing users who already had a `~/.gitconfig` before the app
+        // learned about profiles.
+        profiles.seedFromGlobalIfEmpty(gitEnvironment.globalConfig)
 
         if await catalog.restoreLastActive() {
             ui.workspaceSection = .history

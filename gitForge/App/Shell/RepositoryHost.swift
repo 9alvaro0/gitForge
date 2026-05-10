@@ -29,6 +29,10 @@ struct RepositoryHost: View {
         }
         .task(id: repository.url) {
             guard let viewModel = appState.catalog.activeViewModel else { return }
+            // Identity first — two cheap config reads — so the sidebar doesn't
+            // briefly badge a custom-overridden repo as "Global" while a slow
+            // `git log` is still loading.
+            await viewModel.refreshIdentity()
             await viewModel.loadInitial()
             await viewModel.loadRefs()
             await viewModel.refreshStatus()

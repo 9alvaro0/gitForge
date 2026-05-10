@@ -12,6 +12,7 @@ struct OnboardingFlow: View {
 
     @Environment(AppState.self) private var appState
     @Environment(GitEnvironment.self) private var gitEnvironment
+    @Environment(ProfileStore.self) private var profiles
 
     /// Same key `CloneView` reads from — picking a default during onboarding
     /// pre-fills the next clone session for free.
@@ -29,7 +30,7 @@ struct OnboardingFlow: View {
         ) {
             stepContent
         }
-        .task { prefillIfNeeded() }
+        .task { await prefillIfNeeded() }
         .onChange(of: appState.catalog.activeRepository) { _, repo in
             // Opening a folder via FirstRepoStep arrives here once the catalog
             // confirms the activation. Closing the flow then drops the user
@@ -100,6 +101,18 @@ struct OnboardingFlow: View {
             if !key.isEmpty {
                 try await gitEnvironment.setSigningKey(key)
             }
+            // Materialise a "Personal" profile from the values the user just
+            // typed so the Profiles list isn't empty after onboarding. Skip
+            // when the user already has profiles (e.g. they came back through
+            // onboarding) — bootstrap-time seeding handles existing configs.
+            if profiles.profiles.isEmpty {
+                profiles.add(GitProfile(
+                    name: "Personal",
+                    userName: n,
+                    userEmail: e,
+                    signingKey: key.isEmpty ? nil : key
+                ))
+            }
             state.advance()
         } catch {
             appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t save identity")
@@ -137,8 +150,13 @@ struct OnboardingFlow: View {
         }
     }
 
-    private func prefillIfNeeded() {
+    /// AppState.bootstrap() reads the global config asynchronously, so this
+    /// view's first render races it. Force a fresh read before prefilling so
+    /// users with `~/.gitconfig` always see their name/email pre-populated
+    /// instead of empty fields they have to retype.
+    private func prefillIfNeeded() async {
         guard !prefilled else { return }
+        await gitEnvironment.refreshGlobalConfig()
         state.prefill(from: gitEnvironment.globalConfig, lastCloneDir: lastParentDir)
         prefilled = true
     }

@@ -13,6 +13,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
                     AppearanceSection()
                     IdentitySection()
+                    ProfilesSection()
                     GitSection()
                     BehaviorSection()
                     RemoteHostsSection()
