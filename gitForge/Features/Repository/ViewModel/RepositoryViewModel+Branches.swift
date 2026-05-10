@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 extension RepositoryViewModel {
     func createBranch(name: String, startingAt: String? = nil, checkout: Bool) async -> Result<Void, Error> {
@@ -11,7 +10,6 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: checkout)
             return .success(())
         } catch {
-            Self.logger.error("Failed to create branch \(name, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             return .failure(error)
         }
@@ -27,7 +25,6 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: true)
             return .success(())
         } catch {
-            Self.logger.error("Failed to checkout \(target, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             return .failure(error)
         }
@@ -41,7 +38,6 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: true)
             return .success(())
         } catch {
-            Self.logger.error("Failed to checkout commit \(sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             return .failure(error)
         }
@@ -53,7 +49,6 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: false)
             return .success(())
         } catch {
-            Self.logger.error("Failed to delete branch \(ref.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             return .failure(error)
         }
@@ -68,7 +63,6 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: false)
             return .success(())
         } catch {
-            Self.logger.error("Failed to rename \(oldName, privacy: .public) to \(newName, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             return .failure(error)
         }
@@ -90,7 +84,6 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: true)
             return .success(())
         } catch {
-            Self.logger.error("Failed to move \(ref.name, privacy: .public) to \(sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
             await loadRefs()
             return .failure(error)
         }

@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 extension RepositoryViewModel {
     /// Refs the graph walks. HEAD goes first so its tip anchors the top of
@@ -54,8 +53,7 @@ extension RepositoryViewModel {
             recomputeGraph()
         } catch {
             guard gen == logGen else { return }
-            Self.logger.error("Failed to load log: \(error.localizedDescription, privacy: .public)")
-            loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            loadError = error.userMessage
         }
     }
 
@@ -92,8 +90,7 @@ extension RepositoryViewModel {
             hasLoadedLogForCurrentScope = true
         } catch {
             guard gen == logGen else { return }
-            Self.logger.error("Failed to reload log: \(error.localizedDescription, privacy: .public)")
-            loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            loadError = error.userMessage
         }
     }
 
@@ -110,8 +107,7 @@ extension RepositoryViewModel {
             _ = try await paginateNextPage(gen: gen, pageSize: pageSize)
         } catch {
             guard gen == logGen else { return }
-            Self.logger.error("Failed to load more: \(error.localizedDescription, privacy: .public)")
-            loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            loadError = error.userMessage
         }
     }
 
@@ -140,7 +136,6 @@ extension RepositoryViewModel {
                 }
             } catch {
                 guard gen == logGen else { return }
-                Self.logger.error("Reveal pagination failed: \(error.localizedDescription, privacy: .public)")
                 return
             }
         }

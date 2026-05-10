@@ -116,7 +116,7 @@ extension RepositoryViewModel {
             lastFetchedAt = .now
             await loadRefs()
         } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             return .failed("Fetch failed: \(message)")
         }
 
@@ -133,7 +133,7 @@ extension RepositoryViewModel {
             try await ensureCheckedOut(branch: pr.sourceBranch)
             await refreshAfterRefMutation(reloadLog: true)
         } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             return .failed("Couldn't check out \(pr.sourceBranch): \(message)")
         }
 
@@ -150,7 +150,7 @@ extension RepositoryViewModel {
             if mergeState.isInProgress || !conflictFiles.isEmpty {
                 return .conflicts
             }
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             return .failed(message)
         }
     }

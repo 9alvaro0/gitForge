@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 extension RepositoryViewModel {
     func selectStash(_ stash: Stash) {
@@ -41,8 +40,7 @@ extension RepositoryViewModel {
                 await loadStashFileDiff(at: first.path)
             }
         } catch {
-            Self.logger.error("Stash detail load failed: \(error.localizedDescription, privacy: .public)")
-            stashDetailError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            stashDetailError = error.userMessage
         }
     }
 
@@ -56,7 +54,6 @@ extension RepositoryViewModel {
             stashFileDiff = DiffParser.parse(raw)
             stashFileDiffEmptyState = .empty
         } catch {
-            Self.logger.error("Stash file diff failed: \(error.localizedDescription, privacy: .public)")
             stashFileDiff = []
             stashFileDiffEmptyState = .empty
         }

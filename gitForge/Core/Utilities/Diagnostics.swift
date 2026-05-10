@@ -13,7 +13,10 @@ enum Diagnostics {
     /// Per-invocation `→ git …` / `✓ git …` trace from `GitCLI`. Keep off
     /// unless you're chasing a specific git interaction; the app fires
     /// dozens of commands per refresh, so the trace floods the console fast.
-    static var traceGitCommands: Bool {
+    /// `nonisolated` because `GitCLI` is a non-MainActor actor and reads
+    /// this on every command — the project's default-MainActor isolation
+    /// would otherwise force a hop on every call.
+    nonisolated static var traceGitCommands: Bool {
         UserDefaults.standard.bool(forKey: "DiagnosticsTraceGitCommands")
     }
 }

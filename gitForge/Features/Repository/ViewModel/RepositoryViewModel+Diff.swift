@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 extension RepositoryViewModel {
     /// Hard ceiling on bytes read from disk when synthesizing an untracked
@@ -25,7 +24,6 @@ extension RepositoryViewModel {
             commitFileDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
         } catch {
             guard gen == commitFileDiffGen else { return }
-            Self.logger.error("Failed to load commit diff: \(error.localizedDescription, privacy: .public)")
             commitFileDiff = []
             commitFileDiffEmptyState = .empty
         }
@@ -57,7 +55,6 @@ extension RepositoryViewModel {
             workingCopyDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
         } catch {
             guard gen == workingCopyDiffGen else { return }
-            Self.logger.error("Failed to load working-copy diff: \(error.localizedDescription, privacy: .public)")
             workingCopyDiff = []
             workingCopyDiffEmptyState = .empty
         }
@@ -154,7 +151,6 @@ extension RepositoryViewModel {
                 cacheDetail(detail, for: commit.sha)
                 return detail
             } catch {
-                Self.logger.error("Failed to load detail for \(commit.sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 return nil
             }
         }

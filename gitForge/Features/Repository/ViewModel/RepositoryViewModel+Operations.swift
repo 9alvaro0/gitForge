@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 /// Cherry-pick / revert / reset wired into `RepositoryViewModel`.
 /// Each method returns an `IntegrationOutcome` so the view can decide whether
@@ -19,7 +18,7 @@ extension RepositoryViewModel {
             if mergeState.isInProgress || !conflictFiles.isEmpty {
                 return .conflicts
             }
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             commitError = message
             return .failed(message)
         }
@@ -37,7 +36,7 @@ extension RepositoryViewModel {
             if mergeState.isInProgress || !conflictFiles.isEmpty {
                 return .conflicts
             }
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             commitError = message
             return .failed(message)
         }
@@ -51,7 +50,7 @@ extension RepositoryViewModel {
             return .clean
         } catch {
             await refreshAfterIntegration()
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             commitError = message
             return .failed(message)
         }
