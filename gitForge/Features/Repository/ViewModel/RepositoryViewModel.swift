@@ -237,6 +237,12 @@ final class RepositoryViewModel {
     var pullRequestFiles: [PullRequestFileChange] = []
     var pullRequestDetailLoading: Bool = false
     var pullRequestDetailError: String?
+    /// Bumped at the start of every PR detail op (`selectPullRequest` /
+    /// `loadPullRequestDetail` / `closePullRequestDetail`). The detail loader
+    /// snapshots it on entry and drops its writes if the token moved while
+    /// it was awaiting — keeps a slow PR#1 fetch from landing on top of a
+    /// freshly-selected PR#2 (or on a closed detail pane).
+    var pullRequestDetailGen: UInt64 = 0
     /// Drives the spinner on the "Resolve locally" button while a try-merge
     /// attempt is in flight.
     var pullRequestLocalMergeRunning: Bool = false
