@@ -106,7 +106,12 @@ final class RepositoryCatalog {
     }
 
     func refreshAllRepoStatuses() async {
-        let urls = repositories.map(\.url)
+        // Skip the active repo: its VM is already exercising `.git/index.lock`
+        // and a parallel `git status` from here can collide with it. Mirror
+        // the VM's live state into the cache instead, so the pill stays fresh
+        // for when the user switches away.
+        let activeUrl = activeRepository?.url
+        let urls = repositories.map(\.url).filter { $0 != activeUrl }
         await withTaskGroup(of: (URL, RepoStatusSnapshot?).self) { group in
             for url in urls {
                 group.addTask { (url, await Self.snapshot(for: url)) }
@@ -115,9 +120,17 @@ final class RepositoryCatalog {
                 if let snapshot { repositoryStatuses[url] = snapshot }
             }
         }
+        if let activeUrl, let vm = activeViewModel, vm.hasLoadedStatusOnce {
+            repositoryStatuses[activeUrl] = RepoStatusSnapshot(
+                branch: vm.currentBranchName,
+                dirty: vm.status.files.count,
+                ahead: vm.aheadCount,
+                behind: vm.behindCount
+            )
+        }
         // Drop snapshots for repos that aren't in the list anymore — keeps the
         // dictionary from accumulating ghost entries over the app's lifetime.
-        let live = Set(urls)
+        let live = Set(repositories.map(\.url))
         repositoryStatuses = repositoryStatuses.filter { live.contains($0.key) }
     }
 
