@@ -13,7 +13,7 @@ extension RepositoryViewModel {
         let gen = identityGen
         let snapshot = await cli.currentIdentity()
         guard gen == identityGen else { return }
-        repoIdentity = snapshot
+        setRepoIdentity(snapshot)
     }
 
     /// Pins a profile's identity (and signing key) to this repo at `--local`
