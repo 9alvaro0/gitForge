@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "9ABE1E26-AE5D-4D6D-9DA8-B9F8FB7CF697",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:gitForge.xcodeproj",
+      "identifier" : "CD2E2B202FA8DE7300330FAF",
+      "name" : "gitForge"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:gitForge.xcodeproj",
+        "identifier" : "CD2E2B2D2FA8DE7600330FAF",
+        "name" : "gitForgeTests"
+      }
+    }
+  ],
+  "version" : 1
+}
