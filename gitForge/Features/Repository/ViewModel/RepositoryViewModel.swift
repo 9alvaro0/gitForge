@@ -247,6 +247,11 @@ final class RepositoryViewModel {
     /// `upstream` / `aheadCount` / `behindCount` writes if it moves while
     /// they're awaiting.
     var aheadBehindGen: UInt64 = 0
+    /// Set while a silent auto-fetch is in flight. Manual `fetch()` checks
+    /// it in addition to `remoteOperation` so the two can't fire duplicate
+    /// `git fetch` subprocesses in parallel. Deliberately not bound to the
+    /// UI spinner — auto-fetch stays silent by design.
+    var autoFetchInFlight: Bool = false
 
     // MARK: Pull / merge requests
     var pullRequests: [PullRequest] = []
@@ -350,10 +355,17 @@ final class RepositoryViewModel {
         let previousHeadSha = previousBranch.flatMap { branch in
             refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
         }
-        await refreshStatus()
-        await loadRefs()
-        await loadConflictState()
-        await refreshIdentity()
+        // The four refreshes are independent — only the post-await comparison
+        // depends on `loadRefs`'s writes (`currentBranchName` + `refs`). Fan
+        // them out so a watcher tick doesn't pay 4 sequential subprocesses.
+        async let statusTask: Void = refreshStatus()
+        async let refsTask: Void = loadRefs()
+        async let conflictTask: Void = loadConflictState()
+        async let identityTask: Void = refreshIdentity()
+        _ = await statusTask
+        _ = await refsTask
+        _ = await conflictTask
+        _ = await identityTask
         let newHeadSha = currentBranchName.flatMap { branch in
             refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
         }
@@ -363,14 +375,19 @@ final class RepositoryViewModel {
     }
 
     /// Background fetch driven by `AutoFetcher` — failures are logged, not
-    /// toasted.
+    /// toasted. Mutually exclusive with manual `fetch()` via
+    /// `autoFetchInFlight`; the manual op is also gated on `remoteOperation`
+    /// so the two paths can't fire duplicate `git fetch` subprocesses.
     private func fetchSilently() async {
-        guard remoteOperation == nil else { return }
+        guard remoteOperation == nil, !autoFetchInFlight else { return }
+        autoFetchInFlight = true
+        defer { autoFetchInFlight = false }
         do {
             try await cli.fetchAll()
             lastFetchedAt = .now
+            // `loadRefs()` already calls `loadAheadBehind()` at its tail,
+            // so a separate call here would just duplicate the rev-list.
             await loadRefs()
-            await loadAheadBehind()
         } catch {
             Self.logger.debug("auto-fetch failed: \(error.localizedDescription, privacy: .public)")
         }

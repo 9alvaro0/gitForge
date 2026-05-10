@@ -29,7 +29,10 @@ extension RepositoryViewModel {
     }
 
     func fetch() async {
-        guard remoteOperation == nil else { return }
+        // `autoFetchInFlight` covers the silent auto-fetcher path — without
+        // it the user clicking Fetch while the timer-driven fetch was in
+        // flight would fire a second `git fetch` subprocess in parallel.
+        guard remoteOperation == nil, !autoFetchInFlight else { return }
         remoteOperation = .fetching
         remoteFailure = nil
         defer { remoteOperation = nil }
