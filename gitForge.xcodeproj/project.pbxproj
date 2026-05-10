@@ -20,19 +20,11 @@
 			remoteGlobalIDString = CD2E2B202FA8DE7300330FAF;
 			remoteInfo = gitForge;
 		};
-		CD2E2B392FA8DE7600330FAF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = CD2E2B192FA8DE7300330FAF /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = CD2E2B202FA8DE7300330FAF;
-			remoteInfo = gitForge;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		CD2E2B212FA8DE7300330FAF /* gitForge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = gitForge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CD2E2B2E2FA8DE7600330FAF /* gitForgeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gitForgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CD2E2B382FA8DE7600330FAF /* gitForgeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gitForgeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -84,13 +76,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CD2E2B352FA8DE7600330FAF /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -109,7 +94,6 @@
 			children = (
 				CD2E2B212FA8DE7300330FAF /* gitForge.app */,
 				CD2E2B2E2FA8DE7600330FAF /* gitForgeTests.xctest */,
-				CD2E2B382FA8DE7600330FAF /* gitForgeUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -165,29 +149,6 @@
 			productReference = CD2E2B2E2FA8DE7600330FAF /* gitForgeTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		CD2E2B372FA8DE7600330FAF /* gitForgeUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = CD2E2B482FA8DE7600330FAF /* Build configuration list for PBXNativeTarget "gitForgeUITests" */;
-			buildPhases = (
-				CD2E2B342FA8DE7600330FAF /* Sources */,
-				CD2E2B352FA8DE7600330FAF /* Frameworks */,
-				CD2E2B362FA8DE7600330FAF /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				CD2E2B3A2FA8DE7600330FAF /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				CD2E2B3B2FA8DE7600330FAF /* gitForgeUITests */,
-			);
-			name = gitForgeUITests;
-			packageProductDependencies = (
-			);
-			productName = gitForgeUITests;
-			productReference = CD2E2B382FA8DE7600330FAF /* gitForgeUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -202,10 +163,6 @@
 						CreatedOnToolsVersion = 26.2;
 					};
 					CD2E2B2D2FA8DE7600330FAF = {
-						CreatedOnToolsVersion = 26.2;
-						TestTargetID = CD2E2B202FA8DE7300330FAF;
-					};
-					CD2E2B372FA8DE7600330FAF = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = CD2E2B202FA8DE7300330FAF;
 					};
@@ -232,7 +189,6 @@
 			targets = (
 				CD2E2B202FA8DE7300330FAF /* gitForge */,
 				CD2E2B2D2FA8DE7600330FAF /* gitForgeTests */,
-				CD2E2B372FA8DE7600330FAF /* gitForgeUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -246,13 +202,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		CD2E2B2C2FA8DE7600330FAF /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		CD2E2B362FA8DE7600330FAF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -276,13 +225,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CD2E2B342FA8DE7600330FAF /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -290,11 +232,6 @@
 			isa = PBXTargetDependency;
 			target = CD2E2B202FA8DE7300330FAF /* gitForge */;
 			targetProxy = CD2E2B2F2FA8DE7600330FAF /* PBXContainerItemProxy */;
-		};
-		CD2E2B3A2FA8DE7600330FAF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = CD2E2B202FA8DE7300330FAF /* gitForge */;
-			targetProxy = CD2E2B392FA8DE7600330FAF /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -557,44 +494,6 @@
 			};
 			name = Release;
 		};
-		CD2E2B492FA8DE7600330FAF /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = T6B3T6K6TZ;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.warwarelabs.gitForgeUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = gitForge;
-			};
-			name = Debug;
-		};
-		CD2E2B4A2FA8DE7600330FAF /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = T6B3T6K6TZ;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.warwarelabs.gitForgeUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = gitForge;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -621,15 +520,6 @@
 			buildConfigurations = (
 				CD2E2B462FA8DE7600330FAF /* Debug */,
 				CD2E2B472FA8DE7600330FAF /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		CD2E2B482FA8DE7600330FAF /* Build configuration list for PBXNativeTarget "gitForgeUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				CD2E2B492FA8DE7600330FAF /* Debug */,
-				CD2E2B4A2FA8DE7600330FAF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
