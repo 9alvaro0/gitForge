@@ -8,10 +8,10 @@ extension RepositoryViewModel {
     private static let untrackedDiffByteCap = 1_000_000
 
     func loadCommitFileDiff(sha: String, path: String) async {
-        // Snapshot the selection generation on entry. If anyone moves the
-        // selection while we await on the CLI, our token will fall behind and
-        // we drop the write-back so the user keeps seeing the diff for their
-        // *current* selection, not whichever async call happens to finish last.
+        // Snapshot the selection token. If the user moves on while we await
+        // on the CLI, the token will fall behind and we drop the write-back
+        // so the pane keeps showing the diff for the *current* selection,
+        // not whichever async call finishes last.
         let gen = commitFileDiffGen
         loadingCommitFileDiff = true
         defer {
@@ -39,7 +39,7 @@ extension RepositoryViewModel {
         }
         do {
             if file.isUntracked && !file.isStaged {
-                let synthesized = synthesizeUntrackedDiff(path: file.path)
+                let synthesized = await synthesizeUntrackedDiff(path: file.path)
                 guard gen == workingCopyDiffGen else { return }
                 workingCopyDiff = DiffParser.parse(synthesized.raw)
                 workingCopyDiffEmptyState = workingCopyDiff.isEmpty ? synthesized.emptyState : .empty
@@ -63,40 +63,44 @@ extension RepositoryViewModel {
         }
     }
 
-    /// Reads an untracked file from disk and emits a unified-diff string
-    /// that marks every line as added. Empty files and binaries short-circuit
-    /// to an empty raw string + the matching `DiffEmptyState` so the renderer
-    /// can show a meaningful placeholder.
+    /// Reads an untracked file off the main thread and emits a unified-diff
+    /// string that marks every line as added. Empty files and binaries
+    /// short-circuit to an empty raw string + the matching `DiffEmptyState`
+    /// so the renderer can show a meaningful placeholder.
     ///
     /// Binary detection mirrors git's heuristic: a NUL byte in the first 8 KB
     /// of the file is enough to classify as binary. Files larger than
     /// `untrackedDiffByteCap` are also routed through the binary path — the
     /// goal is "tell the user something exists", not "parse a 50 MB log".
-    private func synthesizeUntrackedDiff(path: String) -> (raw: String, emptyState: DiffEmptyState) {
+    private func synthesizeUntrackedDiff(path: String) async -> (raw: String, emptyState: DiffEmptyState) {
         let absolute = repository.url.appendingPathComponent(path)
-        guard let data = try? Data(contentsOf: absolute, options: [.mappedIfSafe]) else {
-            return ("", .empty)
-        }
-        if data.isEmpty {
-            return ("", .empty)
-        }
-        if data.count > Self.untrackedDiffByteCap {
-            return ("", .untrackedBinary)
-        }
-        let probeLength = min(8000, data.count)
-        if data.prefix(probeLength).contains(0) {
-            return ("", .untrackedBinary)
-        }
-        guard let text = String(data: data, encoding: .utf8) else {
-            return ("", .untrackedBinary)
-        }
-        return (Self.synthesizeAddDiff(text: text), .empty)
+        let cap = Self.untrackedDiffByteCap
+        return await Task.detached {
+            guard let data = try? Data(contentsOf: absolute, options: [.mappedIfSafe]) else {
+                return ("", DiffEmptyState.empty)
+            }
+            if data.isEmpty {
+                return ("", DiffEmptyState.empty)
+            }
+            if data.count > cap {
+                return ("", DiffEmptyState.untrackedBinary)
+            }
+            let probeLength = min(8000, data.count)
+            if data.prefix(probeLength).contains(0) {
+                return ("", DiffEmptyState.untrackedBinary)
+            }
+            guard let text = String(data: data, encoding: .utf8) else {
+                return ("", DiffEmptyState.untrackedBinary)
+            }
+            return (Self.synthesizeAddDiff(text: text), DiffEmptyState.empty)
+        }.value
     }
 
     /// Builds a single `@@ -0,0 +1,N @@` hunk where every line is a `+`. The
     /// `\ No newline at end of file` trailer matches what `git diff` emits so
     /// the parser's existing newline handling kicks in unchanged.
-    static func synthesizeAddDiff(text: String) -> String {
+    nonisolated static func synthesizeAddDiff(text: String) -> String {
+        guard !text.isEmpty else { return "" }
         let endsWithNewline = text.hasSuffix("\n")
         let lines = text.components(separatedBy: "\n")
         // `components(separatedBy:)` leaves a trailing empty element when the
@@ -104,9 +108,8 @@ extension RepositoryViewModel {
         let actual: ArraySlice<String> = endsWithNewline ? lines.dropLast() : ArraySlice(lines)
         guard !actual.isEmpty else { return "" }
         var output = "@@ -0,0 +1,\(actual.count) @@\n"
-        for line in actual {
-            output += "+\(line)\n"
-        }
+        output += actual.map { "+\($0)" }.joined(separator: "\n")
+        output += "\n"
         if !endsWithNewline {
             output += "\\ No newline at end of file\n"
         }
@@ -117,8 +120,8 @@ extension RepositoryViewModel {
     /// hunks. Git emits `Binary files X and Y differ` for binaries and
     /// `rename from`/`rename to` headers for pure renames — neither contain
     /// `@@`, so the parser empties out and we'd otherwise fall back to the
-    /// generic "No changes" copy. Caller has already verified hunks.isEmpty.
-    static func classifyEmptyDiff(raw: String) -> DiffEmptyState {
+    /// generic "No changes" copy.
+    nonisolated static func classifyEmptyDiff(raw: String) -> DiffEmptyState {
         if raw.contains("Binary files") || raw.contains("GIT binary patch") {
             return .binary
         }
@@ -128,17 +131,34 @@ extension RepositoryViewModel {
         return .empty
     }
 
+    /// Returns the cached `CommitDetail` for `commit`, fetching once if not
+    /// cached. Concurrent callers requesting the same sha share a single
+    /// in-flight fetch instead of each spawning their own CLI call.
     func detail(for commit: Commit) async -> CommitDetail? {
         if let cached = detailCache[commit.sha] { return cached }
-        loadingDetailFor = commit.sha
-        defer { if loadingDetailFor == commit.sha { loadingDetailFor = nil } }
-        do {
-            let detail = try await cli.commitDetail(for: commit)
-            detailCache[commit.sha] = detail
-            return detail
-        } catch {
-            Self.logger.error("Failed to load detail for \(commit.sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return nil
+        if let inflight = inFlightDetail(for: commit.sha) {
+            return await inflight.value
         }
+
+        let task = Task<CommitDetail?, Never> { [self] in
+            // Innermost defer runs first: clear the loading marker before the
+            // in-flight slot, so the UI's "loading" state goes away in sync
+            // with the await returning to the original caller.
+            defer { setInFlightDetail(nil, for: commit.sha) }
+            setLoadingDetail(commit.sha)
+            defer {
+                if loadingDetailFor == commit.sha { setLoadingDetail(nil) }
+            }
+            do {
+                let detail = try await cli.commitDetail(for: commit)
+                cacheDetail(detail, for: commit.sha)
+                return detail
+            } catch {
+                Self.logger.error("Failed to load detail for \(commit.sha, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }
+        setInFlightDetail(task, for: commit.sha)
+        return await task.value
     }
 }

@@ -6,7 +6,7 @@ extension RepositoryViewModel {
         let vm = RepositoryViewModel(repository: Repository.preview)
         vm.commits = Commit.previewSamples
         vm.selectedCommitId = Commit.previewSamples.first?.id
-        vm.detailCache[Commit.preview.sha] = CommitDetail.preview
+        vm.cacheDetail(CommitDetail.preview, for: Commit.preview.sha)
         vm.refs = GitRef.previewSamples
         vm.currentBranchName = "main"
         vm.status = WorkingCopyStatus.preview

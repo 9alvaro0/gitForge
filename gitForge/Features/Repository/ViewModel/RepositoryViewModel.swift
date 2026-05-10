@@ -58,8 +58,43 @@ final class RepositoryViewModel {
     }
 
     // MARK: Detail
-    var detailCache: [String: CommitDetail] = [:]
-    var loadingDetailFor: String?
+    private(set) var detailCache: [String: CommitDetail] = [:]
+    /// Insertion order of `detailCache` keys; trimmed FIFO when the cap is
+    /// exceeded so a long browsing session can't grow the cache forever.
+    private var detailCacheOrder: [String] = []
+    private static let detailCacheCap = 200
+    /// Tasks currently fetching a `CommitDetail`, keyed by sha. Lets multiple
+    /// concurrent callers (e.g. row click + `selectFirstFile`) coalesce onto
+    /// a single CLI invocation instead of duplicating work.
+    private var inFlightDetails: [String: Task<CommitDetail?, Never>] = [:]
+    private(set) var loadingDetailFor: String?
+
+    func cacheDetail(_ detail: CommitDetail, for sha: String) {
+        if detailCache[sha] == nil {
+            detailCacheOrder.append(sha)
+        }
+        detailCache[sha] = detail
+        while detailCacheOrder.count > Self.detailCacheCap {
+            let oldest = detailCacheOrder.removeFirst()
+            detailCache.removeValue(forKey: oldest)
+        }
+    }
+
+    func setInFlightDetail(_ task: Task<CommitDetail?, Never>?, for sha: String) {
+        if let task {
+            inFlightDetails[sha] = task
+        } else {
+            inFlightDetails.removeValue(forKey: sha)
+        }
+    }
+
+    func inFlightDetail(for sha: String) -> Task<CommitDetail?, Never>? {
+        inFlightDetails[sha]
+    }
+
+    func setLoadingDetail(_ sha: String?) {
+        loadingDetailFor = sha
+    }
 
     /// Re-checks `selectedCommitId` after the await so a slow detail load
     /// can't auto-select a file in a commit the user already left.
