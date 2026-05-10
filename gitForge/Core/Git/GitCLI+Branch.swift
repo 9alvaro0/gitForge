@@ -2,12 +2,12 @@ import Foundation
 
 extension GitCLI {
     func createBranch(_ name: String, startingAt: String? = nil, checkout: Bool = false) async throws {
-        var args: [String] = ["branch", name]
+        // `git checkout -b` is one operation: git refuses if the switch would
+        // be unsafe (dirty worktree, etc.) without leaving an orphan branch.
+        // Splitting `branch` + `checkout` left orphans behind on partial fail.
+        var args: [String] = checkout ? ["checkout", "-b", name] : ["branch", name]
         if let startingAt { args.append(startingAt) }
         try await run(args)
-        if checkout {
-            try await self.checkout(branch: name)
-        }
     }
 
     func checkout(branch: String) async throws {
