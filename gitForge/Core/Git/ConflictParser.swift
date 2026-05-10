@@ -13,7 +13,7 @@ import Foundation
 /// …
 /// >>>>>>> branch           ← theirs
 /// ```
-enum ConflictParser {
+nonisolated enum ConflictParser {
     /// Logical segment of a parsed file. Either plain text or a 3-way conflict.
     enum Segment: Equatable {
         case text([String])
