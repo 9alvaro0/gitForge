@@ -66,6 +66,19 @@ struct RepositoryViewModelRemoteOpsTests {
         #expect(vm.remoteOperation == .pulling)
     }
 
+    @Test("fetch is a no-op when a silent auto-fetch is already in flight")
+    func fetchGuardAgainstAutoFetch() async {
+        let vm = Self.makeVM()
+        vm.autoFetchInFlight = true
+        vm.lastFetchedAt = nil
+        await vm.fetch()
+        // Auto-fetch was running — manual fetch must bail without touching
+        // remoteOperation (would have flickered the spinner) or lastFetchedAt.
+        #expect(vm.remoteOperation == nil)
+        #expect(vm.lastFetchedAt == nil)
+        #expect(vm.autoFetchInFlight == true, "manual fetch shouldn't reset the auto-fetch flag")
+    }
+
     @Test("pull is a no-op when another remote operation is in flight")
     func pullGuard() async {
         let vm = Self.makeVM()
