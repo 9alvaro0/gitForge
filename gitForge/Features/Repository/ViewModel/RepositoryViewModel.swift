@@ -165,6 +165,13 @@ final class RepositoryViewModel {
     /// Distinguishes "never loaded" from "loaded and clean" so the Changes
     /// view doesn't briefly flash "Working tree is clean" on first paint.
     var hasLoadedStatusOnce = false
+    /// Bumped at the start of every `refreshStatus()` call. The status
+    /// loader is the highest-traffic refresh in the VM (watcher, every
+    /// stage/unstage/discard, every integration op, manual refresh, …)
+    /// so two overlapping calls are common; the post-await guard keeps
+    /// the older one from stomping fresh `status` and from flipping the
+    /// spinner off while the fresher call is still mid-flight.
+    var statusGen: UInt64 = 0
     var commitSubject: String = ""
     var commitBody: String = ""
     var amendMode: Bool = false {

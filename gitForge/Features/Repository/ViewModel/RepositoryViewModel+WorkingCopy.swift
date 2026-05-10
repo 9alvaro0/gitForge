@@ -1,14 +1,25 @@
 import Foundation
 
 extension RepositoryViewModel {
+    /// Reads `git status` and applies the result. Gen-token gated because
+    /// this is the highest-traffic refresh in the VM — overlapping calls
+    /// would otherwise flicker the spinner off mid-flight (older `defer`
+    /// firing while a fresher call is still awaiting) and leak stale
+    /// `status` / selection-prune writes.
     func refreshStatus() async {
+        statusGen &+= 1
+        let gen = statusGen
         isLoadingStatus = true
         defer {
-            isLoadingStatus = false
-            hasLoadedStatusOnce = true
+            if gen == statusGen {
+                isLoadingStatus = false
+                hasLoadedStatusOnce = true
+            }
         }
         do {
-            status = try await cli.status()
+            let snapshot = try await cli.status()
+            guard gen == statusGen else { return }
+            status = snapshot
             // Prune the diff-pane selection if the file no longer appears in
             // status (e.g. discarded, deleted) so the pane doesn't keep
             // showing a stale diff for a vanished file.
@@ -64,6 +75,7 @@ extension RepositoryViewModel {
     }
 
     func commit() async -> Bool {
+        commitError = nil
         let subject = commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !subject.isEmpty else {
             commitError = "Commit subject cannot be empty"
@@ -82,10 +94,11 @@ extension RepositoryViewModel {
             commitSubject = ""
             commitBody = ""
             amendMode = false
-            commitError = nil
-            await refreshStatus()
-            await loadRefs()
-            await reloadLog()
+            // Single shared cluster — same helper used by +Operations /
+            // +Pulls / +Stash / +Remote. Conflicts read is wasted after a
+            // clean commit but harmless and keeps the refresh shape
+            // uniform across every state-changing op.
+            await refreshAfterIntegration()
             return true
         } catch {
             commitError = error.userMessage
@@ -96,6 +109,12 @@ extension RepositoryViewModel {
     func prefillFromHead() async {
         do {
             let result = try await cli.run(["log", "-1", "HEAD", "--format=%B"])
+            // A `false → true → false` toggle on `amendMode` clears
+            // subject/body via the off-branch of the didSet. If this
+            // prefill resumes after that, writing HEAD's message back
+            // would look like the user re-armed amend. Bail when the
+            // toggle has flipped off underneath us.
+            guard amendMode else { return }
             let message = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             if let firstNewline = message.firstIndex(of: "\n") {
                 commitSubject = String(message[..<firstNewline])
