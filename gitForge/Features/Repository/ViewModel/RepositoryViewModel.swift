@@ -126,6 +126,12 @@ final class RepositoryViewModel {
     var refsBySha: [String: [GitRef]] = [:]
     var currentBranchName: String?
     var stashes: [Stash] = []
+    /// Bumped at the start of every `loadRefs()` call. The 4 parallel CLI
+    /// reads (refs / current branch / stashes / unmerged) collect into locals
+    /// before a single post-await guard — keeps a slow watcher tick from
+    /// stomping a fresher refresh's `currentBranchName` after the fresher
+    /// one already wrote it.
+    var refsGen: UInt64 = 0
 
     // MARK: Stash detail
     var selectedStash: Stash?
