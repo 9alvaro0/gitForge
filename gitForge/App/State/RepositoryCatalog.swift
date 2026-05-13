@@ -35,9 +35,13 @@ final class RepositoryCatalog {
         guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
             throw RepositoryError.directoryNotFound(url)
         }
-        guard await GitCLI.isGitRepository(at: url) else {
+        guard let resolved = await GitCLI.resolveRepositoryRoot(at: url) else {
             throw RepositoryError.notAGitRepository(url)
         }
+        // Normalise to the worktree toplevel — `rev-parse` happily accepts a
+        // subdirectory, but operations that build absolute paths from
+        // `git ls-files` output assume `workingDirectory` is the root.
+        let url = resolved
         let isSwitching = activeRepository?.url != url
         repositories = await store.touch(url)
         let active = repositories.first { $0.url == url }

@@ -74,7 +74,13 @@ extension RepositoryViewModel {
         }
     }
 
-    func commit() async -> Bool {
+    /// True when amending would rewrite a commit that's already on the upstream
+    /// (and therefore visible to collaborators / would force-push on next push).
+    var amendWouldRewritePublishedHistory: Bool {
+        amendMode && upstream != nil && aheadCount == 0
+    }
+
+    func commit(confirmedAmendOfPublished: Bool = false) async -> Bool {
         commitError = nil
         let subject = commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !subject.isEmpty else {
@@ -83,6 +89,10 @@ extension RepositoryViewModel {
         }
         guard amendMode || status.hasStagedChanges else {
             commitError = "Nothing staged to commit"
+            return false
+        }
+        if amendWouldRewritePublishedHistory, !confirmedAmendOfPublished {
+            commitError = "HEAD is already on the remote — amending rewrites public history. Confirm to force-push afterwards."
             return false
         }
         do {

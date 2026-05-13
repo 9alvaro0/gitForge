@@ -32,6 +32,15 @@ extension GitCLI {
         try await run(["stash", "drop", "stash@{\(index)}"])
     }
 
+    /// Resets the index and worktree to HEAD, dropping a conflicted stash
+    /// apply mid-flight. `git stash` rejects apply/pop on a dirty tree, so
+    /// reaching `.unmerged` via stash means HEAD was clean beforehand — the
+    /// reset is safe. The stash entry itself stays in the list because pop
+    /// only drops on clean apply.
+    func stashAbortApply() async throws {
+        _ = try await run(["reset", "--hard", "HEAD"])
+    }
+
     func stashPush(message: String? = nil, includeUntracked: Bool = true) async throws {
         var args = ["stash", "push"]
         if includeUntracked { args.append("--include-untracked") }

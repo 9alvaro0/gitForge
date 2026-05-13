@@ -4,12 +4,11 @@ import SwiftUI
 /// clearing the binding dismisses it.
 struct BranchDialogs: ViewModifier {
     @Binding var deleteTarget: GitRef?
-    @Binding var deleteForce: Bool
     @Binding var mergeRequest: BranchesView.MergeRequest?
     @Binding var rebaseTarget: GitRef?
     @Binding var deleteTargetTag: GitRef?
     let currentBranchName: String?
-    let confirmDelete: (GitRef) -> Void
+    let confirmDelete: (GitRef, _ force: Bool) -> Void
     let confirmMerge: (BranchesView.MergeRequest) -> Void
     let confirmRebase: (GitRef) -> Void
     let confirmDeleteTag: (GitRef, _ alsoOnRemote: Bool) -> Void
@@ -19,13 +18,17 @@ struct BranchDialogs: ViewModifier {
             .confirmationDialog("Delete \(deleteTarget?.name ?? "")?",
                                 isPresented: presence($deleteTarget),
                                 titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    if let ref = deleteTarget { confirmDelete(ref) }
+                Button("Delete (safe)") {
+                    if let ref = deleteTarget { confirmDelete(ref, false) }
+                    deleteTarget = nil
+                }
+                Button("Force-delete (unmerged commits)", role: .destructive) {
+                    if let ref = deleteTarget { confirmDelete(ref, true) }
                     deleteTarget = nil
                 }
                 Button("Cancel", role: .cancel) { deleteTarget = nil }
             } message: {
-                Text("This removes the local branch reference. Use force-delete if it has unmerged commits.")
+                Text("Safe delete refuses to drop the branch if it has commits not merged into HEAD. Force-delete drops it anyway — those commits stay recoverable via `git reflog` only.")
             }
             .confirmationDialog(mergeTitle,
                                 isPresented: presence($mergeRequest),
@@ -92,7 +95,6 @@ struct BranchDialogs: ViewModifier {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var deleteTarget: GitRef? = nil
-    @Previewable @State var deleteForce: Bool = false
     @Previewable @State var mergeRequest: BranchesView.MergeRequest? = nil
     @Previewable @State var rebaseTarget: GitRef? = nil
     @Previewable @State var deleteTargetTag: GitRef? = nil
@@ -113,12 +115,11 @@ struct BranchDialogs: ViewModifier {
     .background(theme.palette.bg2)
     .modifier(BranchDialogs(
         deleteTarget: $deleteTarget,
-        deleteForce: $deleteForce,
         mergeRequest: $mergeRequest,
         rebaseTarget: $rebaseTarget,
         deleteTargetTag: $deleteTargetTag,
         currentBranchName: "main",
-        confirmDelete: { _ in }, confirmMerge: { _ in }, confirmRebase: { _ in },
+        confirmDelete: { _, _ in }, confirmMerge: { _ in }, confirmRebase: { _ in },
         confirmDeleteTag: { _, _ in }
     ))
     .appTheme(theme)

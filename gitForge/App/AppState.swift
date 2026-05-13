@@ -121,15 +121,22 @@ final class AppState {
             ui.workspaceSection = .history
             ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
         } catch is CancellationError {
-            // User-initiated cancel: clean up the partial directory git left
-            // behind so the next attempt with the same path doesn't hit the
-            // "destination exists" guard.
-            try? FileManager.default.removeItem(at: destination)
+            Self.cleanupPartialClone(at: destination)
             ui.activeToast = ToastMessage(message: "Clone cancelled", kind: .info)
         } catch {
-            try? FileManager.default.removeItem(at: destination)
+            Self.cleanupPartialClone(at: destination)
             ui.presentedError = PresentedError(error: error, title: "Clone failed")
         }
+    }
+
+    /// Only deletes if the directory contains a `.git` entry — guards against
+    /// a TOCTOU where the user materialised the path between the pre-flight
+    /// existence check and git starting. Uses Trash so a misfire is recoverable.
+    static func cleanupPartialClone(at destination: URL) {
+        let fm = FileManager.default
+        let gitDir = destination.appendingPathComponent(".git").path(percentEncoded: false)
+        guard fm.fileExists(atPath: gitDir) else { return }
+        _ = try? fm.trashItem(at: destination, resultingItemURL: nil)
     }
 
     // MARK: - AppKit pickers (UI helpers that result in opening a repo)
