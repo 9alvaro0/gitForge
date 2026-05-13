@@ -32,19 +32,29 @@ struct ConflictView: View {
             ContentHeader(title: "Resolve conflicts") {
                 MonoText(headerSubtitle, dim: true)
             } right: {
-                if viewModel.mergeState == .unmerged {
+                switch viewModel.mergeState {
+                case .unmerged:
                     // Stash apply has no `--abort` in git — `reset --hard HEAD`
                     // is the equivalent. Confirm because it discards the
                     // half-applied stash content from the worktree.
                     ToolButton(.x, label: "Abort stash apply") {
                         confirmAbortStash = true
                     }
-                } else {
-                    ToolButton(.x, label: "Abort \(viewModel.mergeState == .rebasing ? "rebase" : "merge")") {
+                case .bisecting:
+                    // No native conflict resolution loop for bisect; the user
+                    // marks good/bad from terminal. Surface the situation so
+                    // they're not blindly hitting Continue.
+                    Text("Bisect in progress — finish from terminal with `git bisect reset`.")
+                        .font(.system(size: FontSize.footnote))
+                        .foregroundStyle(theme.palette.fg3)
+                case .clean:
+                    EmptyView()
+                case .merging, .rebasing, .cherryPicking, .reverting:
+                    ToolButton(.x, label: "Abort \(operationLabel)") {
                         Task { await viewModel.abortMerge() }
                     }
                     ToolButton(.check,
-                               label: "Continue \(viewModel.mergeState == .rebasing ? "rebase" : "merge")",
+                               label: "Continue \(operationLabel)",
                                primary: true,
                                disabled: !viewModel.conflictFiles.allSatisfy(\.resolved)) {
                         Task { await viewModel.continueMerge() }
@@ -62,10 +72,23 @@ struct ConflictView: View {
 
     private var headerSubtitle: String {
         switch viewModel.mergeState {
-        case .merging:  return "merging into \(viewModel.currentBranchName ?? "HEAD")"
-        case .rebasing: return "rebasing \(viewModel.currentBranchName ?? "HEAD")"
-        case .unmerged: return "applying stash on \(viewModel.currentBranchName ?? "HEAD")"
-        case .clean:    return ""
+        case .merging:       return "merging into \(viewModel.currentBranchName ?? "HEAD")"
+        case .rebasing:      return "rebasing \(viewModel.currentBranchName ?? "HEAD")"
+        case .cherryPicking: return "cherry-picking onto \(viewModel.currentBranchName ?? "HEAD")"
+        case .reverting:     return "reverting on \(viewModel.currentBranchName ?? "HEAD")"
+        case .bisecting:     return "bisecting"
+        case .unmerged:      return "applying stash on \(viewModel.currentBranchName ?? "HEAD")"
+        case .clean:         return ""
+        }
+    }
+
+    private var operationLabel: String {
+        switch viewModel.mergeState {
+        case .merging:       return "merge"
+        case .rebasing:      return "rebase"
+        case .cherryPicking: return "cherry-pick"
+        case .reverting:     return "revert"
+        default:             return ""
         }
     }
 

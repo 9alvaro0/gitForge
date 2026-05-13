@@ -94,7 +94,14 @@ extension GitCLI {
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + args
+        // Mirror the global flags GitCLI.run sets. Clone doesn't parse paths
+        // from output, but precomposeUnicode shields the resulting repo's
+        // initial config on filesystems where the default differs.
+        process.arguments = [
+            "git",
+            "-c", "core.quotePath=false",
+            "-c", "core.precomposeUnicode=true",
+        ] + args
         process.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe

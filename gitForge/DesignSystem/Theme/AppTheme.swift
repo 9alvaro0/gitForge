@@ -168,8 +168,13 @@ final class AppTheme {
     /// the persisted value directly so we don't have to thread the prefs
     /// store through every CLI call). `nonisolated` because it only touches
     /// `UserDefaults`, never the `AppTheme` instance.
+    /// All persisted-int getters clamp to a sane range as a defence against
+    /// stale or hand-written `defaults write` values — a 0 or negative
+    /// timeout/page-size silently bricks features (watchdog fires instantly,
+    /// log loads zero commits).
     nonisolated static func persistedDiffContextLines() -> Int {
-        UserDefaults.standard.object(forKey: Keys.diffContext) as? Int ?? 3
+        let raw = UserDefaults.standard.object(forKey: Keys.diffContext) as? Int ?? 3
+        return min(max(raw, 0), 100)
     }
 
     /// Same escape hatch as `persistedDiffContextLines` — `RepositoryViewModel`
@@ -179,10 +184,12 @@ final class AppTheme {
         UserDefaults.standard.object(forKey: Keys.stashIncludeUntracked) as? Bool ?? true
     }
     nonisolated static func persistedCommitPageSize() -> Int {
-        UserDefaults.standard.object(forKey: Keys.commitPageSize) as? Int ?? 200
+        let raw = UserDefaults.standard.object(forKey: Keys.commitPageSize) as? Int ?? 200
+        return min(max(raw, 50), 5000)
     }
     nonisolated static func persistedGitTimeoutSeconds() -> Int {
-        UserDefaults.standard.object(forKey: Keys.gitTimeout) as? Int ?? 60
+        let raw = UserDefaults.standard.object(forKey: Keys.gitTimeout) as? Int ?? 60
+        return min(max(raw, 5), 3600)
     }
 
     private nonisolated enum Keys {

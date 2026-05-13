@@ -29,13 +29,24 @@ actor GitCLI {
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executablePath)
-        // `--no-optional-locks` only suppresses the lazy index refresh that
-        // `git status` (and a few read-only commands) take optimistically;
-        // mandatory locks for commit/merge/checkout/etc. still work. Setting
-        // it globally avoids overlapping read tasks colliding on `.git/index`
-        // and silently failing — refreshStatus swallows the error, leaving
-        // the UI showing stale state.
-        process.arguments = ["git", "--no-optional-locks"] + args
+        // Global flags applied to every git invocation:
+        //   • --no-optional-locks: avoid overlapping read tasks colliding on
+        //     `.git/index` (refreshStatus swallows the error and leaves the
+        //     UI showing stale state otherwise).
+        //   • -c core.quotePath=false: emit paths verbatim instead of the
+        //     C-escaped `"caf\303\251.txt"` form. Without this the porcelain
+        //     parser keeps the literal escapes and a subsequent `git add --`
+        //     fails because the pathspec doesn't match any file on disk.
+        //   • -c core.precomposeUnicode=true: macOS git default is already
+        //     true, but forcing it shields users who set it to false in their
+        //     global config (NFD-vs-NFC mismatches break Swift `String == String`
+        //     comparisons in the VM).
+        process.arguments = [
+            "git",
+            "--no-optional-locks",
+            "-c", "core.quotePath=false",
+            "-c", "core.precomposeUnicode=true",
+        ] + args
         process.currentDirectoryURL = workingDirectory
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
