@@ -21,6 +21,14 @@ extension GitCLI {
         _ = try await run(["cherry-pick", "--continue"])
     }
 
+    func revertAbort() async throws {
+        _ = try await run(["revert", "--abort"])
+    }
+
+    func revertContinue() async throws {
+        _ = try await run(["revert", "--continue"])
+    }
+
     /// Default uses `--no-edit` so the auto-generated revert message is kept.
     /// `mainline` is required when reverting a merge commit (1 is `HEAD`).
     func revert(sha: String, mainline: Int? = nil, noCommit: Bool = false) async throws {

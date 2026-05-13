@@ -4,10 +4,13 @@ enum MergeState: Sendable, Equatable {
     case clean
     case merging
     case rebasing
-    /// Unmerged paths exist but neither `MERGE_HEAD` nor `rebase-merge` are
-    /// present. Typically a `git stash apply/pop` that produced conflicts —
-    /// stash doesn't write the marker files merge/rebase rely on, so we infer
-    /// the state from `git diff --diff-filter=U`.
+    case cherryPicking
+    case reverting
+    case bisecting
+    /// Unmerged paths exist but no marker file is present. Typically a
+    /// `git stash apply/pop` that produced conflicts — stash doesn't write
+    /// the marker files merge/rebase rely on, so we infer from
+    /// `git diff --diff-filter=U`.
     case unmerged
 
     var isInProgress: Bool { self != .clean }
@@ -15,17 +18,21 @@ enum MergeState: Sendable, Equatable {
 
 extension GitCLI {
     /// Inspect the `.git` directory (and unmerged paths as a fallback) to
-    /// figure out whether the worktree is mid-integration.
+    /// figure out whether the worktree is mid-integration. Marker files
+    /// have priority over `.unmerged` because the same conflict can show
+    /// up alongside `CHERRY_PICK_HEAD`; the marker tells us which command
+    /// owns the resolution path (`cherry-pick --continue` vs a plain commit).
     func mergeState() async -> MergeState {
         let gitDir = workingDirectory.appendingPathComponent(".git")
         let fm = FileManager.default
-        if fm.fileExists(atPath: gitDir.appendingPathComponent("MERGE_HEAD").path(percentEncoded: false)) {
-            return .merging
+        func exists(_ name: String) -> Bool {
+            fm.fileExists(atPath: gitDir.appendingPathComponent(name).path(percentEncoded: false))
         }
-        if fm.fileExists(atPath: gitDir.appendingPathComponent("rebase-merge").path(percentEncoded: false))
-            || fm.fileExists(atPath: gitDir.appendingPathComponent("rebase-apply").path(percentEncoded: false)) {
-            return .rebasing
-        }
+        if exists("MERGE_HEAD") { return .merging }
+        if exists("rebase-merge") || exists("rebase-apply") { return .rebasing }
+        if exists("CHERRY_PICK_HEAD") { return .cherryPicking }
+        if exists("REVERT_HEAD") { return .reverting }
+        if exists("BISECT_LOG") { return .bisecting }
         if let paths = try? await unmergedPaths(), !paths.isEmpty {
             return .unmerged
         }

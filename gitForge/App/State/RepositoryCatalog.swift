@@ -109,6 +109,13 @@ final class RepositoryCatalog {
         statusPollTask = nil
     }
 
+    /// Cap on parallel `git` processes spawned by the poller. Each snapshot
+    /// fans out to 4 subcommands (branch/status/upstream/aheadBehind), so
+    /// with 20 recents a naïve `for ... addTask` would spike 80 concurrent
+    /// processes every 30s — punishing on slow SSDs and battery. Four feels
+    /// like the sweet spot: still saturates a modern Mac, doesn't thrash.
+    private static let maxConcurrentSnapshots = 4
+
     func refreshAllRepoStatuses() async {
         // Skip the active repo: its VM is already exercising `.git/index.lock`
         // and a parallel `git status` from here can collide with it. Mirror
@@ -117,11 +124,19 @@ final class RepositoryCatalog {
         let activeUrl = activeRepository?.url
         let urls = repositories.map(\.url).filter { $0 != activeUrl }
         await withTaskGroup(of: (URL, RepoStatusSnapshot?).self) { group in
-            for url in urls {
+            var iterator = urls.makeIterator()
+            // Prime the group with at most `maxConcurrentSnapshots` tasks…
+            for _ in 0..<Self.maxConcurrentSnapshots {
+                guard let url = iterator.next() else { break }
                 group.addTask { (url, await Self.snapshot(for: url)) }
             }
+            // …and replenish one-for-one as each completes, so the window
+            // never widens beyond the cap.
             for await (url, snapshot) in group {
                 if let snapshot { repositoryStatuses[url] = snapshot }
+                if let next = iterator.next() {
+                    group.addTask { (next, await Self.snapshot(for: next)) }
+                }
             }
         }
         if let activeUrl, let vm = activeViewModel, vm.hasLoadedStatusOnce {

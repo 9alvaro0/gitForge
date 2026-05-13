@@ -131,15 +131,18 @@ extension RepositoryViewModel {
         }
     }
 
-    /// Drops a merge or rebase in progress and returns the worktree to clean.
-    /// `.unmerged` (typically a stash apply conflict) has no native abort —
-    /// the user resolves manually or discards from Changes.
+    /// Drops the in-progress integration and returns the worktree to clean.
+    /// `.unmerged` (stash apply) and `.bisecting` don't go through here —
+    /// stash has its own `abortStashApply`; bisect needs `git bisect reset`
+    /// and is exposed separately.
     func abortMerge() async {
         do {
             switch mergeState {
-            case .merging:  try await cli.mergeAbort()
-            case .rebasing: try await cli.rebaseAbort()
-            case .clean, .unmerged: return
+            case .merging:        try await cli.mergeAbort()
+            case .rebasing:       try await cli.rebaseAbort()
+            case .cherryPicking:  try await cli.cherryPickAbort()
+            case .reverting:      try await cli.revertAbort()
+            case .clean, .unmerged, .bisecting: return
             }
             await refreshAfterIntegration()
         } catch {
@@ -218,9 +221,11 @@ extension RepositoryViewModel {
     func continueMerge() async {
         do {
             switch mergeState {
-            case .merging:  try await cli.mergeContinue()
-            case .rebasing: try await cli.rebaseContinue()
-            case .clean, .unmerged: break
+            case .merging:        try await cli.mergeContinue()
+            case .rebasing:       try await cli.rebaseContinue()
+            case .cherryPicking:  try await cli.cherryPickContinue()
+            case .reverting:      try await cli.revertContinue()
+            case .clean, .unmerged, .bisecting: break
             }
             await refreshAfterIntegration()
         } catch {
