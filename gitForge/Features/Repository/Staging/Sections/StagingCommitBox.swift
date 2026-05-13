@@ -28,9 +28,12 @@ struct StagingCommitBox: View {
             HStack {
                 MonoText("on \(viewModel.currentBranchName ?? "HEAD") · \(stagedCount) files", dim: true)
                 Spacer()
-                GFButton(title: "Commit & push") { Task { await commit(push: true) } }
+                GFButton(title: "Commit & push",
+                         disabled: viewModel.isMutating) {
+                    Task { await commit(push: true) }
+                }
                 GFButton(title: "Commit", style: .primary,
-                         disabled: commitMessage.isEmpty || stagedCount == 0) {
+                         disabled: commitMessage.isEmpty || stagedCount == 0 || viewModel.isMutating) {
                     Task { await commit(push: false) }
                 }
             }

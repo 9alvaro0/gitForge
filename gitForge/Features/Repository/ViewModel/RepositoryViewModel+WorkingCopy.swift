@@ -66,11 +66,17 @@ extension RepositoryViewModel {
     }
 
     func runStageOperation(_ block: () async throws -> Void) async {
+        guard !isMutating else { return }
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await block()
             await refreshStatus()
         } catch {
             commitError = error.userMessage
+            // Multi-step ops (discardChanges) may have committed half their work
+            // to disk before throwing — refresh so the UI mirrors actual state.
+            await refreshStatus()
         }
     }
 
@@ -81,6 +87,7 @@ extension RepositoryViewModel {
     }
 
     func commit(confirmedAmendOfPublished: Bool = false) async -> Bool {
+        guard !isMutating else { return false }
         commitError = nil
         let subject = commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !subject.isEmpty else {
@@ -95,6 +102,8 @@ extension RepositoryViewModel {
             commitError = "HEAD is already on the remote — amending rewrites public history. Confirm to force-push afterwards."
             return false
         }
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await cli.commit(
                 subject: subject,

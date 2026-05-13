@@ -107,6 +107,7 @@ extension GitCLI {
             environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
         }
         environment["GIT_EDITOR"] = "/usr/bin/true"
+        environment["LC_ALL"] = "C"
         process.environment = environment
 
         let argsString = redacted(args.joined(separator: " "))
@@ -122,9 +123,34 @@ extension GitCLI {
         // the cancel handler is safe.
         nonisolated(unsafe) let processRef = process
 
+        // Progress-based watchdog. Resets on every stage tick git emits; if
+        // there's no progress for `timeout` seconds (default 60), the
+        // subprocess is stuck — DNS hung, askpass deadlock, BatchMode
+        // rejected — and we terminate it. Large clones run uninterrupted as
+        // long as they keep reporting bytes.
+        let progressTimer = CloneProgressTimer()
+        let timeout = TimeInterval(AppTheme.persistedGitTimeoutSeconds())
+        let tickedProgress: @Sendable (CloneProgress) -> Void = { p in
+            progressTimer.tick()
+            onProgress?(p)
+        }
+        let watchdog = Task { [process, argsString, timeout] in
+            while !Task.isCancelled, process.isRunning {
+                try? await Task.sleep(for: .seconds(5))
+                if progressTimer.elapsed() > timeout {
+                    Self.logger.error("watchdog: terminating clone `git \(argsString, privacy: .public)` after \(timeout, privacy: .public)s without progress")
+                    process.terminate()
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                    break
+                }
+            }
+        }
+        defer { watchdog.cancel() }
+
         try await withTaskCancellationHandler {
             async let stdoutData: Data = readToEnd(stdoutPipe.fileHandleForReading)
-            async let stderrText: String = readProgress(stderrPipe.fileHandleForReading, onProgress: onProgress)
+            async let stderrText: String = readProgress(stderrPipe.fileHandleForReading, onProgress: tickedProgress)
             async let exitWait: Void = waitForExit(process)
 
             _ = await stdoutData
@@ -137,7 +163,8 @@ extension GitCLI {
                 if process.terminationReason == .uncaughtSignal {
                     throw CancellationError()
                 }
-                logger.error("✗ git \(argsString, privacy: .public) exited \(process.terminationStatus): \(stderr, privacy: .public)")
+                let redactedStderr = redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+                logger.error("✗ git \(argsString, privacy: .public) exited \(process.terminationStatus): \(redactedStderr, privacy: .public)")
                 throw GitError.commandFailed(args: args, exitCode: process.terminationStatus, stderr: stderr)
             }
         } onCancel: {
@@ -203,5 +230,22 @@ extension GitCLI {
 
     private static func waitForExit(_ process: Process) async {
         await Task.detached { process.waitUntilExit() }.value
+    }
+}
+
+/// Thread-safe "time since last progress tick" for the clone watchdog. The
+/// progress callback fires on a background queue while the watchdog reads
+/// from the spawn task — needs locking, but actor isolation would be heavy
+/// for a couple of field writes.
+private final class CloneProgressTimer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastAt = Date()
+    func tick() {
+        lock.lock(); defer { lock.unlock() }
+        lastAt = Date()
+    }
+    func elapsed() -> TimeInterval {
+        lock.lock(); defer { lock.unlock() }
+        return Date().timeIntervalSince(lastAt)
     }
 }

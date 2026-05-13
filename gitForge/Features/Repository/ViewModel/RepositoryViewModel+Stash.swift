@@ -2,9 +2,12 @@ import Foundation
 
 extension RepositoryViewModel {
     func stashAll(message: String? = nil) async -> Result<Void, Error> {
+        guard !isMutating else { return .failure(GitError.busy) }
         guard !status.isClean else {
             return .failure(StashError.nothingToStash)
         }
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await cli.stashPush(message: message,
                                     includeUntracked: AppTheme.persistedStashIncludeUntracked())
@@ -22,6 +25,9 @@ extension RepositoryViewModel {
     /// the view can route conflicts to the resolver UI an  d surface friendly
     /// messages for the common pre-flight abort cases (dirty worktree).
     func applyStash(_ stash: Stash, drop: Bool) async -> IntegrationOutcome {
+        guard !isMutating else { return .failed("Another operation is in progress.") }
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await cli.stashApply(index: stash.index, drop: drop)
             await refreshAfterIntegration()
@@ -45,6 +51,9 @@ extension RepositoryViewModel {
     /// (pop only drops on clean apply) so the user can retry once HEAD is
     /// ready for it.
     func abortStashApply() async -> Result<Void, Error> {
+        guard !isMutating else { return .failure(GitError.busy) }
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await cli.stashAbortApply()
             await refreshAfterIntegration()
@@ -55,6 +64,9 @@ extension RepositoryViewModel {
     }
 
     func dropStash(_ stash: Stash) async -> Result<Void, Error> {
+        guard !isMutating else { return .failure(GitError.busy) }
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await cli.stashDrop(index: stash.index)
             // Dropping a stash leaves its dashed-dot row in `commits` until

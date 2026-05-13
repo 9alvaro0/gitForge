@@ -172,6 +172,19 @@ final class RepositoryViewModel {
     /// the older one from stomping fresh `status` and from flipping the
     /// spinner off while the fresher call is still mid-flight.
     var statusGen: UInt64 = 0
+    /// Set while a mutating local op (commit, stash apply/drop, reset, cherry-pick,
+    /// revert, discard, branch/tag delete) is in flight. Backs the disabled
+    /// state of UI buttons so a double-click can't enqueue two of the same op
+    /// — the cli actor serialises them, but the second one races into the
+    /// already-cleared subject/staged state and surfaces a spurious "Nothing
+    /// staged" error after a successful first op. Also suspends the watcher
+    /// so our own `.git/` writes don't bounce back as external-change events.
+    var isMutating: Bool = false {
+        didSet {
+            guard oldValue != isMutating else { return }
+            if isMutating { watcher?.suspend() } else { watcher?.resume() }
+        }
+    }
     var commitSubject: String = ""
     var commitBody: String = ""
     var amendMode: Bool = false {

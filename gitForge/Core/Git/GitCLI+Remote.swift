@@ -43,6 +43,19 @@ extension GitCLI {
         }
     }
 
+    /// `branch.<name>.remote` — the remote configured for push/pull on this
+    /// branch. Returns nil if the branch has no tracking config. Used to push
+    /// to `upstream`/`fork`/etc. when the user renamed `origin`.
+    func upstreamRemoteName(forBranch branch: String) async -> String? {
+        do {
+            let result = try await run(["config", "--get", "branch.\(branch).remote"])
+            let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        } catch {
+            return nil
+        }
+    }
+
     func aheadBehind(branch: String, upstream: String) async throws -> (ahead: Int, behind: Int) {
         let result = try await run(["rev-list", "--left-right", "--count", Self.endOfOptions, "\(branch)...\(upstream)"])
         let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -29,7 +29,13 @@ actor GitCLI {
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executablePath)
-        process.arguments = ["git"] + args
+        // `--no-optional-locks` only suppresses the lazy index refresh that
+        // `git status` (and a few read-only commands) take optimistically;
+        // mandatory locks for commit/merge/checkout/etc. still work. Setting
+        // it globally avoids overlapping read tasks colliding on `.git/index`
+        // and silently failing — refreshStatus swallows the error, leaving
+        // the UI showing stale state.
+        process.arguments = ["git", "--no-optional-locks"] + args
         process.currentDirectoryURL = workingDirectory
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
@@ -55,6 +61,11 @@ actor GitCLI {
             environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
         }
         environment["GIT_EDITOR"] = "/usr/bin/true"
+        // Pin git's output language so RemoteFailure.from (which matches on
+        // English substrings like "authentication failed") categorises
+        // reliably. Otherwise a user with LANG=es_ES sees `.other` + raw
+        // stderr — which leaks tokens when the URL embeds them.
+        environment["LC_ALL"] = "C"
         process.environment = environment
 
         let startTime = Date()
