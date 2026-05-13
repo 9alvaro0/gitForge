@@ -19,7 +19,7 @@ extension RepositoryViewModel {
     }
 
     /// Apply (and optionally drop) a stash. Returns an `IntegrationOutcome` so
-    /// the view can route conflicts to the resolver UI and surface friendly
+    /// the view can route conflicts to the resolver UI an  d surface friendly
     /// messages for the common pre-flight abort cases (dirty worktree).
     func applyStash(_ stash: Stash, drop: Bool) async -> IntegrationOutcome {
         do {
@@ -37,6 +37,20 @@ extension RepositoryViewModel {
                 return .conflicts
             }
             return .failed(friendlyStashApplyMessage(for: error))
+        }
+    }
+
+    /// Recovery path for a `git stash apply/pop` that left the worktree in
+    /// `.unmerged`. Resets the tree to HEAD; the stash entry stays in the list
+    /// (pop only drops on clean apply) so the user can retry once HEAD is
+    /// ready for it.
+    func abortStashApply() async -> Result<Void, Error> {
+        do {
+            try await cli.stashAbortApply()
+            await refreshAfterIntegration()
+            return .success(())
+        } catch {
+            return .failure(error)
         }
     }
 

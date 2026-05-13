@@ -6,6 +6,7 @@ import AppKit
 /// every store to wire it.
 struct SidebarHost: View {
     @Environment(AppState.self) private var appState
+    @State private var pendingProfile: PendingProfileApply?
 
     var body: some View {
         let identitySnapshot = resolveIdentity()
@@ -33,9 +34,13 @@ struct SidebarHost: View {
             onOpenCommandPalette: { appState.ui.commandPaletteOpen = true },
             onApplyProfile: { profile in
                 guard let vm = appState.catalog.activeViewModel else { return }
-                Task {
-                    do { try await vm.applyProfile(profile) }
-                    catch { appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t switch identity") }
+                if let diff = Self.identityDiff(from: vm.repoIdentity, to: profile) {
+                    pendingProfile = PendingProfileApply(profile: profile, diff: diff)
+                } else {
+                    Task {
+                        do { try await vm.applyProfile(profile) }
+                        catch { appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t switch identity") }
+                    }
                 }
             },
             onResetToGlobal: {
@@ -46,6 +51,52 @@ struct SidebarHost: View {
                 appState.ui.workspaceSection = .settings
             }
         )
+        .confirmationDialog(
+            pendingProfile.map { "Apply profile “\($0.profile.name)”?" } ?? "",
+            isPresented: Binding(
+                get: { pendingProfile != nil },
+                set: { if !$0 { pendingProfile = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingProfile
+        ) { pending in
+            Button("Apply") {
+                guard let vm = appState.catalog.activeViewModel else { return }
+                let profile = pending.profile
+                Task {
+                    do { try await vm.applyProfile(profile) }
+                    catch { appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t switch identity") }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { pending in
+            Text(pending.diff.message)
+        }
+    }
+
+    static func identityDiff(from current: RepoIdentity?, to profile: GitProfile) -> IdentityDiff? {
+        let currentName = current?.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let currentEmail = current?.email?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let currentKey = current?.signingKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let nextName = profile.userName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nextEmail = profile.userEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nextKey = profile.signingKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        var lines: [String] = []
+        if currentName != nextName { lines.append("Name: \(currentName.isEmpty ? "—" : currentName) → \(nextName)") }
+        if currentEmail != nextEmail { lines.append("Email: \(currentEmail.isEmpty ? "—" : currentEmail) → \(nextEmail)") }
+        if currentKey != nextKey {
+            if nextKey.isEmpty {
+                lines.append("Signing key: will be removed (commits won’t be GPG-signed here unless your global config signs them).")
+            } else if currentKey.isEmpty {
+                lines.append("Signing key: will be set to \(nextKey)")
+            } else {
+                lines.append("Signing key: \(currentKey) → \(nextKey)")
+            }
+        }
+        guard !lines.isEmpty else { return nil }
+        let header = "This writes user.name/email/signingkey to this repository’s .git/config (overrides global):"
+        return IdentityDiff(message: header + "\n\n" + lines.joined(separator: "\n"))
     }
 
     /// Computes what the user card should display: the effective identity
@@ -115,6 +166,16 @@ struct SidebarHost: View {
         let scopeTag: SidebarUserCard.ScopeTag
         let activeProfileId: GitProfile.ID?
         let canResetToGlobal: Bool
+    }
+
+    private struct PendingProfileApply: Identifiable {
+        let id = UUID()
+        let profile: GitProfile
+        let diff: IdentityDiff
+    }
+
+    struct IdentityDiff: Equatable {
+        let message: String
     }
 }
 

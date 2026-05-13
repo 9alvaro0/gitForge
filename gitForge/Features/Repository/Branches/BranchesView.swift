@@ -12,7 +12,6 @@ struct BranchesView: View {
     @State private var renameTarget: GitRef?
     @State private var renameDraft: String = ""
     @State private var deleteTarget: GitRef?
-    @State private var deleteForce: Bool = false
     @State private var mergeRequest: MergeRequest?
     @State private var rebaseTarget: GitRef?
     @State private var deleteTargetTag: GitRef?
@@ -94,12 +93,11 @@ struct BranchesView: View {
         }
         .modifier(BranchDialogs(
             deleteTarget: $deleteTarget,
-            deleteForce: $deleteForce,
             mergeRequest: $mergeRequest,
             rebaseTarget: $rebaseTarget,
             deleteTargetTag: $deleteTargetTag,
             currentBranchName: currentBranchName,
-            confirmDelete: { ref in Task { _ = await viewModel.deleteBranch(ref, force: deleteForce) } },
+            confirmDelete: { ref, force in Task { _ = await viewModel.deleteBranch(ref, force: force) } },
             confirmMerge: { req in Task { await runMerge(request: req) } },
             confirmRebase: { ref in Task { await runRebase(ref: ref) } },
             confirmDeleteTag: { ref, alsoRemote in Task { await runDeleteTag(ref, alsoOnRemote: alsoRemote) } }
@@ -133,7 +131,7 @@ struct BranchesView: View {
                     commitDateBySha: commitDateBySha,
                     onCheckout: handleCheckout,
                     onRename: { renameTarget = $0; renameDraft = $0.name },
-                    onDelete: { deleteTarget = $0; deleteForce = false },
+                    onDelete: { deleteTarget = $0 },
                     onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
                     onRebase: { rebaseTarget = $0 }
                 )

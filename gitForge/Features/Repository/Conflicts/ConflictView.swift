@@ -3,6 +3,8 @@ import SwiftUI
 struct ConflictView: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
+    @Environment(AppState.self) private var appState
+    @State private var confirmAbortStash = false
 
     var body: some View {
         Group {
@@ -15,6 +17,14 @@ struct ConflictView: View {
             }
         }
         .task { await viewModel.loadConflictState() }
+        .confirmationDialog("Abort stash apply?",
+                            isPresented: $confirmAbortStash,
+                            titleVisibility: .visible) {
+            Button("Abort", role: .destructive) { Task { await runAbortStashApply() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Resets the working tree to HEAD and drops the partial stash application. The stash entry itself stays in the list — you can re-apply it later.")
+        }
     }
 
     private var resolverShell: some View {
@@ -22,10 +32,14 @@ struct ConflictView: View {
             ContentHeader(title: "Resolve conflicts") {
                 MonoText(headerSubtitle, dim: true)
             } right: {
-                // `.unmerged` (stash apply conflict) has no native abort /
-                // continue commands — the user resolves files and commits
-                // normally. Hide both buttons in that case.
-                if viewModel.mergeState != .unmerged {
+                if viewModel.mergeState == .unmerged {
+                    // Stash apply has no `--abort` in git — `reset --hard HEAD`
+                    // is the equivalent. Confirm because it discards the
+                    // half-applied stash content from the worktree.
+                    ToolButton(.x, label: "Abort stash apply") {
+                        confirmAbortStash = true
+                    }
+                } else {
                     ToolButton(.x, label: "Abort \(viewModel.mergeState == .rebasing ? "rebase" : "merge")") {
                         Task { await viewModel.abortMerge() }
                     }
@@ -54,11 +68,24 @@ struct ConflictView: View {
         case .clean:    return ""
         }
     }
+
+    private func runAbortStashApply() async {
+        switch await viewModel.abortStashApply() {
+        case .success:
+            appState.ui.activeToast = ToastMessage(message: "Stash apply aborted", kind: .ok)
+        case .failure(let error):
+            appState.ui.activeToast = ToastMessage(
+                message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,
+                kind: .error
+            )
+        }
+    }
 }
 
 #Preview("Resolving merge") {
     @Previewable @State var theme = AppTheme()
     ConflictView(viewModel: .previewWithConflicts)
+        .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
@@ -66,6 +93,7 @@ struct ConflictView: View {
 #Preview("Empty (clean tree)") {
     @Previewable @State var theme = AppTheme()
     ConflictView(viewModel: .preview)
+        .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }

@@ -74,7 +74,13 @@ struct BranchDropDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { resetRequest = nil }
             } message: {
-                Text("Moves \(resetRequest?.branchName ?? "HEAD") and HEAD. Hard discards uncommitted work in the worktree.")
+                Text("""
+                Moves \(resetRequest?.branchName ?? "HEAD") and HEAD to \(resetRequest?.targetShortSha ?? "the target").
+
+                • Soft: commits after the target stay as staged changes.
+                • Mixed: commits after the target stay as unstaged changes.
+                • Hard: every commit and uncommitted change after the target is DISCARDED. Recoverable only via `git reflog` for a limited time.
+                """)
             }
             .confirmationDialog(
                 mergeRebaseTitle,
@@ -91,7 +97,7 @@ struct BranchDropDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { mergeRebaseRequest = nil }
             } message: {
-                Text(mergeRebaseMessage)
+                Text(Self.mergeRebaseMessage(for: mergeRebaseRequest))
             }
     }
 
@@ -120,11 +126,18 @@ struct BranchDropDialogs: ViewModifier {
         return "\(r.source.displayName) → \(r.target.displayName)"
     }
 
-    /// Both Merge and Rebase may switch branches first (Merge → check out
-    /// target; Rebase → check out source). One generic line beats spelling
-    /// out two parallel sentences in a single alert.
-    private var mergeRebaseMessage: String {
-        "If the destination branch isn't checked out, it'll switch first. Conflicts route to the Conflicts view."
+    /// Spell out both paths so the user knows what each button does. Rebase
+    /// rewrites commits — flag it explicitly so the difference vs Merge is
+    /// visible before the button is pressed.
+    static func mergeRebaseMessage(for request: MergeRebaseRequest?) -> String {
+        guard let r = request else { return "" }
+        return """
+        Merge: replays \(r.source.displayName) into \(r.target.displayName) as a new merge commit. History is preserved.
+
+        Rebase: rewrites every commit on \(r.source.displayName) on top of \(r.target.displayName). If \(r.source.displayName) is already pushed, you'll need a force push afterwards.
+
+        Either action may switch branches first if the destination isn't checked out.
+        """
     }
 }
 

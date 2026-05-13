@@ -71,7 +71,19 @@ struct CommitActionsSection: View {
             }
             Button("Cancel", role: .cancel) { resetMode = nil }
         } message: {
-            Text(resetMode?.label ?? "")
+            Text(Self.resetConfirmMessage(for: resetMode, shortSha: commit.shortSha))
+        }
+    }
+
+    static func resetConfirmMessage(for mode: GitCLI.ResetMode?, shortSha: String) -> String {
+        guard let mode else { return "" }
+        switch mode {
+        case .soft:
+            return "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as staged changes. Working tree is untouched."
+        case .mixed:
+            return "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as unstaged changes. Working tree is untouched."
+        case .hard:
+            return "Moves HEAD to \(shortSha) and DISCARDS every commit and uncommitted change after it. Recoverable only via `git reflog` for a limited time. This cannot be undone from the UI."
         }
     }
 

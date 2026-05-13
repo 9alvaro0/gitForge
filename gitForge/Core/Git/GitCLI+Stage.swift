@@ -27,14 +27,19 @@ extension GitCLI {
         try await run(["checkout", "HEAD", "--"] + paths)
     }
 
-    /// Removes untracked files from the working copy.
+    /// Sends untracked files to the Trash (recoverable) instead of `removeItem`
+    /// so a misclick on "Discard" doesn't permanently lose unstaged work.
     func deleteUntracked(paths: [String]) async throws {
         guard !paths.isEmpty else { return }
         let fm = FileManager.default
         let base = workingDirectory.path(percentEncoded: false)
         for path in paths {
-            let full = (base as NSString).appendingPathComponent(path)
-            try? fm.removeItem(atPath: full)
+            let full = URL(fileURLWithPath: (base as NSString).appendingPathComponent(path))
+            do {
+                try fm.trashItem(at: full, resultingItemURL: nil)
+            } catch {
+                try? fm.removeItem(at: full)
+            }
         }
     }
 
