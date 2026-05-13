@@ -18,8 +18,11 @@ extension GitError: LocalizedError {
         case .launchFailed(let reason):
             return "Failed to launch git: \(reason)"
         case .commandFailed(let args, let exitCode, let stderr):
-            let command = (["git"] + args).joined(separator: " ")
-            let trimmed = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Redact both sides — a `https://user:token@host` URL can land in
+            // argv (clone) and in git's stderr ("unable to access ..."), and
+            // this string ends up in user-visible alerts and shared logs.
+            let command = GitCLI.redacted((["git"] + args).joined(separator: " "))
+            let trimmed = GitCLI.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
             return "`\(command)` exited with code \(exitCode): \(trimmed)"
         case .busy:
             return "Another remote operation is in progress."

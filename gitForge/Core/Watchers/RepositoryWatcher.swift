@@ -30,6 +30,11 @@ final class RepositoryWatcher {
     private var pendingRefresh: Task<Void, Never>?
     private var isRefreshing = false
     private var lastRefresh: Date = .distantPast
+    /// Set while the VM is running its own mutation (commit/stash/reset/…).
+    /// Our own writes to `.git/HEAD`/`refs/*` would otherwise fire this
+    /// watcher and trigger a parallel refresh while `refreshAfterIntegration`
+    /// is mid-flight — doubling pressure on `.git/index.lock`.
+    private var suspended = false
     private let onChange: @MainActor () async -> Void
 
     init(repository: URL, onChange: @escaping @MainActor () async -> Void) {
@@ -63,6 +68,21 @@ final class RepositoryWatcher {
     /// the request would be visible as stale state.
     func poke(force: Bool = false) { scheduleRefresh(force: force) }
 
+    /// Pause event handling while an in-app mutation is running so our own
+    /// `.git/` writes don't bounce back as "external change". Caller pairs
+    /// this with `resume()` in a defer.
+    func suspend() {
+        suspended = true
+        pendingRefresh?.cancel()
+    }
+
+    /// Resume event handling. The VM is expected to have called
+    /// `refreshAfterIntegration` already, so no implicit refresh here.
+    func resume() {
+        suspended = false
+        lastRefresh = Date()
+    }
+
     // MARK: private
 
     private func watch(_ url: URL) {
@@ -90,6 +110,7 @@ final class RepositoryWatcher {
     }
 
     private func scheduleRefresh(force: Bool = false) {
+        if suspended { return }
         // If we're mid-refresh, the in-flight task will already pick up the
         // newest state when it completes. No need to queue another.
         if isRefreshing { return }

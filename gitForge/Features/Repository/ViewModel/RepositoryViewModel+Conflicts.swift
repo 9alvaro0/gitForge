@@ -164,7 +164,10 @@ extension RepositoryViewModel {
     /// behaves like a direct `git merge`. Otherwise checks out `target` first
     /// so the merge lands on the right ref.
     func mergeBranch(source: GitRef, into target: GitRef?) async -> IntegrationOutcome {
+        guard !isMutating else { return .failed("Another operation is in progress.") }
         let sourceName = source.isLocalBranch ? source.name : source.displayName
+        isMutating = true
+        defer { isMutating = false }
         do {
             if let target, target.name != currentBranchName {
                 guard target.isLocalBranch else {
@@ -190,7 +193,10 @@ extension RepositoryViewModel {
     /// `git rebase <upstream>` against the current HEAD. Routes conflicts to
     /// the resolver via the `IntegrationOutcome`.
     func rebaseOnto(_ ref: GitRef) async -> IntegrationOutcome {
+        guard !isMutating else { return .failed("Another operation is in progress.") }
         let upstream = ref.isLocalBranch ? ref.name : ref.displayName
+        isMutating = true
+        defer { isMutating = false }
         do {
             try await cli.rebase(onto: upstream)
             await refreshAfterIntegration()

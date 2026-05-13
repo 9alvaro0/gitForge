@@ -39,9 +39,16 @@ struct RepositoryHost: View {
             async let statusTask: Void = viewModel.refreshStatus()
             async let initialTask: Void = viewModel.loadInitial()
             async let refsTask: Void = viewModel.loadRefs()
+            // Conflict state must land before reactivity starts so guards
+            // like the amend/rebase rejections see `mergeState != .clean`
+            // when the user opens a repo that's mid-integration from terminal.
+            // Without this, a commit/stash/rebase attempted right after open
+            // would fall through guards and fail cryptically from git.
+            async let conflictTask: Void = viewModel.loadConflictState()
             _ = await statusTask
             _ = await initialTask
             _ = await refsTask
+            _ = await conflictTask
             viewModel.startReactivity(
                 autoFetchIntervalSeconds: appState.gitEnvironment.globalConfig.autoFetchInterval ?? 0
             )

@@ -71,9 +71,18 @@ extension RepositoryViewModel {
         remoteFailure = nil
         defer { remoteOperation = nil }
         let setUpstream = upstream == nil
+        // Resolve the configured remote for the current branch so users with
+        // a renamed `origin` (upstream/fork patterns) push to the right place.
+        // Falls back to "origin" for first push (no tracking config yet) and
+        // when config read fails.
+        let resolvedRemote: String = await {
+            guard let branch = currentBranchName else { return "origin" }
+            return await cli.upstreamRemoteName(forBranch: branch) ?? "origin"
+        }()
         do {
             try await cli.push(
                 setUpstream: setUpstream,
+                remote: resolvedRemote,
                 branch: currentBranchName,
                 forceWithLease: forceWithLease
             )
