@@ -103,6 +103,12 @@ final class RepositoryCatalog {
         }
     }
 
+    /// Pause/resume aliases for the app-level focus handler. Same effect as
+    /// stop/start today, but named so future tweaks (different cadence when
+    /// backgrounded, only-active-repo refresh, etc.) have a place to land.
+    func pauseBackgroundWork() { stopStatusPolling() }
+    func resumeBackgroundWork() { startStatusPolling() }
+
     /// Stops the poller. Idempotent.
     func stopStatusPolling() {
         statusPollTask?.cancel()

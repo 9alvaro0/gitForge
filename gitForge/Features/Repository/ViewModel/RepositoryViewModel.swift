@@ -58,7 +58,7 @@ final class RepositoryViewModel {
                 let id = selectedCommitId,
                 let commit = commitsById[id]
             else { return }
-            Task { await selectFirstFile(for: commit) }
+            track(Task { [weak self] in await self?.selectFirstFile(for: commit) })
         }
     }
 
@@ -202,7 +202,7 @@ final class RepositoryViewModel {
         didSet {
             guard oldValue != amendMode else { return }
             if amendMode {
-                Task { await prefillFromHead() }
+                track(Task { [weak self] in await self?.prefillFromHead() })
             } else {
                 commitSubject = ""
                 commitBody = ""
@@ -219,7 +219,7 @@ final class RepositoryViewModel {
             // the now-empty pane.
             commitFileDiffGen &+= 1
             if let path = selectedCommitFile, let commit = selectedCommit {
-                Task { await loadCommitFileDiff(sha: commit.sha, path: path) }
+                track(Task { [weak self] in await self?.loadCommitFileDiff(sha: commit.sha, path: path) })
             }
         }
     }
@@ -238,7 +238,7 @@ final class RepositoryViewModel {
             guard oldValue != selectedWorkingCopyFile else { return }
             workingCopyDiffGen &+= 1
             if let file = selectedWorkingCopyFile {
-                Task { await loadWorkingCopyDiff(file: file) }
+                track(Task { [weak self] in await self?.loadWorkingCopyDiff(file: file) })
             } else {
                 workingCopyDiff = []
                 workingCopyDiffEmptyState = .empty
@@ -333,6 +333,18 @@ final class RepositoryViewModel {
     // MARK: Reactivity
     private var watcher: RepositoryWatcher?
     private let autoFetcher = AutoFetcher()
+    /// Tasks the VM itself spawns from `didSet` reactions (amend prefill,
+    /// commit / working-copy diff loads, etc.). Stored so `stopReactivity()`
+    /// can cancel them — otherwise a slow `git log` lookup keeps the
+    /// previous VM alive for seconds after the user opened another repo.
+    private var ownedTasks: [Task<Void, Never>] = []
+
+    /// Register a Task spawned by the VM. Trims already-finished tasks to
+    /// keep the array from growing unbounded over a long session.
+    func track(_ task: Task<Void, Never>) {
+        ownedTasks.removeAll { $0.isCancelled }
+        ownedTasks.append(task)
+    }
 
     init(repository: Repository) {
         self.repository = repository
@@ -355,6 +367,42 @@ final class RepositoryViewModel {
     func stopReactivity() {
         watcher = nil
         autoFetcher.stop()
+        // Cancel any internal tasks we own — without this, a half-finished
+        // `prefillFromHead` or `loadCommitFileDiff` would keep `self` alive
+        // (and its commits/graphLayouts/detailCache in memory) for as long
+        // as it takes the underlying git subprocess to drain.
+        for task in ownedTasks { task.cancel() }
+        ownedTasks.removeAll()
+        purgeCaches()
+    }
+
+    /// Drops the heavy in-memory caches associated with the open repo. Views
+    /// retaining the VM via SwiftUI no longer pin gigabytes worth of commit
+    /// graphs / diffs / file lists once the user moves to another repo. The
+    /// next `loadInitial` reseeds everything.
+    private func purgeCaches() {
+        commits = []
+        commitsById = [:]
+        commitDateBySha = [:]
+        graphLayouts = []
+        detailCache.removeAll()
+        inFlightDetails.removeAll()
+        refs = []
+        refsBySha = [:]
+        stashes = []
+        unmergedLocalBranchRefs = []
+        status = WorkingCopyStatus(files: [])
+        commitFileDiff = []
+        workingCopyDiff = []
+        stashFileDiff = []
+        conflictFiles = []
+        conflictHunks = []
+        conflictPicks = [:]
+        pullRequests = []
+        repoIdentity = nil
+        upstream = nil
+        aheadCount = 0
+        behindCount = 0
     }
 
     /// Trigger a watcher refresh — used when the app returns to foreground.
@@ -362,6 +410,19 @@ final class RepositoryViewModel {
     /// active, window key) always produce a refresh.
     func pokeReactivity(force: Bool = false) {
         watcher?.poke(force: force)
+    }
+
+    /// Pause periodic background work when the app loses focus. Keeps the
+    /// FS watcher armed (it's cheap and the OS suppresses events while we
+    /// sleep anyway), but stops the auto-fetcher loop so we don't burn
+    /// battery talking to remotes the user can't see.
+    func pauseBackgroundWork() {
+        autoFetcher.pause()
+    }
+
+    /// Resume what `pauseBackgroundWork` paused.
+    func resumeBackgroundWork() {
+        autoFetcher.resume()
     }
 
     /// Watcher-driven refresh. Skips the log reload unless HEAD actually

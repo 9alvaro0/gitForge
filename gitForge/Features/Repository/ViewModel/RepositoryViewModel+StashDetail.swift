@@ -11,7 +11,7 @@ extension RepositoryViewModel {
         stashDetailError = nil
         selectedStashFile = nil
         stashFileDiff = []
-        Task { await loadStashDetail() }
+        track(Task { [weak self] in await self?.loadStashDetail() })
     }
 
     /// Close the detail view and bump the gen-token so an in-flight load
