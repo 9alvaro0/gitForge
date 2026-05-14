@@ -66,6 +66,16 @@ final class AppState {
         if isSwitching {
             ui.workspaceSection = .history
         }
+        // Cloud-sync folders rewrite `.git/` bytes out-of-band of git itself.
+        // Warn once per open so silent corruption doesn't get blamed on the
+        // app; only fires when the user actually switches repos so it
+        // doesn't spam on every `activate` of an already-open repo.
+        if isSwitching, let synced = SyncedFolderDetector.detect(in: catalog.activeRepository?.url ?? url) {
+            ui.activeToast = ToastMessage(
+                message: "Repository is inside \(synced.displayName) — sync conflicts on `.git/` can corrupt the repo. Consider moving it outside the synced folder.",
+                kind: .warn
+            )
+        }
     }
 
     /// Convenience for the sidebar / Open Recent: opens the repo and surfaces

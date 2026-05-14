@@ -23,7 +23,13 @@ extension GitCLI {
     /// up alongside `CHERRY_PICK_HEAD`; the marker tells us which command
     /// owns the resolution path (`cherry-pick --continue` vs a plain commit).
     func mergeState() async -> MergeState {
-        let gitDir = workingDirectory.appendingPathComponent(".git")
+        // Per-worktree gitdir: in a linked worktree (`git worktree add`),
+        // `.git` is a file pointing at `<main>/.git/worktrees/<name>` where
+        // MERGE_HEAD/CHERRY_PICK_HEAD/... actually live. Falling back to
+        // `<worktree>/.git` directly would always report `.clean` and the
+        // resolver UI would never appear.
+        let gitDir = Self.resolveGitDirectory(in: workingDirectory)
+            ?? workingDirectory.appendingPathComponent(".git")
         let fm = FileManager.default
         func exists(_ name: String) -> Bool {
             fm.fileExists(atPath: gitDir.appendingPathComponent(name).path(percentEncoded: false))
