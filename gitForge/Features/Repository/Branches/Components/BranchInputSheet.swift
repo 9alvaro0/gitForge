@@ -18,11 +18,21 @@ struct BranchInputSheet: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    /// Forced focus on appear — SwiftUI's auto-focus doesn't fire reliably
+    /// when the sheet is presented from a menu/keyboard shortcut, leaving
+    /// the user pressing Tab once before they can type. `.focused` + a
+    /// post-appear toggle makes the entry point keyboard-only friendly.
+    @FocusState private var textFieldFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text(title).font(AppFont.sans(14, weight: .semibold))
             GFTextField(placeholder: placeholder, text: $text)
+                .focused($textFieldFocused)
+                .onSubmit {
+                    guard !confirmDisabled else { return }
+                    onConfirm(text)
+                }
             HStack {
                 GFButton(title: "Cancel", action: onCancel)
                 Spacer()
@@ -35,6 +45,7 @@ struct BranchInputSheet: View {
         .frame(width: 380)
         .background(theme.palette.bg1)
         .appTheme(appState.ui.theme)
+        .onAppear { textFieldFocused = true }
     }
 }
 

@@ -43,6 +43,24 @@ nonisolated struct WorkingCopyFile: Sendable, Equatable, Identifiable, Hashable 
             case .unmerged: "U"
             }
         }
+
+        /// VoiceOver-friendly name. The single-letter `displayLetter` reads
+        /// as "M", "A" etc., which a screen reader announces as the literal
+        /// character — useless. This expands to the full word.
+        var spokenName: String {
+            switch self {
+            case .unmodified:  "unchanged"
+            case .modified:    "modified"
+            case .added:       "added"
+            case .deleted:     "deleted"
+            case .renamed:     "renamed"
+            case .copied:      "copied"
+            case .typeChanged: "type changed"
+            case .untracked:   "untracked"
+            case .ignored:     "ignored"
+            case .unmerged:    "unmerged"
+            }
+        }
     }
 
     let path: String

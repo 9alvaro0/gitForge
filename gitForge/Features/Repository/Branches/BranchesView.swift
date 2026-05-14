@@ -123,40 +123,66 @@ struct BranchesView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
-                BranchListSection(
-                    title: "Local",
-                    refs: localBranches,
-                    availableTargets: viewModel.localBranches,
-                    currentBranchName: currentBranchName,
-                    commitDateBySha: commitDateBySha,
-                    onCheckout: handleCheckout,
-                    onRename: { renameTarget = $0; renameDraft = $0.name },
-                    onDelete: { deleteTarget = $0 },
-                    onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
-                    onRebase: { rebaseTarget = $0 }
-                )
-                BranchListSection(
-                    title: "Remote",
-                    refs: remoteBranches,
-                    availableTargets: viewModel.localBranches,
-                    currentBranchName: nil,
-                    commitDateBySha: commitDateBySha,
-                    onCheckout: handleCheckout,
-                    onRename: nil,
-                    onDelete: nil,
-                    onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
-                    onRebase: { rebaseTarget = $0 }
-                )
-                if !tags.isEmpty {
-                    BranchTagsSection(
-                        tags: tags,
-                        onPush:   { ref in Task { await runPushTag(ref) } },
-                        onDelete: { ref in deleteTargetTag = ref }
+                if hasActiveFilter && filteredEverything.isEmpty {
+                    filterEmptyState
+                } else {
+                    BranchListSection(
+                        title: "Local",
+                        refs: localBranches,
+                        availableTargets: viewModel.localBranches,
+                        currentBranchName: currentBranchName,
+                        commitDateBySha: commitDateBySha,
+                        onCheckout: handleCheckout,
+                        onRename: { renameTarget = $0; renameDraft = $0.name },
+                        onDelete: { deleteTarget = $0 },
+                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+                        onRebase: { rebaseTarget = $0 }
                     )
+                    BranchListSection(
+                        title: "Remote",
+                        refs: remoteBranches,
+                        availableTargets: viewModel.localBranches,
+                        currentBranchName: nil,
+                        commitDateBySha: commitDateBySha,
+                        onCheckout: handleCheckout,
+                        onRename: nil,
+                        onDelete: nil,
+                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+                        onRebase: { rebaseTarget = $0 }
+                    )
+                    if !tags.isEmpty {
+                        BranchTagsSection(
+                            tags: tags,
+                            onPush:   { ref in Task { await runPushTag(ref) } },
+                            onDelete: { ref in deleteTargetTag = ref }
+                        )
+                    }
                 }
             }
             .padding(DesignTokens.Spacing.xxxxl)
         }
+    }
+
+    private var hasActiveFilter: Bool {
+        !filter.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Total count across all sections after filtering. Lets the empty-state
+    /// fire when the filter matches nothing instead of rendering three
+    /// "No branches." stubs side by side.
+    private var filteredEverything: [GitRef] {
+        localBranches + remoteBranches + tags
+    }
+
+    private var filterEmptyState: some View {
+        VStack(spacing: DesignTokens.Spacing.md) {
+            Text("No branches or tags match “\(filter)”.")
+                .font(AppFont.sans(12))
+                .foregroundStyle(theme.palette.fg2)
+            GFButton(title: "Clear filter", size: .small) { filter = "" }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, DesignTokens.Spacing.xxxxl)
     }
 
     // MARK: Handlers

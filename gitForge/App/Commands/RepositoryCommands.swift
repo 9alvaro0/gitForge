@@ -25,16 +25,20 @@ struct RepositoryCommands: Commands {
             .keyboardShortcut("f", modifiers: [.command, .shift])
             .disabled(remoteBusy)
 
+            // `⌘P` is reserved for Print across macOS — overriding it makes
+            // every reflexive `⌘P` from any other app trigger a Push here,
+            // which is the wrong kind of "no undo" surprise. Pull moves to
+            // `⌘⇧L` to free `⌘⇧P` as the more memorable Push.
             Button("Pull") {
                 Task { await appState.catalog.activeViewModel?.pull() }
             }
-            .keyboardShortcut("p", modifiers: [.command, .shift])
+            .keyboardShortcut("l", modifiers: [.command, .shift])
             .disabled(remoteBusy)
 
             Button("Push") {
                 Task { await appState.catalog.activeViewModel?.push() }
             }
-            .keyboardShortcut("p", modifiers: .command)
+            .keyboardShortcut("p", modifiers: [.command, .shift])
             .disabled(remoteBusy)
 
             Divider()

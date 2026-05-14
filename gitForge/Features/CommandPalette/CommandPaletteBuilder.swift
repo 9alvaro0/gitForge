@@ -50,9 +50,9 @@ enum CommandPaletteBuilder {
     }
 
     static let builtInCommands: [CommandPaletteItem] = [
-        CommandPaletteItem(kind: .command, label: "Fetch all",       hint: "⇧⌘F", action: .fetch),
-        CommandPaletteItem(kind: .command, label: "Pull",            hint: "⌘⇧P", action: .pull),
-        CommandPaletteItem(kind: .command, label: "Push",            hint: "⌘⇧K", action: .push),
+        CommandPaletteItem(kind: .command, label: "Fetch all",       hint: "⌘⇧F", action: .fetch),
+        CommandPaletteItem(kind: .command, label: "Pull",            hint: "⌘⇧L", action: .pull),
+        CommandPaletteItem(kind: .command, label: "Push",            hint: "⌘⇧P", action: .push),
         CommandPaletteItem(kind: .command, label: "New branch…",     hint: "⌘⇧B", action: .selectSection(.branches)),
         CommandPaletteItem(kind: .command, label: "Stash changes",   hint: nil,   action: .stash),
         CommandPaletteItem(kind: .command, label: "Settings",        hint: "⌘,",  action: .selectSection(.settings)),

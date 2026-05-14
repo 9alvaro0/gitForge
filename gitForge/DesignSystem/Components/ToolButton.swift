@@ -59,6 +59,24 @@ struct ToolButton<Icon: View>: View {
         .disabled(disabled || loading)
         .opacity(disabled ? DesignTokens.Opacity.disabled : 1)
         .onHover { hovering = $0 }
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
+    }
+
+    /// VoiceOver merges all child Text into the button label by default, but
+    /// icon-only variants would announce just "button". Synthesise an
+    /// explicit label and append the badge as a value so screen readers say
+    /// e.g. "Push, 7 commits ahead" instead of "Push, 7".
+    private var accessibilityLabel: String {
+        if let label, !label.isEmpty { return label }
+        return "Action"
+    }
+
+    private var accessibilityValue: String {
+        if let badge, badge > 0 {
+            return "\(badge)"
+        }
+        return ""
     }
 
     private var bg: Color {

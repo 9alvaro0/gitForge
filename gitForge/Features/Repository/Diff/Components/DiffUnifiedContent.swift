@@ -18,12 +18,18 @@ struct DiffUnifiedContent: View {
                 // small (<1k lines each) so the inner ForEach stays eager —
                 // the win is letting the scroll view skip hunks above/below
                 // the viewport entirely.
+                // Inner line.id is local to its hunk (0,1,2…), so without
+                // composing it with `hunk.id` the LazyVStack sees the same
+                // ID across multiple hunks and SwiftUI logs "the ID … is
+                // used by multiple child views".
                 LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none, pinnedViews: []) {
                     ForEach(hunks) { hunk in
                         DiffHunkHeader(hunk: hunk)
+                            .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
                         ForEach(hunk.lines) { line in
                             DiffRow(line: line, attributed: table?[line.id])
+                                .id("h-\(hunk.id)-l-\(line.id)")
                         }
                     }
                 }

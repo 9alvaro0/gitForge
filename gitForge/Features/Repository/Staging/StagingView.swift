@@ -57,10 +57,14 @@ struct StagingView: View {
         .confirmationDialog("Discard all changes?",
                             isPresented: $ui.discardAllConfirmVisible,
                             titleVisibility: .visible) {
+            // Cancel is bound to the default Return so a reflexive press
+            // doesn't wipe the working tree. The destructive choice stays
+            // available — just no longer one-keystroke away.
+            Button("Cancel", role: .cancel) {}
+                .keyboardShortcut(.defaultAction)
             Button("Discard all", role: .destructive) {
                 Task { await viewModel.discardChanges(viewModel.status.files) }
             }
-            Button("Cancel", role: .cancel) {}
         } message: {
             Text("All uncommitted changes will be lost — staged, unstaged, and untracked files included. This can't be undone.")
         }

@@ -20,6 +20,8 @@ struct StagingRow: View {
                     set: { _ in Task { await toggleStaged() } }
                 ))
                 .toggleStyle(GFCheckboxStyle())
+                .accessibilityLabel("\(file.isStaged ? "Unstage" : "Stage") \(file.path)")
+                .accessibilityValue(statusDescription)
                 StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
                 pathView
                 Spacer()
@@ -30,6 +32,8 @@ struct StagingRow: View {
             .background(isSelected ? theme.palette.bg4 : (hovering ? theme.palette.bg3 : .clear))
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(statusDescription): \(file.path)")
         .onHover { hovering = $0 }
         .simultaneousGesture(
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
@@ -97,6 +101,15 @@ struct StagingRow: View {
     private func toggleStaged() async {
         if file.isStaged { await viewModel.unstage([file]) }
         else             { await viewModel.stage([file]) }
+    }
+
+    /// Spoken status used by VoiceOver. Pairs the staged/unstaged side with
+    /// its porcelain code so the user hears "Staged modified: path/to/file"
+    /// instead of an opaque "checkbox marked".
+    private var statusDescription: String {
+        let side = file.isStaged ? "Staged" : "Unstaged"
+        let status = file.isStaged ? file.stagedStatus : file.unstagedStatus
+        return "\(side) \(status.spokenName)"
     }
 
     @ViewBuilder
