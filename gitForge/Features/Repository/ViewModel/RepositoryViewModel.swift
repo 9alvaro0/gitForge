@@ -172,6 +172,11 @@ final class RepositoryViewModel {
 
     // MARK: Working copy
     var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
+    /// Paths the user ticked in the Changes column for a batch stage/unstage.
+    /// Separate from `selectedWorkingCopyFile` (which drives the diff pane)
+    /// so the user can keep one file visible in the diff while ticking a
+    /// disjoint set for staging.
+    var selectedFilePaths: Set<String> = []
     var isLoadingStatus = false
     /// Distinguishes "never loaded" from "loaded and clean" so the Changes
     /// view doesn't briefly flash "Working tree is clean" on first paint.
@@ -392,6 +397,7 @@ final class RepositoryViewModel {
         stashes = []
         unmergedLocalBranchRefs = []
         status = WorkingCopyStatus(files: [])
+        selectedFilePaths = []
         commitFileDiff = []
         workingCopyDiff = []
         stashFileDiff = []
