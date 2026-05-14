@@ -53,9 +53,13 @@ struct RepositoryHost: View {
                 autoFetchIntervalSeconds: appState.gitEnvironment.globalConfig.autoFetchInterval ?? 0
             )
         }
-        .onDisappear {
-            appState.catalog.activeViewModel?.stopReactivity()
-        }
+        // No `.onDisappear { stopReactivity() }` here. SwiftUI re-mounts the
+        // host on window/fullscreen transitions, and stopReactivity now
+        // purges caches too (cluster 9) — pairing the two leaves the next
+        // re-render staring at empty `status`/`commits`/`refs` because
+        // `task(id:)` only re-runs on id change. The real teardown happens
+        // in RepositoryCatalog.close() / open(at:) when the user actually
+        // switches repo, which is the only place caches *should* drop.
     }
 }
 
