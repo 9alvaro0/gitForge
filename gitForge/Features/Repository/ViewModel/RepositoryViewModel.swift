@@ -360,7 +360,7 @@ final class RepositoryViewModel {
             }
         }
         autoFetcher.start(intervalSeconds: autoFetchIntervalSeconds) { [weak self] in
-            await self?.fetchSilently()
+            await self?.fetchSilently() ?? false
         }
     }
 
@@ -463,8 +463,11 @@ final class RepositoryViewModel {
     /// toasted. Mutually exclusive with manual `fetch()` via
     /// `autoFetchInFlight`; the manual op is also gated on `remoteOperation`
     /// so the two paths can't fire duplicate `git fetch` subprocesses.
-    private func fetchSilently() async {
-        guard remoteOperation == nil, !autoFetchInFlight else { return }
+    /// Returns whether the auto-fetch reached the remote successfully. The
+    /// AutoFetcher uses the bool to drive its offline backoff — repeated
+    /// network failures should stop hammering the network every 30s.
+    private func fetchSilently() async -> Bool {
+        guard remoteOperation == nil, !autoFetchInFlight else { return false }
         autoFetchInFlight = true
         defer { autoFetchInFlight = false }
         do {
@@ -473,8 +476,10 @@ final class RepositoryViewModel {
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
             await loadRefs()
+            return true
         } catch {
             Self.logger.debug("auto-fetch failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

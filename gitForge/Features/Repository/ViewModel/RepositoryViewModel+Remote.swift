@@ -42,6 +42,10 @@ extension RepositoryViewModel {
             await loadRefs()
         } catch {
             remoteFailure = RemoteFailure.from(error)
+            // A partial fetch may have updated some remote refs before
+            // failing. Reload so the UI doesn't keep showing pre-fetch
+            // counters until the next 30s poller tick.
+            await loadRefs()
         }
     }
 
@@ -79,6 +83,16 @@ extension RepositoryViewModel {
             guard let branch = currentBranchName else { return "origin" }
             return await cli.upstreamRemoteName(forBranch: branch) ?? "origin"
         }()
+        // Force-with-lease compares against the local remote-tracking ref. If
+        // the user never fetched, that ref can be days old and the "safe
+        // force" silently pisas commits a collaborator pushed in the
+        // meantime. Refresh the remote ref first so the lease has real teeth.
+        // We fail silently on the fetch — git will reject the push if
+        // anything's wrong with the remote anyway.
+        if forceWithLease {
+            try? await cli.fetch(remote: resolvedRemote)
+            await loadRefs()
+        }
         do {
             try await cli.push(
                 setUpstream: setUpstream,
@@ -92,6 +106,10 @@ extension RepositoryViewModel {
             await loadRefs()
         } catch {
             remoteFailure = RemoteFailure.from(error)
+            // Push can partially succeed (pack uploaded but ref update
+            // rejected, or N of M refs accepted). Reload so aheadCount and
+            // remote-tracking refs reflect what really landed.
+            await loadRefs()
         }
     }
 }

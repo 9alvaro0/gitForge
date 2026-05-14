@@ -114,21 +114,25 @@ actor GitCLI {
         // the cancel handler is safe.
         let processRef = process
 
-        // Watchdog. If a command doesn't finish within `timeout`, kill it.
-        // Local commands are milliseconds; remote commands are seconds. Anything
-        // past the timeout means the subprocess is stuck — dead network,
-        // askpass deadlock, misbehaving hook — and we'd rather surface a clean
-        // failure than leave the user staring at a frozen spinner. SIGTERM
-        // first, SIGKILL after a grace window in case git ignores the soft
-        // signal. Default 60s, configurable from Settings → Behavior.
+        // Progress-based watchdog. Resets on every chunk read from stdout or
+        // stderr; if there's no activity for `timeout` seconds, terminate.
+        // A push of a large pack against a slow upload doesn't get killed
+        // because git is still emitting progress to stderr (`--progress`
+        // implicit on attached terminals; harmless otherwise). DNS hangs and
+        // askpass deadlocks die in seconds because nothing flows.
+        let progressTimer = ProgressTimer()
         let watchdog = Task { [process, safeArgsString, timeout] in
-            try? await Task.sleep(for: .seconds(timeout))
-            guard !Task.isCancelled, process.isRunning else { return }
-            Self.logger.error("watchdog: terminating `git \(safeArgsString, privacy: .public)` after \(timeout, privacy: .public)s")
-            process.terminate()
-            try? await Task.sleep(for: .milliseconds(500))
-            if process.isRunning {
-                kill(process.processIdentifier, SIGKILL)
+            while !Task.isCancelled, process.isRunning {
+                try? await Task.sleep(for: .seconds(5))
+                if progressTimer.elapsed() > timeout {
+                    Self.logger.error("watchdog: terminating `git \(safeArgsString, privacy: .public)` after \(timeout, privacy: .public)s without progress")
+                    process.terminate()
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if process.isRunning {
+                        kill(process.processIdentifier, SIGKILL)
+                    }
+                    break
+                }
             }
         }
         defer { watchdog.cancel() }
@@ -139,8 +143,9 @@ actor GitCLI {
             // so a runaway `git log -p` / `diff` can't OOM the app: when the
             // cap trips, we terminate the subprocess and surface
             // `outputTooLarge` instead of letting Data grow unbounded.
-            async let stdoutResult = Self.readCapped(stdoutPipe.fileHandleForReading, cap: Self.stdoutByteCap, onOverflow: { processRef.terminate() })
-            async let stderrResult = Self.readCapped(stderrPipe.fileHandleForReading, cap: Self.stderrByteCap, onOverflow: nil)
+            // onProgress tick lets the watchdog know the subprocess is alive.
+            async let stdoutResult = Self.readCapped(stdoutPipe.fileHandleForReading, cap: Self.stdoutByteCap, onProgress: { progressTimer.tick() }, onOverflow: { processRef.terminate() })
+            async let stderrResult = Self.readCapped(stderrPipe.fileHandleForReading, cap: Self.stderrByteCap, onProgress: { progressTimer.tick() }, onOverflow: nil)
             async let exitWait: Void = Self.waitForExit(process)
 
             let (stdoutBytes, stdoutTruncated) = await stdoutResult
@@ -221,9 +226,11 @@ actor GitCLI {
     /// caller should treat the result as truncated). If `onOverflow` is
     /// supplied, it fires the first time the cap trips — used to terminate
     /// the subprocess so a giant `git log -p` doesn't keep streaming
-    /// gigabytes into a pipe we'd just discard.
+    /// gigabytes into a pipe we'd just discard. `onProgress` fires once per
+    /// chunk read so a progress-based watchdog can reset its idle timer.
     private static func readCapped(_ handle: FileHandle,
                                    cap: Int,
+                                   onProgress: (@Sendable () -> Void)? = nil,
                                    onOverflow: (@Sendable () -> Void)?) async -> (data: Data, truncated: Bool) {
         await Task.detached {
             var accumulated = Data()
@@ -236,6 +243,7 @@ actor GitCLI {
                     break
                 }
                 if chunk.isEmpty { break }
+                onProgress?()
                 if accumulated.count + chunk.count > cap {
                     let remaining = max(0, cap - accumulated.count)
                     if remaining > 0 { accumulated.append(chunk.prefix(remaining)) }
@@ -250,6 +258,21 @@ actor GitCLI {
             }
             return (accumulated, truncated)
         }.value
+    }
+
+    /// Thread-safe "seconds since last progress signal". Mirrors the helper
+    /// inside GitCLI+Clone — duplicated to keep that file self-contained.
+    private final class ProgressTimer: @unchecked Sendable {
+        private let lock = NSLock()
+        private var lastAt = Date()
+        func tick() {
+            lock.lock(); defer { lock.unlock() }
+            lastAt = Date()
+        }
+        func elapsed() -> TimeInterval {
+            lock.lock(); defer { lock.unlock() }
+            return Date().timeIntervalSince(lastAt)
+        }
     }
 
     private static func waitForExit(_ process: Process) async {

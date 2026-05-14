@@ -10,7 +10,7 @@ struct AutoFetcherPauseResumeTests {
     func pausePreservesConfig() async {
         let fetcher = AutoFetcher()
         let counter = AsyncCounter()
-        fetcher.start(intervalSeconds: 60) { await counter.bump() }
+        fetcher.start(intervalSeconds: 60) { await counter.bump(); return true }
         #expect(fetcher.intervalSeconds == 60)
 
         fetcher.pause()
@@ -23,7 +23,7 @@ struct AutoFetcherPauseResumeTests {
     func stopClearsConfig() async {
         let fetcher = AutoFetcher()
         let counter = AsyncCounter()
-        fetcher.start(intervalSeconds: 30) { await counter.bump() }
+        fetcher.start(intervalSeconds: 30) { await counter.bump(); return true }
         fetcher.stop()
         #expect(fetcher.intervalSeconds == 0)
 
@@ -41,7 +41,7 @@ struct AutoFetcherPauseResumeTests {
         let counter = AsyncCounter()
 
         // Configure but immediately pause so we control when the loop fires.
-        fetcher.start(intervalSeconds: 1) { await counter.bump() }
+        fetcher.start(intervalSeconds: 1) { await counter.bump(); return true }
         fetcher.pause()
         let beforeResume = await counter.value
         #expect(beforeResume == 0)
@@ -61,6 +61,35 @@ struct AutoFetcherPauseResumeTests {
         let fetcher = AutoFetcher()
         fetcher.resume()
         #expect(fetcher.intervalSeconds == 0)
+    }
+
+    // MARK: backoff
+
+    @Test("backoffDelay returns the base interval on zero failures")
+    func backoffZeroFailures() {
+        #expect(AutoFetcher.backoffDelay(base: 30, failures: 0) == 30)
+    }
+
+    @Test("backoffDelay doubles per consecutive failure")
+    func backoffDoubles() {
+        #expect(AutoFetcher.backoffDelay(base: 30, failures: 1) == 60)
+        #expect(AutoFetcher.backoffDelay(base: 30, failures: 2) == 120)
+        #expect(AutoFetcher.backoffDelay(base: 30, failures: 3) == 240)
+    }
+
+    @Test("backoffDelay caps at 60× base — long offline doesn't grow unbounded")
+    func backoffCaps() {
+        // 30s base × 60 cap = 1800s = 30 min. Anything past that uses the cap.
+        let cap = AutoFetcher.backoffDelay(base: 30, failures: 6) // 2^6 = 64 > cap
+        #expect(cap == 30 * 60)
+        let waybeyond = AutoFetcher.backoffDelay(base: 30, failures: 50)
+        #expect(waybeyond == 30 * 60)
+    }
+
+    @Test("backoffDelay returns 0 when base is 0 (disabled fetcher)")
+    func backoffWithZeroBase() {
+        #expect(AutoFetcher.backoffDelay(base: 0, failures: 0) == 0)
+        #expect(AutoFetcher.backoffDelay(base: 0, failures: 5) == 0)
     }
 }
 
