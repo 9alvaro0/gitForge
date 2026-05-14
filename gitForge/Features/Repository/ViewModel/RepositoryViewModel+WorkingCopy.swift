@@ -65,6 +65,52 @@ extension RepositoryViewModel {
         }
     }
 
+    // MARK: Bulk selection
+
+    /// Toggle a single file's membership in the batch-selection set.
+    func toggleSelection(_ file: WorkingCopyFile) {
+        if selectedFilePaths.contains(file.path) {
+            selectedFilePaths.remove(file.path)
+        } else {
+            selectedFilePaths.insert(file.path)
+        }
+    }
+
+    /// Replace the selection with every path in `files`. Used by the
+    /// "Select all" affordance in the section header.
+    func selectAll(in files: [WorkingCopyFile]) {
+        for f in files { selectedFilePaths.insert(f.path) }
+    }
+
+    /// Drop every selection that comes from `files`. Used both by the
+    /// "Deselect all" affordance and after a batch stage/unstage so the
+    /// ticks don't reappear on a fresh section the rows just moved into.
+    func deselect(_ files: [WorkingCopyFile]) {
+        for f in files { selectedFilePaths.remove(f.path) }
+    }
+
+    /// Stage every selected file that's currently unstaged. Clears their
+    /// selection on success — they're moving sections, so keeping the tick
+    /// would re-pre-select them in the Staged column.
+    func stageSelected() async {
+        let toStage = status.files.filter {
+            selectedFilePaths.contains($0.path) && !$0.isStaged
+        }
+        guard !toStage.isEmpty else { return }
+        await stage(toStage)
+        deselect(toStage)
+    }
+
+    /// Unstage every selected file that's currently staged.
+    func unstageSelected() async {
+        let toUnstage = status.files.filter {
+            selectedFilePaths.contains($0.path) && $0.isStaged
+        }
+        guard !toUnstage.isEmpty else { return }
+        await unstage(toUnstage)
+        deselect(toUnstage)
+    }
+
     func runStageOperation(_ block: () async throws -> Void) async {
         guard !isMutating else { return }
         isMutating = true

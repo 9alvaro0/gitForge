@@ -13,15 +13,20 @@ struct StagingRow: View {
 
     var body: some View {
         let isSelected = viewModel.selectedWorkingCopyFile?.id == file.id
+        let isTicked = viewModel.selectedFilePaths.contains(file.path)
         Button(action: { viewModel.selectedWorkingCopyFile = file }) {
             HStack(spacing: DesignTokens.Spacing.md) {
+                // The checkbox is for *batch selection*, not stage/unstage —
+                // pairing it with the "Stage selected" / "Unstage selected"
+                // button in the section header. Stage/unstage on a single
+                // row stays available via double-click and the context menu.
                 Toggle("", isOn: Binding(
-                    get: { file.isStaged },
-                    set: { _ in Task { await toggleStaged() } }
+                    get: { isTicked },
+                    set: { _ in viewModel.toggleSelection(file) }
                 ))
                 .toggleStyle(GFCheckboxStyle())
-                .accessibilityLabel("\(file.isStaged ? "Unstage" : "Stage") \(file.path)")
-                .accessibilityValue(statusDescription)
+                .accessibilityLabel("Select \(file.path)")
+                .accessibilityValue(isTicked ? "selected" : "not selected")
                 StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
                 pathView
                 Spacer()
@@ -38,7 +43,7 @@ struct StagingRow: View {
         .simultaneousGesture(
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
         )
-        .help(file.isStaged ? "Double-click to unstage" : "Double-click to stage")
+        .help(file.isStaged ? "Double-click to unstage · checkbox = select for batch" : "Double-click to stage · checkbox = select for batch")
         .contextMenu { contextMenu }
         .confirmationDialog(
             file.isUntracked ? "Delete \(filename)?" : "Discard changes to \(filename)?",

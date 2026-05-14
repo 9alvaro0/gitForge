@@ -19,13 +19,24 @@ struct StagingFilesColumn: View {
     }
 
     private var fileList: some View {
-        LazyVStack(spacing: DesignTokens.Spacing.none) {
+        // Selected counts per section drive the action button label —
+        // "Unstage 3 selected" when the user has ticks within the section,
+        // "Unstage all" when they don't.
+        let stagedSelectedCount = staged.filter { viewModel.selectedFilePaths.contains($0.path) }.count
+        let unstagedSelectedCount = unstaged.filter { viewModel.selectedFilePaths.contains($0.path) }.count
+        return LazyVStack(spacing: DesignTokens.Spacing.none) {
             StagingFileSectionHeader(
                 title: "Staged",
                 count: staged.count,
-                actionLabel: "Unstage all"
+                actionLabel: stagedSelectedCount > 0
+                    ? "Unstage \(stagedSelectedCount) selected"
+                    : "Unstage all"
             ) {
-                Task { await viewModel.unstage(staged) }
+                if stagedSelectedCount > 0 {
+                    Task { await viewModel.unstageSelected() }
+                } else {
+                    Task { await viewModel.unstage(staged) }
+                }
             }
             if staged.isEmpty {
                 emptyLabel("Nothing staged")
@@ -38,9 +49,15 @@ struct StagingFilesColumn: View {
             StagingFileSectionHeader(
                 title: "Unstaged",
                 count: unstaged.count,
-                actionLabel: "Stage all"
+                actionLabel: unstagedSelectedCount > 0
+                    ? "Stage \(unstagedSelectedCount) selected"
+                    : "Stage all"
             ) {
-                Task { await viewModel.stage(unstaged) }
+                if unstagedSelectedCount > 0 {
+                    Task { await viewModel.stageSelected() }
+                } else {
+                    Task { await viewModel.stage(unstaged) }
+                }
             }
             ForEach(unstaged) { f in
                 StagingRow(file: f, viewModel: viewModel)
