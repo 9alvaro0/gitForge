@@ -41,9 +41,6 @@ actor GitCLI {
         let stderrPipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executablePath)
         // Global flags applied to every git invocation:
-        //   • --no-optional-locks: avoid overlapping read tasks colliding on
-        //     `.git/index` (refreshStatus swallows the error and leaves the
-        //     UI showing stale state otherwise).
         //   • -c core.quotePath=false: emit paths verbatim instead of the
         //     C-escaped `"caf\303\251.txt"` form. Without this the porcelain
         //     parser keeps the literal escapes and a subsequent `git add --`
@@ -52,9 +49,16 @@ actor GitCLI {
         //     true, but forcing it shields users who set it to false in their
         //     global config (NFD-vs-NFC mismatches break Swift `String == String`
         //     comparisons in the VM).
+        //
+        // NOTE: `--no-optional-locks` was here too in an earlier pass to
+        // avoid two reads colliding on `.git/index`. It also prevents
+        // `git status` from refreshing the index, which surfaces as
+        // false-positive `M` entries when an editor rewrites a file with
+        // the same content (mtime changes, content doesn't). Removed —
+        // the watcher's own serialisation (isMutating + suspend / debounce)
+        // already covers the collision case in practice.
         process.arguments = [
             "git",
-            "--no-optional-locks",
             "-c", "core.quotePath=false",
             "-c", "core.precomposeUnicode=true",
         ] + args
