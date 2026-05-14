@@ -2,15 +2,63 @@ import Foundation
 
 extension GitCLI {
     func status() async throws -> WorkingCopyStatus {
-        let result = try await run(["status", "--porcelain=v2", "-u"])
+        // `-z` switches record + rename separators to NUL. Without it, paths
+        // containing literal `\n` or `\t` would either be C-quoted (which we
+        // never decode) or break the line-based split outright.
+        let result = try await run(["status", "--porcelain=v2", "-u", "-z"])
         return WorkingCopyStatus(files: Self.parseStatus(result.stdout))
     }
 
     static func parseStatus(_ stdout: String) -> [WorkingCopyFile] {
-        let raw = stdout.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
-            parseLine(String(line))
+        // Records separated by NUL (porcelain v2 + -z). For renamed/copied
+        // entries (type 2) the path and origPath are themselves separated by
+        // NUL, so a type-2 record occupies two consecutive array elements.
+        let records = stdout.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
+        var files: [WorkingCopyFile] = []
+        var i = 0
+        while i < records.count {
+            let record = records[i]
+            guard let first = record.first else { i += 1; continue }
+            switch first {
+            case "1":
+                let fields = record.split(separator: " ", maxSplits: 8, omittingEmptySubsequences: false)
+                if fields.count >= 9,
+                   let f = makeFile(xy: String(fields[1]), path: String(fields[8]), originalPath: nil) {
+                    files.append(f)
+                }
+                i += 1
+            case "2":
+                // Type 2 has one extra field (`R100`/`C100` rename score)
+                // before the path, so the path lives at fields[9].
+                let fields = record.split(separator: " ", maxSplits: 9, omittingEmptySubsequences: false)
+                let orig = (i + 1 < records.count) ? records[i + 1] : ""
+                if fields.count >= 10,
+                   let f = makeFile(xy: String(fields[1]), path: String(fields[9]), originalPath: orig) {
+                    files.append(f)
+                }
+                // Consume the path AND the origPath record.
+                i += 2
+            case "?":
+                let path = String(record.dropFirst(2))
+                files.append(WorkingCopyFile(path: path, stagedStatus: .unmodified, unstagedStatus: .untracked, originalPath: nil))
+                i += 1
+            case "!":
+                // Ignored entry — not displayed.
+                i += 1
+            case "u":
+                let fields = record.split(separator: " ", maxSplits: 10, omittingEmptySubsequences: false)
+                if fields.count >= 11 {
+                    files.append(WorkingCopyFile(path: String(fields[10]),
+                                                 stagedStatus: .unmerged,
+                                                 unstagedStatus: .unmerged,
+                                                 originalPath: nil))
+                }
+                i += 1
+            default:
+                i += 1
+            }
         }
-        return mergeUnstagedRenames(raw)
+        return mergeUnstagedRenames(files)
     }
 
     /// Pairs unstaged `D <old>` entries with `?? <new>` entries that share
@@ -62,41 +110,6 @@ extension GitCLI {
 
     private static func basename(_ path: String) -> String {
         (path as NSString).lastPathComponent
-    }
-
-    private static func parseLine(_ line: String) -> WorkingCopyFile? {
-        guard let first = line.first else { return nil }
-        switch first {
-        case "1":
-            // "1 XY ... <path>"
-            let fields = line.split(separator: " ", maxSplits: 8, omittingEmptySubsequences: false)
-            guard fields.count >= 9 else { return nil }
-            let xy = String(fields[1])
-            let path = String(fields[8])
-            return makeFile(xy: xy, path: path, originalPath: nil)
-        case "2":
-            // "2 XY ... <path>\t<orig>"
-            let fields = line.split(separator: " ", maxSplits: 9, omittingEmptySubsequences: false)
-            guard fields.count >= 10 else { return nil }
-            let xy = String(fields[1])
-            let combined = String(fields[9])
-            let parts = combined.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
-            guard parts.count == 2 else { return nil }
-            return makeFile(xy: xy, path: String(parts[0]), originalPath: String(parts[1]))
-        case "?":
-            let path = String(line.dropFirst(2))
-            return WorkingCopyFile(path: path, stagedStatus: .unmodified, unstagedStatus: .untracked, originalPath: nil)
-        case "!":
-            return nil // ignored — not displayed
-        case "u":
-            // unmerged
-            let fields = line.split(separator: " ", maxSplits: 10, omittingEmptySubsequences: false)
-            guard fields.count >= 11 else { return nil }
-            let path = String(fields[10])
-            return WorkingCopyFile(path: path, stagedStatus: .unmerged, unstagedStatus: .unmerged, originalPath: nil)
-        default:
-            return nil
-        }
     }
 
     private static func makeFile(xy: String, path: String, originalPath: String?) -> WorkingCopyFile? {

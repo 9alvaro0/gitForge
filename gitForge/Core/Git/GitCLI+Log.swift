@@ -23,6 +23,12 @@ extension GitCLI {
         return Self.parseLog(result.stdout)
     }
 
+    /// Sentinel used when an `%aI` value fails to parse: epoch zero. Anchors
+    /// the commit at the very bottom of any sort-by-date order instead of
+    /// inheriting `Date()` (now), which would float it to the top and
+    /// silently distort the log.
+    static let unknownAuthorDate = Date(timeIntervalSince1970: 0)
+
     static func parseLog(_ stdout: String) -> [Commit] {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds, .withTimeZone]
@@ -37,7 +43,9 @@ extension GitCLI {
             let authorName = String(parts[2])
             let authorEmail = String(parts[3])
             let dateString = String(parts[4])
-            let date = formatter.date(from: dateString) ?? fallback.date(from: dateString) ?? Date()
+            let date = formatter.date(from: dateString)
+                ?? fallback.date(from: dateString)
+                ?? unknownAuthorDate
             let subject = parts[5...].joined(separator: logSeparator)
             return Commit(
                 sha: sha,
