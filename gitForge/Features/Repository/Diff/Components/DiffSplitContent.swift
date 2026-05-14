@@ -21,12 +21,16 @@ struct DiffSplitContent: View {
                 // shorter side's background ends sooner. Acceptable: the line
                 // numbers stay aligned and the visual cue (added/removed
                 // tints) still carries.
+                // Row offsets reset to 0 inside each hunk; compose with hunk
+                // id so the LazyVStack sees globally-unique IDs (otherwise
+                // SwiftUI logs "the ID … is used by multiple child views").
                 LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                     ForEach(hunks) { hunk in
                         DiffHunkHeader(hunk: hunk)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
-                        ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
+                        ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { idx, row in
                             HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
                                 DiffSplitCell(line: row.left,  side: .left,  attributed: row.left.flatMap  { table?[$0.id] })
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -36,6 +40,7 @@ struct DiffSplitContent: View {
                                 DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            .id("h-\(hunk.id)-r-\(idx)")
                         }
                     }
                 }

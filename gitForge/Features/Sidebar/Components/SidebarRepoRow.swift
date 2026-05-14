@@ -51,7 +51,11 @@ struct SidebarRepoRow: View {
             }
             if let onRemove {
                 Divider()
-                Button("Remove from Recents", role: .destructive, action: onRemove)
+                // Not destructive: removing from the recents list neither
+                // deletes the repo nor loses any data. Marking it destructive
+                // wrongly tells VoiceOver "this is dangerous" and red-tints
+                // the menu item on macOS.
+                Button("Remove from Recents", action: onRemove)
             }
         }
     }
