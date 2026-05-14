@@ -29,6 +29,11 @@ final class RepositoryWatcher {
     private var workingTreeWatcher: WorkingTreeWatcher?
     private var pendingRefresh: Task<Void, Never>?
     private var isRefreshing = false
+    /// Set when an event arrives while a refresh is already running. The
+    /// running refresh observes this on completion and re-schedules so
+    /// the new state is picked up — without it, an edit landing mid-flight
+    /// is silently dropped.
+    private var refreshDirty = false
     private var lastRefresh: Date = .distantPast
     /// Set while the VM is running its own mutation (commit/stash/reset/…).
     /// Our own writes to `.git/HEAD`/`refs/*` would otherwise fire this
@@ -120,26 +125,34 @@ final class RepositoryWatcher {
 
     private func scheduleRefresh(force: Bool = false) {
         if suspended { return }
-        // If we're mid-refresh, the in-flight task will already pick up the
-        // newest state when it completes. No need to queue another.
-        if isRefreshing { return }
-        // Ignore events that arrive immediately after our own refresh —
-        // those are git's own mtime jiggling, not real external work.
-        // `force` overrides this for user-initiated signals (foreground,
-        // window key) where staleness would be user-visible.
-        if !force, Date().timeIntervalSince(lastRefresh) < Self.cooldown { return }
+        // Mid-refresh: mark dirty so the running task re-schedules itself
+        // when it completes. Previously this branch just dropped the event,
+        // so an edit landing during the refresh window was silently lost.
+        if isRefreshing {
+            refreshDirty = true
+            return
+        }
 
         pendingRefresh?.cancel()
-        // Forced pokes also collapse the debounce — the user just told us
-        // something changed, no point waiting another second to find out.
-        let delay = force ? 0 : Self.debounce
+        // Cooldown is a *minimum gap between refreshes*, not a drop window.
+        // If the gap hasn't elapsed yet, defer the new refresh until it
+        // does — never silently lose the event.
+        let cooldownRemaining = max(0, Self.cooldown - Date().timeIntervalSince(lastRefresh))
+        let delay = force ? 0 : max(Self.debounce, cooldownRemaining)
         pendingRefresh = Task { @MainActor [weak self] in
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
             guard let self, !Task.isCancelled else { return }
             self.isRefreshing = true
+            self.refreshDirty = false
             await self.onChange()
             self.lastRefresh = Date()
             self.isRefreshing = false
+            // An event landed mid-refresh — schedule one more pass so the
+            // new state lands without waiting for another external trigger.
+            if self.refreshDirty {
+                self.refreshDirty = false
+                self.scheduleRefresh()
+            }
         }
     }
 }

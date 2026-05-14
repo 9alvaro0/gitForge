@@ -91,6 +91,34 @@ struct RepositoryWatcherSuspendTests {
         #expect(await counter.value == 0)
         _ = watcher
     }
+
+    @Test("A second poke inside the cooldown defers instead of being dropped")
+    func cooldownDeferDoesntDropEvent() async throws {
+        let dir = try makeRepoDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let counter = ChangeCounter()
+        let watcher = RepositoryWatcher(repository: dir) { @MainActor in
+            await counter.bump()
+        }
+        // Forced poke runs immediately and sets `lastRefresh = now`.
+        watcher.poke(force: true)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(await counter.value == 1)
+
+        // Within the 1.5s cooldown, a non-forced poke previously DROPPED the
+        // event. It must defer until the cooldown elapses and then fire,
+        // not vanish.
+        watcher.poke(force: false)
+        try await Task.sleep(for: .milliseconds(200))
+        // Cooldown hasn't elapsed yet — refresh shouldn't have fired again.
+        #expect(await counter.value == 1)
+
+        // After the cooldown window passes the deferred refresh should fire.
+        try await Task.sleep(for: .seconds(2))
+        #expect(await counter.value == 2)
+        _ = watcher
+    }
 }
 
 /// Tiny actor-as-counter so concurrent main-actor closures can write safely
