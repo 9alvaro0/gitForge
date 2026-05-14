@@ -21,7 +21,7 @@ struct StatusTag: View {
         case .added:        return "A"
         case .modified:     return "M"
         case .deleted:      return "D"
-        case .untracked:    return "?"
+        case .untracked:    return "N"
         case .renamed:      return "R"
         case .copied:       return "C"
         case .typeChanged:  return "T"
@@ -34,7 +34,7 @@ struct StatusTag: View {
         case .added:        return theme.palette.add
         case .modified:     return theme.palette.mod
         case .deleted:      return theme.palette.del
-        case .untracked:    return theme.palette.fg3
+        case .untracked:    return theme.palette.add
         case .renamed:      return theme.palette.info
         case .copied:       return theme.palette.info
         case .typeChanged:  return theme.palette.mod
