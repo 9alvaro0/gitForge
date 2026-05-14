@@ -13,18 +13,19 @@ struct DiffUnifiedContent: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                        ForEach(hunks) { hunk in
-                            DiffHunkHeader(hunk: hunk)
-                            let table = highlighted[hunk.id]
-                            ForEach(hunk.lines) { line in
-                                DiffRow(line: line, attributed: table?[line.id])
-                            }
+                // LazyVStack at the outer level so a diff of 50k lines doesn't
+                // materialise every DiffRow at first paint. Hunks are usually
+                // small (<1k lines each) so the inner ForEach stays eager —
+                // the win is letting the scroll view skip hunks above/below
+                // the viewport entirely.
+                LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none, pinnedViews: []) {
+                    ForEach(hunks) { hunk in
+                        DiffHunkHeader(hunk: hunk)
+                        let table = highlighted[hunk.id]
+                        ForEach(hunk.lines) { line in
+                            DiffRow(line: line, attributed: table?[line.id])
                         }
                     }
-                    .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
                 }
                 .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
             }

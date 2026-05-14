@@ -10,7 +10,7 @@ extension RepositoryViewModel {
         vm.refs = GitRef.previewSamples
         vm.currentBranchName = "main"
         vm.status = WorkingCopyStatus.preview
-        vm.recomputeGraph()
+        vm.recomputeGraphSync()
         return vm
     }
 

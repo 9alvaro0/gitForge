@@ -48,9 +48,10 @@ extension RepositoryViewModel {
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
+            rebuildCommitDateIndex()
             hasMore = page.count == pageSize
             selectedCommitId = commits.first?.id
-            recomputeGraph()
+            await recomputeGraph()
         } catch {
             guard gen == logGen else { return }
             loadError = error.userMessage
@@ -82,11 +83,12 @@ extension RepositoryViewModel {
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
+            rebuildCommitDateIndex()
             hasMore = page.count == pageSize
             if let prev = previousSelection, commitsById[prev] == nil {
                 selectedCommitId = commits.first?.id
             }
-            recomputeGraph()
+            await recomputeGraph()
             hasLoadedLogForCurrentScope = true
         } catch {
             guard gen == logGen else { return }
@@ -150,12 +152,49 @@ extension RepositoryViewModel {
         loadedRawCount += next.count
         commits.append(contentsOf: next)
         dropStashInternals()
+        mergeCommitDateIndex(with: next)
         hasMore = next.count == pageSize
-        recomputeGraph()
+        await recomputeGraph()
         return next
     }
 
-    func recomputeGraph() {
+    /// Rebuild the date index from scratch — used when `commits` is replaced
+    /// wholesale (loadInitial / reloadLog).
+    func rebuildCommitDateIndex() {
+        commitDateBySha = Dictionary(commits.map { ($0.sha, $0.authorDate) },
+                                     uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Add the freshly-paginated commits to the index without rebuilding.
+    func mergeCommitDateIndex(with added: [Commit]) {
+        for c in added { commitDateBySha[c.sha] = c.authorDate }
+    }
+
+    /// Moves the (O(n)) layout computation off the main actor so a paginate
+    /// or reload over 50k commits doesn't stutter the scroll view. The result
+    /// is gated by `graphLayoutGen` so an older detached compute can't
+    /// stomp a fresher one when the user scrolls fast enough to enqueue
+    /// multiple page loads in flight.
+    func recomputeGraph() async {
+        graphLayoutGen &+= 1
+        let gen = graphLayoutGen
+        let stashShas = Set(stashes.map(\.sha))
+        let commitsSnapshot = commits
+        let refsSnapshot = refsBySha
+        let result = await Task.detached { @Sendable in
+            GraphLayoutEngine.layouts(for: commitsSnapshot, refsBySha: refsSnapshot, stashShas: stashShas)
+        }.value
+        guard gen == graphLayoutGen else { return }
+        graphLayouts = result.rows
+        graphMaxLanes = max(1, result.maxLanes)
+    }
+
+    /// Synchronous variant used by SwiftUI previews and any caller that
+    /// genuinely needs the graph populated before the next instruction.
+    /// Production paths should prefer `recomputeGraph()` to keep the main
+    /// actor free.
+    func recomputeGraphSync() {
+        graphLayoutGen &+= 1
         let stashShas = Set(stashes.map(\.sha))
         let result = GraphLayoutEngine.layouts(for: commits, refsBySha: refsBySha, stashShas: stashShas)
         graphLayouts = result.rows
@@ -187,6 +226,7 @@ extension RepositoryViewModel {
         loadedRawCount = 0
         graphLayouts = []
         graphMaxLanes = 1
+        commitDateBySha = [:]
         hasMore = true
         selectedCommitId = nil
         hasLoadedLogForCurrentScope = false

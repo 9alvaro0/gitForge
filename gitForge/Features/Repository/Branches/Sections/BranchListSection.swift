@@ -28,7 +28,11 @@ struct BranchListSection: View {
             if rows.isEmpty {
                 emptyState
             } else {
-                VStack(spacing: DesignTokens.Spacing.none) {
+                // LazyVStack so a repo with 1k+ branches/remotes doesn't
+                // materialise every row on first paint. `tableHeader` and the
+                // ForEach share the same LazyVStack so the header scrolls
+                // with the rest (preserves the previous behaviour).
+                LazyVStack(spacing: DesignTokens.Spacing.none) {
                     tableHeader
                     ForEach(rows) { row in
                         renderRow(row)

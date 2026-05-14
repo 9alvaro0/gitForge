@@ -158,6 +158,17 @@ final class RepositoryViewModel {
     // MARK: Graph
     var graphLayouts: [GraphRowLayout] = []
     var graphMaxLanes: Int = 1
+    /// Bumped at the start of every `recomputeGraph()` call. The layout work
+    /// now runs off-actor (50k commits would otherwise stutter the scroll on
+    /// page load); the post-await guard drops stale results when the user
+    /// scrolls fast enough to enqueue multiple page loads.
+    var graphLayoutGen: UInt64 = 0
+    /// `commit.sha -> commit.authorDate` lookup used by the Branches list to
+    /// render "last commit" per ref. Maintained as a side-effect of every log
+    /// mutation so a body re-render (e.g. each keystroke in the branch
+    /// filter) is an O(refs) dictionary lookup instead of an O(commits)
+    /// Dictionary rebuild every frame.
+    var commitDateBySha: [String: Date] = [:]
 
     // MARK: Working copy
     var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
