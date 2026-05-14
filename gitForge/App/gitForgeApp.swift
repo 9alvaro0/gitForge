@@ -36,7 +36,20 @@ struct GitForgeApp: App {
                 // here so the watcher's cooldown can't drop a user-visible
                 // refresh.
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    // Resume the cadenced background work the resignActive
+                    // handler paused, then nudge the watcher so any external
+                    // change while we were away surfaces immediately.
+                    appState.catalog.resumeBackgroundWork()
+                    appState.catalog.activeViewModel?.resumeBackgroundWork()
                     appState.catalog.activeViewModel?.pokeReactivity(force: true)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+                    // Stop polling + auto-fetch while the app is in the
+                    // background — no point burning battery talking to remotes
+                    // for windows the user can't see. The FS watcher stays
+                    // armed; macOS suspends its events in background anyway.
+                    appState.catalog.pauseBackgroundWork()
+                    appState.catalog.activeViewModel?.pauseBackgroundWork()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
                     appState.catalog.activeViewModel?.pokeReactivity(force: true)

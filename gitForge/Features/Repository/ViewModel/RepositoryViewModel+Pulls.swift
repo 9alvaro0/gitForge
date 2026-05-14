@@ -15,7 +15,7 @@ extension RepositoryViewModel {
         pullRequestCommits = []
         pullRequestFiles = []
         pullRequestDetailError = nil
-        Task { await loadPullRequestDetail() }
+        track(Task { [weak self] in await self?.loadPullRequestDetail() })
     }
 
     /// Close the detail view and clear cached data.
