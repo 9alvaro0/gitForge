@@ -39,17 +39,26 @@ final class RepositoryWatcher {
 
     init(repository: URL, onChange: @escaping @MainActor () async -> Void) {
         self.onChange = onChange
-        let gitDir = repository.appendingPathComponent(".git")
+        // Per-worktree gitdir holds HEAD and state files; the shared
+        // commondir holds refs/ and packed-refs. In a regular repo they're
+        // the same path. In a linked worktree (`.git` is a file), resolving
+        // both correctly is the only way the watcher fires on ref/HEAD
+        // changes — without this it sat permanently dark, opening file
+        // descriptors against paths that don't exist on disk.
+        let gitDir = GitCLI.resolveGitDirectory(in: repository)
+            ?? repository.appendingPathComponent(".git")
+        let commonDir = GitCLI.resolveGitCommonDirectory(in: repository)
+            ?? gitDir
         watch(gitDir.appendingPathComponent("HEAD"))
-        watch(gitDir.appendingPathComponent("packed-refs"))
-        // .git/refs/heads is enough to catch branch ops + fetch — watching
-        // .git/refs (parent) double-fires for every nested file. .git/index
+        watch(commonDir.appendingPathComponent("packed-refs"))
+        // refs/heads is enough to catch branch ops + fetch — watching
+        // refs/ (parent) double-fires for every nested file. .git/index
         // is touched by read-only commands (status, log) so it's a known
         // false-positive source — leave it out and rely on the cooldown
         // check inside scheduleRefresh().
-        watch(gitDir.appendingPathComponent("refs/heads"))
-        watch(gitDir.appendingPathComponent("refs/remotes"))
-        watch(gitDir.appendingPathComponent("refs/tags"))
+        watch(commonDir.appendingPathComponent("refs/heads"))
+        watch(commonDir.appendingPathComponent("refs/remotes"))
+        watch(commonDir.appendingPathComponent("refs/tags"))
         // Working-tree watcher catches IDE saves and external edits — the
         // .git/ sources above only fire on git ops, so without this the
         // Changes pane sat stale until the user ran a git command.

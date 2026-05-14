@@ -12,8 +12,22 @@ import Observation
 @MainActor
 final class ProfileStore {
     static let storageKey = "gitForge.profiles"
+    /// Quarantine key for blobs that fail to decode — preserved so a
+    /// `defaults read` recovers the bytes instead of them being silently
+    /// overwritten on the next save.
+    static let corruptedKeyPrefix = "gitForge.profiles.corrupted"
+    /// Current schema version. Bump when a non-backward-compatible field
+    /// arrives; existing optionals-with-default don't require a bump.
+    static let schemaVersion = 1
 
     private(set) var profiles: [GitProfile] = []
+
+    /// Persisted envelope. Wrapping the array lets us bump the schema
+    /// without losing existing data on app upgrade.
+    private struct StoredProfiles: Codable {
+        let version: Int
+        let profiles: [GitProfile]
+    }
 
     init() {
         load()
@@ -67,14 +81,41 @@ final class ProfileStore {
 
     private func load() {
         guard let data = UserDefaults.standard.data(forKey: Self.storageKey) else { return }
-        if let decoded = try? JSONDecoder().decode([GitProfile].self, from: data) {
-            profiles = decoded
+        let decoder = JSONDecoder()
+        // v1 envelope first; fall back to the bare-array legacy format so
+        // users upgrading from a pre-versioned build don't lose profiles.
+        if let stored = try? decoder.decode(StoredProfiles.self, from: data) {
+            if stored.version > Self.schemaVersion {
+                quarantineCorruptedBlob(data, reason: "schema_v\(stored.version)")
+                return
+            }
+            profiles = stored.profiles
+            return
         }
+        if let legacy = try? decoder.decode([GitProfile].self, from: data) {
+            profiles = legacy
+            return
+        }
+        // Neither shape decoded — preserve the bytes for diagnosis instead
+        // of silently dropping them on the next save().
+        quarantineCorruptedBlob(data, reason: "decode_failure")
     }
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(profiles) else { return }
+        let envelope = StoredProfiles(version: Self.schemaVersion, profiles: profiles)
+        guard let data = try? JSONEncoder().encode(envelope) else { return }
         UserDefaults.standard.set(data, forKey: Self.storageKey)
+    }
+
+    /// Copies the unparseable bytes to a timestamped key (and removes the
+    /// primary one) so the next save doesn't overwrite the diagnostic
+    /// evidence and the user can recover via `defaults read`.
+    private func quarantineCorruptedBlob(_ data: Data, reason: String) {
+        let stamp = ISO8601DateFormatter().string(from: .now)
+            .replacingOccurrences(of: ":", with: "-")
+        let key = "\(Self.corruptedKeyPrefix).\(reason).\(stamp)"
+        UserDefaults.standard.set(data, forKey: key)
+        UserDefaults.standard.removeObject(forKey: Self.storageKey)
     }
 }
 
