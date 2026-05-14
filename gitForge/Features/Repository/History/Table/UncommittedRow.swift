@@ -2,11 +2,16 @@ import SwiftUI
 
 /// "Uncommitted changes" row pinned to the top of the log when the working
 /// tree is dirty. Mirrors the column layout of a real `CommitRow` so the
-/// graph gutter and column boundaries line up.
+/// graph gutter and column boundaries line up, and behaves like a row — a
+/// single tap selects it (host wires the click into the working-copy file
+/// list + diff pane), and a double tap can be routed elsewhere if needed.
 struct UncommittedRow: View {
     let rowHeight: CGFloat
     let gutterWidth: CGFloat
     let columns: ResizableTableModel
+    let isSelected: Bool
+    let onSelect: () -> Void
+    var onDoubleClick: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -46,7 +51,29 @@ struct UncommittedRow: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)
         .frame(height: rowHeight)
-        .background(LinearGradient(colors: [theme.palette.mod.opacity(DesignTokens.Opacity.faint), .clear], startPoint: .leading, endPoint: .trailing))
+        .background(rowBackground)
+        .overlay(alignment: .leading) {
+            if isSelected { Rectangle().fill(theme.palette.accent).frame(width: 2) }
+        }
+        .contentShape(.rect)
+        .onTapGesture(count: 2) { onDoubleClick?() }
+        .onTapGesture(perform: onSelect)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Uncommitted changes")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var rowBackground: AnyShapeStyle {
+        if isSelected {
+            return AnyShapeStyle(theme.palette.accentSoft)
+        }
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: [theme.palette.mod.opacity(DesignTokens.Opacity.faint), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
     }
 }
 
@@ -63,8 +90,11 @@ struct UncommittedRow: View {
             (id: "when",      defaultWidth: 70,  minWidth: 50),
         ]
     )
-    UncommittedRow(rowHeight: 36, gutterWidth: 110, columns: columns)
-        .frame(width: 1100)
-        .background(theme.palette.bg2)
-        .appTheme(theme)
+    VStack(spacing: 0) {
+        UncommittedRow(rowHeight: 36, gutterWidth: 110, columns: columns, isSelected: false, onSelect: {})
+        UncommittedRow(rowHeight: 36, gutterWidth: 110, columns: columns, isSelected: true, onSelect: {})
+    }
+    .frame(width: 1100)
+    .background(theme.palette.bg2)
+    .appTheme(theme)
 }

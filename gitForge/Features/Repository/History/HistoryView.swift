@@ -24,6 +24,10 @@ struct HistoryView: View {
     /// the pane reads `theme.defaultDiffMode` so changes in Settings show up
     /// immediately and re-entering History always lands on the default.
     @State private var diffModeOverride: DiffPane.ViewMode?
+    /// `true` while the pinned "Uncommitted changes" row is the active selection.
+    /// Drives both the right detail panel (working-copy file list) and the
+    /// bottom diff pane (working-copy diff for the selected file).
+    @State private var isUncommittedSelected: Bool = false
 
     @State private var columns = ResizableTableModel(
         id: "history",
@@ -118,6 +122,13 @@ struct HistoryView: View {
         } message: {
             Text("HEAD will detach from any branch. New commits won't belong to a branch — create one first if you plan to keep them.")
         }
+        .onChange(of: viewModel.status.isClean) { _, clean in
+            // Working tree just went clean (e.g. user committed everything) —
+            // the pinned row vanishes from the table, so drop the selection
+            // too instead of leaving the detail panel pointing at a row that
+            // is no longer visible.
+            if clean { isUncommittedSelected = false }
+        }
         .modifier(BranchDropDialogs(
             moveRequest: $moveBranchRequest,
             resetRequest: $resetHeadRequest,
@@ -142,9 +153,11 @@ struct HistoryView: View {
                         currentBranch: viewModel.currentBranchName,
                         selectedSha: viewModel.selectedCommitId,
                         workingCopyDirty: !viewModel.status.isClean,
+                        uncommittedSelected: isUncommittedSelected,
                         columns: columns,
                         isMatch: matcher,
-                        onSelect: { sha in viewModel.selectedCommitId = sha },
+                        onSelect: { sha in selectCommit(sha) },
+                        onUncommittedSelect: { selectUncommitted() },
                         onDoubleClick: { sha in handleDoubleClick(sha) },
                         onAppear: { commit in
                             Task { await viewModel.loadMoreIfNeeded(currentItem: commit) }
@@ -168,32 +181,50 @@ struct HistoryView: View {
                     maxHeight: 800,
                     onCommit: { persistDiffPaneHeight() }
                 )
-                DiffPane(
-                    file: viewModel.selectedCommitFile,
-                    hunks: viewModel.commitFileDiff,
-                    loading: viewModel.loadingCommitFileDiff,
-                    emptyState: viewModel.commitFileDiffEmptyState,
-                    onClose: { setDiffPaneCollapsed(true) },
-                    viewMode: diffMode
-                )
-                .frame(height: diffPaneHeight)
+                diffPaneContent
+                    .frame(height: diffPaneHeight)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: viewModel.selectedCommitFile) { _, newFile in
-            // Auto-expand when a file is selected and the diff pane has been
-            // shrunk to a sliver — a fully collapsed pane stays put.
-            guard newFile != nil, !diffPaneCollapsed,
-                  diffPaneHeight < Self.collapsedThreshold else { return }
-            withAnimation(.easeOut(duration: 0.18)) {
-                diffPaneHeight = Self.defaultDiffHeight
-            }
+    }
+
+    /// Routes the bottom pane between commit-mode and uncommitted-mode so a
+    /// single `DiffPane` instance keeps its tokenisation cache across selection
+    /// changes within each mode.
+    @ViewBuilder
+    private var diffPaneContent: some View {
+        if isUncommittedSelected {
+            DiffPane(
+                file: viewModel.selectedWorkingCopyFile?.path,
+                hunks: viewModel.workingCopyDiff,
+                loading: viewModel.loadingWorkingCopyDiff,
+                emptyState: viewModel.workingCopyDiffEmptyState,
+                onClose: { setDiffPaneCollapsed(true) },
+                viewMode: diffMode
+            )
+        } else {
+            DiffPane(
+                file: viewModel.selectedCommitFile,
+                hunks: viewModel.commitFileDiff,
+                loading: viewModel.loadingCommitFileDiff,
+                emptyState: viewModel.commitFileDiffEmptyState,
+                onClose: { setDiffPaneCollapsed(true) },
+                viewMode: diffMode
+            )
         }
     }
 
     private var detailColumn: some View {
         Group {
-            if let commit = viewModel.selectedCommit {
+            if isUncommittedSelected {
+                ScrollView {
+                    UncommittedDetailColumn(
+                        viewModel: viewModel,
+                        onClose: { setDetailColumnCollapsed(true) }
+                    )
+                    .padding(DesignTokens.Spacing.xxxxl)
+                }
+            } else if let commit = viewModel.selectedCommit {
                 ScrollView {
                     CommitDetailColumn(
                         commit: commit,
@@ -216,6 +247,62 @@ struct HistoryView: View {
         }
         .frame(width: detailColumnWidth)
         .background(theme.palette.bg1)
+    }
+
+    // MARK: Selection
+
+    /// Routes a commit-row click through a single funnel so every selection
+    /// also lifts the diff pane out of its collapsed / sliver state — clicking
+    /// any row should always reveal its diff without a second action.
+    private func selectCommit(_ sha: String) {
+        if isUncommittedSelected { isUncommittedSelected = false }
+        viewModel.selectedCommitId = sha
+        revealDiffPane()
+    }
+
+    /// Counterpart to `selectCommit(_:)` for the pinned "Uncommitted changes"
+    /// row. Clears the commit selection so the right detail panel and the
+    /// bottom diff pane switch to working-copy mode, picks the first
+    /// changed file when nothing is selected yet, and reveals the diff pane.
+    private func selectUncommitted() {
+        viewModel.selectedCommitId = nil
+        isUncommittedSelected = true
+        if viewModel.selectedWorkingCopyFile == nil {
+            let firstFile = viewModel.status.stagedFiles.first
+                ?? viewModel.status.unstagedFiles.first
+            viewModel.selectedWorkingCopyFile = firstFile
+        }
+        revealDiffPane()
+    }
+
+    /// Expands the bottom diff pane on every row click — fully collapsed state
+    /// gets toggled back open, and a sliver gets bumped up to the default
+    /// height so the diff is actually visible.
+    private func revealDiffPane() {
+        if diffPaneCollapsed {
+            setDiffPaneCollapsed(false)
+        }
+        let revealed = Self.revealedDiffPaneHeight(
+            current: diffPaneHeight,
+            threshold: Self.collapsedThreshold,
+            defaultHeight: Self.defaultDiffHeight
+        )
+        if revealed != diffPaneHeight {
+            withAnimation(.easeOut(duration: 0.18)) {
+                diffPaneHeight = revealed
+            }
+        }
+    }
+
+    /// Pure decision for `revealDiffPane`: a sliver shorter than `threshold`
+    /// bumps up to `defaultHeight`; anything taller stays put. Extracted so
+    /// the reveal rule is unit-testable without spinning up the view.
+    static func revealedDiffPaneHeight(
+        current: CGFloat,
+        threshold: CGFloat,
+        defaultHeight: CGFloat
+    ) -> CGFloat {
+        current < threshold ? defaultHeight : current
     }
 
     // MARK: Persistence + collapse helpers
