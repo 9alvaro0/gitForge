@@ -38,11 +38,11 @@ struct BranchesView: View {
         filter.isEmpty || ref.name.localizedCaseInsensitiveContains(filter)
     }
 
-    /// Built once per body render so each leaf row is an O(1) lookup instead
-    /// of an O(commits) scan — this matters once a repo accumulates branches.
+    /// Maintained by the ViewModel as a side-effect of every log mutation;
+    /// reading it here is a single property fetch rather than the previous
+    /// per-body Dictionary rebuild over `viewModel.commits`.
     private var commitDateBySha: [String: Date] {
-        Dictionary(viewModel.commits.map { ($0.sha, $0.authorDate) },
-                   uniquingKeysWith: { first, _ in first })
+        viewModel.commitDateBySha
     }
 
     // MARK: Body

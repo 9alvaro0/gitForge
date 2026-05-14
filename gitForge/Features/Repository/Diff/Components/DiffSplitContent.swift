@@ -13,20 +13,28 @@ struct DiffSplitContent: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView(.vertical) {
-                Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+                // LazyVStack of HStack rows replaces the eager Grid so a diff
+                // with thousands of rows doesn't realise every cell on first
+                // paint. Trade-off vs. Grid: paired left/right cells align at
+                // top (`.alignment(.top)`) instead of stretching to a shared
+                // row height — if one side wraps further than the other, the
+                // shorter side's background ends sooner. Acceptable: the line
+                // numbers stay aligned and the visual cue (added/removed
+                // tints) still carries.
+                LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
                     ForEach(hunks) { hunk in
-                        GridRow {
-                            DiffHunkHeader(hunk: hunk)
-                                .gridCellColumns(3)
-                        }
+                        DiffHunkHeader(hunk: hunk)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         let table = highlighted[hunk.id]
                         ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { _, row in
-                            GridRow {
+                            HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
                                 DiffSplitCell(line: row.left,  side: .left,  attributed: row.left.flatMap  { table?[$0.id] })
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 Rectangle()
                                     .fill(theme.palette.line)
                                     .frame(width: DesignTokens.Stroke.regular)
                                 DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
                     }

@@ -10,6 +10,17 @@ actor GitCLI {
     /// from paths. Available since git 2.24 (Nov 2019).
     static let endOfOptions = "--end-of-options"
 
+    /// Hard cap on stdout we'll buffer per command. Above this we kill the
+    /// subprocess and throw `outputTooLarge` — protects the app from OOM on
+    /// pathological diffs / `git log -p` calls without forcing every caller
+    /// to think about streaming. 200MB chosen empirically: covers real-world
+    /// monorepo diffs comfortably (~10MB tops) while still tripping before
+    /// macOS jetsam decides to kill us.
+    static let stdoutByteCap = 200 * 1_048_576
+    /// stderr is informational; if a command emits >1MB of stderr something
+    /// has already gone very wrong and we don't need to keep more of it.
+    static let stderrByteCap = 1_048_576
+
     let workingDirectory: URL
     private let executablePath: String
 
@@ -124,13 +135,16 @@ actor GitCLI {
 
         return try await withTaskCancellationHandler {
             // Drain pipes and wait for exit concurrently so the child process
-            // never blocks on a full pipe buffer (~64KB on Darwin).
-            async let stdoutData = Self.readToEnd(stdoutPipe.fileHandleForReading)
-            async let stderrData = Self.readToEnd(stderrPipe.fileHandleForReading)
+            // never blocks on a full pipe buffer (~64KB on Darwin). Capped
+            // so a runaway `git log -p` / `diff` can't OOM the app: when the
+            // cap trips, we terminate the subprocess and surface
+            // `outputTooLarge` instead of letting Data grow unbounded.
+            async let stdoutResult = Self.readCapped(stdoutPipe.fileHandleForReading, cap: Self.stdoutByteCap, onOverflow: { processRef.terminate() })
+            async let stderrResult = Self.readCapped(stderrPipe.fileHandleForReading, cap: Self.stderrByteCap, onOverflow: nil)
             async let exitWait: Void = Self.waitForExit(process)
 
-            let stdoutBytes = await stdoutData
-            let stderrBytes = await stderrData
+            let (stdoutBytes, stdoutTruncated) = await stdoutResult
+            let (stderrBytes, _) = await stderrResult
             _ = await exitWait
 
             // Caller cancelled → the onCancel handler SIGTERM'd the process.
@@ -138,6 +152,11 @@ actor GitCLI {
             // from a real `commandFailed`, mirroring `clone`'s contract.
             if Task.isCancelled, process.terminationReason == .uncaughtSignal {
                 throw CancellationError()
+            }
+
+            if stdoutTruncated {
+                Self.logger.error("✗ git \(safeArgsString, privacy: .public) exceeded \(Self.stdoutByteCap / 1_048_576)MB cap, terminated")
+                throw GitError.outputTooLarge(consumed: stdoutBytes.count, cap: Self.stdoutByteCap)
             }
 
             let duration = Date().timeIntervalSince(startTime)
@@ -197,9 +216,39 @@ actor GitCLI {
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "://****@")
     }
 
-    private static func readToEnd(_ handle: FileHandle) async -> Data {
+    /// Reads `handle` to EOF, accumulating up to `cap` bytes. Returns the
+    /// data plus a flag indicating whether the cap was hit (in which case the
+    /// caller should treat the result as truncated). If `onOverflow` is
+    /// supplied, it fires the first time the cap trips — used to terminate
+    /// the subprocess so a giant `git log -p` doesn't keep streaming
+    /// gigabytes into a pipe we'd just discard.
+    private static func readCapped(_ handle: FileHandle,
+                                   cap: Int,
+                                   onOverflow: (@Sendable () -> Void)?) async -> (data: Data, truncated: Bool) {
         await Task.detached {
-            (try? handle.readToEnd()) ?? Data()
+            var accumulated = Data()
+            var truncated = false
+            while true {
+                let chunk: Data
+                do {
+                    chunk = try handle.read(upToCount: 65_536) ?? Data()
+                } catch {
+                    break
+                }
+                if chunk.isEmpty { break }
+                if accumulated.count + chunk.count > cap {
+                    let remaining = max(0, cap - accumulated.count)
+                    if remaining > 0 { accumulated.append(chunk.prefix(remaining)) }
+                    truncated = true
+                    onOverflow?()
+                    // Keep draining to EOF so the writer doesn't block on a
+                    // full pipe — discard, don't grow the buffer further.
+                    while let drain = try? handle.read(upToCount: 65_536), !drain.isEmpty { }
+                    break
+                }
+                accumulated.append(chunk)
+            }
+            return (accumulated, truncated)
         }.value
     }
 

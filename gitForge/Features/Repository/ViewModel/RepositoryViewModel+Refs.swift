@@ -40,7 +40,7 @@ extension RepositoryViewModel {
         // empty refs dictionary and priority loses, so re-run once refs
         // actually land.
         if refsChanged && !commits.isEmpty {
-            recomputeGraph()
+            await recomputeGraph()
         }
         await loadAheadBehind()
     }
