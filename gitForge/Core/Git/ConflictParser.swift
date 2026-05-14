@@ -30,7 +30,7 @@ nonisolated enum ConflictParser {
         var i = 0
         while i < lines.count {
             let line = lines[i]
-            if line.hasPrefix("<<<<<<<") {
+            if isOursMarker(line) {
                 if !buffer.isEmpty {
                     segments.append(.text(buffer))
                     buffer = []
@@ -52,6 +52,20 @@ nonisolated enum ConflictParser {
             segments.append(.text(buffer))
         }
         return (segments, hunks)
+    }
+
+    /// `<<<<<<<` must occupy the whole line or be followed by a space + label.
+    /// Without this check, a source comment like `// <<<<<<< TODO resolve` is
+    /// taken as the start of a conflict and the parser silently merges all
+    /// content up to the next `>>>>>>>` into a corrupt hunk — which then
+    /// gets written back to disk when the user picks a side.
+    private static func isOursMarker(_ line: String) -> Bool {
+        line == "<<<<<<<" || line.hasPrefix("<<<<<<< ")
+    }
+
+    /// Same anchor rule for the closing marker.
+    private static func isTheirsMarker(_ line: String) -> Bool {
+        line == ">>>>>>>" || line.hasPrefix(">>>>>>> ")
     }
 
     /// Re-emits `content` with the picked side substituted for every conflict.
@@ -114,7 +128,7 @@ nonisolated enum ConflictParser {
             if phase != .theirs, line == "=======" {
                 phase = .theirs; i += 1; continue
             }
-            if line.hasPrefix(">>>>>>>") {
+            if isTheirsMarker(line) {
                 let hunk = ConflictHunk(ours: ours, base: base, theirs: theirs)
                 return ParseResult(hunk: hunk, endIndex: i + 1)
             }

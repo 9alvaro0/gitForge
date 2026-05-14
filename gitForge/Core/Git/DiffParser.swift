@@ -1,6 +1,94 @@
 import Foundation
 
 enum DiffParser {
+    /// Metadata callers can surface when `parse` returns no hunks. A diff
+    /// over a binary file, a pure rename, a mode-only change, or a
+    /// submodule pointer bump emits zero `@@` hunks — the UI used to render
+    /// "no changes" for all of these, hiding real work the user did.
+    enum Summary: Equatable, Sendable {
+        case binary(oldPath: String, newPath: String)
+        case rename(from: String, to: String, similarity: Int?)
+        case modeChange(from: String, to: String)
+        case submoduleUpdate(path: String, from: String, to: String)
+    }
+
+    /// Scans `output` for non-content metadata. Returns the first marker
+    /// recognised; nil when the diff is a plain text change with hunks.
+    static func parseSummary(_ output: String) -> Summary? {
+        let lines = output.components(separatedBy: "\n")
+        var renameFrom: String?
+        var renameTo: String?
+        var similarity: Int?
+        var oldMode: String?
+        var newMode: String?
+        var subprojectOld: String?
+        var subprojectNew: String?
+        var subprojectPath: String?
+
+        for line in lines {
+            if line.hasPrefix("Binary files ") {
+                if let (old, new) = parseBinaryHeader(line) {
+                    return .binary(oldPath: old, newPath: new)
+                }
+            } else if line.hasPrefix("rename from ") {
+                renameFrom = String(line.dropFirst("rename from ".count))
+            } else if line.hasPrefix("rename to ") {
+                renameTo = String(line.dropFirst("rename to ".count))
+            } else if line.hasPrefix("similarity index ") {
+                let pct = line.dropFirst("similarity index ".count)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "%"))
+                similarity = Int(pct)
+            } else if line.hasPrefix("old mode ") {
+                oldMode = String(line.dropFirst("old mode ".count))
+            } else if line.hasPrefix("new mode ") {
+                newMode = String(line.dropFirst("new mode ".count))
+            } else if line.hasPrefix("-Subproject commit ") {
+                subprojectOld = String(line.dropFirst("-Subproject commit ".count))
+            } else if line.hasPrefix("+Subproject commit ") {
+                subprojectNew = String(line.dropFirst("+Subproject commit ".count))
+            } else if line.hasPrefix("diff --git ") {
+                subprojectPath = parseDiffGitPath(line)
+            }
+        }
+        if let from = renameFrom, let to = renameTo {
+            return .rename(from: from, to: to, similarity: similarity)
+        }
+        if let from = oldMode, let to = newMode {
+            return .modeChange(from: from, to: to)
+        }
+        if let from = subprojectOld, let to = subprojectNew, let path = subprojectPath {
+            return .submoduleUpdate(path: path, from: from, to: to)
+        }
+        return nil
+    }
+
+    /// `Binary files a/foo and b/bar differ` → ("foo", "bar"). git omits the
+    /// `a/` and `b/` prefixes for renamed-to-self deletes; we strip both
+    /// permissively so the helper works on any shape git emits.
+    private static func parseBinaryHeader(_ line: String) -> (String, String)? {
+        let rest = line.dropFirst("Binary files ".count)
+        guard let andRange = rest.range(of: " and ") else { return nil }
+        let oldRaw = String(rest[rest.startIndex..<andRange.lowerBound])
+        let afterAnd = rest[andRange.upperBound...]
+        guard let differRange = afterAnd.range(of: " differ") else { return nil }
+        let newRaw = String(afterAnd[afterAnd.startIndex..<differRange.lowerBound])
+        return (stripDiffPrefix(oldRaw), stripDiffPrefix(newRaw))
+    }
+
+    /// `diff --git a/sub b/sub` → "sub". The two paths are identical for the
+    /// no-rename case, so picking either side is fine; submodule path bumps
+    /// take this branch.
+    private static func parseDiffGitPath(_ line: String) -> String? {
+        let parts = line.split(separator: " ")
+        guard parts.count >= 3 else { return nil }
+        return stripDiffPrefix(String(parts[2]))
+    }
+
+    private static func stripDiffPrefix(_ s: String) -> String {
+        if s.hasPrefix("a/") || s.hasPrefix("b/") { return String(s.dropFirst(2)) }
+        return s
+    }
+
     static func parse(_ output: String) -> [DiffHunk] {
         let lines = output.components(separatedBy: "\n")
         var hunks: [DiffHunk] = []
