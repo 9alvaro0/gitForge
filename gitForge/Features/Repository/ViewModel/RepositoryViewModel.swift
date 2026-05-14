@@ -429,20 +429,10 @@ final class RepositoryViewModel {
     /// moved — letting the watcher reload it on every tick was the source
     /// of feedback loops with our own write paths.
     private func refreshFromExternalChange() async {
-        // Snapshot what HEAD looked like before refresh. We use both pieces:
-        //  · branch name change (covers attaching/detaching HEAD externally,
-        //    `git switch` to a different branch, …).
-        //  · tip sha change (covers normal commits/pulls on the same branch).
-        // A pure detached→detached HEAD move via another tool isn't caught
-        // here without an extra `rev-parse HEAD` round-trip; very rare in
-        // practice, accept it.
         let previousBranch = currentBranchName
         let previousHeadSha = previousBranch.flatMap { branch in
             refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
         }
-        // The four refreshes are independent — only the post-await comparison
-        // depends on `loadRefs`'s writes (`currentBranchName` + `refs`). Fan
-        // them out so a watcher tick doesn't pay 4 sequential subprocesses.
         async let statusTask: Void = refreshStatus()
         async let refsTask: Void = loadRefs()
         async let conflictTask: Void = loadConflictState()
@@ -451,6 +441,17 @@ final class RepositoryViewModel {
         _ = await refsTask
         _ = await conflictTask
         _ = await identityTask
+        // Reload the diff of whatever the user is currently looking at, so an
+        // external edit / discard repaints the right pane immediately. Without
+        // this the file row updates but the diff stays on the previous
+        // snapshot until the user re-selects.
+        if let selected = selectedWorkingCopyFile,
+           // Only re-fetch if the file is still in the status set; otherwise
+           // the file was cleaned up and the selection will be pruned by
+           // refreshStatus itself.
+           status.files.contains(where: { $0.path == selected.path }) {
+            await loadWorkingCopyDiff(file: selected)
+        }
         let newHeadSha = currentBranchName.flatMap { branch in
             refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
         }
