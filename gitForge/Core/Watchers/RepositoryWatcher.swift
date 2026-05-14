@@ -16,14 +16,13 @@ import os
 @MainActor
 final class RepositoryWatcher {
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "watcher")
-    /// Long enough to absorb a chain of fs events from a single git op
-    /// (a `commit` writes HEAD, refs, index in quick succession).
-    private static let debounce: TimeInterval = 1.0
-    /// Minimum gap between successful refreshes. Read-only git commands
-    /// (status, log, rev-list…) still touch `.git/index` mtime via
-    /// internal refresh logic — without a cooldown the refresh path
-    /// triggers itself.
-    private static let cooldown: TimeInterval = 1.5
+    /// Coalescing window for a burst of fs events from one logical action
+    /// (an editor "save" hits temp file + rename + chmod within ~50ms; a
+    /// `git commit` writes HEAD, index, COMMIT_EDITMSG in quick succession).
+    /// Short enough to feel live — `git status` is ~30ms on small repos so
+    /// the user perceives the refresh as immediate — long enough that we
+    /// don't fire three times per save.
+    private static let debounce: TimeInterval = 0.3
 
     private var sources: [DispatchSourceFileSystemObject] = []
     private var workingTreeWatcher: WorkingTreeWatcher?
@@ -34,7 +33,11 @@ final class RepositoryWatcher {
     /// the new state is picked up — without it, an edit landing mid-flight
     /// is silently dropped.
     private var refreshDirty = false
-    private var lastRefresh: Date = .distantPast
+    /// Set when an event arrives while `suspended == true`. `resume()` checks
+    /// it and replays the missed signal as a normal scheduleRefresh — without
+    /// this, an external edit that lands during one of our own mutations
+    /// (commit, stash, discard…) vanished forever.
+    private var pendingSuspendedEvent = false
     /// Set while the VM is running its own mutation (commit/stash/reset/…).
     /// Our own writes to `.git/HEAD`/`refs/*` would otherwise fire this
     /// watcher and trigger a parallel refresh while `refreshAfterIntegration`
@@ -58,9 +61,9 @@ final class RepositoryWatcher {
         watch(commonDir.appendingPathComponent("packed-refs"))
         // refs/heads is enough to catch branch ops + fetch — watching
         // refs/ (parent) double-fires for every nested file. .git/index
-        // is touched by read-only commands (status, log) so it's a known
-        // false-positive source — leave it out and rely on the cooldown
-        // check inside scheduleRefresh().
+        // is touched by read-only commands (status, log) so we deliberately
+        // don't watch it — the WorkingTreeWatcher filters out `/.git/`
+        // paths for the same reason, so there's no feedback loop to guard.
         watch(commonDir.appendingPathComponent("refs/heads"))
         watch(commonDir.appendingPathComponent("refs/remotes"))
         watch(commonDir.appendingPathComponent("refs/tags"))
@@ -77,24 +80,32 @@ final class RepositoryWatcher {
         pendingRefresh?.cancel()
     }
 
-    /// Manually trigger a refresh. `force` skips the cooldown — use it for
-    /// user signals (window became key, app became active) where dropping
-    /// the request would be visible as stale state.
+    /// Manually trigger a refresh. `force` skips the debounce — use it for
+    /// user signals (window became key, app became active) where waiting
+    /// 300ms would be visible as stale state.
     func poke(force: Bool = false) { scheduleRefresh(force: force) }
 
     /// Pause event handling while an in-app mutation is running so our own
     /// `.git/` writes don't bounce back as "external change". Caller pairs
     /// this with `resume()` in a defer.
     func suspend() {
+        if Diagnostics.traceWatcher {
+            Self.logger.debug("suspend()")
+        }
         suspended = true
         pendingRefresh?.cancel()
     }
 
-    /// Resume event handling. The VM is expected to have called
-    /// `refreshAfterIntegration` already, so no implicit refresh here.
+    /// Resume event handling. If any event landed while we were suspended,
+    /// schedule a refresh now so the change isn't lost.
     func resume() {
+        let hadPending = pendingSuspendedEvent
         suspended = false
-        lastRefresh = Date()
+        pendingSuspendedEvent = false
+        if Diagnostics.traceWatcher {
+            Self.logger.debug("resume() pending=\(hadPending, privacy: .public)")
+        }
+        if hadPending { scheduleRefresh() }
     }
 
     // MARK: private
@@ -124,29 +135,46 @@ final class RepositoryWatcher {
     }
 
     private func scheduleRefresh(force: Bool = false) {
-        if suspended { return }
+        if suspended {
+            // Don't drop it: mark a single bit so `resume()` knows to fire
+            // one refresh. Multiple events while suspended collapse into a
+            // single replay — that's fine, the refresh reads fresh state
+            // anyway.
+            pendingSuspendedEvent = true
+            if Diagnostics.traceWatcher {
+                Self.logger.debug("scheduleRefresh deferred: suspended")
+            }
+            return
+        }
         // Mid-refresh: mark dirty so the running task re-schedules itself
         // when it completes. Previously this branch just dropped the event,
         // so an edit landing during the refresh window was silently lost.
         if isRefreshing {
             refreshDirty = true
+            if Diagnostics.traceWatcher {
+                Self.logger.debug("scheduleRefresh deferred: in-flight refresh")
+            }
             return
         }
 
         pendingRefresh?.cancel()
-        // Cooldown is a *minimum gap between refreshes*, not a drop window.
-        // If the gap hasn't elapsed yet, defer the new refresh until it
-        // does — never silently lose the event.
-        let cooldownRemaining = max(0, Self.cooldown - Date().timeIntervalSince(lastRefresh))
-        let delay = force ? 0 : max(Self.debounce, cooldownRemaining)
+        let delay: TimeInterval = force ? 0 : Self.debounce
+        if Diagnostics.traceWatcher {
+            Self.logger.debug("scheduleRefresh fire force=\(force, privacy: .public) delay=\(delay, privacy: .public)s")
+        }
         pendingRefresh = Task { @MainActor [weak self] in
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
             guard let self, !Task.isCancelled else { return }
             self.isRefreshing = true
             self.refreshDirty = false
+            if Diagnostics.traceWatcher {
+                Self.logger.debug("onChange → start")
+            }
             await self.onChange()
-            self.lastRefresh = Date()
             self.isRefreshing = false
+            if Diagnostics.traceWatcher {
+                Self.logger.debug("onChange ← done dirty=\(self.refreshDirty, privacy: .public)")
+            }
             // An event landed mid-refresh — schedule one more pass so the
             // new state lands without waiting for another external trigger.
             if self.refreshDirty {
