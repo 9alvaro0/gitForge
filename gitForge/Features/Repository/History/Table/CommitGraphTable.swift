@@ -18,12 +18,20 @@ struct CommitGraphTable: View {
     let currentBranch: String?
     let selectedSha: Commit.ID?
     let workingCopyDirty: Bool
+    /// `true` when the pinned "Uncommitted changes" row is the active selection
+    /// in the host. Lets the row render the same accent treatment as a selected
+    /// commit row.
+    var uncommittedSelected: Bool = false
     let columns: ResizableTableModel
     /// `nil` when search is inactive — every row renders at full opacity. When
     /// non-nil, non-matching rows dim so the graph topology stays intact (the
     /// lanes need both endpoints visible to make sense).
     var isMatch: ((Commit) -> Bool)? = nil
     let onSelect: (String) -> Void
+    /// Fired when the user single-clicks the pinned "Uncommitted changes" row.
+    /// Host wires it to its own selection state so the right detail panel and
+    /// the bottom diff pane switch to working-copy mode.
+    var onUncommittedSelect: (() -> Void)? = nil
     /// Triggered by a double-click on a commit row. Host views typically use
     /// it to checkout the commit (or its enclosing local branch).
     var onDoubleClick: ((String) -> Void)? = nil
@@ -102,7 +110,9 @@ struct CommitGraphTable: View {
                             UncommittedRow(
                                 rowHeight: rowHeight,
                                 gutterWidth: graphGutterWidth,
-                                columns: columns
+                                columns: columns,
+                                isSelected: uncommittedSelected,
+                                onSelect: { onUncommittedSelect?() }
                             )
                         }
                         ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
