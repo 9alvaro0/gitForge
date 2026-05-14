@@ -41,8 +41,8 @@ struct RepositoryWatcherSuspendTests {
         _ = watcher
     }
 
-    @Test("After suspend, a forced poke is dropped")
-    func suspendBlocksPoke() async throws {
+    @Test("Suspend defers events instead of firing")
+    func suspendDoesNotFireImmediately() async throws {
         let dir = try makeRepoDir()
         defer { try? FileManager.default.removeItem(at: dir) }
 
@@ -52,12 +52,74 @@ struct RepositoryWatcherSuspendTests {
         }
         watcher.suspend()
         watcher.poke(force: true)
-        try await Task.sleep(for: .milliseconds(100))
+        try await Task.sleep(for: .milliseconds(150))
+        // Still suspended → no refresh has run yet.
         #expect(await counter.value == 0)
         _ = watcher
     }
 
-    @Test("After resume, a forced poke fires again")
+    @Test("Resume replays a single deferred event")
+    func resumeReplaysDeferredEvent() async throws {
+        let dir = try makeRepoDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let counter = ChangeCounter()
+        let watcher = RepositoryWatcher(repository: dir) { @MainActor in
+            await counter.bump()
+        }
+        watcher.suspend()
+        // An external event lands while we're in the middle of a mutation.
+        // Without deferral this used to vanish; now it's marked and the
+        // resume() call below should fire one refresh.
+        watcher.poke(force: false)
+        watcher.resume()
+        // Resume schedules through the normal (debounced) path, so wait
+        // past the 300ms debounce.
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(await counter.value == 1)
+        _ = watcher
+    }
+
+    @Test("Multiple events during suspend collapse to one refresh on resume")
+    func multipleSuspendedEventsCollapse() async throws {
+        let dir = try makeRepoDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let counter = ChangeCounter()
+        let watcher = RepositoryWatcher(repository: dir) { @MainActor in
+            await counter.bump()
+        }
+        watcher.suspend()
+        watcher.poke(force: false)
+        watcher.poke(force: false)
+        watcher.poke(force: false)
+        watcher.resume()
+        try await Task.sleep(for: .milliseconds(500))
+        // Three events during suspend, one refresh after resume — the
+        // refresh reads fresh state anyway, so a single replay is correct.
+        #expect(await counter.value == 1)
+        _ = watcher
+    }
+
+    @Test("Resume with no deferred event does NOT fire")
+    func resumeWithoutEventDoesNotFire() async throws {
+        let dir = try makeRepoDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let counter = ChangeCounter()
+        let watcher = RepositoryWatcher(repository: dir) { @MainActor in
+            await counter.bump()
+        }
+        // Spurious suspend/resume pair (e.g. an isMutating flip with no real
+        // external activity in between) must not generate phantom refreshes.
+        watcher.suspend()
+        watcher.resume()
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(await counter.value == 0)
+        _ = watcher
+    }
+
+    @Test("Resume re-enables forced poke")
     func resumeReEnablesPoke() async throws {
         let dir = try makeRepoDir()
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -83,17 +145,17 @@ struct RepositoryWatcherSuspendTests {
         let watcher = RepositoryWatcher(repository: dir) { @MainActor in
             await counter.bump()
         }
-        // Non-forced poke goes through the 1s debounce — cancel it before it
-        // fires by suspending.
+        // Non-forced poke goes through the 300ms debounce — cancel it before
+        // it fires by suspending.
         watcher.poke(force: false)
         watcher.suspend()
-        try await Task.sleep(for: .milliseconds(1200))
+        try await Task.sleep(for: .milliseconds(500))
         #expect(await counter.value == 0)
         _ = watcher
     }
 
-    @Test("A second poke inside the cooldown defers instead of being dropped")
-    func cooldownDeferDoesntDropEvent() async throws {
+    @Test("Back-to-back unforced pokes fire after a single debounce window")
+    func debouncedPokeFiresOnce() async throws {
         let dir = try makeRepoDir()
         defer { try? FileManager.default.removeItem(at: dir) }
 
@@ -101,21 +163,35 @@ struct RepositoryWatcherSuspendTests {
         let watcher = RepositoryWatcher(repository: dir) { @MainActor in
             await counter.bump()
         }
-        // Forced poke runs immediately and sets `lastRefresh = now`.
-        watcher.poke(force: true)
-        try await Task.sleep(for: .milliseconds(150))
-        #expect(await counter.value == 1)
-
-        // Within the 1.5s cooldown, a non-forced poke previously DROPPED the
-        // event. It must defer until the cooldown elapses and then fire,
-        // not vanish.
         watcher.poke(force: false)
-        try await Task.sleep(for: .milliseconds(200))
-        // Cooldown hasn't elapsed yet — refresh shouldn't have fired again.
+        // Within the 300ms debounce, a follow-up poke should cancel-and-
+        // reschedule (not stack). Result: exactly one refresh after the
+        // window closes.
+        try await Task.sleep(for: .milliseconds(100))
+        watcher.poke(force: false)
+        try await Task.sleep(for: .milliseconds(500))
         #expect(await counter.value == 1)
+        _ = watcher
+    }
 
-        // After the cooldown window passes the deferred refresh should fire.
-        try await Task.sleep(for: .seconds(2))
+    @Test("A second event while a refresh is in flight schedules a follow-up")
+    func midRefreshEventReschedules() async throws {
+        let dir = try makeRepoDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let counter = ChangeCounter()
+        // Slow onChange so the second poke lands while the first refresh
+        // is still awaiting. The watcher should mark refreshDirty and
+        // schedule a follow-up on completion.
+        let watcher = RepositoryWatcher(repository: dir) { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            await counter.bump()
+        }
+        watcher.poke(force: true)
+        try await Task.sleep(for: .milliseconds(50))
+        watcher.poke(force: false)
+        try await Task.sleep(for: .seconds(1))
+        // First refresh ran (forced), then the dirty bit fired a second.
         #expect(await counter.value == 2)
         _ = watcher
     }

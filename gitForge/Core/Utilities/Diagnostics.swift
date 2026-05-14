@@ -19,4 +19,13 @@ enum Diagnostics {
     nonisolated static var traceGitCommands: Bool {
         UserDefaults.standard.bool(forKey: "DiagnosticsTraceGitCommands")
     }
+
+    /// Per-event trace from `RepositoryWatcher` / `WorkingTreeWatcher`: every
+    /// FSEvents batch received, every dropped event (with reason), every
+    /// scheduleRefresh + suspend/resume transition. Off by default — flip it
+    /// on when the Changes pane stops updating in real time:
+    ///   `defaults write com.warwarelabs.gitForge DiagnosticsTraceWatcher -bool YES`
+    nonisolated static var traceWatcher: Bool {
+        UserDefaults.standard.bool(forKey: "DiagnosticsTraceWatcher")
+    }
 }

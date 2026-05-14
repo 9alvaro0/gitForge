@@ -98,10 +98,17 @@ final class WorkingTreeWatcher {
         // correctness. We do filter to cut the wakeup count: at high event
         // rates (a dependency install hitting node_modules) the bounce-to-
         // main alone adds up.
+        let trace = Diagnostics.traceWatcher
         for path in paths {
             if path.contains("/.git/") || path.hasSuffix("/.git") { continue }
+            if trace {
+                Self.logger.debug("event count=\(paths.count, privacy: .public) first=\(path, privacy: .public)")
+            }
             Task { @MainActor [onChange] in onChange() }
             return
+        }
+        if trace {
+            Self.logger.debug("event count=\(paths.count, privacy: .public) all .git/ — skipped")
         }
     }
 }
