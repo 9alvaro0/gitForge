@@ -64,7 +64,7 @@ struct RepositoryViewModelTagPushTests {
         // it to nil; the bogus dir then makes the cli call throw, so the
         // catch repopulates it with a fresh RemoteFailure that's not the
         // sentinel.
-        vm.remoteFailure = .authentication
+        vm.remoteFailure = .authenticationHTTPS
         let result = await vm.pushTag(Self.tag("v1.0.0"))
         guard case .failure = result else {
             Issue.record("Expected .failure, got \(result)")
@@ -72,7 +72,7 @@ struct RepositoryViewModelTagPushTests {
         }
         #expect(vm.remoteOperation == nil, "defer must reset remoteOperation")
         #expect(vm.remoteFailure != nil)
-        #expect(vm.remoteFailure != .authentication, "stale failure must not survive entry-clear")
+        #expect(vm.remoteFailure != .authenticationHTTPS, "stale failure must not survive entry-clear")
     }
 
     @Test("pushDeleteTag surfaces a RemoteFailure on a bogus dir and clears remoteOperation via defer")
