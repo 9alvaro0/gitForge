@@ -73,24 +73,40 @@ struct DiffPane: View {
         "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.mode.rawValue)|\(theme.accent.cssHex)"
     }
 
+    /// Above this many lines the diff renders as plain text: tokenising runs
+    /// highlight.js in JavaScriptCore hunk by hunk, and a generated file or a
+    /// lockfile could keep it busy for seconds while holding every
+    /// attributed line in memory.
+    static let highlightLineLimit = 5_000
+    /// Highlighting is published in batches of roughly this many lines so the
+    /// first hunks colour in right away instead of after the whole file.
+    private static let highlightBatchLines = 300
+
     private func tokenizeHunks() async {
-        guard let language = DiffSyntaxHighlighter.languageId(for: file), !hunks.isEmpty else {
-            highlighted = [:]
+        highlighted = [:]
+        guard let language = DiffSyntaxHighlighter.languageId(for: file),
+              !hunks.isEmpty,
+              hunks.reduce(0, { $0 + $1.lines.count }) <= Self.highlightLineLimit else {
             return
         }
         let css = DiffSyntaxHighlighter.css(for: theme.palette)
         let themeId = "\(theme.mode.rawValue)-\(theme.accent.cssHex)"
-        let snapshot = hunks
         var output: [Int: [Int: AttributedString]] = [:]
-        for hunk in snapshot {
+        var unpublishedLines = 0
+        for hunk in hunks {
             let lines = await DiffSyntaxHighlighter.shared.tokenize(
                 hunk: hunk,
                 language: language,
                 css: css,
                 themeId: themeId
             )
-            if !lines.isEmpty { output[hunk.id] = lines }
             if Task.isCancelled { return }
+            if !lines.isEmpty { output[hunk.id] = lines }
+            unpublishedLines += hunk.lines.count
+            if unpublishedLines >= Self.highlightBatchLines {
+                highlighted = output
+                unpublishedLines = 0
+            }
         }
         highlighted = output
     }

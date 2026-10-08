@@ -22,12 +22,15 @@ final class DiffSyntaxHighlighter {
     static let shared = DiffSyntaxHighlighter()
 
     private let highlight = Highlight()
-    private var cache: [CacheKey: [Int: AttributedString]] = [:]
+    /// LRU of tokenised hunks. Bounded: it used to keep every hunk viewed in
+    /// the session. Keyed by the content itself — `hashValue` alone could
+    /// collide and paint one hunk with another's colours.
+    private var cache = LRUCache<CacheKey, [Int: AttributedString]>(capacity: 400)
 
     private struct CacheKey: Hashable {
         let themeId: String
         let language: String
-        let contentHash: Int
+        let content: String
     }
 
     /// Sentinel character that survives `trimmingCharacters(.whitespacesAndNewlines)`
@@ -44,8 +47,8 @@ final class DiffSyntaxHighlighter {
         themeId: String
     ) async -> [Int: AttributedString] {
         let joined = hunk.lines.map(\.content).joined(separator: "\n")
-        let key = CacheKey(themeId: themeId, language: language, contentHash: joined.hashValue)
-        if let cached = cache[key] { return cached }
+        let key = CacheKey(themeId: themeId, language: language, content: joined)
+        if let cached = cache.value(for: key) { return cached }
 
         let padded = "\(Self.sentinel)\n\(joined)\n\(Self.sentinel)"
         let attributed: AttributedString
@@ -61,7 +64,7 @@ final class DiffSyntaxHighlighter {
 
         let inner = Self.stripSentinels(attributed)
         let result = Self.split(inner, into: hunk.lines)
-        cache[key] = result
+        cache.insert(result, for: key)
         return result
     }
 

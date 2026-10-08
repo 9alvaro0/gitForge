@@ -18,7 +18,7 @@ extension RepositoryViewModel {
     // Gen-token contract for the log:
     //   • `loadInitial` / `reloadLog` replace `commits`, so they bump
     //     `logGen` and any older load or pagination drops its result.
-    //   • Pagination (`loadMoreIfNeeded`, `revealCommit`) only *snapshots*
+    //   • Pagination (`loadMoreIfNeeded`) only *snapshots*
     //     `logGen`: a reload supersedes a page load, never the reverse —
     //     otherwise scrolling during a watcher refresh discarded the fresh
     //     first page and left the graph stale.
@@ -109,12 +109,8 @@ extension RepositoryViewModel {
         }
     }
 
-    /// True while a page is being appended (scroll or reveal). The two
-    /// paths share it so they can't append the same page twice.
-    var isPaginating: Bool { isLoadingMore || isRevealingCommit }
-
     func loadMoreIfNeeded(currentItem: Commit) async {
-        guard hasMore, !isPaginating else { return }
+        guard hasMore, !isLoadingMore else { return }
         guard let last = commits.last, last.id == currentItem.id else { return }
         let gen = logGen
         isLoadingMore = true
@@ -126,34 +122,6 @@ extension RepositoryViewModel {
         } catch {
             guard gen == logGen else { return }
             loadError = error.userMessage
-        }
-    }
-
-    /// Scrolls the log to `sha`, paginating in if it isn't loaded yet. Caps
-    /// at `maxRevealPages` so a stray ref can't quietly walk the entire
-    /// history.
-    func revealCommit(sha: String) async {
-        if commitsById[sha] != nil {
-            scrollTargetSha = sha
-            return
-        }
-        guard hasMore, !isPaginating else { return }
-        let gen = logGen
-        isRevealingCommit = true
-        defer { isRevealingCommit = false }
-        let pageSize = GitPreferences.commitPageSize
-        var pagesLoaded = 0
-        while hasMore && pagesLoaded < Self.maxRevealPages {
-            do {
-                guard try await paginateNextPage(gen: gen, pageSize: pageSize) != nil else { return }
-                pagesLoaded += 1
-                if commitsById[sha] != nil {
-                    scrollTargetSha = sha
-                    return
-                }
-            } catch {
-                return
-            }
         }
     }
 
