@@ -1,6 +1,6 @@
 import Foundation
 
-enum DiffParser {
+nonisolated enum DiffParser {
     /// Metadata callers can surface when `parse` returns no hunks. A diff
     /// over a binary file, a pure rename, a mode-only change, or a
     /// submodule pointer bump emits zero `@@` hunks — the UI used to render

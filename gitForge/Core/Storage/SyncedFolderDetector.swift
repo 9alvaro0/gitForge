@@ -5,7 +5,7 @@ import Foundation
 /// sources of corruption when a sync agent rewrites bytes mid-transaction —
 /// detecting these lets us warn rather than wait for an unreproducible bug
 /// report.
-enum SyncedFolder: Sendable, Equatable {
+nonisolated enum SyncedFolder: Sendable, Equatable {
     case iCloud
     case dropbox
     case oneDrive
@@ -21,7 +21,7 @@ enum SyncedFolder: Sendable, Equatable {
     }
 }
 
-enum SyncedFolderDetector {
+nonisolated enum SyncedFolderDetector {
     /// Returns the sync provider whose folder `url` lives inside, or nil for
     /// a plain local path. Match by path substring; covers the standard
     /// locations these providers use on macOS today (`~/Library/Mobile

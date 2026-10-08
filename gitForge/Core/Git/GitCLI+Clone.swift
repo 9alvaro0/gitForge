@@ -126,16 +126,12 @@ extension GitCLI {
             throw GitError.launchFailed(error.localizedDescription)
         }
 
-        // Process supports `terminate()` from any thread, so capturing it for
-        // the cancel handler is safe.
-        nonisolated(unsafe) let processRef = process
-
         // Progress-based watchdog. Resets on every stage tick git emits; if
         // there's no progress for `timeout` seconds (default 60), the
         // subprocess is stuck — DNS hung, askpass deadlock, BatchMode
         // rejected — and we terminate it. Large clones run uninterrupted as
         // long as they keep reporting bytes.
-        let progressTimer = CloneProgressTimer()
+        let progressTimer = GitProgressTimer()
         let timeout = TimeInterval(AppTheme.persistedGitTimeoutSeconds())
         let tickedProgress: @Sendable (CloneProgress) -> Void = { p in
             progressTimer.tick()
@@ -175,7 +171,8 @@ extension GitCLI {
                 throw GitError.commandFailed(args: args, exitCode: process.terminationStatus, stderr: stderr)
             }
         } onCancel: {
-            processRef.terminate()
+            // `Process` is Sendable and `terminate()` is safe from any thread.
+            process.terminate()
         }
     }
 
@@ -237,22 +234,5 @@ extension GitCLI {
 
     private static func waitForExit(_ process: Process) async {
         await Task.detached { process.waitUntilExit() }.value
-    }
-}
-
-/// Thread-safe "time since last progress tick" for the clone watchdog. The
-/// progress callback fires on a background queue while the watchdog reads
-/// from the spawn task — needs locking, but actor isolation would be heavy
-/// for a couple of field writes.
-private final class CloneProgressTimer: @unchecked Sendable {
-    private let lock = NSLock()
-    private var lastAt = Date()
-    func tick() {
-        lock.lock(); defer { lock.unlock() }
-        lastAt = Date()
-    }
-    func elapsed() -> TimeInterval {
-        lock.lock(); defer { lock.unlock() }
-        return Date().timeIntervalSince(lastAt)
     }
 }

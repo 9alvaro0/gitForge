@@ -124,7 +124,7 @@ actor GitCLI {
         // because git is still emitting progress to stderr (`--progress`
         // implicit on attached terminals; harmless otherwise). DNS hangs and
         // askpass deadlocks die in seconds because nothing flows.
-        let progressTimer = ProgressTimer()
+        let progressTimer = GitProgressTimer()
         let watchdog = Task { [process, safeArgsString, timeout] in
             while !Task.isCancelled, process.isRunning {
                 try? await Task.sleep(for: .seconds(5))
@@ -264,24 +264,27 @@ actor GitCLI {
         }.value
     }
 
-    /// Thread-safe "seconds since last progress signal". Mirrors the helper
-    /// inside GitCLI+Clone — duplicated to keep that file self-contained.
-    private final class ProgressTimer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var lastAt = Date()
-        func tick() {
-            lock.lock(); defer { lock.unlock() }
-            lastAt = Date()
-        }
-        func elapsed() -> TimeInterval {
-            lock.lock(); defer { lock.unlock() }
-            return Date().timeIntervalSince(lastAt)
-        }
-    }
-
     private static func waitForExit(_ process: Process) async {
         await Task.detached {
             process.waitUntilExit()
         }.value
+    }
+}
+
+/// Thread-safe "seconds since last progress signal" shared by the `run` and
+/// `clone` watchdogs. The tick fires from the detached pipe readers while the
+/// watchdog polls from its own task — a lock is enough for two field accesses.
+nonisolated final class GitProgressTimer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastAt = Date()
+
+    func tick() {
+        lock.lock(); defer { lock.unlock() }
+        lastAt = Date()
+    }
+
+    func elapsed() -> TimeInterval {
+        lock.lock(); defer { lock.unlock() }
+        return Date().timeIntervalSince(lastAt)
     }
 }
