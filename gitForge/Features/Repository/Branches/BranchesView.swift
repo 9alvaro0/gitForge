@@ -177,7 +177,7 @@ struct BranchesView: View {
     private var filterEmptyState: some View {
         VStack(spacing: DesignTokens.Spacing.md) {
             Text("No branches or tags match “\(filter)”.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg2)
             GFButton(title: "Clear filter", size: .small) { filter = "" }
         }

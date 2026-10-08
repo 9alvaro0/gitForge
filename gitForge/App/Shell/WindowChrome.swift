@@ -43,7 +43,7 @@ struct WindowChrome<Content: View>: View {
 
     private var titleBar: some View {
         Text(title)
-            .font(AppFont.sans(12, weight: .medium))
+            .font(AppFont.sans(FontSize.md, weight: .medium))
             .foregroundStyle(theme.palette.fg2)
             .lineLimit(1)
             .truncationMode(.middle)

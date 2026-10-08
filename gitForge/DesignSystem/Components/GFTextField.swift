@@ -11,7 +11,7 @@ struct GFTextField: View {
     var body: some View {
         TextField(placeholder, text: $text)
             .textFieldStyle(.plain)
-            .font(AppFont.sans(12))
+            .font(AppFont.sans(FontSize.md))
             .foregroundStyle(theme.palette.fg1)
             .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(height: DesignTokens.Control.height)

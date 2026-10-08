@@ -17,7 +17,7 @@ struct SidebarSectionHeader<Trailing: View>: View {
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Text(title.uppercased())
-                .font(.system(size: FontSize.caption, weight: .semibold))
+                .font(.system(size: FontSize.xxs, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             Spacer(minLength: 0)
@@ -34,9 +34,7 @@ struct SidebarSectionHeader<Trailing: View>: View {
     @Previewable @State var theme = AppTheme()
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
         SidebarSectionHeader(title: "Repositories") {
-            Image(systemName: "plus")
-                .font(.system(size: FontSize.caption, weight: .semibold))
-                .foregroundStyle(theme.palette.fg3)
+            GFIcon(kind: .plus, size: DesignTokens.IconSize.sm, stroke: theme.palette.fg3)
         }
         SidebarSectionHeader(title: "Workspace")
     }

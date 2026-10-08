@@ -107,7 +107,7 @@ struct BranchDialogs: ViewModifier {
             rebaseTarget = GitRef.previewSamples.first
         }
         Text("Click a button to surface the corresponding confirmation dialog.")
-            .font(AppFont.sans(11))
+            .font(AppFont.sans(FontSize.sm))
             .foregroundStyle(theme.palette.fg3)
     }
     .padding(24)

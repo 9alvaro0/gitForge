@@ -23,12 +23,12 @@ struct SidebarRepoRow: View {
                 RepoMark(letter: String(org.prefix(1)))
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
                     Text(repository.name)
-                        .font(AppFont.sans(12, weight: .medium))
+                        .font(AppFont.sans(FontSize.md, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
                         .lineLimit(1)
                     if let branch {
                         Text(branch)
-                            .font(AppFont.mono(10.5, family: theme.monoFont))
+                            .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                             .foregroundStyle(theme.palette.fg3)
                             .lineLimit(1)
                     }

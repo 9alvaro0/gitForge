@@ -61,7 +61,7 @@ struct SettingsEditableRow: View {
     }
 
     private var font: Font {
-        mono ? AppFont.mono(12, family: theme.monoFont) : AppFont.sans(12)
+        mono ? AppFont.mono(FontSize.md, family: theme.monoFont) : AppFont.sans(FontSize.md)
     }
 
     private func commit() {

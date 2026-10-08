@@ -42,10 +42,10 @@ struct DefaultsStep: View {
             }
             .padding(.bottom, DesignTokens.Spacing.sm)
             Text("Defaults")
-                .font(AppFont.sans(18, weight: .semibold))
+                .font(AppFont.sans(FontSize.title, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
             Text("Two preferences that pay off later. You can change them anytime in Settings.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg3)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 460)
@@ -56,10 +56,10 @@ struct DefaultsStep: View {
         card {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 Text("Default branch for new repositories")
-                    .font(AppFont.sans(12, weight: .semibold))
+                    .font(AppFont.sans(FontSize.md, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text("Used by `git init` and any clone that creates a fresh local branch.")
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
             }
             SegmentedControl<BranchChoice>(
@@ -78,10 +78,10 @@ struct DefaultsStep: View {
         card {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 Text("Default clone directory")
-                    .font(AppFont.sans(12, weight: .semibold))
+                    .font(AppFont.sans(FontSize.md, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text("Where the Clone screen suggests putting new repositories.")
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
             }
             HStack(spacing: DesignTokens.Spacing.sm) {

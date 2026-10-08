@@ -14,7 +14,7 @@ struct MergeabilityPill: View {
             }
         }()
         Text(text)
-            .font(AppFont.sans(11))
+            .font(AppFont.sans(FontSize.sm))
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)

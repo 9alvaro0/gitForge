@@ -45,10 +45,10 @@ struct FirstRepoStep: View {
             }
             .padding(.bottom, DesignTokens.Spacing.sm)
             Text("Add your first repository")
-                .font(AppFont.sans(18, weight: .semibold))
+                .font(AppFont.sans(FontSize.title, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
             Text("Pick how you want to get started — or skip and add one later from the sidebar.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg3)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 460)
@@ -69,10 +69,10 @@ struct FirstRepoStep: View {
             }
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(title)
-                    .font(AppFont.sans(13, weight: .semibold))
+                    .font(AppFont.sans(FontSize.lg, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text(subtitle)
-                    .font(AppFont.sans(11.5))
+                    .font(AppFont.sans(FontSize.smPlus))
                     .foregroundStyle(theme.palette.fg3)
             }
             Spacer(minLength: 0)

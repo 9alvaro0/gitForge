@@ -50,15 +50,15 @@ extension View {
             ForEach(0..<5, id: \.self) { _ in
                 HStack(spacing: DesignTokens.Spacing.xl) {
                     Text("OPEN")
-                        .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
                         .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                         Text("Add merge request integration")
-                            .font(AppFont.sans(13, weight: .medium))
+                            .font(AppFont.sans(FontSize.lg, weight: .medium))
                             .foregroundStyle(theme.palette.fg1)
                         Text("@author · feat/branch-name → main · 2h ago")
-                            .font(AppFont.sans(12))
+                            .font(AppFont.sans(FontSize.md))
                             .foregroundStyle(theme.palette.fg3)
                     }
                     Spacer()

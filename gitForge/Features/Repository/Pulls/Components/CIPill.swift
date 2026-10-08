@@ -17,10 +17,10 @@ struct CIPill: View {
         }()
         let content = HStack(spacing: DesignTokens.Spacing.xs) {
             Text("CI:")
-                .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
                 .foregroundStyle(fg)
             Text(ci.label)
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(fg)
         }
         .padding(.horizontal, DesignTokens.Spacing.sm)

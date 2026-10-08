@@ -11,7 +11,7 @@ struct SidebarSearchTrigger: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .search, size: 14, stroke: theme.palette.fg3)
                 Text("Search")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg3)
                 Spacer()
                 Kbd(text: "⌘K")

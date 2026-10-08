@@ -31,7 +31,7 @@ struct PullRequestRow: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             HStack(spacing: DesignTokens.Spacing.md) {
                 Text(pullRequest.title)
-                    .font(AppFont.sans(13, weight: .medium))
+                    .font(AppFont.sans(FontSize.lg, weight: .medium))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -58,7 +58,7 @@ struct PullRequestRow: View {
             ExternalURL.open(url)
         } label: {
             Text("Open")
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(theme.palette.fg2)
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: 22)

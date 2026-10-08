@@ -10,10 +10,10 @@ struct WelcomeView: View {
         VStack(spacing: DesignTokens.Spacing.xxxl) {
             GFIcon(kind: .folder, size: 40, stroke: theme.palette.fg4)
             Text("No repository open")
-                .font(AppFont.sans(14, weight: .semibold))
+                .font(AppFont.sans(FontSize.xl, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
             Text("Open an existing repository to start exploring its history.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg3)
                 .multilineTextAlignment(.center)
             HStack(spacing: DesignTokens.Spacing.md) {
@@ -37,7 +37,7 @@ struct WelcomeView: View {
         if !appState.catalog.repositories.isEmpty {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("RECENT")
-                    .font(.system(size: FontSize.footnote, weight: .semibold))
+                    .font(.system(size: FontSize.sm, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 ForEach(appState.catalog.repositories.prefix(5)) { repo in

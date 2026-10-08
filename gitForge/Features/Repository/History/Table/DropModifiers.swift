@@ -42,7 +42,7 @@ struct ChipDropModifier: ViewModifier {
         content
             .scaleEffect(hovered ? 1.06 : 1.0)
             .shadow(color: hovered ? theme.palette.accent.opacity(0.45) : .clear, radius: 4)
-            .animation(.easeOut(duration: 0.12), value: hovered)
+            .animation(DesignTokens.Motion.fast, value: hovered)
             .dropDestination(for: DraggedBranch.self) { items, _ in
                 guard let dropped = items.first else { return false }
                 // Dropping a branch on its own chip is a no-op.
@@ -68,7 +68,7 @@ extension Array {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var targeted = false
     Text("Drag a DraggedBranch onto me")
-        .font(AppFont.sans(12))
+        .font(AppFont.sans(FontSize.md))
         .foregroundStyle(theme.palette.fg1)
         .padding(40)
         .frame(width: 360, height: 80)

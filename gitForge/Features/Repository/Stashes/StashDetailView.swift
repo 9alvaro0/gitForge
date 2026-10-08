@@ -20,7 +20,7 @@ struct StashDetailView: View {
         )
     }
 
-    enum Tab: String, Hashable, CaseIterable, Identifiable {
+    enum Tab: String, DetailTab, Identifiable {
         case overview, files
         var id: String { rawValue }
         var label: String {
@@ -42,7 +42,7 @@ struct StashDetailView: View {
                     onDrop:  { dropTarget = stash }
                 )
             }
-            StashDetailTabBar(tab: $tab, loading: viewModel.stashDetail.isLoading)
+            DetailTabBar(tab: $tab, loading: viewModel.stashDetail.isLoading)
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

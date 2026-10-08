@@ -15,12 +15,12 @@ struct SidebarNavItem: View {
             HStack(spacing: DesignTokens.Spacing.lg) {
                 GFIcon(kind: section.icon, size: 14, stroke: foreground.opacity(isActive ? 1 : 0.85))
                 Text(section.label)
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if let badge, badge > 0 {
                     Text("\(badge)")
-                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
                         .foregroundStyle(badgeForeground)
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.hairline)

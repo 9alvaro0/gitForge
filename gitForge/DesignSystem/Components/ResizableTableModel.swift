@@ -79,7 +79,7 @@ final class ResizableTableModel {
     VStack(spacing: DesignTokens.Spacing.none) {
         HStack(spacing: DesignTokens.Spacing.none) {
             Text("NAME")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .frame(width: columns.width("name"), alignment: .leading)
             ColumnDragHandle(
                 width: columns.binding(for: "name"),
@@ -88,7 +88,7 @@ final class ResizableTableModel {
                 onCommit: { columns.commit() }
             )
             Text("VALUE")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .frame(width: columns.width("value"), alignment: .leading)
             ColumnDragHandle(
                 width: columns.binding(for: "value"),
@@ -97,14 +97,14 @@ final class ResizableTableModel {
                 onCommit: { columns.commit() }
             )
             Text("REST")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg2)
         Divider()
         Text("Resize columns then call columns.commit() — name=\(Int(columns.width("name"))), value=\(Int(columns.width("value")))")
-            .font(AppFont.mono(11, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             .padding()
         Spacer()
     }

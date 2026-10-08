@@ -17,7 +17,7 @@ struct BranchTagPill: View {
         } label: {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: .tag, size: 10, stroke: theme.palette.mod)
-                Text(tag.name).font(AppFont.mono(11.5, family: theme.monoFont))
+                Text(tag.name).font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.mod)
             .padding(.horizontal, DesignTokens.Spacing.lg)

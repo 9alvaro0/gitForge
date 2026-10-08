@@ -19,14 +19,14 @@ struct ConflictFileRow: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 statusBadge
                 Text(file.path)
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(file.resolved ? theme.palette.fg3 : theme.palette.fg1)
                     .strikethrough(file.resolved)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("\(file.conflicts)")
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
             }
             .padding(.horizontal, DesignTokens.Spacing.lg)
@@ -53,7 +53,7 @@ struct ConflictFileRow: View {
         ZStack {
             Circle().fill((file.resolved ? theme.palette.ok : theme.palette.del).opacity(DesignTokens.Opacity.muted))
             Text(file.resolved ? "✓" : "!")
-                .font(.system(size: FontSize.footnote, weight: .bold))
+                .font(.system(size: FontSize.sm, weight: .bold))
                 .foregroundStyle(file.resolved ? theme.palette.ok : theme.palette.del)
         }
         .frame(width: DesignTokens.IconSize.xl, height: DesignTokens.IconSize.xl)

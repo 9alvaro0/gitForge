@@ -9,7 +9,7 @@ struct DiffHunkHeader: View {
 
     var body: some View {
         Text(hunk.header.isEmpty ? "@@" : hunk.header)
-            .font(AppFont.mono(11, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg3)
             .lineLimit(1)
             .truncationMode(.tail)

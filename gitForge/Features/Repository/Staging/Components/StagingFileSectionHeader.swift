@@ -15,17 +15,17 @@ struct StagingFileSectionHeader: View {
         HStack {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 Text(title.uppercased())
-                    .font(AppFont.mono(10.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                     .tracking(0.6)
                 Text("(\(count))")
-                    .font(AppFont.mono(10.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.fg3)
             Spacer()
             if let actionLabel, let onAction {
                 Button(action: onAction) {
                     Text(actionLabel)
-                        .font(AppFont.mono(10.5, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                         .foregroundStyle(theme.palette.accent)
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.xxs)

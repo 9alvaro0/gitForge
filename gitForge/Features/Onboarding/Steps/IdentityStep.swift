@@ -26,10 +26,10 @@ struct IdentityStep: View {
             }
             .padding(.bottom, DesignTokens.Spacing.sm)
             Text("Who are you?")
-                .font(AppFont.sans(18, weight: .semibold))
+                .font(AppFont.sans(FontSize.title, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
             Text("git records your name and email on every commit. This writes to `~/.gitconfig` and applies to every repository.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg3)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 460)
@@ -75,7 +75,7 @@ struct IdentityStep: View {
                 GFIcon(kind: state.showSigningField ? .chevD : .chevR,
                        size: 10, stroke: theme.palette.fg3)
                 Text("Advanced — signing key")
-                    .font(AppFont.sans(11, weight: .medium))
+                    .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
             }
         }
@@ -86,7 +86,7 @@ struct IdentityStep: View {
     private func field<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(label)
-                .font(AppFont.sans(11, weight: .medium))
+                .font(AppFont.sans(FontSize.sm, weight: .medium))
                 .foregroundStyle(theme.palette.fg3)
             content()
         }

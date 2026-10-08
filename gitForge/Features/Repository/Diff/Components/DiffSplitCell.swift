@@ -49,7 +49,7 @@ struct DiffSplitCell: View {
             return side == .left ? line.oldLineNumber : line.newLineNumber
         }()
         return Text(number.map(String.init) ?? "")
-            .font(AppFont.mono(11, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg4)
             .frame(width: 44, alignment: .trailing)
             .padding(.horizontal, DesignTokens.Spacing.md)

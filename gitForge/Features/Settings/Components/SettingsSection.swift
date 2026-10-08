@@ -15,12 +15,12 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(title.uppercased())
-                    .font(.system(size: FontSize.footnote, weight: .semibold))
+                    .font(.system(size: FontSize.sm, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 if let subtitle {
                     Text(subtitle)
-                        .font(AppFont.sans(11))
+                        .font(AppFont.sans(FontSize.sm))
                         .foregroundStyle(theme.palette.fg3)
                 }
             }
