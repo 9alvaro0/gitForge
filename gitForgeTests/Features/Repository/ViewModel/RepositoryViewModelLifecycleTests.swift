@@ -12,13 +12,20 @@ struct RepositoryViewModelLifecycleTests {
     }
 
     @Test("stopReactivity cancels tracked owned tasks")
-    func cancelsOwnedTasks() async {
+    func cancelsOwnedTasks() async throws {
         let vm = Self.makeVM()
-        // Long-running task that would otherwise hold `self` alive for 10s.
-        let longTask = Task<Void, Never> { try? await Task.sleep(for: .seconds(10)) }
-        vm.track(longTask)
+        let observed = CancellationProbe()
+        // Long-running work that would otherwise hold `self` alive for 10s.
+        vm.track {
+            try? await Task.sleep(for: .seconds(10))
+            observed.wasCancelled = Task.isCancelled
+        }
         vm.stopReactivity()
-        #expect(longTask.isCancelled)
+        #expect(vm.ownedTasks.isEmpty)
+        for _ in 0..<50 where observed.wasCancelled == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(observed.wasCancelled == true)
     }
 
     @Test("stopReactivity drops the heavy in-memory caches")
@@ -41,19 +48,9 @@ struct RepositoryViewModelLifecycleTests {
         #expect(vm.upstream == nil)
         #expect(vm.aheadCount == 0)
     }
+}
 
-    @Test("track removes already-cancelled tasks from the ledger")
-    func trackTrimsCancelled() async {
-        let vm = Self.makeVM()
-        let cancelled = Task<Void, Never> {}
-        cancelled.cancel()
-        vm.track(cancelled)
-        // A second track call should not accumulate the dead one.
-        let live = Task<Void, Never> { try? await Task.sleep(for: .seconds(10)) }
-        vm.track(live)
-        vm.stopReactivity()
-        // Live task is cancelled; cancelled stayed cancelled — invariant
-        // here is just that stopReactivity doesn't crash on either.
-        #expect(live.isCancelled)
-    }
+@MainActor
+private final class CancellationProbe {
+    var wasCancelled: Bool?
 }

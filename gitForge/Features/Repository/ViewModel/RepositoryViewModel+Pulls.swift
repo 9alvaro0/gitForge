@@ -15,12 +15,14 @@ extension RepositoryViewModel {
         pullRequestCommits = []
         pullRequestFiles = []
         pullRequestDetailError = nil
-        track(Task { [weak self] in await self?.loadPullRequestDetail() })
+        track { [weak self] in await self?.loadPullRequestDetail() }
     }
 
     /// Close the detail view and clear cached data.
     func closePullRequestDetail() {
         pullRequestDetailGen &+= 1
+        // The invalidated loader won't clear its own flag (gen moved).
+        pullRequestDetailLoading = false
         selectedPullRequest = nil
         pullRequestDetail = nil
         pullRequestCommits = []

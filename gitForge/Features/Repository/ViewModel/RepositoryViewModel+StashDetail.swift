@@ -11,13 +11,17 @@ extension RepositoryViewModel {
         stashDetailError = nil
         selectedStashFile = nil
         stashFileDiff = []
-        track(Task { [weak self] in await self?.loadStashDetail() })
+        track { [weak self] in await self?.loadStashDetail() }
     }
 
     /// Close the detail view and bump the gen-token so an in-flight load
     /// can't paint into a now-closed pane.
     func closeStashDetail() {
         stashDetailGen &+= 1
+        stashFileDiffGen &+= 1
+        // The invalidated loaders won't clear their own flags (gen moved).
+        stashDetailLoading = false
+        loadingStashFileDiff = false
         selectedStash = nil
         stashDetail = nil
         stashDetailError = nil

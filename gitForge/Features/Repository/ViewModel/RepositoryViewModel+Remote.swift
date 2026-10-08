@@ -49,11 +49,20 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Pull rewrites the index and worktree, so unlike fetch/push it's also
+    /// a local mutation: it holds `isMutating` (which suspends the watcher)
+    /// so a commit or discard can't race it for `.git/index.lock`. `GitCLI`
+    /// being an actor doesn't serialise commands — `run` suspends while the
+    /// subprocess runs, so calls interleave.
     func pull(rebase: Bool = false, ffOnly: Bool = false) async {
-        guard remoteOperation == nil else { return }
+        guard remoteOperation == nil, !isMutating else { return }
         remoteOperation = .pulling
+        isMutating = true
         remoteFailure = nil
-        defer { remoteOperation = nil }
+        defer {
+            remoteOperation = nil
+            isMutating = false
+        }
         do {
             try await cli.pull(rebase: rebase, ffOnly: ffOnly)
             await loadRefs()

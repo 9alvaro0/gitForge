@@ -47,8 +47,13 @@ struct AutoFetcherPauseResumeTests {
         #expect(beforeResume == 0)
 
         fetcher.resume()
-        // Wait long enough for one tick at interval=1s.
-        try? await Task.sleep(for: .seconds(1) + .milliseconds(300))
+        // One tick is due after ~1s; allow generous slack for a busy main
+        // actor instead of a fixed 300ms margin (flaked under full-suite load).
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(5)
+        while await counter.value == 0, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
         let afterResume = await counter.value
         #expect(afterResume >= 1)
 
