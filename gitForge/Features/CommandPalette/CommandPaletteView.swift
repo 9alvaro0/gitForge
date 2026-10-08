@@ -55,7 +55,7 @@ struct CommandPaletteView: View {
             GFIcon(kind: .search, size: 14, stroke: theme.palette.fg3)
             TextField("Search repos, commits, branches, files…", text: $query)
                 .textFieldStyle(.plain)
-                .font(AppFont.sans(14))
+                .font(AppFont.sans(FontSize.xl))
                 .foregroundStyle(theme.palette.fg1)
                 .focused($inputFocused)
                 .onChange(of: query) { _, _ in selectedIndex = 0 }
@@ -70,7 +70,7 @@ struct CommandPaletteView: View {
             VStack(spacing: DesignTokens.Spacing.none) {
                 if filteredItems.isEmpty {
                     Text("No matches for “\(query)”")
-                        .font(AppFont.sans(12))
+                        .font(AppFont.sans(FontSize.md))
                         .foregroundStyle(theme.palette.fg3)
                         .padding(DesignTokens.Spacing.xhuge)
                 }
@@ -90,19 +90,19 @@ struct CommandPaletteView: View {
         HStack(spacing: DesignTokens.Spacing.lg) {
             GFIcon(kind: item.icon, size: 14, stroke: isActive ? theme.palette.accent : theme.palette.fg3)
             Text(item.label)
-                .font(AppFont.sans(13))
+                .font(AppFont.sans(FontSize.lg))
                 .lineLimit(1)
                 .foregroundStyle(isActive ? theme.palette.accent : theme.palette.fg1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(item.tag.uppercased())
-                .font(AppFont.mono(10, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
                 .foregroundStyle(isActive ? theme.palette.accent.opacity(DesignTokens.Opacity.prominent) : theme.palette.fg3)
                 .padding(.horizontal, DesignTokens.Spacing.sm)
                 .padding(.vertical, DesignTokens.Spacing.hairline)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
             if let hint = item.hint {
                 Text(hint)
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(isActive ? theme.palette.accent.opacity(DesignTokens.Opacity.prominent) : theme.palette.fg3)
             }
         }
@@ -118,7 +118,7 @@ struct CommandPaletteView: View {
             HStack(spacing: DesignTokens.Spacing.xs) { Kbd(text: "↵"); Text("select") }
             HStack(spacing: DesignTokens.Spacing.xs) { Kbd(text: "esc"); Text("close") }
         }
-        .font(AppFont.sans(11))
+        .font(AppFont.sans(FontSize.sm))
         .foregroundStyle(theme.palette.fg3)
         .padding(.horizontal, DesignTokens.Spacing.xxxl)
         .padding(.vertical, DesignTokens.Spacing.lg)

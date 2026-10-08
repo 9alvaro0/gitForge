@@ -45,7 +45,7 @@ struct PullsLoadingPlaceholder: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 HStack(spacing: DesignTokens.Spacing.md) {
                     Text(title)
-                        .font(AppFont.sans(13, weight: .medium))
+                        .font(AppFont.sans(FontSize.lg, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
                         .lineLimit(1)
                     MonoText("#000", dim: true)

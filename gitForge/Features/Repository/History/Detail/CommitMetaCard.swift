@@ -11,15 +11,15 @@ struct CommitMetaCard: View {
             Avatar(name: commit.authorName, size: 20, colorSeed: commit.authorEmail)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(commit.authorName)
-                    .font(AppFont.sans(12, weight: .medium))
+                    .font(AppFont.sans(FontSize.md, weight: .medium))
                     .foregroundStyle(theme.palette.fg1)
                 Text(commit.authorEmail)
-                    .font(AppFont.mono(10.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
             }
             Spacer()
             Text(preferences.dateDisplayMode.format(commit.authorDate))
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
         }
         .padding(DesignTokens.Spacing.lg)

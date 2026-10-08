@@ -11,7 +11,7 @@ struct CommitBranchSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("New branch from \(commitShortSha)")
-                .font(AppFont.sans(14, weight: .semibold))
+                .font(AppFont.sans(FontSize.xl, weight: .semibold))
             GFTextField(placeholder: "feat/awesome", text: $name)
             HStack {
                 GFButton(title: "Cancel", action: onCancel)

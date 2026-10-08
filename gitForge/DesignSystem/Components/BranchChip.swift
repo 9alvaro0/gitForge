@@ -19,7 +19,7 @@ struct BranchChip: View {
         HStack(spacing: DesignTokens.Spacing.xs) {
             GFIcon(kind: iconKind, size: 10, stroke: foreground)
             Text(name)
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .lineLimit(1)
                 .truncationMode(.tail)
             if hasRemoteCounterpart {

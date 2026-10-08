@@ -32,19 +32,19 @@ struct ConflictSection: View {
     private var sectionHeader: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             Text(title)
-                .font(AppFont.mono(10.5, weight: .medium, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, weight: .medium, family: theme.monoFont))
                 .foregroundStyle(tagColor)
                 .padding(.horizontal, DesignTokens.Spacing.sm)
                 .padding(.vertical, DesignTokens.Spacing.hairline)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(tagColor.opacity(DesignTokens.Opacity.muted)))
             Text(subtitle)
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
             Spacer()
             if let actionLabel, let onPick {
                 Button(action: onPick) {
                     Text(actionLabel)
-                        .font(AppFont.sans(11.5, weight: .medium))
+                        .font(AppFont.sans(FontSize.smPlus, weight: .medium))
                         .foregroundStyle(isPicked ? .white : tagColor)
                         .padding(.horizontal, DesignTokens.Spacing.lg)
                         .padding(.vertical, DesignTokens.Spacing.xs)

@@ -280,7 +280,7 @@ struct HistoryView: View {
             defaultHeight: Self.defaultDiffHeight
         )
         if revealed != diffPaneHeight {
-            withAnimation(.easeOut(duration: 0.18)) {
+            withAnimation(DesignTokens.Motion.standard) {
                 diffPaneHeight = revealed
             }
         }
@@ -308,12 +308,12 @@ struct HistoryView: View {
     }
 
     private func setDiffPaneCollapsed(_ collapsed: Bool) {
-        withAnimation(.easeOut(duration: 0.18)) { diffPaneCollapsed = collapsed }
+        withAnimation(DesignTokens.Motion.standard) { diffPaneCollapsed = collapsed }
         UserDefaults.standard.set(collapsed, forKey: Self.diffCollapsedKey)
     }
 
     private func setDetailColumnCollapsed(_ collapsed: Bool) {
-        withAnimation(.easeOut(duration: 0.18)) { detailColumnCollapsed = collapsed }
+        withAnimation(DesignTokens.Motion.standard) { detailColumnCollapsed = collapsed }
         UserDefaults.standard.set(collapsed, forKey: Self.detailCollapsedKey)
     }
 

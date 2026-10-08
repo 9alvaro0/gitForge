@@ -16,7 +16,7 @@ struct DiffHeader: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .diff, size: 12, stroke: theme.palette.fg1)
                 Text(file ?? "—")
-                    .font(AppFont.mono(12, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.head)

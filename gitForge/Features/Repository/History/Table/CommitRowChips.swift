@@ -115,7 +115,7 @@ struct CommitRowChips: View {
             showHiddenRefs.toggle()
         } label: {
             Text("+\(count)")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .padding(.horizontal, DesignTokens.Spacing.sm)
                 .padding(.vertical, DesignTokens.Spacing.hairline)
@@ -141,7 +141,7 @@ struct CommitRowChips: View {
     private var hiddenRefsPopover: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text("\(hiddenRefs.count) more")
-                .font(AppFont.sans(11, weight: .semibold))
+                .font(AppFont.sans(FontSize.sm, weight: .semibold))
                 .tracking(0.5)
                 .foregroundStyle(theme.palette.fg3)
             ForEach(hiddenRefs) { ref in

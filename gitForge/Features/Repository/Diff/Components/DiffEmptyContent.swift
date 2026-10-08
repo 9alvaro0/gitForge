@@ -11,11 +11,11 @@ struct DiffEmptyContent: View {
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
             Text(copy.title)
-                .font(AppFont.sans(12.5, weight: .semibold))
+                .font(AppFont.sans(FontSize.mdPlus, weight: .semibold))
                 .foregroundStyle(theme.palette.fg2)
             if let subtitle = copy.subtitle {
                 Text(subtitle)
-                    .font(AppFont.sans(11.5))
+                    .font(AppFont.sans(FontSize.smPlus))
                     .foregroundStyle(theme.palette.fg3)
                     .multilineTextAlignment(.center)
             }

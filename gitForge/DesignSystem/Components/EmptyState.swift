@@ -23,11 +23,11 @@ struct EmptyState<Action: View>: View {
         VStack(spacing: DesignTokens.Spacing.lg) {
             GFIcon(kind: icon, size: 32, stroke: theme.palette.fg4)
             Text(title)
-                .font(AppFont.sans(14))
+                .font(AppFont.sans(FontSize.xl))
                 .foregroundStyle(theme.palette.fg1)
             if let subtitle {
                 Text(subtitle)
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg3)
             }
             action()

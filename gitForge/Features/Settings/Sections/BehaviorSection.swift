@@ -99,7 +99,7 @@ struct BehaviorSection: View {
                 }
                 .frame(maxWidth: 240)
                 Text(description)
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -119,7 +119,7 @@ struct BehaviorSection: View {
                     .controlSize(.small)
                     .labelsHidden()
                 Text(description)
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
                     .fixedSize(horizontal: false, vertical: true)
             }

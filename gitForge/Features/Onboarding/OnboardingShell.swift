@@ -55,13 +55,13 @@ private struct OnboardingHeader: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .branch, size: 16, stroke: theme.palette.accent)
                 Text("gitForge")
-                    .font(AppFont.sans(13, weight: .semibold))
+                    .font(AppFont.sans(FontSize.lg, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
             }
             Spacer(minLength: 0)
             HStack(spacing: DesignTokens.Spacing.lg) {
                 Text("Step \(currentStep.rawValue + 1) of \(OnboardingState.Step.allCases.count)")
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
                 ProgressDots(currentStep: currentStep)
             }
@@ -160,7 +160,7 @@ private struct OnboardingFooter: View {
     ) {
         VStack(spacing: DesignTokens.Spacing.lg) {
             Text("Step content goes here")
-                .font(AppFont.sans(14))
+                .font(AppFont.sans(FontSize.xl))
                 .foregroundStyle(theme.palette.fg2)
         }
     }
@@ -180,7 +180,7 @@ private struct OnboardingFooter: View {
         onPrimary: {}
     ) {
         Text("Welcome content")
-            .font(AppFont.sans(14))
+            .font(AppFont.sans(FontSize.xl))
     }
     .frame(width: 820, height: 560)
     .appTheme(theme)

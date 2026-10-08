@@ -73,7 +73,7 @@ struct AppearanceSection: View {
                 set: { ui.preferences.diffWrapLongLines = $0 }
             )) {
                 Text(ui.preferences.diffWrapLongLines ? "Soft-wrap onto the next visual row" : "Overflow horizontally (default)")
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg2)
             }
             .toggleStyle(.switch)
@@ -96,7 +96,7 @@ struct AppearanceSection: View {
                 ForEach(values, id: \.0) { (raw, label) in
                     Button(action: { onChange(raw) }) {
                         Text(label.capitalized)
-                            .font(AppFont.sans(11))
+                            .font(AppFont.sans(FontSize.sm))
                             .padding(.horizontal, DesignTokens.Spacing.lg)
                             .frame(height: DesignTokens.IconSize.xxl)
                             .foregroundStyle(raw == current ? theme.palette.accent : theme.palette.fg2)
@@ -148,7 +148,7 @@ struct AppearanceSection: View {
     @ViewBuilder
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
-            .font(AppFont.sans(11, weight: .medium))
+            .font(AppFont.sans(FontSize.sm, weight: .medium))
             .foregroundStyle(theme.palette.fg3)
     }
 }

@@ -45,7 +45,7 @@ struct ConflictView: View {
                     // marks good/bad from terminal. Surface the situation so
                     // they're not blindly hitting Continue.
                     Text("Bisect in progress — finish from terminal with `git bisect reset`.")
-                        .font(.system(size: FontSize.footnote))
+                        .font(.system(size: FontSize.sm))
                         .foregroundStyle(theme.palette.fg3)
                 case .clean:
                     EmptyView()

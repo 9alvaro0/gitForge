@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct PullRequestDetailHeader: View {
     let pullRequest: PullRequest
@@ -9,20 +8,17 @@ struct PullRequestDetailHeader: View {
     @Environment(\.appPreferences) private var preferences
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                GFButton(title: "← Back", size: .small, action: onBack)
-                Spacer()
-                if let url = pullRequest.webURL {
-                    ToolButton(.ext, label: "Open in browser") {
-                        ExternalURL.open(url)
-                    }
+        DetailHeader(onBack: onBack) {
+            if let url = pullRequest.webURL {
+                ToolButton(.ext, label: "Open in browser") {
+                    ExternalURL.open(url)
                 }
             }
+        } content: {
             HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
                 PullRequestStatePill(state: pullRequest.state)
                 Text(pullRequest.title)
-                    .font(AppFont.sans(16, weight: .semibold))
+                    .font(AppFont.sans(DesignTokens.Detail.titleFontSize, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(2)
                 MonoText("#\(pullRequest.number)", dim: true)
@@ -40,13 +36,6 @@ struct PullRequestDetailHeader: View {
                     MonoText(preferences.dateDisplayMode.format(updated), dim: true)
                 }
             }
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .padding(.vertical, DesignTokens.Spacing.xxl)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.palette.bg2)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
         }
     }
 }

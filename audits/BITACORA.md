@@ -14,7 +14,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
-| A07 | Design system y consistencia visual (preparación del rediseño) | Pendiente |
+| A07 | Design system y consistencia visual (preparación del rediseño) | Hecha (2026-10-08) |
 | A08 | Accesibilidad y HIG de macOS | Pendiente |
 | A09 | Tests (huecos de cobertura, aislamiento, fiabilidad) | Pendiente |
 | A10 | Higiene de repo y docs (README, `design/`, scripts, CI) | Pendiente |
@@ -30,7 +30,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | A02 | A02-bis | Valores raros de config no contemplados: `pull.rebase=merges/interactive` se muestra como "merge"; `setLocalIdentity` no protege valores que empiezan por `-`. | `GitGlobalConfig.swift`, `GitCLI+Identity.swift` |
 | A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
 | A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
-| A04 | A07 | Tokens de diseño sin uso (`fastDuration`, `standardDuration`, `slowDuration`, `chromeRadius`) y vistas casi gemelas sin componente común: cabecera, tabs, lista de ficheros y secciones de los detalles de stash y de PR, y el bloque de onboarding repetido en `GitNotFoundView`/`GitStep`. | `Tokens.swift`, `Stashes/`, `Pulls/`, `Onboarding/` |
 | A01 | A09 | `ProfileStoreSchemaTests` lee y escribe el `UserDefaults.standard` real de la app (el test host es la propia app) y barre todas las claves de cuarentena, incluidas las del usuario. Debería usar una suite inyectada. | `gitForgeTests/App/State/ProfileStoreSchemaTests.swift` |
 
 ---
@@ -308,3 +307,51 @@ Nuevos: `LRUCacheTests` (expulsión del menos usado, reinserción) y listas deri
 ### Recomendación
 
 Hacer una pasada con Instruments (SwiftUI + Time Profiler) sobre un repo grande (por ejemplo, el kernel de Linux o uno de 50.000+ commits) antes del rediseño, para medir con datos y no solo por lectura.
+
+---
+
+## A07 — Design system y consistencia visual
+
+**Fecha:** 2026-10-08
+**Alcance:** adopción de tokens (espaciado, radios, color, opacidad, movimiento, tipografía), tipografía real frente a la de diseño, iconografía, y componentes duplicados entre features (diferido de A04).
+**Estado:** escrito sin compilar (a petición) y verificado después. Un solo error de compilación (un `import Foundation` que faltaba en el test nuevo) y 0 warnings.
+
+### Diagnóstico
+
+| Aspecto | Escrito a mano | Con token | Valoración |
+|---|---|---|---|
+| Espaciado y padding | 3 | 558 | Excelente |
+| Radios | 0 | 156 | Excelente |
+| Color | ~1 | 644 usos de la paleta | Excelente |
+| Opacidad | 8 | 39 | Bien |
+| Animación | 6 | 4 (más 3 duraciones sin uso) | Mejorable → corregido |
+| **Tipografía** | **222 tamaños, 12 valores distintos** | 27 | **Gran hueco → corregido** |
+| Dimensiones de layout (`frame`) | 162 | — | Específicas de cada pantalla; se revisarán con el rediseño |
+
+### Hallazgos y acciones
+
+| # | Hallazgo | Acción |
+|---|----------|--------|
+| 1 | **Tipografía sin tokens**: 222 tamaños escritos a mano con 12 valores (10, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15, 16, 18, 20). La escala `FontSize` tenía 6 pasos que no cubrían la mitad. | Escala `FontSize` completa (`xxs`…`xxxl`, `title`, `largeTitle`, `display`), coherente con `Spacing`, con los **mismos valores** que había. Migración mecánica de los 222 sitios y de los 27 que usaban tokens antiguos. **Sin cambio visual.** En el rediseño, unificar medios puntos será editar valores en un solo sitio. |
+| 2 | **La fuente de diseño nunca se aplica**: `AppFont` prefiere Inter Tight "empaquetada", pero ninguna fuente va en el bundle y no suele estar instalada, así que la UI siempre se ve en SF Pro. Además, cada llamada hacía una búsqueda `NSFont(name:)` (cientos por render). | Detección cacheada una vez por lanzamiento (familia sans y monoespaciadas) y comentario corregido. **Decisión para el rediseño:** empaquetar Inter Tight (licencia OFL, redistribuible) o adoptar SF Pro de forma oficial. |
+| 3 | **Iconografía mezclada**: set propio `GFIcon` (34 glifos, 43 usos) junto a 10 SF Symbols sueltos. | 8 SF Symbols sustituidos por su equivalente `GFIcon` (plus, check, search, cloud, x, warn). Se mantienen 2 justificados: un checkmark dentro de un menú nativo (que no dibuja `Canvas`) y candado/globo de repos privados/públicos (sin equivalente en `GFIcon`). |
+| 4 | **Componentes duplicados** (diferido de A04): las barras de pestañas de los detalles de stash y de PR eran idénticas; las cabeceras compartían la estructura; el bloque "Git is required" estaba copiado en `GitNotFoundView` y en `GitStep`. | `DetailTabBar` genérico (protocolo `DetailTab`), andamio `DetailHeader` (fila Back + acciones + marco) y `GitInstallPrompt`. Nuevo `StatusBadge` en el design system para los distintivos de estado a pantalla completa. |
+| 5 | **Inconsistencia visual**: el título del detalle de stash usaba 15 pt y el del PR 16 pt. | Unificado en `DesignTokens.Detail.titleFontSize` (16 pt). **Es el único cambio visual de la auditoría.** |
+| 6 | Animaciones escritas a mano (0.12 / 0.15 / 0.18 / spinner 0.9) y duraciones en tokens sin uso. `chromeRadius` sin uso. | Migradas a `Motion.fast` / `.standard` / nuevo `.spin` (0.15 pasa a 0.18, imperceptible). Eliminados los tokens muertos. |
+| 7 | Tintes suaves con `.opacity(0.15)` a mano en el onboarding (la paleta solo tiene `Soft` para acento, add y del). | Token `Opacity.tint` dentro de `StatusBadge`, y tokens `IconSize.badge` / `badgeGlyph`. |
+
+### Recomendaciones para el rediseño
+
+1. **Familia tipográfica:** decidir entre empaquetar Inter Tight o adoptar SF Pro. Hoy la app ya se ve en SF Pro.
+2. **Escala tipográfica:** consolidar los 13 pasos (sobran los medios puntos) en unos 7-8 roles semánticos.
+3. **Paleta:** añadir variantes `Soft` para `warn`, `ok`, `mod` e `info`, como ya existen para acento, add y del.
+4. **Iconos:** decidir si se mantiene `GFIcon` como set único (faltan candado y globo) o se pasa a SF Symbols, que encaja con la HIG de macOS y ofrece pesos y tamaños dinámicos.
+5. **Vistas que reciben closures** (A06): preferir datos y vistas `Equatable` en las pantallas nuevas.
+
+### Tests
+
+`TypographyScaleTests`: la escala es estrictamente creciente y el título de detalle está en la escala. Resultado: **361/361**, 0 warnings, 2 ejecuciones seguidas en verde. La app queda en reposo.
+
+### Verificación manual pendiente
+
+Revisión visual rápida de: detalle de stash (título a 16 pt), detalle de PR, onboarding/pantalla "Git is required", sidebar (iconos +), selector de repos remotos (iconos), checkboxes de staging (check) y spinner de los botones de herramienta.

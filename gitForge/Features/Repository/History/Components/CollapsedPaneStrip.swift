@@ -37,7 +37,7 @@ struct CollapsedPaneStrip: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 GFIcon(kind: .diff, size: 12, stroke: theme.palette.fg2)
                 Text("Show diff pane")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg2)
                 Spacer(minLength: 0)
                 GFIcon(kind: .arrowU, size: 11, stroke: theme.palette.fg3)

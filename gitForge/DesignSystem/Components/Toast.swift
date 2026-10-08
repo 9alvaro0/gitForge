@@ -17,7 +17,7 @@ struct ToastView: View {
         HStack(spacing: DesignTokens.Spacing.lg) {
             GFIcon(kind: icon, size: 14, stroke: iconColor)
             Text(toast.message)
-                .font(AppFont.sans(12.5))
+                .font(AppFont.sans(FontSize.mdPlus))
                 .foregroundStyle(theme.palette.fg1)
         }
         .padding(.horizontal, DesignTokens.Spacing.xxxl)

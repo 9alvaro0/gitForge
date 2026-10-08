@@ -62,10 +62,10 @@ struct ConflictHunkCard: View {
     private var header: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             Text("Conflict #\(index + 1)")
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
             Text("· \(hunk.ours.count) vs \(hunk.theirs.count) lines")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
             Spacer()
             if let pick {
@@ -89,7 +89,7 @@ struct ConflictHunkCard: View {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     GFIcon(kind: .plus, size: 11, stroke: pick == .both ? theme.palette.accent : theme.palette.fg2)
                     Text("Pick both (ours + theirs)")
-                        .font(AppFont.sans(11.5, weight: pick == .both ? .medium : .regular))
+                        .font(AppFont.sans(FontSize.smPlus, weight: pick == .both ? .medium : .regular))
                         .foregroundStyle(pick == .both ? theme.palette.accent : theme.palette.fg2)
                 }
                 .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.sm)

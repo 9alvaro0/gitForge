@@ -17,7 +17,7 @@ struct GFButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(AppFont.sans(size == .small ? 11 : 12))
+                .font(AppFont.sans(size == .small ? FontSize.sm : FontSize.md))
                 .padding(.horizontal, size == .small ? 8 : 12)
                 .frame(height: size == .small ? 22 : 28)
                 .foregroundStyle(fg)

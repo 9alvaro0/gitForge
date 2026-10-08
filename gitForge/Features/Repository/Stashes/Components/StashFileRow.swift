@@ -12,7 +12,7 @@ struct StashFileRow: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 StatusTag(kind: StatusTag.Kind(stashFileStatus: file.status))
                 Text(file.path)
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(isSelected ? theme.palette.fg1 : theme.palette.fg2)
                     .lineLimit(1)
                     .truncationMode(.middle)

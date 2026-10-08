@@ -17,12 +17,12 @@ struct CommitDetailColumn: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
             shaLine
             Text(commit.subject)
-                .font(AppFont.sans(14))
+                .font(AppFont.sans(FontSize.xl))
                 .foregroundStyle(theme.palette.fg1)
             CommitMetaCard(commit: commit)
             if let detail, !detail.bodyText.isEmpty {
                 Text(detail.bodyText)
-                    .font(AppFont.mono(12, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -38,7 +38,7 @@ struct CommitDetailColumn: View {
         HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: .diamond, size: 14, stroke: theme.palette.fg1)
             Text(commit.shortSha)
-                .font(AppFont.mono(13, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.lg, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
             IconButton(.copy, accessibilityLabel: "Copy full SHA") {
                 NSPasteboard.general.declareTypes([.string], owner: nil)

@@ -50,6 +50,9 @@ enum DesignTokens {
         static let xxl: CGFloat = 24
         /// Avatar-sized control / repo mark.
         static let huge: CGFloat = 26
+        /// `StatusBadge` box and the glyph inside it.
+        static let badge: CGFloat = 64
+        static let badgeGlyph: CGFloat = 28
     }
 
     /// Curated opacities for overlays, dividers, dimmed states.
@@ -57,6 +60,8 @@ enum DesignTokens {
         static let faint: Double = 0.06
         static let subtle: Double = 0.10
         static let muted: Double = 0.14
+        /// Soft fill behind a tinted icon (`StatusBadge`).
+        static let tint: Double = 0.15
         static let strong: Double = 0.22
         static let dim: Double = 0.30
         /// Opacity applied to controls in their `disabled` state.
@@ -69,10 +74,8 @@ enum DesignTokens {
         static let fast: Animation = .easeOut(duration: 0.12)
         static let standard: Animation = .easeOut(duration: 0.18)
         static let slow: Animation = .easeInOut(duration: 0.9)
-
-        static let fastDuration: TimeInterval = 0.12
-        static let standardDuration: TimeInterval = 0.18
-        static let slowDuration: TimeInterval = 0.9
+        /// One full turn of an indeterminate spinner, repeated forever.
+        static let spin: Animation = .linear(duration: 0.9).repeatForever(autoreverses: false)
     }
 
     /// Standard heights for interactive controls (buttons, text fields,
@@ -91,10 +94,11 @@ enum DesignTokens {
     enum Window {
         static let titlebarHeight: CGFloat = 36
         static let statusbarHeight: CGFloat = 26
-        static let chromeRadius: CGFloat = 12
     }
 
     enum Detail {
+        /// Title line of a drill-in detail pane (stash, pull request).
+        static let titleFontSize: CGFloat = FontSize.xxxl
         static let panelWidth: CGFloat = 360
         static let diffPaneHeight: CGFloat = 280
     }

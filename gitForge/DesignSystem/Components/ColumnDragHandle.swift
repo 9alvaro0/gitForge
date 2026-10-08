@@ -69,22 +69,22 @@ struct ColumnDragHandle: View {
     VStack(spacing: DesignTokens.Spacing.none) {
         HStack(spacing: DesignTokens.Spacing.none) {
             Text("ALPHA")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .frame(width: w1, alignment: .leading)
             ColumnDragHandle(width: $w1, minWidth: 80, maxWidth: 400)
             Text("BETA")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .frame(width: w2, alignment: .leading)
             ColumnDragHandle(width: $w2, minWidth: 60, maxWidth: 300)
             Text("GAMMA")
-                .font(AppFont.mono(10.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, DesignTokens.Spacing.md)
         .background(theme.palette.bg2)
         Divider()
         Text("Drag the dividers — w1=\(Int(w1)), w2=\(Int(w2))")
-            .font(AppFont.mono(11, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             .padding()
         Spacer()
     }

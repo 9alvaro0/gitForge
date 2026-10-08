@@ -60,16 +60,16 @@ struct ProfilesSection: View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(profile.name)
-                    .font(AppFont.sans(13, weight: .semibold))
+                    .font(AppFont.sans(FontSize.lg, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text("\(profile.userName) · \(profile.userEmail)")
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let key = profile.signingKey, !key.isEmpty {
                     Text("Signing key: \(key)")
-                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
                 }
             }
@@ -193,7 +193,7 @@ private struct ProfileEditor: View {
     private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
             Text(label)
-                .font(.system(size: FontSize.footnote, weight: .medium))
+                .font(.system(size: FontSize.sm, weight: .medium))
                 .tracking(0.6)
                 .foregroundStyle(theme.palette.fg3)
             GFTextField(placeholder: placeholder, text: text)

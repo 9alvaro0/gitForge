@@ -146,10 +146,10 @@ struct CloneView: View {
                 GFIcon(kind: .folder, size: 22, stroke: theme.palette.fg2)
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text("Open a folder on this Mac")
-                        .font(AppFont.sans(13, weight: .semibold))
+                        .font(AppFont.sans(FontSize.lg, weight: .semibold))
                         .foregroundStyle(theme.palette.fg1)
                     Text("Add an existing git repository without cloning it again.")
-                        .font(AppFont.sans(11.5))
+                        .font(AppFont.sans(FontSize.smPlus))
                         .foregroundStyle(theme.palette.fg3)
                 }
                 Spacer(minLength: 0)
@@ -213,14 +213,12 @@ struct CloneView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Text(label)
-                    .font(AppFont.sans(11, weight: .medium))
+                    .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                 if let hint {
-                    Image(systemName: hint.kind.iconName)
-                        .font(.system(size: FontSize.caption, weight: .semibold))
-                        .foregroundStyle(hint.kind.tint)
+                    GFIcon(kind: hint.kind.icon, size: DesignTokens.IconSize.xs, stroke: hint.kind.tint)
                     Text(hint.message)
-                        .font(AppFont.sans(10.5))
+                        .font(AppFont.sans(FontSize.xs))
                         .foregroundStyle(hint.kind.tint)
                         .lineLimit(1)
                 }
@@ -232,11 +230,11 @@ struct CloneView: View {
     private struct FieldHint {
         enum Kind {
             case ok, warn, bad
-            var iconName: String {
+            var icon: GFIconKind {
                 switch self {
-                case .ok:   return "checkmark.circle.fill"
-                case .warn: return "exclamationmark.triangle.fill"
-                case .bad:  return "xmark.octagon.fill"
+                case .ok:   return .check
+                case .warn: return .warn
+                case .bad:  return .x
                 }
             }
             var tint: Color {
@@ -254,18 +252,18 @@ struct CloneView: View {
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("RECENT")
-                .font(.system(size: FontSize.footnote, weight: .semibold))
+                .font(.system(size: FontSize.sm, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             ForEach(repositories) { repo in
                 HStack(spacing: DesignTokens.Spacing.lg) {
                     RepoMark(letter: orgInitial(repo))
                     Text("\(orgName(repo))/\(repo.name)")
-                        .font(AppFont.mono(12, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg1)
                         .frame(width: 220, alignment: .leading)
                     Text(repo.path)
-                        .font(AppFont.mono(11, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -298,11 +296,11 @@ struct CloneView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack(spacing: DesignTokens.Spacing.md) {
                 Text(stage)
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
                 Spacer()
                 Text("\(Int(percent * 100))%")
-                    .font(AppFont.mono(11, family: theme.monoFont).monospacedDigit())
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont).monospacedDigit())
                     .foregroundStyle(theme.palette.fg2)
             }
             ProgressView(value: percent)

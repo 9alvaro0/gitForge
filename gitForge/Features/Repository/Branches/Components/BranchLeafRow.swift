@@ -31,7 +31,7 @@ struct BranchLeafRow: View {
             currentBranchDot
             nameCell
             Text(lastCommitLabel)
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: BranchRowMetrics.lastCommitColumn, alignment: .leading)
                 .lineLimit(1)
@@ -66,7 +66,7 @@ struct BranchLeafRow: View {
             GFIcon(kind: ref.isRemoteBranch ? .cloud : .desktop,
                    size: 12, stroke: theme.palette.fg2)
             Text(leafName)
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
             if isCurrent {
                 Pill(text: "HEAD", kind: .neutral)

@@ -23,7 +23,7 @@ struct CommitActionsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("ACTIONS")
-                .font(.system(size: FontSize.footnote, weight: .semibold))
+                .font(.system(size: FontSize.sm, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             actionGrid

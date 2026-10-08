@@ -67,7 +67,7 @@ struct StagingFilesColumn: View {
 
     private func emptyLabel(_ text: String) -> some View {
         Text(text)
-            .font(AppFont.sans(12))
+            .font(AppFont.sans(FontSize.md))
             .foregroundStyle(theme.palette.fg3)
             .italic()
             .frame(maxWidth: .infinity, alignment: .leading)

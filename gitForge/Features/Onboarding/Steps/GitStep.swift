@@ -11,7 +11,6 @@ struct GitStep: View {
 
     @Environment(GitEnvironment.self) private var gitEnvironment
     @Environment(\.appTheme) private var theme
-    @State private var isInstalling = false
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.xxhuge) {
@@ -37,20 +36,20 @@ struct GitStep: View {
             ProgressView()
                 .controlSize(.regular)
             Text("Checking for git…")
-                .font(AppFont.sans(13))
+                .font(AppFont.sans(FontSize.lg))
                 .foregroundStyle(theme.palette.fg3)
         }
     }
 
     private var availableState: some View {
         VStack(spacing: DesignTokens.Spacing.xl) {
-            statusBadge(icon: .check, tint: theme.palette.ok, soft: theme.palette.ok.opacity(0.15))
+            StatusBadge(icon: .check, tint: theme.palette.ok)
             VStack(spacing: DesignTokens.Spacing.sm) {
                 Text("Git is ready")
-                    .font(AppFont.sans(16, weight: .semibold))
+                    .font(AppFont.sans(FontSize.xxxl, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text("The `git` command-line tool was found on this Mac.")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg3)
                     .multilineTextAlignment(.center)
             }
@@ -58,47 +57,7 @@ struct GitStep: View {
     }
 
     private var notFoundState: some View {
-        VStack(spacing: DesignTokens.Spacing.xxl) {
-            statusBadge(icon: .warn, tint: theme.palette.warn, soft: theme.palette.warn.opacity(0.15))
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text("Git is required")
-                    .font(AppFont.sans(16, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
-                Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
-                    .font(AppFont.sans(12))
-                    .foregroundStyle(theme.palette.fg3)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
-            }
-            HStack(spacing: DesignTokens.Spacing.md) {
-                GFButton(
-                    title: isInstalling ? "Installing…" : "Install Command Line Tools",
-                    style: .primary,
-                    disabled: isInstalling,
-                    action: installCommandLineTools
-                )
-                GFButton(title: "Recheck") {
-                    Task { await gitEnvironment.refreshGitInstallation() }
-                }
-            }
-        }
-    }
-
-    private func statusBadge(icon: GFIconKind, tint: Color, soft: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: DesignTokens.Radius.xl)
-                .fill(soft)
-                .frame(width: 64, height: 64)
-            GFIcon(kind: icon, size: 28, stroke: tint)
-        }
-    }
-
-    private func installCommandLineTools() {
-        isInstalling = true
-        Task {
-            await gitEnvironment.installCommandLineTools()
-            isInstalling = false
-        }
+        GitInstallPrompt()
     }
 }
 

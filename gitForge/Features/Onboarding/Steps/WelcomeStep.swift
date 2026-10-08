@@ -24,10 +24,10 @@ struct WelcomeStep: View {
             }
             VStack(spacing: DesignTokens.Spacing.sm) {
                 Text("Welcome to gitForge")
-                    .font(AppFont.sans(20, weight: .semibold))
+                    .font(AppFont.sans(FontSize.largeTitle, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text("A native macOS git client built around fast history navigation, fluid diffs, and a quiet UI.")
-                    .font(AppFont.sans(13))
+                    .font(AppFont.sans(FontSize.lg))
                     .foregroundStyle(theme.palette.fg3)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 420)
@@ -54,10 +54,10 @@ struct WelcomeStep: View {
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(title)
-                    .font(AppFont.sans(12, weight: .semibold))
+                    .font(AppFont.sans(FontSize.md, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 Text(subtitle)
-                    .font(AppFont.sans(11.5))
+                    .font(AppFont.sans(FontSize.smPlus))
                     .foregroundStyle(theme.palette.fg3)
             }
         }

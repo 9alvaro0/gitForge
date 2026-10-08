@@ -10,7 +10,7 @@ struct BranchTagsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("TAGS")
-                .font(.system(size: FontSize.footnote, weight: .semibold))
+                .font(.system(size: FontSize.sm, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             FlowLayout(spacing: DesignTokens.Spacing.sm) {

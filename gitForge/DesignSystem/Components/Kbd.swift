@@ -7,7 +7,7 @@ struct Kbd: View {
 
     var body: some View {
         Text(text)
-            .font(AppFont.mono(10, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg3)
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.hairline)

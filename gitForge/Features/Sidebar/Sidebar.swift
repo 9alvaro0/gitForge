@@ -46,9 +46,7 @@ struct Sidebar: View {
                         Menu {
                             addRepositoryMenuItems()
                         } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: FontSize.caption, weight: .semibold))
-                                .foregroundStyle(theme.palette.fg3)
+                            GFIcon(kind: .plus, size: DesignTokens.IconSize.sm, stroke: theme.palette.fg3)
                                 .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
                                 .contentShape(.rect)
                         }
@@ -167,12 +165,11 @@ private struct AddRepositoryRow<Items: View>: View {
             items()
         } label: {
             HStack(spacing: DesignTokens.Spacing.lg) {
-                Image(systemName: "plus")
-                    .font(.system(size: DesignTokens.IconSize.md, weight: .semibold))
-                    .foregroundStyle(foreground.opacity(DesignTokens.Opacity.prominent))
+                GFIcon(kind: .plus, size: DesignTokens.IconSize.md,
+                       stroke: foreground.opacity(DesignTokens.Opacity.prominent))
                     .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
                 Text("Add repository…")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

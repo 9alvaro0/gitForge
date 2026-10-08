@@ -20,10 +20,10 @@ struct BranchFolderRow: View {
                        size: 10, stroke: theme.palette.fg3)
                 GFIcon(kind: .folder, size: 12, stroke: theme.palette.fg2)
                 Text(name)
-                    .font(AppFont.sans(12, weight: .medium))
+                    .font(AppFont.sans(FontSize.md, weight: .medium))
                     .foregroundStyle(theme.palette.fg1)
                 Text("\(leafCount)")
-                    .font(AppFont.mono(10.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
                 Spacer()
             }

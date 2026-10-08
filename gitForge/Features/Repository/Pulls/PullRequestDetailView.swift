@@ -10,7 +10,7 @@ struct PullRequestDetailView: View {
     @State private var tab: Tab = .overview
     @State private var showLocalMergeConfirm: Bool = false
 
-    enum Tab: String, Hashable, CaseIterable, Identifiable {
+    enum Tab: String, DetailTab, Identifiable {
         case overview, commits, files
         var id: String { rawValue }
         var label: String {
@@ -30,7 +30,7 @@ struct PullRequestDetailView: View {
                     onBack: { store.closeDetail() }
                 )
             }
-            PullRequestDetailTabBar(tab: $tab, loading: store.isLoadingDetail)
+            DetailTabBar(tab: $tab, loading: store.isLoadingDetail)
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

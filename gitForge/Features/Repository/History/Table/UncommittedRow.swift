@@ -29,7 +29,7 @@ struct UncommittedRow: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 Circle().fill(theme.palette.mod).frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
                 Text("Uncommitted changes")
-                    .font(AppFont.sans(12.5))
+                    .font(AppFont.sans(FontSize.mdPlus))
                     .italic()
                     .foregroundStyle(theme.palette.mod)
             }
@@ -38,12 +38,12 @@ struct UncommittedRow: View {
             Color.clear.frame(width: columns.width("author"))
             Color.clear.frame(width: DesignTokens.Spacing.md)
             Text("–")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("sha"), alignment: .leading)
             Color.clear.frame(width: DesignTokens.Spacing.md)
             Text("now")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
             Color.clear.frame(width: DesignTokens.Spacing.md)

@@ -12,16 +12,16 @@ struct CommitTagSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("New tag at \(commitShortSha)")
-                .font(AppFont.sans(14, weight: .semibold))
+                .font(AppFont.sans(FontSize.xl, weight: .semibold))
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("Name")
-                    .font(AppFont.sans(11, weight: .medium))
+                    .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                 GFTextField(placeholder: "v1.2.3", text: $name)
             }
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("Message (optional — annotated tag if set)")
-                    .font(AppFont.sans(11, weight: .medium))
+                    .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                 GFTextField(placeholder: "Release 1.2.3", text: $message)
             }

@@ -34,11 +34,11 @@ struct StashOverviewTab: View {
     private func subjectBlock(_ stash: Stash) -> some View {
         block(spacing: DesignTokens.Spacing.sm) {
             Text("MESSAGE")
-                .font(.system(size: FontSize.caption, weight: .semibold))
+                .font(.system(size: FontSize.xxs, weight: .semibold))
                 .tracking(0.7)
                 .foregroundStyle(theme.palette.fg3)
             Text(stash.subject)
-                .font(AppFont.sans(12.5))
+                .font(AppFont.sans(FontSize.mdPlus))
                 .foregroundStyle(theme.palette.fg1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -57,12 +57,12 @@ struct StashOverviewTab: View {
     private func row(label: String, value: String) -> some View {
         HStack(spacing: DesignTokens.Spacing.lg) {
             Text(label.uppercased())
-                .font(.system(size: FontSize.caption, weight: .semibold))
+                .font(.system(size: FontSize.xxs, weight: .semibold))
                 .tracking(0.7)
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: 90, alignment: .leading)
             Text(value)
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
             Spacer()
         }
