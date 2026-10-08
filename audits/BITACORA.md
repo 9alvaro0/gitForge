@@ -9,7 +9,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 |---|-----------|--------|
 | A01 | Línea base y salud del build (warnings, Swift 6, config) | Hecha (2026-10-08) |
 | A02 | Capa Git (`GitCLI`): spawn de procesos, parsing, errores, inyección de argumentos | Hecha (2026-10-08) |
-| A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Pendiente |
+| A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Pendiente |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Pendiente |
@@ -24,7 +24,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 
 | Origen | Para | Hallazgo | Ubicación |
 |--------|------|----------|-----------|
-| A01 | A03 | `WorkingTreeWatcher` pasa `self` a FSEvents con `passUnretained` y sin retain/release en el contexto. Si `deinit` coincide con un callback en vuelo en la cola de FSEvents, hay riesgo de uso tras liberar. | `gitForge/Core/Watchers/WorkingTreeWatcher.swift` |
 | A01 | A05 | `OptInTrustSessionDelegate` acepta cualquier certificado de un host "de confianza" (sin pinning de huella). La lista vive en `UserDefaults`, que cualquier proceso del usuario puede escribir con `defaults write`. | `gitForge/Core/RemoteHosting/OptInTrustSessionDelegate.swift`, `RemoteHostTrust.swift` |
 | A02 | A04 | `deleteUntracked` intenta la Papelera y, si falla (volúmenes sin Papelera, red), borra **permanentemente** sin avisar, aunque la UI lo presenta como recuperable. | `gitForge/Core/Git/GitCLI+Stage.swift` |
 | A02 | A06 | La caché de `DiffSyntaxHighlighter` no tiene límite (crece con cada hunk visto en la sesión) y usa `hashValue` como clave (colisiones = resaltado erróneo). | `gitForge/Core/Git/DiffSyntaxHighlighter.swift` |
@@ -32,6 +31,11 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | A02 | A02-bis | `DiffParser` descuadra los números de línea si el usuario tiene `diff.suppressBlankEmpty=true` (líneas de contexto vacías sin espacio). Parsear por recuento de líneas del hunk. | `DiffParser.swift` |
 | A02 | A02-bis | Valores raros de config no contemplados: `pull.rebase=merges/interactive` se muestra como "merge"; `setLocalIdentity` no protege valores que empiezan por `-`. | `GitGlobalConfig.swift`, `GitCLI+Identity.swift` |
 | A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
+| A03 | A02-bis | El resolutor de conflictos lee y escribe los ficheros forzando UTF-8: un fichero Latin-1 en conflicto no se puede abrir, y la reescritura podría cambiar su codificación. | `RepositoryViewModel+Conflicts.swift` |
+| A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
+| A03 | A04 | `NSOpenPanel.runModal()` dentro de funciones `async` del main actor. Mejor `begin`/sheet con continuación. | `AppState.swift` |
+| A03 | A06 | `NSWindow.didBecomeKeyNotification` de *cualquier* ventana (sheets, alertas, Settings) fuerza un refresh completo. | `gitForgeApp.swift` |
+| A03 | A04 | Cancelar el clone justo cuando ya terminó, durante `openRepository`, manda a la Papelera un clone completo y correcto (`cleanupPartialClone`). | `AppState.swift` |
 | A01 | A09 | `ProfileStoreSchemaTests` lee y escribe el `UserDefaults.standard` real de la app (el test host es la propia app) y barre todas las claves de cuarentena, incluidas las del usuario. Debería usar una suite inyectada. | `gitForgeTests/App/State/ProfileStoreSchemaTests.swift` |
 
 ---
@@ -124,3 +128,43 @@ Swift 6 añade comprobaciones de aislamiento en runtime en las fronteras con C/O
 
 - Mini-pasada **A02-bis** opcional con los puntos menores diferidos (ARG_MAX, `suppressBlankEmpty`, valores raros de config).
 - Siguiente auditoría propuesta: **A03 — Concurrencia y ciclo de vida**. El hallazgo 1 sugiere revisar con lupa cualquier otro código bloqueante en contexto async, y ya arrastra el riesgo del `WorkingTreeWatcher`.
+
+---
+
+## A03 — Concurrencia y ciclo de vida
+
+**Fecha:** 2026-10-08
+**Alcance:** watchers, auto-fetch, poller de estado, ciclo de vida del VM (`RepositoryHost`, `RepositoryCatalog`), gen-tokens y flags de carga, exclusión entre operaciones, clone. El comportamiento de los watchers se verificó empíricamente con un harness de FSEvents/DispatchSource contra git real.
+
+### Hallazgos y acciones
+
+| # | Severidad | Hallazgo (verificado) | Acción |
+|---|-----------|-----------------------|--------|
+| 1 | Crítica | **El watcher de `.git` estaba prácticamente ciego.** Los `DispatchSource` van ligados al inodo, y git reescribe `HEAD`, `packed-refs` y las refs con lock + `rename()`. Medido: `.git/HEAD` dispara en el primer checkout y nunca más. Además, vigilar el directorio `refs/heads` no ve las ramas anidadas: un commit en `feature/x` desde terminal no se detectaba nunca, y los fetch (`refs/remotes/origin/...`) tampoco. Pasaba desapercibido porque al volver a la ventana se fuerza un refresh. | Un único `FileEventStream` (FSEvents, basado en rutas) sobre el worktree y los git dirs (también los de worktrees enlazados, fuera de la raíz). `RepositoryEventFilter` (puro y testeado) acepta cualquier fichero del worktree y, dentro de `.git`, solo el estado publicado: `HEAD`, `refs/**`, `packed-refs` y los marcadores de merge/rebase/cherry-pick/revert/bisect. Ignora `index`, `objects/`, `logs/`, `FETCH_HEAD` y los `.lock` para no realimentarse con nuestras propias lecturas (comprobado: la app queda al 0 % de CPU en reposo). |
+| 2 | Alta | **Riesgo de uso tras liberar en el stream de FSEvents** (diferido de A01): contexto con `passUnretained(self)` y sin retain/release. | El stream retiene una caja `Callback` propia mediante los callbacks retain/release del contexto; ya no apunta al watcher. |
+| 3 | Alta | **Paginación bloqueada para el resto de la sesión.** `loadMoreIfNeeded` y `revealCommit` solo limpiaban su flag si `logGen` no había cambiado; si un refresh (`reloadLog`) llegaba durante la carga de una página, `isLoadingMore` se quedaba en `true` y el scroll infinito dejaba de funcionar. Lo mismo con `isLoadingInitial`: tras un `resetLog()` el historial podía quedarse vacío. Además, la paginación incrementaba `logGen` y podía descartar el resultado de una recarga más reciente. | Contrato documentado: solo las recargas incrementan `logGen`; la paginación solo lo lee. Cada flag lo limpia siempre la operación que lo puso (no son reentrantes). La paginación y el reveal comparten el guard `isPaginating`. `reloadLog` ya no escribe stashes y refs obsoletas antes de comprobar el gen. |
+| 4 | Media | **Spinners colgados** al cerrar el detalle de PR o de stash, o al deseleccionar el fichero de un commit: se invalidaba la carga, pero nadie limpiaba su flag. Cerrar el detalle de stash tampoco invalidaba el diff de fichero en vuelo. | Se resetean los flags al cerrar y se incrementa `stashFileDiffGen`. |
+| 5 | Media | **`pull` podía chocar con un commit o un descarte** por `.git/index.lock`: reescribe el índice y el worktree, pero no participaba en `isMutating`. El comentario de `RepositoryHost` afirmaba que el actor `cli` serializa los comandos, y es falso: el actor es reentrante en cada `await` del subproceso. | `pull` toma `isMutating` (y así suspende el watcher) y el botón se deshabilita mientras hay otra mutación. Comentario corregido. |
+| 6 | Media | **Carrera al abrir repos**: `RepositoryCatalog.open(at:)` suspende dos veces antes de cambiar el VM activo, así que con "abrir A, abrir B" rápido podía quedar A. | Gen-token `openGeneration`: gana siempre la última apertura. Catálogo inyectable (store y `UserDefaults`) para testearlo sin tocar los recientes reales. |
+| 7 | Media | **El poller de fondo tomaba `.git/index.lock` de tus otros repos** cada 30 s (`git status` persiste el índice refrescado): un `git add` o `commit` en terminal podía fallar con "index.lock exists". | `status(optionalLocks: false)` → `--no-optional-locks` solo en el poller. Verificado que el resultado es idéntico. |
+| 8 | Media | **Solo se recargaba el grafo si se movía HEAD**: un commit en otra rama local (otro worktree, `git branch -f`) no aparecía. | Se compara el mapa completo rama local → tip. |
+| 9 | Baja | **`track()` crecía sin límite**: podaba por `isCancelled`, que nunca es true en una tarea simplemente terminada (una entrada más por cada clic de selección). | Registro por UUID; cada tarea se elimina a sí misma al terminar. API cambiada a `track { … }`. |
+| 10 | Baja | `RepositoryHost` podía arrancar la reactividad (watcher y auto-fetch) de un VM ya sustituido si el usuario cambiaba de repo durante la carga inicial. | Guard de cancelación e identidad del VM antes de `startReactivity`. |
+| 11 | Baja | Clone: un tick de progreso tardío podía volver a poner `.running` un clone ya terminado (barra de progreso colgada). | Solo se aplica el progreso mientras el estado sigue en `.running`. |
+
+### Tests
+
+- Nuevas suites: `RepositoryEventFilterTests`, `RepositoryWatcherLiveTests` (git real: 3 checkouts seguidos, checkout y commit en `feature/x`, edición externa del worktree), `RepositoryViewModelConcurrencyTests` (flags tras una recarga concurrente, autoderegistro de `track`, exclusión de `pull`) y `RepositoryCatalogOpenTests`.
+- `GitTestRepo`: `make(setup:)`, `gitAsync` y `externalWrite`. Las suites `@MainActor` montan sus repos fuera del hilo principal: bloquearlo con git bajo carga hacía fallar tests de temporización ajenos. `externalWrite` escribe desde otro proceso porque FSEvents usa `IgnoreSelf` y el test host es la propia app.
+- Tests de temporización preexistentes (`RepositoryWatcherSuspendTests`, `AutoFetcherPauseResumeTests`) pasan de esperas fijas de 100-300 ms a "esperar hasta que ocurra, con plazo, y vigilar una ventana más" para seguir detectando disparos duplicados.
+- Resultado: **338/338**, 0 warnings, **4 ejecuciones completas consecutivas en verde**.
+
+### Verificación manual recomendada
+
+- Con la app abierta y en segundo plano, desde terminal: `git checkout` varias veces, commit en una rama `feature/...` y `git fetch` → el historial y las ramas se actualizan sin tener que volver a la ventana.
+- Hacer scroll hasta el final del historial mientras haces un commit desde terminal → la paginación sigue funcionando después.
+- Lanzar un pull y, mientras dura, intentar un commit → el commit queda bloqueado hasta que acaba el pull.
+
+### Pendiente / siguiente
+
+- Siguiente auditoría propuesta: **A04 — Arquitectura y estado** (VM de más de 500 líneas con 15 extensiones, `AppState`, acoplamiento, código muerto). Arrastra tres diferidos.

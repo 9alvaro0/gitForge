@@ -1,11 +1,19 @@
 import Foundation
 
 extension GitCLI {
-    func status() async throws -> WorkingCopyStatus {
+    /// - Parameter optionalLocks: pass `false` for background reads of a repo
+    ///   the user isn't looking at (`--no-optional-locks`): status then skips
+    ///   writing the refreshed index, so it never holds `.git/index.lock`
+    ///   while a terminal `git` command needs it. Results are identical —
+    ///   git still compares content in memory — but the refreshed stat info
+    ///   isn't persisted, so the next status re-hashes stat-dirty files. The
+    ///   active repo keeps the default and benefits from the persisted index.
+    func status(optionalLocks: Bool = true) async throws -> WorkingCopyStatus {
         // `-z` switches record + rename separators to NUL. Without it, paths
         // containing literal `\n` or `\t` would either be C-quoted (which we
         // never decode) or break the line-based split outright.
-        let result = try await run(["status", "--porcelain=v2", "-u", "-z"])
+        let lockFlag = optionalLocks ? [] : ["--no-optional-locks"]
+        let result = try await run(lockFlag + ["status", "--porcelain=v2", "-u", "-z"])
         return WorkingCopyStatus(files: Self.parseStatus(result.stdout))
     }
 

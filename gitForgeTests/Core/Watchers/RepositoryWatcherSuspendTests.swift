@@ -34,9 +34,8 @@ struct RepositoryWatcherSuspendTests {
             await counter.bump()
         }
         watcher.poke(force: true)
-        // Forced pokes use delay=0 but still schedule on the run loop;
-        // yield enough for the Task to run.
-        try await Task.sleep(for: .milliseconds(100))
+        // Forced pokes use delay=0 but still schedule on the main actor.
+        try await counter.settle(at: 1)
         #expect(await counter.value == 1)
         _ = watcher
     }
@@ -73,9 +72,8 @@ struct RepositoryWatcherSuspendTests {
         // resume() call below should fire one refresh.
         watcher.poke(force: false)
         watcher.resume()
-        // Resume schedules through the normal (debounced) path, so wait
-        // past the 300ms debounce.
-        try await Task.sleep(for: .milliseconds(500))
+        // Resume schedules through the normal (debounced) path.
+        try await counter.settle(at: 1)
         #expect(await counter.value == 1)
         _ = watcher
     }
@@ -94,7 +92,7 @@ struct RepositoryWatcherSuspendTests {
         watcher.poke(force: false)
         watcher.poke(force: false)
         watcher.resume()
-        try await Task.sleep(for: .milliseconds(500))
+        try await counter.settle(at: 1)
         // Three events during suspend, one refresh after resume — the
         // refresh reads fresh state anyway, so a single replay is correct.
         #expect(await counter.value == 1)
@@ -131,7 +129,7 @@ struct RepositoryWatcherSuspendTests {
         watcher.suspend()
         watcher.resume()
         watcher.poke(force: true)
-        try await Task.sleep(for: .milliseconds(100))
+        try await counter.settle(at: 1)
         #expect(await counter.value == 1)
         _ = watcher
     }
@@ -169,7 +167,7 @@ struct RepositoryWatcherSuspendTests {
         // window closes.
         try await Task.sleep(for: .milliseconds(100))
         watcher.poke(force: false)
-        try await Task.sleep(for: .milliseconds(500))
+        try await counter.settle(at: 1)
         #expect(await counter.value == 1)
         _ = watcher
     }
@@ -190,7 +188,7 @@ struct RepositoryWatcherSuspendTests {
         watcher.poke(force: true)
         try await Task.sleep(for: .milliseconds(50))
         watcher.poke(force: false)
-        try await Task.sleep(for: .seconds(1))
+        try await counter.settle(at: 2)
         // First refresh ran (forced), then the dirty bit fired a second.
         #expect(await counter.value == 2)
         _ = watcher
@@ -202,4 +200,17 @@ struct RepositoryWatcherSuspendTests {
 private actor ChangeCounter {
     private(set) var value = 0
     func bump() { value += 1 }
+
+    /// Waits (up to `timeout`) for the count to reach `target`, then keeps
+    /// watching for one more debounce window so a duplicate refresh would
+    /// still be caught by the caller's `== target` check. Fixed short sleeps
+    /// flaked whenever the main actor was busy with other suites.
+    func settle(at target: Int, timeout: Duration = .seconds(3)) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while value < target, clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try await Task.sleep(for: .milliseconds(500))
+    }
 }

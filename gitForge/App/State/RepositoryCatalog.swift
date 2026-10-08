@@ -12,10 +12,23 @@ final class RepositoryCatalog {
     var activeViewModel: RepositoryViewModel?
     var repositoryStatuses: [URL: RepoStatusSnapshot] = [:]
 
-    private let store = RepositoryStore()
+    private let store: RepositoryStore
+    private let defaults: UserDefaults
     private var statusPollTask: Task<Void, Never>?
     private static let statusPollInterval: Duration = .seconds(30)
     private static let lastActiveRepoKey = "lastActiveRepositoryPath"
+    /// Bumped by every `open(at:)`. Opening suspends twice (repo-root probe,
+    /// recents store) before it swaps the active VM; clicking repo A then B
+    /// in quick succession could otherwise let A's slower open land last and
+    /// replace B.
+    private var openGeneration: UInt64 = 0
+
+    /// Tests inject a temp-dir store and a throwaway defaults suite so they
+    /// never touch the user's recents or "last active repo".
+    init(store: RepositoryStore = RepositoryStore(), defaults: UserDefaults = .standard) {
+        self.store = store
+        self.defaults = defaults
+    }
 
     // MARK: - Persistence / lifecycle
 
@@ -32,6 +45,8 @@ final class RepositoryCatalog {
     /// workspace section.
     @discardableResult
     func open(at url: URL) async throws -> Bool {
+        openGeneration &+= 1
+        let generation = openGeneration
         guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
             throw RepositoryError.directoryNotFound(url)
         }
@@ -42,8 +57,11 @@ final class RepositoryCatalog {
         // subdirectory, but operations that build absolute paths from
         // `git ls-files` output assume `workingDirectory` is the root.
         let url = resolved
-        let isSwitching = activeRepository?.url != url
         repositories = await store.touch(url)
+        // A newer open started while we were suspended: it owns the active
+        // slot now. Recording the recent above is still correct.
+        guard generation == openGeneration else { return false }
+        let isSwitching = activeRepository?.url != url
         let active = repositories.first { $0.url == url }
         activeRepository = active
         if let active, activeViewModel?.repository.url != active.url {
@@ -53,7 +71,7 @@ final class RepositoryCatalog {
             activeViewModel?.stopReactivity()
             activeViewModel = RepositoryViewModel(repository: active)
         }
-        UserDefaults.standard.set(url.path(percentEncoded: false), forKey: Self.lastActiveRepoKey)
+        defaults.set(url.path(percentEncoded: false), forKey: Self.lastActiveRepoKey)
         // Seed the snapshot for any newly added repo so the sidebar pills
         // reflect reality before the next poll tick fires.
         await refreshRepoStatus(url)
@@ -66,7 +84,7 @@ final class RepositoryCatalog {
         activeViewModel?.stopReactivity()
         activeRepository = nil
         activeViewModel = nil
-        UserDefaults.standard.removeObject(forKey: Self.lastActiveRepoKey)
+        defaults.removeObject(forKey: Self.lastActiveRepoKey)
     }
 
     /// Removes `url` from recents and drops its cached snapshot. If it was
@@ -84,7 +102,7 @@ final class RepositoryCatalog {
     /// — the user just lands on Welcome instead of seeing an error.
     @discardableResult
     func restoreLastActive() async -> Bool {
-        guard let path = UserDefaults.standard.string(forKey: Self.lastActiveRepoKey) else { return false }
+        guard let path = defaults.string(forKey: Self.lastActiveRepoKey) else { return false }
         let url = URL(fileURLWithPath: path)
         return (try? await open(at: url)) != nil
     }
@@ -169,7 +187,11 @@ final class RepositoryCatalog {
         guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else { return nil }
         let cli = GitCLI(workingDirectory: url)
         let branch = await cli.currentBranchName()
-        let dirty = (try? await cli.status())?.files.count ?? 0
+        // Background read of a repo the user may be working on in a
+        // terminal: don't take `.git/index.lock` to persist the index
+        // refresh, or their `git add` / `commit` can fail with "index.lock
+        // exists" while our poll runs.
+        let dirty = (try? await cli.status(optionalLocks: false))?.files.count ?? 0
         var ahead = 0
         var behind = 0
         if let branch, let upstream = await cli.upstreamName(),
