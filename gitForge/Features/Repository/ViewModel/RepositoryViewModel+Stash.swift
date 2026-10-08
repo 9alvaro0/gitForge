@@ -40,6 +40,9 @@ extension RepositoryViewModel {
             // preserves the stash automatically when there are conflicts.
             await refreshAfterIntegration()
             if mergeState.isInProgress {
+                if mergeState == .unmerged {
+                    conflictedStashSha = stash.sha
+                }
                 return .conflicts
             }
             return .failed(friendlyStashApplyMessage(for: error))
@@ -47,15 +50,17 @@ extension RepositoryViewModel {
     }
 
     /// Recovery path for a `git stash apply/pop` that left the worktree in
-    /// `.unmerged`. Resets the tree to HEAD; the stash entry stays in the list
-    /// (pop only drops on clean apply) so the user can retry once HEAD is
-    /// ready for it.
+    /// `.unmerged`. Undoes only the paths the stash touched (see
+    /// `GitCLI.stashAbortApply`), so unrelated local changes survive. The
+    /// stash entry stays in the list (pop only drops on clean apply) so the
+    /// user can retry once HEAD is ready for it.
     func abortStashApply() async -> Result<Void, Error> {
         guard !isMutating else { return .failure(GitError.busy) }
         isMutating = true
         defer { isMutating = false }
         do {
-            try await cli.stashAbortApply()
+            try await cli.stashAbortApply(stashSha: conflictedStashSha)
+            conflictedStashSha = nil
             await refreshAfterIntegration()
             return .success(())
         } catch {

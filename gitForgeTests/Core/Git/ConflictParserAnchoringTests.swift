@@ -111,4 +111,39 @@ struct ConflictParserAnchoringTests {
         let result = ConflictParser.parse(content)
         #expect(result.hunks.isEmpty)
     }
+
+    // MARK: CRLF
+
+    private static let crlfConflict = [
+        "line 1", "<<<<<<< HEAD", "ours", "=======", "theirs", ">>>>>>> feature", "line 2", "",
+    ].joined(separator: "\r\n")
+
+    @Test("CRLF markers are recognised; sides keep their own lines")
+    func crlfConflictParsed() {
+        let result = ConflictParser.parse(Self.crlfConflict)
+        #expect(result.hunks.count == 1)
+        #expect(result.hunks.first?.ours == ["ours\r"])
+        #expect(result.hunks.first?.theirs == ["theirs\r"])
+    }
+
+    @Test("Picking a side in a CRLF file writes no markers and keeps CRLF endings")
+    func crlfPickWritesCleanFile() throws {
+        let result = ConflictParser.parse(Self.crlfConflict)
+        let hunk = try #require(result.hunks.first)
+        let resolved = ConflictParser.apply(content: Self.crlfConflict,
+                                            picks: [hunk.id: .theirs],
+                                            hunks: result.hunks)
+        #expect(resolved == "line 1\r\ntheirs\r\nline 2\r\n")
+    }
+
+    @Test("An unresolved hunk is written back byte-for-byte, labels included")
+    func unresolvedHunkRoundTrips() throws {
+        let content = "a\r\n<<<<<<< HEAD\r\nx\r\n||||||| merged common ancestors\r\nb\r\n=======\r\ny\r\n>>>>>>> feature/login\r\nz"
+        let result = ConflictParser.parse(content)
+        #expect(result.hunks.count == 1)
+        // A pick on a *different* (unknown) id leaves this hunk unresolved
+        // while still forcing a rewrite through `apply`.
+        let resolved = ConflictParser.apply(content: content, picks: [UUID(): .ours], hunks: result.hunks)
+        #expect(resolved == content)
+    }
 }

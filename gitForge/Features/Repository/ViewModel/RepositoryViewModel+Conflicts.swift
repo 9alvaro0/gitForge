@@ -14,6 +14,9 @@ extension RepositoryViewModel {
     /// yanked back to the top of the list.
     func loadConflictState() async {
         mergeState = await cli.mergeState()
+        if mergeState != .unmerged {
+            conflictedStashSha = nil
+        }
         guard mergeState.isInProgress else {
             conflictFiles = []
             conflictHunks = []

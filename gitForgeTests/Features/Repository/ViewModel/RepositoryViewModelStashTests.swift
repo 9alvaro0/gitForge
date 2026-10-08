@@ -57,4 +57,30 @@ struct RepositoryViewModelStashTests {
             return
         }
     }
+
+    @Test("A conflicted apply remembers the stash and abort keeps unrelated work")
+    func conflictedApplyThenAbort() async throws {
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("init", files: ["conf.txt": "base\n", "mine.txt": "m\n"])
+        try repo.write("from-stash\n", to: "conf.txt")
+        try repo.git("stash", "push", "-q")
+        try repo.commit("conflicting", files: ["conf.txt": "from-head\n"])
+        try repo.write("my work\n", to: "mine.txt")
+
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        let stash = try #require(try await repo.cli.stashes().first)
+
+        #expect(await vm.applyStash(stash, drop: false) == .conflicts)
+        #expect(vm.conflictedStashSha == stash.sha)
+
+        guard case .success = await vm.abortStashApply() else {
+            Issue.record("abortStashApply failed")
+            return
+        }
+        #expect(vm.conflictedStashSha == nil)
+        #expect(vm.mergeState == .clean)
+        #expect(repo.read("mine.txt") == "my work\n")
+        #expect(repo.read("conf.txt") == "from-head\n")
+    }
 }
