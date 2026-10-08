@@ -15,7 +15,7 @@ struct PullRequestDetailHeader: View {
                 Spacer()
                 if let url = pullRequest.webURL {
                     ToolButton(.ext, label: "Open in browser") {
-                        NSWorkspace.shared.open(url)
+                        ExternalURL.open(url)
                     }
                 }
             }

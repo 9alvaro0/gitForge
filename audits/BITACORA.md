@@ -12,7 +12,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
 | A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
-| A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Pendiente |
+| A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Pendiente |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Pendiente |
 | A08 | Accesibilidad y HIG de macOS | Pendiente |
@@ -25,7 +25,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 
 | Origen | Para | Hallazgo | Ubicación |
 |--------|------|----------|-----------|
-| A01 | A05 | `OptInTrustSessionDelegate` acepta cualquier certificado de un host "de confianza" (sin pinning de huella). La lista vive en `UserDefaults`, que cualquier proceso del usuario puede escribir con `defaults write`. | `gitForge/Core/RemoteHosting/OptInTrustSessionDelegate.swift`, `RemoteHostTrust.swift` |
 | A02 | A06 | La caché de `DiffSyntaxHighlighter` no tiene límite (crece con cada hunk visto en la sesión) y usa `hashValue` como clave (colisiones = resaltado erróneo). | `gitForge/Core/Git/DiffSyntaxHighlighter.swift` |
 | A02 | A02-bis | `stage`/`unstage`/`discard` pasan todas las rutas por argv: con decenas de miles de ficheros se puede superar `ARG_MAX` (1 MB). Solución: `--pathspec-from-file=- --pathspec-file-nul` por stdin. | `GitCLI+Stage.swift` |
 | A02 | A02-bis | `DiffParser` descuadra los números de línea si el usuario tiene `diff.suppressBlankEmpty=true` (líneas de contexto vacías sin espacio). Parsear por recuento de líneas del hunk. | `DiffParser.swift` |
@@ -228,3 +227,48 @@ Extraer almacenes por dominio, de uno en uno y cada uno en su propio PR, empezan
 5. `WorkingCopyStore` (status, selección por lotes, composer de commit y diff del working copy).
 
 `RepositoryViewModel` quedaría como `RepositorySession`: `cli`, `isMutating`, watcher y auto-fetch, y la orquestación de refrescos (`refreshAfterIntegration`). Las vistas recibirían solo el almacén que usan.
+
+---
+
+## A05 — Seguridad
+
+**Fecha:** 2026-10-08
+**Alcance:** gestión de tokens (Keychain, envío, redirecciones), confianza TLS, apertura de URLs y ficheros externos, ejecución de git sobre repos no confiables, Sparkle, scripts de release y cadena de suministro.
+**Estado:** escrito sin compilar (a petición) y verificado después: compila a la primera, sin warnings.
+
+### Lo que ya estaba bien
+
+- **Keychain:** tokens en el llavero clásico, con la ACL ligada al requisito designado (sin access groups). En los logs solo aparecen el host y la longitud del token.
+- **Los tokens nunca van en URLs de git:** el clone usa las URLs limpias de la API y la autenticación la hace el credential helper. Además, `GitCLI.redacted` limpia las credenciales de argv y stderr.
+- **Cada token se envía solo al host para el que se guardó** (clave exacta por host). Un repo con un `origin` malicioso no obtiene el token de otro host.
+- **Inyección de argumentos:** `--end-of-options` y validación de URLs de clone (A02).
+- **Sparkle:** feed HTTPS, firma EdDSA con clave pública embebida, clave privada en el llavero (`update-appcast.sh`). Notarización con un perfil de `notarytool` del llavero. Hardened runtime en Release.
+- **Repo limpio:** sin claves, certificados ni tokens en el historial (barrido de patrones `ghp_`, `glpat-`, claves privadas y AWS).
+
+### Hallazgos y acciones
+
+| # | Severidad | Hallazgo | Acción |
+|---|-----------|----------|--------|
+| 1 | Alta | **Confianza TLS sin pinning** (diferido de A01): un host "de confianza" aceptaba *cualquier* certificado. Un atacante de red con DNS falseado (Wi-Fi hostil) podía interceptar las llamadas a la API y llevarse el token. El botón "Trust host" ni siquiera mostraba qué certificado se aceptaba. | Pinning TOFU por huella SHA-256 del certificado hoja: si macOS confía, se usa la validación normal; si no, solo se acepta el certificado fijado y cualquier otro se rechaza. Confiar ahora lee el certificado del host y muestra la huella en un diálogo antes de fijarla (`TrustCertificatePrompt`, en Ajustes y en el error TLS de PRs). Ajustes muestra la huella fijada. Los hosts de confianza antiguos se migran fijando el siguiente certificado que presenten. La tabla de decisión es una función pura y está testeada. |
+| 2 | Alta | **URLs remotas abiertas con cualquier esquema**: el `target_url` de un estado de CI (lo fija cualquiera con acceso de escritura a estados), los `html_url` de la API y los enlaces del markdown de los PR iban a `NSWorkspace.open`, que lanza `file://` (apps), `x-apple.*` o cualquier esquema registrado. | `ExternalURL.open` solo acepta `http`, `https` y `mailto`. `MarkdownView` filtra los enlaces mediante `openURL`. |
+| 3 | Media | **"Open" sobre un fichero del repo podía ejecutarlo**: un `.command` se ejecuta en Terminal y un `.app` se lanza. Un repo puede contener cualquier cosa. | `ExternalURL.openFile` revela en Finder los bundles y tipos lanzables en vez de abrirlos (5 puntos de la UI). |
+| 4 | Media | **El token podía seguir una redirección**: `URLSession` sigue redirecciones con las cabeceras originales, incluidos `Authorization` y `PRIVATE-TOKEN`. | El delegate rechaza redirecciones a `http` y elimina las cabeceras de token si la redirección cambia de host. Política pura y testeada. |
+| 5 | Media | **Cadena de suministro**: `Package.resolved` estaba en `.gitignore`. Un clone limpio o un CI resolvería la última versión dentro del rango (`textual` está en 0.x), de forma no reproducible y aceptando en silencio una release nueva, o comprometida. | `Package.resolved` versionado, con una nota en `.gitignore`. |
+| 6 | Baja | La pista del token de GitHub pedía el scope `repo` completo, de escritura, cuando la app solo lee. | Se recomienda un token fine-grained de solo lectura (Pull requests, Contents, Commit statuses). |
+
+### Riesgos aceptados (documentados)
+
+- **Abrir un repo no confiable ejecuta su configuración local de git.** `core.fsmonitor`, los filtros `clean`/`smudge` y los hooks de checkout/merge se ejecutan en el `git status` automático al abrir el repo, en el poller y en las operaciones. Es la misma exposición que ejecutar `git status` en una terminal dentro de ese directorio. git ≥ 2.35.2 (`safe.directory`) protege frente a repos de otro usuario. Mitigación posible si hiciera falta: `-c core.fsmonitor=false` solo en el poller de repos en segundo plano.
+- **El markdown de los PR carga imágenes remotas** (fuga de IP, píxel de seguimiento). En GitHub pasan por su proxy de imágenes; en GitLab self-hosted, no.
+- `update-appcast.sh` localiza `sign_update` con un `find` en DerivedData y lo ejecuta con acceso a la clave EdDSA. Bajo riesgo en una máquina personal.
+
+### Tests
+
+`RemoteHostTrustDecisionTests` (tabla completa, incluido el rechazo por MITM, y formato de huella), `RemoteHostTrustStorageTests` (fijar, revocar, mayúsculas/minúsculas y migración legacy con una suite de `UserDefaults` propia), `RedirectPolicyTests` (mismo host, otro host y bajada a http) y `ExternalURLTests` (esquemas y tipos lanzables).
+
+Resultado: **359/359**, 0 warnings, 2 ejecuciones seguidas en verde. La app arranca y queda en reposo.
+
+### Verificación
+
+- Textual: confirmado en su código fuente que los enlaces de `StructuredText` pasan por el `openURL` del entorno (`TextLinkInteraction`), así que el filtro de `MarkdownView` tiene efecto.
+- **Pendiente (manual):** prueba contra un GitLab con certificado propio. Confiar (ver la huella), recargar PRs y, si se puede, cambiar el certificado del servidor para comprobar que se rechaza.

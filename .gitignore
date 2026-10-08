@@ -25,7 +25,9 @@ xcuserdata/
 .swiftpm/
 Packages/
 Package.pins
-Package.resolved
+# Package.resolved is committed on purpose: it pins exact dependency
+# revisions so release builds are reproducible and a new upstream release
+# (or a compromised one) is never picked up silently.
 
 # CocoaPods
 Pods/

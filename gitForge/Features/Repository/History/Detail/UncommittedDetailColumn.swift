@@ -111,7 +111,7 @@ private struct WorkingCopyMiniRow: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Open in editor") {
-                NSWorkspace.shared.open(absoluteURL)
+                ExternalURL.openFile(absoluteURL)
             }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([absoluteURL])
