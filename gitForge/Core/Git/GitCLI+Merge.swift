@@ -47,7 +47,7 @@ extension GitCLI {
 
     /// Files currently in `unmerged` state (`U` in porcelain v2).
     func unmergedPaths() async throws -> [String] {
-        let result = try await run(["diff", "--name-only", "--diff-filter=U"])
+        let result = try await run(["diff", "--name-only", "--diff-filter=U"] + Self.diffOutputFlags)
         return result.stdout
             .split(separator: "\n", omittingEmptySubsequences: true)
             .map(String.init)

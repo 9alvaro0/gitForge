@@ -23,7 +23,7 @@ struct ConflictView: View {
             Button("Abort", role: .destructive) { Task { await runAbortStashApply() } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Resets the working tree to HEAD and drops the partial stash application. The stash entry itself stays in the list — you can re-apply it later.")
+            Text("Reverts the files this stash changed back to HEAD. Your other local changes are kept, and the stash entry stays in the list so you can re-apply it later.")
         }
     }
 
@@ -34,9 +34,9 @@ struct ConflictView: View {
             } right: {
                 switch viewModel.mergeState {
                 case .unmerged:
-                    // Stash apply has no `--abort` in git — `reset --hard HEAD`
-                    // is the equivalent. Confirm because it discards the
-                    // half-applied stash content from the worktree.
+                    // Stash apply has no `--abort` in git; the VM reverts the
+                    // paths the stash touched. Confirm because it discards
+                    // the half-applied stash content from the worktree.
                     ToolButton(.x, label: "Abort stash apply") {
                         confirmAbortStash = true
                     }
