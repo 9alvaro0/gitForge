@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    # Deployment target is macOS 26.1, which needs Xcode 26.
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      # Some tests drive real git merges/commits through GitCLI, which reads
+      # the global identity.
+      - name: Configure git identity
+        run: |
+          git config --global user.name "gitForge CI"
+          git config --global user.email "ci@gitforge.invalid"
+          git config --global init.defaultBranch main
+
+      - name: Test
+        run: |
+          mkdir -p build
+          xcodebuild test \
+            -project gitForge.xcodeproj \
+            -scheme gitForge \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            | tee build/xcodebuild.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/DerivedData/Logs/Test

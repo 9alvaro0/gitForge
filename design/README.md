@@ -1,3 +1,11 @@
+> **Status (2026-10-08): v1 reference only.** This is the original design
+> handoff the current UI was built from. The redesign will replace it; until
+> then, treat it as historical context, not as the spec. Paths below were
+> written for the original bundle layout — the files live in `design/design/`
+> (e.g. `design/design/GitForge.html`). Two notable divergences from the
+> shipped app: the design's Inter Tight typeface is not bundled (the app
+> renders in SF Pro), and some status-bar fields were mock-only.
+
 # CODING AGENTS: READ THIS FIRST
 
 This is a **handoff bundle** from Claude Design (claude.ai/design).
