@@ -42,6 +42,16 @@ final class AppTheme {
 
     private(set) var palette: ThemePalette = .dark
 
+    /// v2 colour tokens (redesign spec §4.1). Replaces `palette` once every
+    /// screen has migrated (phase F9).
+    private(set) var colors: GFColors = .make(.dark, accent: .violet)
+
+    /// The v2 swatch the stored accent maps to.
+    var accentSwatch: AccentSwatch {
+        let hex = UInt32(accent.hexString.dropFirst(), radix: 16) ?? AccentSwatch.violet.swatch
+        return AccentSwatch.nearest(toHex: hex)
+    }
+
     static let accentSwatches: [Color] = [
         Color(hex: 0x7c5cff),
         Color(hex: 0x56b497),
@@ -65,6 +75,7 @@ final class AppTheme {
 
     private func refreshPalette() {
         palette = ThemePalette.palette(for: effectiveMode, accent: accent, highContrast: increasedContrast)
+        colors = .make(ThemeVariant(isDark: effectiveMode == .dark, highContrast: increasedContrast), accent: accentSwatch)
     }
 
     private func persist() {
