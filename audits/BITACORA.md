@@ -11,13 +11,14 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A02 | Capa Git (`GitCLI`): spawn de procesos, parsing, errores, inyección de argumentos | Hecha (2026-10-08) |
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
+| A02-bis | Puntos menores de la capa Git (ver diferidos) | Pendiente |
 | A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Hecha (2026-10-08) |
 | A08 | Accesibilidad y HIG de macOS | Hecha (2026-10-08) |
 | A09 | Tests (huecos de cobertura, aislamiento, fiabilidad) | Hecha (2026-10-08) |
-| A10 | Higiene de repo y docs (README, `design/`, scripts, CI) | Pendiente |
+| A10 | Higiene de repo y docs (README, `design/`, scripts, CI) | Hecha (2026-10-08) — CI pendiente de su primera ejecución |
 
 ## Hallazgos diferidos
 
@@ -28,7 +29,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | A02 | A02-bis | `stage`/`unstage`/`discard` pasan todas las rutas por argv: con decenas de miles de ficheros se puede superar `ARG_MAX` (1 MB). Solución: `--pathspec-from-file=- --pathspec-file-nul` por stdin. | `GitCLI+Stage.swift` |
 | A02 | A02-bis | `DiffParser` descuadra los números de línea si el usuario tiene `diff.suppressBlankEmpty=true` (líneas de contexto vacías sin espacio). Parsear por recuento de líneas del hunk. | `DiffParser.swift` |
 | A02 | A02-bis | Valores raros de config no contemplados: `pull.rebase=merges/interactive` se muestra como "merge"; `setLocalIdentity` no protege valores que empiezan por `-`. | `GitGlobalConfig.swift`, `GitCLI+Identity.swift` |
-| A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
 | A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
 
 ---
@@ -443,3 +443,45 @@ Resultado: **365/365**, 0 warnings, 2 ejecuciones seguidas en verde. Los tests d
 - **Resultado:** **402/402**, 0 warnings, 3 ejecuciones seguidas en verde.
 - **Velocidad:** **la suite pasa de unos 120 s a 12-15 s** con el test host inerte.
 - **Test host comprobado con `CGWindowListCopyWindowInfo`:** lanzada normalmente, la app abre su ventana principal (900×592); con el entorno de XCTest no abre ninguna.
+
+---
+
+## A10 — Higiene de repo y docs
+
+**Fecha:** 2026-10-08
+**Alcance:** README, handoff de diseño, scripts de release, CI y ficheros del proyecto.
+
+### Hallazgos y acciones
+
+| # | Hallazgo | Acción |
+|---|----------|--------|
+| 1 | **El README contradecía a la app:** prometía staging por hunk (no existe; diferido de A02); decía que *no* había gestión de PRs ni resolutor visual de conflictos (ambos existen); la tabla de atajos era errónea (Pull es ⇧⌘L, no ⇧⌘P; Push es ⇧⌘P, no ⌘P; ⌘K abre la paleta; ⌃⌘S y ⌘↩ no existen) y faltaban ⌘3, ⌘4, ⌘F, ⇧⌘C y ⌘,. | README reescrito a partir del código: funcionalidades reales, lo que aún no se soporta, atajos verificados uno a uno, y una sección de desarrollo (compilar y testear, estructura de carpetas, enlace a esta bitácora y al proceso de release). |
+| 2 | `design/README.md` (handoff del diseño v1) apuntaba a rutas inexistentes (`gitforge/project/…`) y se presentaba como la especificación vigente. | Nota al inicio: es referencia de la v1, las rutas reales están en `design/design/`, y hay divergencias conocidas (fuente no empaquetada, campos de la barra de estado que solo existían en el mock). |
+| 3 | **Carpeta fantasma:** el proyecto referenciaba `gitForgeUITests` (sin target, carpeta vacía y fuera de git), así que en un clone limpio aparecía rota en Xcode. | Grupo eliminado del `project.pbxproj` y carpeta local borrada. Si se quieren tests de UI para el rediseño, se crearán con su propio target. |
+| 4 | **Sin CI:** nada validaba compilación ni tests en los PR. | `.github/workflows/ci.yml`: build y tests en `macos-26` con Xcode 26 en cada PR y push a `main`, con identidad de git (los tests hacen merges reales), sin firma de código y subiendo los resultados si falla. **Su primera ejecución está sin verificar** (depende de la imagen del runner). |
+
+Revisados sin cambios: `scripts/` (release, ship, appcast) es coherente con `RELEASE.md` y no contiene secretos (A05); `.gitignore` está bien (ahora versiona `Package.resolved`, A05); `docs/` solo publica el appcast, y la bitácora vive fuera, en `audits/`.
+
+---
+
+## Cierre de la campaña (2026-10-08)
+
+Diez auditorías completadas y mergeadas (PR #68 a #76, más la de A10).
+
+| Métrica | Antes | Después |
+|---|---|---|
+| Modo de lenguaje | Swift 5 (12 warnings de concurrencia) | Swift 6, 0 warnings |
+| Tests | 302 | 402+ |
+| Duración de la suite | ~120 s (arrancaba la app real) | ~15 s (test host inerte) |
+| Propiedades de `RepositoryViewModel` | 96 | 70 (+3 almacenes extraídos) |
+| Tamaños de fuente con token | 27 de 249 | todos |
+
+**Bugs graves corregidos por el camino (selección):** colgados de `waitUntilExit`; abortar un stash apply borraba trabajo ajeno; *Drop* podía borrar otra stash (índices desplazados); el watcher de `.git` quedaba ciego tras el primer checkout; la paginación se bloqueaba para siempre; borrar un tag remoto podía borrar una rama; conflictos CRLF corruptos; aceptación de cualquier certificado para hosts "de confianza"; URLs remotas abiertas con cualquier esquema; la suite hacía `git fetch` sobre los repos reales del usuario.
+
+### Lo que queda (antes o durante el rediseño)
+
+1. **A04-bis:** extraer `HistoryStore` y `WorkingCopyStore`, diseñándolos junto a las pantallas nuevas.
+2. **A02-bis:** puntos menores de la capa Git (`ARG_MAX` al hacer stage masivo, `diff.suppressBlankEmpty`, valores raros de config, revisar `--no-optional-locks` en el repo activo).
+3. **Decisiones de diseño** (A07/A08): familia tipográfica (empaquetar Inter Tight o adoptar SF Pro), consolidar la escala tipográfica, paleta por defecto que cumpla AA, set de iconos, Ajustes como ventana `Settings`.
+4. **Tests** (A09): proveedores de PR con fixtures JSON, `RemoteCredentialsStore`, smoke tests de UI.
+5. **Verificaciones manuales** pendientes, anotadas en cada auditoría (VoiceOver, alto contraste, GitLab con certificado propio, primera ejecución de la CI).

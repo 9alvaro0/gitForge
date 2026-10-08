@@ -51,11 +51,6 @@
 			path = gitForgeTests;
 			sourceTree = "<group>";
 		};
-		CD2E2B3B2FA8DE7600330FAF /* gitForgeUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = gitForgeUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,7 +79,6 @@
 			children = (
 				CD2E2B232FA8DE7300330FAF /* gitForge */,
 				CD2E2B312FA8DE7600330FAF /* gitForgeTests */,
-				CD2E2B3B2FA8DE7600330FAF /* gitForgeUITests */,
 				CD2E2B222FA8DE7300330FAF /* Products */,
 			);
 			sourceTree = "<group>";
