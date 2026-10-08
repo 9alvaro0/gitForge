@@ -65,7 +65,8 @@ extension RepositoryViewModel {
         loadingStashFileDiff = true
         defer { if gen == stashFileDiffGen { loadingStashFileDiff = false } }
         do {
-            let raw = try await cli.stashFileDiff(index: stash.index, path: path)
+            let isUntracked = stashDetail?.files.first(where: { $0.path == path })?.status == .untracked
+            let raw = try await cli.stashFileDiff(index: stash.index, path: path, untracked: isUntracked)
             guard gen == stashFileDiffGen else { return }
             stashFileDiff = DiffParser.parse(raw)
             stashFileDiffEmptyState = .empty

@@ -60,7 +60,14 @@ extension GitCLI {
 
     func commitDetail(for commit: Commit) async throws -> CommitDetail {
         async let bodyResult = run(["log", "-1", "--format=%B", Self.endOfOptions, commit.sha])
-        async let filesResult = run(["diff-tree", "--no-commit-id", "--name-status", "-r", Self.endOfOptions, commit.sha])
+        // `--root` lists the initial commit's files (diff-tree prints nothing
+        // for a parentless commit otherwise); `--diff-merges=first-parent`
+        // shows what a merge brought in relative to the branch it landed on
+        // (plain diff-tree prints nothing for merges, and `-m` lists the diff
+        // against every parent). Matches `diff(sha:file:)` below.
+        async let filesResult = run(["diff-tree", "--no-commit-id", "--name-status", "-r",
+                                     "--root", "--diff-merges=first-parent"]
+                                    + Self.diffOutputFlags + [Self.endOfOptions, commit.sha])
         let body = try await bodyResult
         let files = try await filesResult
         return CommitDetail(
@@ -106,16 +113,14 @@ extension GitCLI {
         }
     }
 
+    /// Patch for one file in `sha`. `git show` diffs against the first parent
+    /// for merges and against the empty tree for the root commit, so no
+    /// parent probing or fallback is needed (the previous `sha^` + `try?`
+    /// fallback also swallowed timeouts and oversize errors).
     func diff(sha: String, file: String) async throws -> String {
-        let parentRef = "\(sha)^"
         let context = "-U\(AppTheme.persistedDiffContextLines())"
-        let result = try? await run(["diff", context, Self.endOfOptions, parentRef, sha, "--", file])
-        if let result {
-            return result.stdout
-        }
-        // Initial commit has no parent; use empty tree
-        let emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-        let fallback = try await run(["diff", context, Self.endOfOptions, emptyTree, sha, "--", file])
-        return fallback.stdout
+        let result = try await run(["show", "--format=", "--diff-merges=first-parent", context]
+                                   + Self.diffOutputFlags + [Self.endOfOptions, sha, "--", file])
+        return result.stdout
     }
 }

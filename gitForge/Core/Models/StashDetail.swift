@@ -20,6 +20,9 @@ nonisolated struct StashFileChange: Sendable, Equatable, Identifiable, Hashable 
         case renamed
         case copied
         case typeChanged
+        /// Stashed with `--include-untracked`: stored in the stash's third
+        /// parent rather than in its diff against the base.
+        case untracked
         case other(String)
     }
 

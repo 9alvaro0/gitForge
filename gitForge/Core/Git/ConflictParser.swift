@@ -60,12 +60,35 @@ nonisolated enum ConflictParser {
     /// content up to the next `>>>>>>>` into a corrupt hunk — which then
     /// gets written back to disk when the user picks a side.
     private static func isOursMarker(_ line: String) -> Bool {
-        line == "<<<<<<<" || line.hasPrefix("<<<<<<< ")
+        isMarker(line, "<<<<<<<")
     }
 
     /// Same anchor rule for the closing marker.
     private static func isTheirsMarker(_ line: String) -> Bool {
-        line == ">>>>>>>" || line.hasPrefix(">>>>>>> ")
+        isMarker(line, ">>>>>>>")
+    }
+
+    private static func isBaseMarker(_ line: String) -> Bool {
+        isMarker(line, "|||||||")
+    }
+
+    /// The separator never carries a label.
+    private static func isSeparator(_ line: String) -> Bool {
+        withoutCarriageReturn(line) == "======="
+    }
+
+    private static func isMarker(_ line: String, _ marker: String) -> Bool {
+        let bare = withoutCarriageReturn(line)
+        return bare == marker || bare.hasPrefix(marker + " ")
+    }
+
+    /// We split on `\n`, so in a CRLF file every line keeps its trailing
+    /// `\r` — and git writes the markers with CRLF too. Comparing the raw
+    /// line made `=======\r` unrecognisable: the whole conflict collapsed
+    /// into "ours" and picking a side wrote both sides plus the separator
+    /// back to disk. Content lines keep their `\r` untouched.
+    private static func withoutCarriageReturn(_ line: String) -> String {
+        line.hasSuffix("\r") ? String(line.dropLast()) : line
     }
 
     /// Re-emits `content` with the picked side substituted for every conflict.
@@ -96,15 +119,15 @@ nonisolated enum ConflictParser {
     }
 
     private static func rebuildMarkers(_ hunk: ConflictHunk) -> [String] {
-        var lines = ["<<<<<<< HEAD"]
+        var lines = [hunk.markers.ours]
         lines.append(contentsOf: hunk.ours)
         if !hunk.base.isEmpty {
-            lines.append("|||||||")
+            lines.append(hunk.markers.base)
             lines.append(contentsOf: hunk.base)
         }
-        lines.append("=======")
+        lines.append(hunk.markers.separator)
         lines.append(contentsOf: hunk.theirs)
-        lines.append(">>>>>>> branch")
+        lines.append(hunk.markers.theirs)
         return lines
     }
 
@@ -119,17 +142,23 @@ nonisolated enum ConflictParser {
         var base: [String] = []
         var theirs: [String] = []
         var phase: Phase = .ours
+        var markers = ConflictMarkers()
+        markers.ours = lines[start]
 
         while i < lines.count {
             let line = lines[i]
-            if phase == .ours, line == "|||||||" || line.hasPrefix("||||||| ") {
+            if phase == .ours, isBaseMarker(line) {
+                markers.base = line
                 phase = .base; i += 1; continue
             }
-            if phase != .theirs, line == "=======" {
+            if phase != .theirs, isSeparator(line) {
+                markers.separator = line
                 phase = .theirs; i += 1; continue
             }
             if isTheirsMarker(line) {
-                let hunk = ConflictHunk(ours: ours, base: base, theirs: theirs)
+                markers.theirs = line
+                var hunk = ConflictHunk(ours: ours, base: base, theirs: theirs)
+                hunk.markers = markers
                 return ParseResult(hunk: hunk, endIndex: i + 1)
             }
             switch phase {

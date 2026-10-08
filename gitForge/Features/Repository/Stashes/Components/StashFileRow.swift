@@ -42,7 +42,8 @@ extension StatusTag.Kind {
         case .deleted:      self = .deleted
         case .renamed:      self = .renamed
         case .copied:       self = .copied
-        case .typeChanged:  self = .modified
+        case .typeChanged:  self = .typeChanged
+        case .untracked:    self = .untracked
         case .other:        self = .modified
         }
     }

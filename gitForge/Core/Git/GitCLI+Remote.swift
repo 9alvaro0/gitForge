@@ -110,7 +110,20 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
             || lower.contains("ssl_error")
             || lower.contains("certificate verify failed") {
             self = .sslCertificate
-        } else if lower.contains("publickey") || lower.contains("ssh:") {
+        } else if lower.contains("could not resolve host") // also matches ssh's "…hostname"
+                    || lower.contains("connection refused")
+                    || lower.contains("connection timed out")
+                    || lower.contains("operation timed out")
+                    || lower.contains("network is unreachable")
+                    || lower.contains("no route to host")
+                    || lower.contains("connection reset by peer") {
+            // Network before SSH: ssh prefixes its own connectivity errors
+            // with "ssh:" ("ssh: Could not resolve hostname …"), and an
+            // offline user with an SSH remote was told to check their keys.
+            self = .network
+        } else if lower.contains("publickey")
+                    || lower.contains("host key verification failed")
+                    || lower.contains("ssh:") {
             self = .authenticationSSH
         } else if lower.contains("authentication failed")
             || lower.contains("could not read username")
@@ -118,8 +131,12 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
             || lower.contains("bad credentials")
             || lower.contains("http basic")
             || lower.contains("token has expired")
-            || lower.contains("401")
+            || lower.contains("error: 401")
+            || lower.contains("401 unauthorized")
+            || lower.contains("error: 403")
             || lower.contains("403 forbidden") {
+            // Status codes are matched with their curl prefix: a bare "401"
+            // also matched SHAs, line numbers and byte counts in stderr.
             self = .authenticationHTTPS
         } else if lower.contains("permission denied") {
             // Permission denied without a protocol hint — fall back to SSH
@@ -153,11 +170,6 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         } else if lower.contains("automatic merge failed")
                     || lower.contains("conflict") {
             self = .conflict
-        } else if lower.contains("could not resolve host")
-                    || lower.contains("connection refused")
-                    || lower.contains("connection timed out")
-                    || lower.contains("network is unreachable") {
-            self = .network
         } else if lower.contains("no upstream")
                     || lower.contains("no tracking information") {
             self = .noUpstream

@@ -90,86 +90,62 @@ extension GitCLI {
             try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         }
 
-        let process = Process()
+        // Clone runs from `$HOME` so `Process` has a valid cwd; the
+        // destination is passed explicitly in argv.
+        let process = GitProcess.make(arguments: args,
+                                      workingDirectory: URL(fileURLWithPath: NSHomeDirectory()))
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        // Mirror the global flags GitCLI.run sets. Clone doesn't parse paths
-        // from output, but precomposeUnicode shields the resulting repo's
-        // initial config on filesystems where the default differs.
-        process.arguments = [
-            "git",
-            "-c", "core.quotePath=false",
-            "-c", "core.precomposeUnicode=true",
-        ] + args
-        process.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
-        // Same non-interactive guards as `GitCLI.run` — keep the two spawn
-        // paths in sync. See that file for what each var prevents.
-        var environment = ProcessInfo.processInfo.environment
-        environment["GIT_TERMINAL_PROMPT"] = "0"
-        environment["GIT_ASKPASS"] = "/usr/bin/true"
-        if environment["GIT_SSH_COMMAND"] == nil {
-            environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"
-        }
-        environment["GIT_EDITOR"] = "/usr/bin/true"
-        environment["LC_ALL"] = "C"
-        process.environment = environment
 
         let argsString = redacted(args.joined(separator: " "))
         logger.info("→ git \(argsString, privacy: .public)")
 
+        let exit: ProcessExit
         do {
-            try process.run()
+            exit = try GitProcess.start(process)
         } catch {
             throw GitError.launchFailed(error.localizedDescription)
         }
 
-        // Progress-based watchdog. Resets on every stage tick git emits; if
-        // there's no progress for `timeout` seconds (default 60), the
-        // subprocess is stuck — DNS hung, askpass deadlock, BatchMode
-        // rejected — and we terminate it. Large clones run uninterrupted as
-        // long as they keep reporting bytes.
-        let progressTimer = GitProgressTimer()
-        let timeout = TimeInterval(AppTheme.persistedGitTimeoutSeconds())
+        // Resets on every stage tick git emits. A stuck clone (DNS hung,
+        // askpass deadlock, BatchMode rejected) is terminated; large clones
+        // run uninterrupted as long as they keep reporting bytes.
+        let watchdog = GitWatchdog(timeout: TimeInterval(AppTheme.persistedGitTimeoutSeconds()))
         let tickedProgress: @Sendable (CloneProgress) -> Void = { p in
-            progressTimer.tick()
+            watchdog.tick()
             onProgress?(p)
         }
-        let watchdog = Task { [process, argsString, timeout] in
-            while !Task.isCancelled, process.isRunning {
-                try? await Task.sleep(for: .seconds(5))
-                if progressTimer.elapsed() > timeout {
-                    Self.logger.error("watchdog: terminating clone `git \(argsString, privacy: .public)` after \(timeout, privacy: .public)s without progress")
-                    process.terminate()
-                    try? await Task.sleep(for: .milliseconds(500))
-                    if process.isRunning { kill(process.processIdentifier, SIGKILL) }
-                    break
-                }
-            }
-        }
-        defer { watchdog.cancel() }
+        watchdog.start(watching: process, label: argsString, logger: logger)
+        defer { watchdog.stop() }
 
         try await withTaskCancellationHandler {
-            async let stdoutData: Data = readToEnd(stdoutPipe.fileHandleForReading)
-            async let stderrText: String = readProgress(stderrPipe.fileHandleForReading, onProgress: tickedProgress)
-            async let exitWait: Void = waitForExit(process)
+            async let stdoutData: Data = GitProcess.readToEnd(stdoutPipe.fileHandleForReading)
+            async let stderrText: String = readProgress(stderrPipe.fileHandleForReading,
+                                                        onProgress: tickedProgress,
+                                                        onActivity: { watchdog.tick() })
+            async let exitWait: Void = exit.wait()
 
             _ = await stdoutData
-            let stderr = await stderrText
+            let capturedStderr = await stderrText
             _ = await exitWait
 
-            if process.terminationStatus != 0 {
-                // SIGTERM (15) when we cancelled; surface as CancellationError
-                // so the caller can distinguish user-cancel from real failures.
-                if process.terminationReason == .uncaughtSignal {
-                    throw CancellationError()
-                }
-                let redactedStderr = redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
-                logger.error("✗ git \(argsString, privacy: .public) exited \(process.terminationStatus): \(redactedStderr, privacy: .public)")
-                throw GitError.commandFailed(args: args, exitCode: process.terminationStatus, stderr: stderr)
+            guard process.terminationStatus != 0 else { return }
+            if process.terminationReason == .uncaughtSignal {
+                // Killed by a signal: either the user cancelled (onCancel
+                // below) or the watchdog gave up. Only the former is a
+                // CancellationError — a stalled clone must surface as a
+                // network failure, not vanish as if the user had cancelled.
+                guard watchdog.timedOut else { throw CancellationError() }
+                logger.error("✗ git \(argsString, privacy: .public) timed out")
+                throw GitError.commandFailed(args: args,
+                                             exitCode: process.terminationStatus,
+                                             stderr: watchdog.timeoutMessage)
             }
+            let redactedStderr = redacted(capturedStderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            logger.error("✗ git \(argsString, privacy: .public) exited \(process.terminationStatus): \(redactedStderr, privacy: .public)")
+            throw GitError.commandFailed(args: args, exitCode: process.terminationStatus, stderr: capturedStderr)
         } onCancel: {
             // `Process` is Sendable and `terminate()` is safe from any thread.
             process.terminate()
@@ -178,29 +154,34 @@ extension GitCLI {
 
     /// Drains `handle` to EOF, splitting on `\r` (in-place line redraws git
     /// uses for progress) and `\n`, parsing each segment for `Stage: NN%` and
-    /// pushing those through `onProgress`. Returns the full text for error
-    /// reporting.
+    /// pushing those through `onProgress`. `onActivity` fires for every chunk
+    /// so the watchdog sees git is alive even between percentage updates.
+    /// Bytes are buffered raw and decoded per complete line, so a multi-byte
+    /// character split across two reads isn't mangled. Returns the full text
+    /// for error reporting.
     private static func readProgress(_ handle: FileHandle,
-                                     onProgress: (@Sendable (CloneProgress) -> Void)?) async -> String {
-        await Task.detached {
-            var full = ""
-            var buffer = ""
+                                     onProgress: (@Sendable (CloneProgress) -> Void)?,
+                                     onActivity: @escaping @Sendable () -> Void) async -> String {
+        await GitProcess.offPool {
+            var full = Data()
+            var buffer = Data()
+            let separators: Set<UInt8> = [0x0D, 0x0A] // \r, \n
             while true {
                 let data = handle.availableData
                 if data.isEmpty { break }
-                guard let chunk = String(data: data, encoding: .utf8) else { continue }
-                full += chunk
-                buffer += chunk
-                while let split = buffer.firstIndex(where: { $0 == "\r" || $0 == "\n" }) {
-                    let line = String(buffer[..<split])
-                    buffer = String(buffer[buffer.index(after: split)...])
+                onActivity()
+                full.append(data)
+                buffer.append(data)
+                while let split = buffer.firstIndex(where: { separators.contains($0) }) {
+                    let line = GitProcess.decode(buffer[buffer.startIndex..<split])
+                    buffer = Data(buffer[buffer.index(after: split)...])
                     if let progress = parseProgress(line) {
                         onProgress?(progress)
                     }
                 }
             }
-            return full
-        }.value
+            return GitProcess.decode(full)
+        }
     }
 
     /// Parses a single stderr segment like `"Receiving objects:  47% (123/261)"`
@@ -226,13 +207,5 @@ extension GitCLI {
         }
         guard sawPercent, let value = Double(digits) else { return nil }
         return CloneProgress(stage: stage, percent: min(max(value / 100, 0), 1))
-    }
-
-    private static func readToEnd(_ handle: FileHandle) async -> Data {
-        await Task.detached { (try? handle.readToEnd()) ?? Data() }.value
-    }
-
-    private static func waitForExit(_ process: Process) async {
-        await Task.detached { process.waitUntilExit() }.value
     }
 }
