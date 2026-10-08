@@ -10,7 +10,8 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A01 | Línea base y salud del build (warnings, Swift 6, config) | Hecha (2026-10-08) |
 | A02 | Capa Git (`GitCLI`): spawn de procesos, parsing, errores, inyección de argumentos | Hecha (2026-10-08) |
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
-| A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08) — descomposición del VM pendiente de decisión |
+| A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
+| A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Pendiente |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Pendiente |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Pendiente |
@@ -30,7 +31,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | A02 | A02-bis | `DiffParser` descuadra los números de línea si el usuario tiene `diff.suppressBlankEmpty=true` (líneas de contexto vacías sin espacio). Parsear por recuento de líneas del hunk. | `DiffParser.swift` |
 | A02 | A02-bis | Valores raros de config no contemplados: `pull.rebase=merges/interactive` se muestra como "merge"; `setLocalIdentity` no protege valores que empiezan por `-`. | `GitGlobalConfig.swift`, `GitCLI+Identity.swift` |
 | A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
-| A03 | A02-bis | El resolutor de conflictos lee y escribe los ficheros forzando UTF-8: un fichero Latin-1 en conflicto no se puede abrir, y la reescritura podría cambiar su codificación. | `RepositoryViewModel+Conflicts.swift` |
 | A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
 | A03 | A06 | `NSWindow.didBecomeKeyNotification` de *cualquier* ventana (sheets, alertas, Settings) fuerza un refresh completo. | `gitForgeApp.swift` |
 | A04 | A07 | Tokens de diseño sin uso (`fastDuration`, `standardDuration`, `slowDuration`, `chromeRadius`) y vistas casi gemelas sin componente común: cabecera, tabs, lista de ficheros y secciones de los detalles de stash y de PR, y el bloque de onboarding repetido en `GitNotFoundView`/`GitStep`. | `Tokens.swift`, `Stashes/`, `Pulls/`, `Onboarding/` |
@@ -201,7 +201,23 @@ Swift 6 añade comprobaciones de aislamiento en runtime en las fronteras con C/O
 - Corregido un test de A03 (`lastOpenWins`) que dependía del orden de arranque de dos `async let`, que no está garantizado. Ahora reproduce el orden real de dos clics.
 - Resultado: **339/339**, 0 warnings, 3 ejecuciones seguidas en verde.
 
-### Propuesta: descomposición de `RepositoryViewModel` (pendiente de decisión)
+### Descomposición de `RepositoryViewModel`
+
+**Decisión (2026-10-08):** descomponer por fases, un almacén por paso, sin cambios visibles y con tests en cada uno.
+
+| Fase | Almacén | Estado | Bugs encontrados y corregidos al extraer |
+|------|---------|--------|------------------------------------------|
+| 1 | `PullRequestStore` (lista y detalle de PR/MR) | Hecha | — Las vistas de PR ya no conocen el VM: reciben el store y un closure `integrateLocally`. |
+| 2 | `StashDetailStore` (panel de detalle de stash) | Hecha | **Grave:** las stashes se direccionaban por índice (`stash@{n}`). Si se creaba o borraba una stash fuera de la app antes de que la lista se refrescara, *Drop* borraba **otra stash**, y el panel de detalle mostraba ficheros de otra. Ahora todo va por SHA; apply, pop y drop resuelven el índice actual justo antes de ejecutarse (`StashLookupError` si ya no existe). |
+| 3 | `ConflictStore` (ficheros, hunks, selección, picks) | Hecha | Resolver, abortar y continuar no tomaban `isMutating` (doble clic o carrera con un commit sobre `index.lock`). El resolutor forzaba UTF-8: un conflicto en un fichero Latin-1 no se podía abrir (diferido de A03, resuelto). Nuevo `TextFile` en Core: UTF-8 y, si falla, Latin-1, reescribiendo con la misma codificación y conservando los bytes. |
+| 4 | `HistoryStore` (log, grafo, caché de detalle, selección y diff de commit) | **A04-bis** | — |
+| 5 | `WorkingCopyStore` (status, selección, composer, diff) | **A04-bis** | — |
+
+Resultado tras las fases 1-3: el VM pasa de 96 a 70 propiedades almacenadas, `classifyEmptyDiff` se mueve a Core (`DiffEmptyState.classifying(raw:)`) y se traducen al inglés dos comentarios que estaban en castellano.
+
+**Por qué parar en la 3:** el historial tiene 86 referencias dentro del propio VM. Su grafo necesita refs, stashes y ramas no mergeadas de la sesión, y la selección de commit dispara diffs mediante `didSet`. Lo mismo pasa con el working copy y el composer de commit. Antes hay que decidir cómo comparten estado los almacenes (un `RefsStore` de sesión inyectado, o el VM como proveedor). Conviene hacerlo con el rediseño delante, para que los almacenes encajen con las pantallas nuevas.
+
+### Propuesta original de descomposición
 
 Extraer almacenes por dominio, de uno en uno y cada uno en su propio PR, empezando por los más autocontenidos:
 
