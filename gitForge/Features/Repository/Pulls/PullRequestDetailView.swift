@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Detail view for a single PR/MR. Tabs: Overview / Commits / Files.
 struct PullRequestDetailView: View {
-    @Bindable var viewModel: RepositoryViewModel
+    let store: PullRequestStore
+    let integrateLocally: () async -> RepositoryViewModel.IntegrationOutcome
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -23,19 +24,19 @@ struct PullRequestDetailView: View {
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            if let pr = viewModel.selectedPullRequest {
+            if let pr = store.selected {
                 PullRequestDetailHeader(
                     pullRequest: pr,
-                    onBack: { viewModel.closePullRequestDetail() }
+                    onBack: { store.closeDetail() }
                 )
             }
-            PullRequestDetailTabBar(tab: $tab, loading: viewModel.pullRequestDetailLoading)
+            PullRequestDetailTabBar(tab: $tab, loading: store.isLoadingDetail)
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
         .confirmationDialog(
-            "Try integrating \(viewModel.selectedPullRequest?.targetBranch ?? "target") locally?",
+            "Try integrating \(store.selected?.targetBranch ?? "target") locally?",
             isPresented: $showLocalMergeConfirm,
             titleVisibility: .visible
         ) {
@@ -49,29 +50,29 @@ struct PullRequestDetailView: View {
     @ViewBuilder
     private var content: some View {
         Group {
-            if let error = viewModel.pullRequestDetailError, viewModel.pullRequestDetail == nil {
+            if let error = store.detailError, store.detail == nil {
                 EmptyState(icon: .warn, title: "Couldn't load detail", subtitle: error) {
                     GFButton(title: "Retry", style: .primary) {
-                        Task { await viewModel.loadPullRequestDetail() }
+                        Task { await store.loadDetail() }
                     }
                 }
             } else {
                 switch tab {
                 case .overview:
                     PullRequestOverviewTab(
-                        detail: viewModel.pullRequestDetail,
-                        localMergeRunning: viewModel.pullRequestLocalMergeRunning,
+                        detail: store.detail,
+                        localMergeRunning: store.localMergeRunning,
                         onTryLocalMerge: { showLocalMergeConfirm = true }
                     )
                 case .commits:
                     PullRequestCommitsTab(
-                        commits: viewModel.pullRequestCommits,
-                        loading: viewModel.pullRequestDetailLoading
+                        commits: store.commits,
+                        loading: store.isLoadingDetail
                     )
                 case .files:
                     PullRequestFilesTab(
-                        files: viewModel.pullRequestFiles,
-                        loading: viewModel.pullRequestDetailLoading
+                        files: store.files,
+                        loading: store.isLoadingDetail
                     )
                 }
             }
@@ -80,13 +81,13 @@ struct PullRequestDetailView: View {
     }
 
     private var localMergeMessage: String {
-        guard let pr = viewModel.selectedPullRequest else { return "" }
+        guard let pr = store.selected else { return "" }
         return "Will fetch, check out \(pr.sourceBranch), and merge \(pr.targetBranch) into it. Conflicts route you to the Conflicts view."
     }
 
     private func runLocalMerge() async {
-        let outcome = await viewModel.attemptLocalMergeForPullRequest()
-        let pr = viewModel.selectedPullRequest
+        let outcome = await integrateLocally()
+        let pr = store.selected
         switch outcome {
         case .clean:
             let label = pr.map { "\($0.targetBranch) into \($0.sourceBranch)" } ?? "the target branch"
@@ -102,7 +103,7 @@ struct PullRequestDetailView: View {
 
 #Preview("Detail — Loading") {
     @Previewable @State var theme = AppTheme()
-    PullRequestDetailView(viewModel: .previewLoadingPullRequest)
+    PullRequestDetailView(store: .previewLoadingDetail, integrateLocally: { .clean })
         .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)
@@ -110,7 +111,7 @@ struct PullRequestDetailView: View {
 
 #Preview("Detail") {
     @Previewable @State var theme = AppTheme()
-    PullRequestDetailView(viewModel: .previewWithPullRequestDetail)
+    PullRequestDetailView(store: .previewWithDetail, integrateLocally: { .clean })
         .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .appTheme(theme)

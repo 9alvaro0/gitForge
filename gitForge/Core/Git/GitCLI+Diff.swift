@@ -13,6 +13,6 @@ extension GitCLI {
     /// Lives here so every diff helper picks up changes without threading
     /// the prefs store through `RepositoryViewModel` and the CLI layer.
     fileprivate var contextArg: String {
-        "-U\(AppTheme.persistedDiffContextLines())"
+        "-U\(GitPreferences.diffContextLines)"
     }
 }

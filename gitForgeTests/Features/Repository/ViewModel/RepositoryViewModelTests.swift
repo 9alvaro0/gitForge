@@ -271,7 +271,7 @@ struct RepositoryViewModelSelectedCommitTests {
                        subject: "s")
         vm.commits = [a]
         vm.selectedCommitId = "aaa"
-        vm.commits = []  // e.g. resetLog cleared the page
+        vm.commits = []  // e.g. a fresh scope before the first page
         #expect(vm.selectedCommit == nil)
     }
 }

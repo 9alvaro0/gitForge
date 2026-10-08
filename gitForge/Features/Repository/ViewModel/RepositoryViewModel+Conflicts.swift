@@ -8,130 +8,62 @@ extension RepositoryViewModel {
     /// not here.
     enum WholeFilePick: Sendable, Equatable { case ours, theirs }
 
-    /// Inspects worktree state, lists unmerged paths, and reads each one off
-    /// the main thread to count conflict hunks. Preserves the user's current
-    /// selection when the watcher fires mid-resolve so they don't get
-    /// yanked back to the top of the list.
+    /// Reads the integration state and, when one is in progress, refreshes
+    /// the resolver (`conflicts`) from the unmerged paths.
     func loadConflictState() async {
         mergeState = await cli.mergeState()
         if mergeState != .unmerged {
             conflictedStashSha = nil
         }
         guard mergeState.isInProgress else {
-            conflictFiles = []
-            conflictHunks = []
-            conflictPicks = [:]
-            selectedConflictPath = nil
+            conflicts.clear()
             return
         }
         do {
-            let paths = try await cli.unmergedPaths()
-            let entries = await Self.scanConflictFiles(paths: paths,
-                                                      repositoryURL: repository.url)
-            conflictFiles = entries
-
-            if let current = selectedConflictPath,
-               entries.contains(where: { $0.path == current }) {
-                return
-            }
-            let candidate = entries.first(where: { !$0.resolved }) ?? entries.first
-            if let candidate {
-                await loadConflictHunks(for: candidate.path)
-            }
+            await conflicts.reload(unmergedPaths: try await cli.unmergedPaths())
         } catch {
-            // Underlying `git ls-files --unmerged` failure is logged by GitCLI.
+            // Underlying `git diff --diff-filter=U` failure is logged by GitCLI.
         }
-    }
-
-    /// Reads each conflicted file off-MainActor and in parallel — a big merge
-    /// can surface dozens of files and reading them serially on the main
-    /// thread froze the UI.
-    private nonisolated static func scanConflictFiles(paths: [String], repositoryURL: URL) async -> [ConflictFile] {
-        await withTaskGroup(of: (Int, ConflictFile).self) { group in
-            for (idx, path) in paths.enumerated() {
-                group.addTask {
-                    let abs = repositoryURL.appendingPathComponent(path)
-                    let hunks = (try? String(contentsOf: abs, encoding: .utf8))
-                        .map { ConflictParser.parse($0).hunks } ?? []
-                    return (idx, ConflictFile(path: path,
-                                              resolved: hunks.isEmpty,
-                                              conflicts: hunks.count))
-                }
-            }
-            var collected: [(Int, ConflictFile)] = []
-            for await pair in group { collected.append(pair) }
-            return collected.sorted { $0.0 < $1.0 }.map(\.1)
-        }
-    }
-
-    /// Loads conflict hunks for `path` and resets pending picks. Bumps
-    /// `conflictHunksGen` so a slow load triggered for an older path can't
-    /// stomp the freshly selected file.
-    func loadConflictHunks(for path: String) async {
-        conflictHunksGen &+= 1
-        let gen = conflictHunksGen
-        selectedConflictPath = path
-        let absolute = repository.url.appendingPathComponent(path)
-        do {
-            let content = try await Self.readFile(at: absolute)
-            guard gen == conflictHunksGen else { return }
-            conflictHunks = ConflictParser.parse(content).hunks
-            conflictPicks = [:]
-        } catch {
-            guard gen == conflictHunksGen else { return }
-            Self.logger.error("Failed to read \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            conflictHunks = []
-            conflictPicks = [:]
-        }
-    }
-
-    private nonisolated static func readFile(at url: URL) async throws -> String {
-        try await Task.detached { try String(contentsOf: url, encoding: .utf8) }.value
-    }
-
-    func setConflictPick(hunkId: UUID, pick: ConflictHunk.Pick) {
-        conflictPicks[hunkId] = pick
     }
 
     /// Replaces the file content with one whole side and stages it. Used by
     /// the "Resolve using ours/theirs" context menu in `ConflictView`.
     func resolveFile(at path: String, using side: WholeFilePick) async {
-        do {
+        await runConflictMutation {
             switch side {
-            case .ours:   try await cli.checkoutOurs(path: path)
-            case .theirs: try await cli.checkoutTheirs(path: path)
+            case .ours:   try await self.cli.checkoutOurs(path: path)
+            case .theirs: try await self.cli.checkoutTheirs(path: path)
             }
-            try await cli.markResolved(path: path)
-            await loadConflictState()
-            await refreshStatus()
-        } catch {
-            commitError = error.userMessage
+            try await self.cli.markResolved(path: path)
         }
     }
 
-    /// Applies the user's per-hunk picks to `selectedConflictPath` and stages
-    /// it. Aborts before writing if the file's hunk count has shifted under
-    /// us — that means an external edit landed and the picks no longer line
-    /// up with the on-disk content; better to ask the user to reload than
-    /// silently overwrite their changes.
+    /// Applies the user's per-hunk picks to the selected file (keeping its
+    /// encoding) and stages it.
     func resolveSelectedFile() async {
-        guard let path = selectedConflictPath else { return }
-        let absolute = repository.url.appendingPathComponent(path)
+        await runConflictMutation {
+            guard let path = try await self.conflicts.writeResolution() else { return }
+            try await self.cli.markResolved(path: path)
+        }
+    }
+
+    /// Resolution steps write the index, so they hold `isMutating` like every
+    /// other local mutation: the watcher is suspended and a double click (or
+    /// a commit racing it) can't fight over `.git/index.lock`.
+    private func runConflictMutation(_ body: () async throws -> Void) async {
+        guard !isMutating else {
+            commitError = "Another operation is in progress."
+            return
+        }
+        isMutating = true
+        defer { isMutating = false }
         do {
-            let original = try await Self.readFile(at: absolute)
-            let parsedNow = ConflictParser.parse(original).hunks
-            guard parsedNow.count == conflictHunks.count else {
-                commitError = "“\(path)” changed on disk — reload conflicts before resolving."
-                return
-            }
-            let resolved = ConflictParser.apply(content: original, picks: conflictPicks, hunks: conflictHunks)
-            try resolved.write(to: absolute, atomically: true, encoding: .utf8)
-            try await cli.markResolved(path: path)
-            await loadConflictState()
-            await refreshStatus()
+            try await body()
         } catch {
             commitError = error.userMessage
         }
+        await loadConflictState()
+        await refreshStatus()
     }
 
     /// Drops the in-progress integration and returns the worktree to clean.
@@ -139,6 +71,9 @@ extension RepositoryViewModel {
     /// stash has its own `abortStashApply`; bisect needs `git bisect reset`
     /// and is exposed separately.
     func abortMerge() async {
+        guard !isMutating else { return }
+        isMutating = true
+        defer { isMutating = false }
         do {
             switch mergeState {
             case .merging:        try await cli.mergeAbort()
@@ -222,6 +157,9 @@ extension RepositoryViewModel {
     /// once everything is staged the user just commits; we still refresh so
     /// the UI catches up either way.
     func continueMerge() async {
+        guard !isMutating else { return }
+        isMutating = true
+        defer { isMutating = false }
         do {
             switch mergeState {
             case .merging:        try await cli.mergeContinue()

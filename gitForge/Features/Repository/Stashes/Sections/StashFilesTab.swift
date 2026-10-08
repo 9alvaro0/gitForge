@@ -1,16 +1,16 @@
 import SwiftUI
 
 struct StashFilesTab: View {
-    @Bindable var viewModel: RepositoryViewModel
+    let store: StashDetailStore
     @Binding var diffMode: DiffPane.ViewMode
 
     @Environment(\.appTheme) private var theme
 
-    private var files: [StashFileChange] { viewModel.stashDetail?.files ?? [] }
+    private var files: [StashFileChange] { store.detail?.files ?? [] }
 
     var body: some View {
         if files.isEmpty {
-            if viewModel.stashDetailLoading {
+            if store.isLoading {
                 placeholderList
             } else {
                 EmptyState(icon: .diff, title: "No files changed", subtitle: nil) { EmptyView() }
@@ -25,10 +25,10 @@ struct StashFilesTab: View {
                         Rectangle().fill(theme.palette.line).frame(width: DesignTokens.Stroke.regular)
                     }
                 DiffPane(
-                    file: viewModel.selectedStashFile,
-                    hunks: viewModel.stashFileDiff,
-                    loading: viewModel.loadingStashFileDiff,
-                    emptyState: viewModel.stashFileDiffEmptyState,
+                    file: store.selectedFile,
+                    hunks: store.fileDiff,
+                    loading: store.isLoadingFileDiff,
+                    emptyState: store.fileDiffEmptyState,
                     viewMode: $diffMode
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -43,8 +43,8 @@ struct StashFilesTab: View {
                 ForEach(files) { file in
                     StashFileRow(
                         file: file,
-                        isSelected: file.path == viewModel.selectedStashFile,
-                        onSelect: { Task { await viewModel.loadStashFileDiff(at: file.path) } }
+                        isSelected: file.path == store.selectedFile,
+                        onSelect: { Task { await store.loadFileDiff(at: file.path) } }
                     )
                 }
             }
@@ -68,7 +68,7 @@ struct StashFilesTab: View {
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var mode: DiffPane.ViewMode = .unified
-    StashFilesTab(viewModel: .previewWithStashDetail, diffMode: $mode)
+    StashFilesTab(store: RepositoryViewModel.previewWithStashDetail.stashDetail, diffMode: $mode)
         .frame(width: 1200, height: 720)
         .background(theme.palette.bg2)
         .appTheme(theme)
@@ -79,11 +79,11 @@ struct StashFilesTab: View {
     @Previewable @State var mode: DiffPane.ViewMode = .unified
     let vm: RepositoryViewModel = {
         let v = RepositoryViewModel.previewWithStashes
-        v.selectedStash = Stash.previewSamples.first
-        v.stashDetailLoading = true
+        v.stashDetail.selected = Stash.previewSamples.first
+        v.stashDetail.isLoading = true
         return v
     }()
-    StashFilesTab(viewModel: vm, diffMode: $mode)
+    StashFilesTab(store: vm.stashDetail, diffMode: $mode)
         .frame(width: 1200, height: 720)
         .background(theme.palette.bg2)
         .appTheme(theme)

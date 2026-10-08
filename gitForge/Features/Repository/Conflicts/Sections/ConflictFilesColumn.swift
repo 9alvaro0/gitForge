@@ -4,7 +4,7 @@ struct ConflictFilesColumn: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
 
-    private var files: [ConflictFile] { viewModel.conflictFiles }
+    private var files: [ConflictFile] { viewModel.conflicts.files }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
@@ -21,9 +21,9 @@ struct ConflictFilesColumn: View {
                         ForEach(files) { file in
                             ConflictFileRow(
                                 file: file,
-                                isSelected: file.path == viewModel.selectedConflictPath,
+                                isSelected: file.path == viewModel.conflicts.selectedPath,
                                 absoluteURL: viewModel.repository.url.appendingPathComponent(file.path),
-                                onSelect: { Task { await viewModel.loadConflictHunks(for: file.path) } },
+                                onSelect: { Task { await viewModel.conflicts.loadHunks(for: file.path) } },
                                 onResolveOurs: { Task { await viewModel.resolveFile(at: file.path, using: .ours) } },
                                 onResolveTheirs: { Task { await viewModel.resolveFile(at: file.path, using: .theirs) } },
                                 onDiscard: { Task { await viewModel.discardChanges(workingCopyFile(for: file)) } }

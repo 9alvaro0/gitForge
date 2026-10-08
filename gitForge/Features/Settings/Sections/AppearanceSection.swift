@@ -47,19 +47,19 @@ struct AppearanceSection: View {
             }
             radioRow(label: "Diff view",
                      values: DiffPane.ViewMode.allCases.map { ($0.rawValue, $0.label) },
-                     current: ui.theme.defaultDiffMode.rawValue) { v in
-                if let m = DiffPane.ViewMode(rawValue: v) { ui.theme.defaultDiffMode = m }
+                     current: ui.preferences.defaultDiffMode.rawValue) { v in
+                if let m = DiffPane.ViewMode(rawValue: v) { ui.preferences.defaultDiffMode = m }
             }
             menuPicker(label: "Diff context lines",
                        values: Self.contextOptions,
-                       current: String(ui.theme.diffContextLines)) { v in
-                if let n = Int(v) { ui.theme.diffContextLines = n }
+                       current: String(ui.preferences.diffContextLines)) { v in
+                if let n = Int(v) { ui.preferences.diffContextLines = n }
             }
             wrapToggle
             radioRow(label: "Dates",
                      values: DateDisplayMode.allCases.map { ($0.rawValue, $0.label) },
-                     current: ui.theme.dateDisplayMode.rawValue) { v in
-                if let m = DateDisplayMode(rawValue: v) { ui.theme.dateDisplayMode = m }
+                     current: ui.preferences.dateDisplayMode.rawValue) { v in
+                if let m = DateDisplayMode(rawValue: v) { ui.preferences.dateDisplayMode = m }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -69,10 +69,10 @@ struct AppearanceSection: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             fieldLabel("Wrap long diff lines")
             Toggle(isOn: Binding(
-                get: { ui.theme.diffWrapLongLines },
-                set: { ui.theme.diffWrapLongLines = $0 }
+                get: { ui.preferences.diffWrapLongLines },
+                set: { ui.preferences.diffWrapLongLines = $0 }
             )) {
-                Text(ui.theme.diffWrapLongLines ? "Soft-wrap onto the next visual row" : "Overflow horizontally (default)")
+                Text(ui.preferences.diffWrapLongLines ? "Soft-wrap onto the next visual row" : "Overflow horizontally (default)")
                     .font(AppFont.sans(11))
                     .foregroundStyle(theme.palette.fg2)
             }

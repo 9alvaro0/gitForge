@@ -20,6 +20,7 @@ struct BranchListSection: View {
 
     @State private var collapsedFolders: Set<String> = []
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
         let rows = BranchFlatRowBuilder.build(refs: refs, collapsedFolders: collapsedFolders)
@@ -135,7 +136,7 @@ struct BranchListSection: View {
 
     private func lastCommitLabel(for ref: GitRef) -> String {
         if let date = commitDateBySha[ref.targetSha] {
-            return theme.dateDisplayMode.format(date)
+            return preferences.dateDisplayMode.format(date)
         }
         return String(ref.targetSha.prefix(7))
     }

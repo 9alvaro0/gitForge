@@ -4,7 +4,7 @@ import SwiftUI
 /// missing-token / empty / list). Owns no state of its own — every action
 /// flows back to the compositor via callbacks.
 struct PullsContentSection: View {
-    @Bindable var viewModel: RepositoryViewModel
+    let store: PullRequestStore
     let nounPlural: String
     let onAddToken: () -> Void
     let onOpenSettings: () -> Void
@@ -12,24 +12,24 @@ struct PullsContentSection: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        if viewModel.pullRequestsLoading && viewModel.pullRequests.isEmpty {
+        if store.isLoading && store.items.isEmpty {
             PullsLoadingPlaceholder()
-        } else if let message = viewModel.pullRequestsError {
+        } else if let message = store.error {
             errorState(message: message)
-        } else if viewModel.pullRequestsHost == nil {
+        } else if store.host == nil {
             EmptyState(
                 icon: .pr,
                 title: "No supported remote detected",
                 subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them."
             ) { EmptyView() }
-        } else if viewModel.pullRequestsRequiresToken {
+        } else if store.requiresToken {
             PullsTokenMissingSection(
-                host: viewModel.pullRequestsHost,
+                host: store.host,
                 nounPlural: nounPlural,
                 onAddToken: onAddToken,
                 onOpenSettings: onOpenSettings
             )
-        } else if viewModel.pullRequests.isEmpty {
+        } else if store.items.isEmpty {
             EmptyState(
                 icon: .pr,
                 title: "No open \(nounPlural)",
@@ -43,9 +43,9 @@ struct PullsContentSection: View {
     private var list: some View {
         ScrollView {
             LazyVStack(spacing: DesignTokens.Spacing.md) {
-                ForEach(viewModel.pullRequests) { pr in
+                ForEach(store.items) { pr in
                     PullRequestRow(pullRequest: pr) {
-                        viewModel.selectPullRequest(pr)
+                        store.select(pr)
                     }
                 }
             }
@@ -56,17 +56,17 @@ struct PullsContentSection: View {
     private func errorState(message: String) -> some View {
         EmptyState(icon: .warn, title: "Couldn't load", subtitle: message) {
             HStack(spacing: DesignTokens.Spacing.sm) {
-                if isTLSError(message), let host = viewModel.pullRequestsHost {
+                if isTLSError(message), let host = store.host {
                     GFButton(title: "Trust \(host.host)", style: .primary) {
                         RemoteHostTrust.shared.setTrusted(host.host, true)
-                        Task { await viewModel.loadPullRequests(force: true) }
+                        Task { await store.load(force: true) }
                     }
                     GFButton(title: "Try again") {
-                        Task { await viewModel.loadPullRequests(force: true) }
+                        Task { await store.load(force: true) }
                     }
                 } else {
                     GFButton(title: "Try again", style: .primary) {
-                        Task { await viewModel.loadPullRequests(force: true) }
+                        Task { await store.load(force: true) }
                     }
                 }
             }
@@ -84,7 +84,7 @@ struct PullsContentSection: View {
 #Preview("List") {
     @Previewable @State var theme = AppTheme()
     PullsContentSection(
-        viewModel: .previewWithPullRequests,
+        store: .previewWithPullRequests,
         nounPlural: "pull requests",
         onAddToken: {}, onOpenSettings: {}
     )
@@ -95,13 +95,13 @@ struct PullsContentSection: View {
 
 #Preview("Token missing") {
     @Previewable @State var theme = AppTheme()
-    let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.previewWithPullRequests
-        v.pullRequestsRequiresToken = true
-        return v
+    let store: PullRequestStore = {
+        let s = PullRequestStore.previewWithPullRequests
+        s.requiresToken = true
+        return s
     }()
     PullsContentSection(
-        viewModel: vm,
+        store: store,
         nounPlural: "pull requests",
         onAddToken: {}, onOpenSettings: {}
     )

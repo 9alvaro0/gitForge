@@ -134,23 +134,8 @@ final class RepositoryViewModel {
     var refsGen: UInt64 = 0
 
     // MARK: Stash detail
-    var selectedStash: Stash?
-    var stashDetail: StashDetail?
-    var stashDetailLoading: Bool = false
-    var stashDetailError: String?
-    var selectedStashFile: String?
-    var stashFileDiff: [DiffHunk] = []
-    var loadingStashFileDiff: Bool = false
-    var stashFileDiffEmptyState: DiffEmptyState = .empty
-    /// Bumped at the start of every stash detail op (`selectStash` /
-    /// `closeStashDetail` / `loadStashDetail`). Guards the post-await writes
-    /// so a slow stash#0 fetch can't paint over a freshly-selected stash#1
-    /// (or onto a closed detail pane).
-    var stashDetailGen: UInt64 = 0
-    /// Counterpart to `commitFileDiffGen` for the stash file-diff pane.
-    /// Bumped on entry to `loadStashFileDiff`; the catch and the success
-    /// branch both guard against it before writing back.
-    var stashFileDiffGen: UInt64 = 0
+    /// The stash detail pane (selection, metadata, files, file diff).
+    let stashDetail: StashDetailStore
     /// Local branches whose tip isn't reachable from HEAD. Fed to `git log`
     /// so already-merged branches don't open redundant lanes in the graph.
     var unmergedLocalBranchRefs: [String] = []
@@ -286,44 +271,18 @@ final class RepositoryViewModel {
     var autoFetchInFlight: Bool = false
 
     // MARK: Pull / merge requests
-    var pullRequests: [PullRequest] = []
-    var pullRequestsHost: RemoteHost?
-    var pullRequestsLoading: Bool = false
-    var pullRequestsError: String?
-    /// Host detected but no token configured — drives the "Connect a host"
-    /// empty state in `PullsView`.
-    var pullRequestsRequiresToken: Bool = false
-    var pullRequestsLastLoadedAt: Date?
-
-    // MARK: PR detail
-    var selectedPullRequest: PullRequest?
-    var pullRequestDetail: PullRequestDetail?
-    var pullRequestCommits: [PullRequestCommit] = []
-    var pullRequestFiles: [PullRequestFileChange] = []
-    var pullRequestDetailLoading: Bool = false
-    var pullRequestDetailError: String?
-    /// Bumped at the start of every PR detail op (`selectPullRequest` /
-    /// `loadPullRequestDetail` / `closePullRequestDetail`). The detail loader
-    /// snapshots it on entry and drops its writes if the token moved while
-    /// it was awaiting — keeps a slow PR#1 fetch from landing on top of a
-    /// freshly-selected PR#2 (or on a closed detail pane).
-    var pullRequestDetailGen: UInt64 = 0
-    /// Drives the spinner on the "Resolve locally" button while a try-merge
-    /// attempt is in flight.
-    var pullRequestLocalMergeRunning: Bool = false
+    /// List + detail of the repo's PRs/MRs. Local integration of a PR stays
+    /// on the view model (`attemptLocalMergeForPullRequest`).
+    let pullRequests: PullRequestStore
 
     // MARK: Conflicts
     var mergeState: MergeState = .clean
-    var conflictFiles: [ConflictFile] = []
-    var conflictHunks: [ConflictHunk] = []
-    var selectedConflictPath: String?
-    var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
+    /// Resolver state: unmerged files, hunks of the selected one, picks.
+    let conflicts: ConflictStore
     /// SHA of the stash whose apply/pop left the tree `.unmerged`. Lets
     /// `abortStashApply()` undo exactly the paths that stash touched instead
     /// of resetting the whole tree. Cleared once the tree is clean again.
     var conflictedStashSha: String?
-    /// Counterpart to `commitFileDiffGen` for the conflict hunks pane.
-    var conflictHunksGen: UInt64 = 0
 
     // MARK: Identity
     /// `user.name` / `user.email` resolved for this repo (local override
@@ -365,7 +324,11 @@ final class RepositoryViewModel {
 
     init(repository: Repository) {
         self.repository = repository
-        self.cli = GitCLI(workingDirectory: repository.url)
+        let cli = GitCLI(workingDirectory: repository.url)
+        self.cli = cli
+        self.pullRequests = PullRequestStore(cli: cli)
+        self.stashDetail = StashDetailStore(cli: cli)
+        self.conflicts = ConflictStore(repositoryURL: repository.url)
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -412,11 +375,9 @@ final class RepositoryViewModel {
         selectedFilePaths = []
         commitFileDiff = []
         workingCopyDiff = []
-        stashFileDiff = []
-        conflictFiles = []
-        conflictHunks = []
-        conflictPicks = [:]
-        pullRequests = []
+        stashDetail.close()
+        conflicts.clear()
+        pullRequests.reset()
         repoIdentity = nil
         upstream = nil
         aheadCount = 0

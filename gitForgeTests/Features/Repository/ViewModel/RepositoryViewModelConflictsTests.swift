@@ -152,18 +152,18 @@ struct RepositoryViewModelConflictTokenTests {
         return RepositoryViewModel(repository: Repository(url: url))
     }
 
-    @Test("loadConflictHunks bumps the gen token even on missing files")
+    @Test("loadHunks bumps the gen token even on missing files")
     func bumpsGenOnMissingFile() async {
         let vm = Self.makeVM()
-        let before = vm.conflictHunksGen
-        await vm.loadConflictHunks(for: "definitely-not-here.swift")
-        #expect(vm.conflictHunksGen > before)
-        #expect(vm.selectedConflictPath == "definitely-not-here.swift")
-        #expect(vm.conflictHunks.isEmpty)
-        #expect(vm.conflictPicks.isEmpty)
+        let before = vm.conflicts.hunksGen
+        await vm.conflicts.loadHunks(for: "definitely-not-here.swift")
+        #expect(vm.conflicts.hunksGen > before)
+        #expect(vm.conflicts.selectedPath == "definitely-not-here.swift")
+        #expect(vm.conflicts.hunks.isEmpty)
+        #expect(vm.conflicts.picks.isEmpty)
     }
 
-    @Test("loadConflictHunks for a real file populates hunks and resets picks")
+    @Test("loadHunks for a real file populates hunks and resets picks")
     func populatesHunksFromRealFile() async throws {
         // Write a small conflicted file into the VM's repo URL so the loader
         // hits a real disk path. We're not exercising git here — only the
@@ -192,12 +192,12 @@ struct RepositoryViewModelConflictTokenTests {
 
         let vm = RepositoryViewModel(repository: Repository(url: tmp))
         // Pre-populate picks so we can verify they're cleared on load.
-        vm.conflictPicks = [UUID(): .ours]
+        vm.conflicts.picks = [UUID(): .ours]
 
-        await vm.loadConflictHunks(for: conflictPath)
+        await vm.conflicts.loadHunks(for: conflictPath)
 
-        #expect(vm.selectedConflictPath == conflictPath)
-        #expect(vm.conflictHunks.count == 1)
-        #expect(vm.conflictPicks.isEmpty)
+        #expect(vm.conflicts.selectedPath == conflictPath)
+        #expect(vm.conflicts.hunks.count == 1)
+        #expect(vm.conflicts.picks.isEmpty)
     }
 }

@@ -12,6 +12,7 @@ struct ConflictFileRow: View {
     let onDiscard: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var confirmDiscard = false
 
     var body: some View {
         Button(action: onSelect) {
@@ -37,6 +38,15 @@ struct ConflictFileRow: View {
         }
         .buttonStyle(.plain)
         .contextMenu { menu }
+        // Every other discard in the app confirms first; this one throws
+        // away both sides plus any manual resolution of the file.
+        .confirmationDialog("Discard conflict in \((file.path as NSString).lastPathComponent)?",
+                            isPresented: $confirmDiscard,
+                            titleVisibility: .visible) {
+            Button("Discard conflict", role: .destructive) { onDiscard() }
+        } message: {
+            Text("The file is reverted to HEAD. Any resolution you made in it is lost. This can't be undone.")
+        }
     }
 
     private var statusBadge: some View {
@@ -54,7 +64,7 @@ struct ConflictFileRow: View {
         if !file.resolved {
             Button("Resolve using ours") { onResolveOurs() }
             Button("Resolve using theirs") { onResolveTheirs() }
-            Button("Discard conflict (revert to HEAD)", role: .destructive) { onDiscard() }
+            Button("Discard conflict (revert to HEAD)…", role: .destructive) { confirmDiscard = true }
             Divider()
         }
         Button("Open in editor") { NSWorkspace.shared.open(absoluteURL) }

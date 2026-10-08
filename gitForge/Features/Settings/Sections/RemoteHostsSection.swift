@@ -23,7 +23,7 @@ struct RemoteHostsSection: View {
 
     private var entries: [HostEntry] {
         var result = Self.defaults
-        if let host = appState.catalog.activeViewModel?.pullRequestsHost,
+        if let host = appState.catalog.activeViewModel?.pullRequests.host,
            !result.contains(where: { $0.host == host.host }) {
             result.append(HostEntry(
                 provider: host.provider,
