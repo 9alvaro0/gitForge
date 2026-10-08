@@ -15,7 +15,7 @@ struct StagingCommitBox: View {
                 .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.md)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
-                .font(AppFont.sans(12.5))
+                .font(AppFont.sans(FontSize.mdPlus))
 
             TextField("Description (optional)", text: $commitDescription, axis: .vertical)
                 .lineLimit(3...3)
@@ -23,7 +23,7 @@ struct StagingCommitBox: View {
                 .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.md)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
 
             HStack {
                 MonoText("on \(viewModel.currentBranchName ?? "HEAD") · \(stagedCount) files", dim: true)
@@ -40,7 +40,7 @@ struct StagingCommitBox: View {
 
             if let error = viewModel.commitError {
                 Text(error)
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.del)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

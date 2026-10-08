@@ -20,7 +20,7 @@ struct RepositoryHost: View {
                 VStack(spacing: DesignTokens.Spacing.lg) {
                     ProgressView().controlSize(.regular)
                     Text("Opening \(repository.url.lastPathComponent)…")
-                        .font(AppFont.mono(11, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

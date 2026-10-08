@@ -17,7 +17,7 @@ struct AppStatusBar: View {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 GFIcon(kind: .branch, size: 11, stroke: theme.palette.fg2)
                 Text(branch ?? "—")
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.fg2)
 
@@ -25,28 +25,28 @@ struct AppStatusBar: View {
                 Text("↑\(ahead)").foregroundStyle(theme.palette.ok)
                 Text("↓\(behind)").foregroundStyle(theme.palette.info).padding(.leading, DesignTokens.Spacing.xs)
             }
-            .font(AppFont.mono(11, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
 
             Text("\(staged) staged · \(unstaged) unstaged")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg2)
 
             Spacer()
 
             Text(fetchLabel)
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
             Text("UTF-8")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
             Text("LF")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
                     .frame(width: 7, height: 7)
                 Text(online ? "online" : "offline")
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.fg2)
         }

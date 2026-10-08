@@ -38,11 +38,11 @@ struct ToolButton<Icon: View>: View {
                     icon
                 }
                 if let label {
-                    Text(label).font(AppFont.sans(12))
+                    Text(label).font(AppFont.sans(FontSize.md))
                 }
                 if let badge, badge > 0, !loading {
                     Text("\(badge)")
-                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.hairline)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(badgeBg))
@@ -130,7 +130,7 @@ struct SpinnerGlyph: View {
             .frame(width: size, height: size)
             .rotationEffect(.degrees(rotation))
             .onAppear {
-                withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
+                withAnimation(DesignTokens.Motion.spin) {
                     rotation = 360
                 }
             }

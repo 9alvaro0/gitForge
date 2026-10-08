@@ -50,7 +50,7 @@ struct FlowLayout: Layout {
         ForEach(["v2.3.1", "v2.3.0", "v2.2.4", "v2.2.3", "v2.2.2", "v2.2.1", "v2.1.0", "v2.0.0"], id: \.self) { tag in
             HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: .diamond, size: 10, stroke: theme.palette.mod)
-                Text(tag).font(AppFont.mono(11.5, family: theme.monoFont))
+                Text(tag).font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
             }
             .foregroundStyle(theme.palette.mod)
             .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)

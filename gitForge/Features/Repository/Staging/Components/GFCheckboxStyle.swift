@@ -14,9 +14,7 @@ struct GFCheckboxStyle: ToggleStyle {
                     .stroke(configuration.isOn ? theme.palette.accent : theme.palette.lineStrong,
                             lineWidth: DesignTokens.Stroke.regular)
                 if configuration.isOn {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: FontSize.caption, weight: .bold))
-                        .foregroundStyle(theme.palette.accentFg)
+                    GFIcon(kind: .check, size: DesignTokens.IconSize.xs, stroke: theme.palette.accentFg)
                 }
             }
             .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)

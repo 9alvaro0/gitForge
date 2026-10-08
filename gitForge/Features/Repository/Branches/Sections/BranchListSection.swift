@@ -50,11 +50,11 @@ struct BranchListSection: View {
     private var sectionHeader: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Text(title.uppercased())
-                .font(.system(size: FontSize.footnote, weight: .semibold))
+                .font(.system(size: FontSize.sm, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             Text("\(refs.count)")
-                .font(.system(size: FontSize.footnote))
+                .font(.system(size: FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
         }
         .padding(.leading, DesignTokens.Spacing.xxs)
@@ -62,7 +62,7 @@ struct BranchListSection: View {
 
     private var emptyState: some View {
         Text("No branches.")
-            .font(AppFont.sans(12))
+            .font(AppFont.sans(FontSize.md))
             .foregroundStyle(theme.palette.fg3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DesignTokens.Spacing.xxl)
@@ -87,7 +87,7 @@ struct BranchListSection: View {
                 .frame(width: BranchRowMetrics.lastCommitColumn, alignment: .leading)
             Spacer().frame(width: BranchRowMetrics.actionsColumn)
         }
-        .font(AppFont.mono(10.5, family: theme.monoFont))
+        .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
         .tracking(0.6)
         .foregroundStyle(theme.palette.fg3)
         .padding(.horizontal, DesignTokens.Spacing.xl)

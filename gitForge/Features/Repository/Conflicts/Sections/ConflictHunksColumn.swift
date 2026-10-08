@@ -20,7 +20,7 @@ struct ConflictHunksColumn: View {
                     }
                     if hunks.isEmpty {
                         Text("Pick a file with unresolved conflicts on the left.")
-                            .font(AppFont.sans(12))
+                            .font(AppFont.sans(FontSize.md))
                             .foregroundStyle(theme.palette.fg3)
                             .padding(.top, DesignTokens.Spacing.md)
                     } else {
@@ -45,7 +45,7 @@ struct ConflictHunksColumn: View {
             .onKeyPress(.downArrow) {
                 guard let next = Self.advanceFocus(from: focusedHunkIndex, by: +1, count: hunks.count) else { return .ignored }
                 focusedHunkIndex = next
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(DesignTokens.Motion.standard) {
                     proxy.scrollTo("hunk-\(next)", anchor: .center)
                 }
                 return .handled
@@ -53,7 +53,7 @@ struct ConflictHunksColumn: View {
             .onKeyPress(.upArrow) {
                 guard let prev = Self.advanceFocus(from: focusedHunkIndex, by: -1, count: hunks.count) else { return .ignored }
                 focusedHunkIndex = prev
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(DesignTokens.Motion.standard) {
                     proxy.scrollTo("hunk-\(prev)", anchor: .center)
                 }
                 return .handled
@@ -74,7 +74,7 @@ struct ConflictHunksColumn: View {
 
     private var keyboardHint: some View {
         Text("↑↓ to navigate hunks · 1 pick ours · 2 pick theirs · 3 pick both")
-            .font(AppFont.mono(10.5, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg3)
     }
 
@@ -99,10 +99,10 @@ struct ConflictHunksColumn: View {
         HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: .diff, size: 14, stroke: theme.palette.fg1)
             Text(path)
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
             Text("· \(picks.count)/\(hunks.count) picked")
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
             Spacer()
             GFButton(title: "Mark resolved",

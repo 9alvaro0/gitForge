@@ -11,7 +11,7 @@ struct SettingsRowLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: FontSize.footnote, weight: .medium))
+            .font(.system(size: FontSize.sm, weight: .medium))
             .tracking(0.6)
             .foregroundStyle(theme.palette.fg3)
             .frame(width: Self.width, alignment: .leading)

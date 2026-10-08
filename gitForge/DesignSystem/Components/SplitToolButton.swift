@@ -37,10 +37,10 @@ struct SplitToolButton<Menu: View>: View {
                 } else {
                     GFIcon(kind: kind, size: 14, stroke: fg)
                 }
-                Text(label).font(AppFont.sans(12))
+                Text(label).font(AppFont.sans(FontSize.md))
                 if let badge, badge > 0, !loading {
                     Text("\(badge)")
-                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.hairline)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(badgeBg))

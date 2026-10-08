@@ -29,11 +29,11 @@ struct PullRequestOverviewTab: View {
     private var placeholderContent: some View {
         FlowLayout(spacing: DesignTokens.Spacing.md) {
             Text("CI: All checks passed")
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
             Text("Mergeable")
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
         }
@@ -41,10 +41,10 @@ struct PullRequestOverviewTab: View {
         block {
             OverviewSectionLabel("Description")
             Text("Adds the PR/MR integration with the new detail view, including overview, commits, and files tabs.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg2)
             Text("Each tab shares state with the parent so navigating between them is instantaneous.")
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(theme.palette.fg2)
         }
 
@@ -64,7 +64,7 @@ struct PullRequestOverviewTab: View {
             FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(["feature", "phase-2", "needs-review"], id: \.self) { name in
                     Text(name)
-                        .font(AppFont.sans(11))
+                        .font(AppFont.sans(FontSize.sm))
                         .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
                         .foregroundStyle(theme.palette.fg2)
                         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
@@ -100,7 +100,7 @@ struct PullRequestOverviewTab: View {
                 MarkdownView(source: body)
             } else {
                 Text("No description provided.")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg3)
             }
         }
@@ -115,7 +115,7 @@ struct PullRequestOverviewTab: View {
                     HStack(spacing: DesignTokens.Spacing.xs) {
                         if r.approved {
                             Text("✓")
-                                .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
+                                .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
                                 .foregroundStyle(theme.palette.ok)
                         }
                         MonoText("@\(r.login)")
@@ -135,7 +135,7 @@ struct PullRequestOverviewTab: View {
             FlowLayout(spacing: DesignTokens.Spacing.sm) {
                 ForEach(detail.labels, id: \.self) { name in
                     Text(name)
-                        .font(AppFont.sans(11))
+                        .font(AppFont.sans(FontSize.sm))
                         .padding(.horizontal, DesignTokens.Spacing.sm)
                         .padding(.vertical, DesignTokens.Spacing.xxs)
                         .foregroundStyle(theme.palette.fg2)

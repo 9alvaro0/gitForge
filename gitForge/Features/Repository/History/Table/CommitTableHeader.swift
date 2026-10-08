@@ -41,7 +41,7 @@ struct CommitTableHeader: View {
                              onCommit: { columns.commit() })
             Spacer(minLength: 0)
         }
-        .font(AppFont.mono(10.5, family: theme.monoFont))
+        .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
         .tracking(0.6)
         .foregroundStyle(theme.palette.fg3)
         .padding(.horizontal, DesignTokens.Spacing.xxxxl)

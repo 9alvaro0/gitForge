@@ -13,7 +13,7 @@ struct MarkdownView: View {
 
     var body: some View {
         StructuredText(markdown: source)
-            .font(AppFont.sans(12.5))
+            .font(AppFont.sans(FontSize.mdPlus))
             .foregroundStyle(theme.palette.fg1)
             .tint(theme.palette.accent)
             .textual.textSelection(.enabled)

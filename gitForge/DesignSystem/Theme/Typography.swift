@@ -18,9 +18,15 @@ enum MonoFontFamily: String, CaseIterable, Identifiable, Sendable {
     /// it without falling back to the system monospaced font. The
     /// `.systemMono` sentinel is always available.
     var isAvailable: Bool {
-        if self == .systemMono { return true }
-        return NSFont(name: rawValue, size: 12) != nil
+        Self.installed.contains(self)
     }
+
+    /// Resolved once per launch: `AppFont.mono` runs for every monospaced
+    /// label on every render, and an `NSFont(name:)` lookup each time added
+    /// up. A font installed while the app runs shows up after a relaunch.
+    private static let installed: Set<MonoFontFamily> = Set(allCases.filter {
+        $0 == .systemMono || NSFont(name: $0.rawValue, size: 12) != nil
+    })
 
     /// Returns `self` if the font is installed, otherwise falls back to the
     /// system monospaced sentinel so persisted values survive uninstalls.
@@ -35,24 +41,41 @@ enum MonoFontFamily: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Semantic font sizes. Use these instead of raw numbers when calling `AppFont.sans/.mono`.
-/// Sizes here are absolute — for monospace blocks that should follow the
-/// user's density preference, use `theme.density.monoFontSize` instead.
+/// Type scale. Use these instead of raw numbers when calling
+/// `AppFont.sans/.mono`. Mono blocks that should follow the user's density
+/// preference use `theme.density.monoFontSize` instead.
+///
+/// The steps mirror the sizes the UI actually used when it was tokenised
+/// (A07), half-points included, so adopting the scale changed nothing
+/// visually. A redesign that wants fewer steps edits the values here.
 enum FontSize {
-    static let caption: CGFloat = 10
-    static let footnote: CGFloat = 11
-    static let body: CGFloat = 13
-    static let headline: CGFloat = 15
+    static let xxs: CGFloat = 10
+    static let xs: CGFloat = 10.5
+    static let sm: CGFloat = 11
+    static let smPlus: CGFloat = 11.5
+    static let md: CGFloat = 12
+    static let mdPlus: CGFloat = 12.5
+    static let lg: CGFloat = 13
+    static let xl: CGFloat = 14
+    static let xxl: CGFloat = 15
+    static let xxxl: CGFloat = 16
     static let title: CGFloat = 18
+    static let largeTitle: CGFloat = 20
     static let display: CGFloat = 56
 }
 
-/// Centralized font factory. The design uses Inter Tight for sans + a configurable mono.
-/// We prefer the bundled families; fall back to system stack if unavailable.
+/// Centralized font factory. The original design specifies Inter Tight for
+/// sans and a configurable mono. **No font is bundled with the app**: Inter
+/// Tight is only used when the user happens to have it installed, so in
+/// practice the UI renders in SF Pro (the system fallback). Bundling it or
+/// adopting SF Pro officially is a redesign decision (see audit A07).
 enum AppFont {
+    /// Resolved once per launch instead of per call (see `MonoFontFamily.installed`).
+    private static let hasInterTight =
+        NSFont(name: "InterTight-Regular", size: 12) != nil || NSFont(name: "Inter Tight", size: 12) != nil
+
     static func sans(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        if NSFont(name: "InterTight-Regular", size: size) != nil
-            || NSFont(name: "Inter Tight", size: size) != nil {
+        if hasInterTight {
             return .custom("Inter Tight", size: size).weight(weight)
         }
         // Fallback — SF Pro / system sans.
@@ -60,7 +83,7 @@ enum AppFont {
     }
 
     static func mono(_ size: CGFloat, weight: Font.Weight = .regular, family: MonoFontFamily = .systemMono) -> Font {
-        if family != .systemMono, NSFont(name: family.rawValue, size: size) != nil {
+        if family != .systemMono, family.isAvailable {
             return .custom(family.rawValue, size: size).weight(weight)
         }
         // Fallback — SF Mono via .monospaced design.

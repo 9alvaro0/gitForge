@@ -65,12 +65,12 @@ struct RemoteHostsSection: View {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     HStack(spacing: DesignTokens.Spacing.sm) {
                         Text(entry.provider.label)
-                            .font(AppFont.sans(12, weight: .medium))
+                            .font(AppFont.sans(FontSize.md, weight: .medium))
                             .foregroundStyle(theme.palette.fg1)
                         MonoText(entry.host, dim: true)
                     }
                     Text(hasToken ? "Token configured" : "No token")
-                        .font(AppFont.sans(11))
+                        .font(AppFont.sans(FontSize.sm))
                         .foregroundStyle(hasToken ? theme.palette.ok : theme.palette.fg3)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -99,10 +99,10 @@ struct RemoteHostsSection: View {
                 } label: {
                     HStack(spacing: DesignTokens.Spacing.sm) {
                         Text(isTrusted ? "☑" : "☐")
-                            .font(AppFont.sans(13))
+                            .font(AppFont.sans(FontSize.lg))
                             .foregroundStyle(isTrusted ? theme.palette.mod : theme.palette.fg3)
                         Text("Trust this host's certificate")
-                            .font(AppFont.sans(11))
+                            .font(AppFont.sans(FontSize.sm))
                             .foregroundStyle(theme.palette.fg2)
                     }
                     .contentShape(.rect)
@@ -110,7 +110,7 @@ struct RemoteHostsSection: View {
                 .buttonStyle(.plain)
                 if isTrusted {
                     Text(pinDescription(for: entry.host))
-                        .font(AppFont.mono(10.5, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -126,21 +126,21 @@ struct RemoteHostsSection: View {
     private func tokenSheet(for entry: HostEntry) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
             Text("\(entry.provider.label) token")
-                .font(AppFont.sans(14, weight: .semibold))
+                .font(AppFont.sans(FontSize.xl, weight: .semibold))
             Text(entry.scopeHint)
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
                 .fixedSize(horizontal: false, vertical: true)
             SecureField("ghp_… / glpat_…", text: $draftToken)
                 .textFieldStyle(.plain)
-                .font(AppFont.mono(12, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .frame(height: DesignTokens.Control.height)
                 .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
                 .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
             if let sheetError {
                 Text(sheetError)
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.del)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -53,7 +53,7 @@ struct RowDragHandle: View {
             .fill(theme.palette.bg2)
             .overlay(
                 Text("Top pane (flex)")
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
             )
         RowDragHandle(height: $bottomHeight, minHeight: 80, maxHeight: 360)
@@ -62,7 +62,7 @@ struct RowDragHandle: View {
             .frame(height: bottomHeight)
             .overlay(
                 Text("Bottom pane — drag the divider (h=\(Int(bottomHeight)))")
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
             )
     }

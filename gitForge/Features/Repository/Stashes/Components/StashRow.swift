@@ -49,14 +49,14 @@ struct StashRow: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
             HStack(spacing: DesignTokens.Spacing.md) {
                 Text(stash.reference)
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
                 Text(String(stash.sha.prefix(7)))
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
             }
             Text(stash.subject)
-                .font(AppFont.sans(12.5))
+                .font(AppFont.sans(FontSize.mdPlus))
                 .foregroundStyle(theme.palette.fg1)
                 .lineLimit(1)
                 .truncationMode(.tail)

@@ -70,7 +70,7 @@ struct RemoteRepoPicker: View {
         if availableHosts.count > 1 {
             HStack(spacing: DesignTokens.Spacing.md) {
                 Text("Host")
-                    .font(AppFont.sans(11, weight: .medium))
+                    .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                 Picker("", selection: $host) {
                     ForEach(availableHosts, id: \.self) { h in
@@ -84,11 +84,9 @@ struct RemoteRepoPicker: View {
             }
         } else if let only = availableHosts.first {
             HStack(spacing: DesignTokens.Spacing.sm) {
-                Image(systemName: "network")
-                    .font(.system(size: FontSize.caption, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
+                GFIcon(kind: .cloud, size: DesignTokens.IconSize.xs, stroke: theme.palette.fg3)
                 Text(only)
-                    .font(AppFont.mono(11, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
             }
         }
@@ -96,9 +94,7 @@ struct RemoteRepoPicker: View {
 
     private var searchBar: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: FontSize.footnote, weight: .medium))
-                .foregroundStyle(theme.palette.fg3)
+            GFIcon(kind: .search, size: DesignTokens.IconSize.sm, stroke: theme.palette.fg3)
             GFTextField(placeholder: "Filter by name or description…", text: $search)
             if loading || loadingMore {
                 ProgressView().controlSize(.small)
@@ -146,17 +142,17 @@ struct RemoteRepoPicker: View {
         } label: {
             HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: repo.isPrivate ? "lock.fill" : "globe")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: FontSize.md, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                     .frame(width: DesignTokens.IconSize.md)
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(repo.fullName)
-                        .font(AppFont.mono(12, weight: .medium, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.md, weight: .medium, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg1)
                         .lineLimit(1)
                     if let desc = repo.description, !desc.isEmpty {
                         Text(desc)
-                            .font(AppFont.sans(11))
+                            .font(AppFont.sans(FontSize.sm))
                             .foregroundStyle(theme.palette.fg3)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -164,7 +160,7 @@ struct RemoteRepoPicker: View {
                 }
                 Spacer()
                 Text("Clone")
-                    .font(AppFont.sans(11, weight: .medium))
+                    .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.accent)
             }
             .padding(.horizontal, DesignTokens.Spacing.xl)
@@ -179,10 +175,10 @@ struct RemoteRepoPicker: View {
     private var missingTokenCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("No token configured for \(host.isEmpty ? provider.label : host)")
-                .font(AppFont.sans(13, weight: .semibold))
+                .font(AppFont.sans(FontSize.lg, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
             Text("Add a Personal Access Token in Settings → Remote hosts to browse your repos from this host.")
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
         }
         .padding(DesignTokens.Spacing.xxxl)
@@ -193,7 +189,7 @@ struct RemoteRepoPicker: View {
 
     private var emptyCard: some View {
         Text("No repositories found.")
-            .font(AppFont.sans(11))
+            .font(AppFont.sans(FontSize.sm))
             .foregroundStyle(theme.palette.fg3)
             .padding(.vertical, DesignTokens.Spacing.xxxl)
     }
@@ -201,24 +197,23 @@ struct RemoteRepoPicker: View {
     private func errorCard(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack(spacing: DesignTokens.Spacing.sm) {
-                Image(systemName: "xmark.octagon.fill")
-                    .foregroundStyle(theme.palette.del)
+                GFIcon(kind: .x, size: DesignTokens.IconSize.md, stroke: theme.palette.del)
                 Text("Couldn't load repos from \(host)")
-                    .font(AppFont.sans(12, weight: .semibold))
+                    .font(AppFont.sans(FontSize.md, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
             }
             Text(message)
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
             // Tokens are saved per-host; if the user landed on the wrong host
             // the message above won't help. Nudge them to the right place.
             if availableHosts.count > 1 {
                 Text("Try a different host above, or check the token's scopes in Settings.")
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
             } else {
                 Text("Check the token's scopes in Settings (needs read access to repositories), or that the token is for this host.")
-                    .font(AppFont.sans(11))
+                    .font(AppFont.sans(FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
             }
             GFButton(title: "Retry", style: .secondary) {

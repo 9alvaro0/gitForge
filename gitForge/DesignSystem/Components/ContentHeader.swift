@@ -20,11 +20,11 @@ struct ContentHeader<Subtitle: View, Right: View>: View {
         HStack(spacing: DesignTokens.Spacing.xxxl) {
             HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xl) {
                 Text(title)
-                    .font(AppFont.sans(18, weight: .semibold))
+                    .font(AppFont.sans(FontSize.title, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
                 subtitle()
                     .foregroundStyle(theme.palette.fg3)
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
             }
             Spacer(minLength: 0)
             HStack(spacing: DesignTokens.Spacing.sm) {

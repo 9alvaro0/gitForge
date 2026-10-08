@@ -10,7 +10,7 @@ struct PullRequestCommitRow: View {
             MonoText(commit.shortSha, color: theme.palette.accent)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 Text(commit.subject)
-                    .font(AppFont.sans(12.5))
+                    .font(AppFont.sans(FontSize.mdPlus))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.tail)

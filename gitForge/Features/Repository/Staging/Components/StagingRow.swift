@@ -134,13 +134,13 @@ struct StagingRow: View {
         return HStack(spacing: DesignTokens.Spacing.none) {
             if !directory.isEmpty {
                 Text("\(directory)/")
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
                     .lineLimit(1)
                     .truncationMode(.head)
             }
             Text(name)
-                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg1)
                 .lineLimit(1)
         }
@@ -158,26 +158,26 @@ struct StagingRow: View {
         let sameName = oldName == newName
         return HStack(spacing: DesignTokens.Spacing.xxs) {
             Text(sameName ? "\(oldDir)/" : oldPath)
-                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .lineLimit(1)
                 .truncationMode(.head)
             Text("→")
-                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg4)
             if sameName {
                 Text("\(newDir)/")
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg3)
                     .lineLimit(1)
                     .truncationMode(.head)
                 Text(newName)
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
             } else {
                 Text(newPath)
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.head)

@@ -38,7 +38,7 @@ struct CommitActionButtonLabel: View {
         HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: icon, size: 13, stroke: foreground)
             Text(title)
-                .font(AppFont.sans(12))
+                .font(AppFont.sans(FontSize.md))
                 .foregroundStyle(foreground)
             Spacer(minLength: 0)
             if trailingChevron {

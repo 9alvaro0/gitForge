@@ -18,10 +18,10 @@ struct RecentRepositoryRow: View {
                 RepoMark(letter: orgInitial)
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(repo.name)
-                        .font(AppFont.sans(12, weight: .medium))
+                        .font(AppFont.sans(FontSize.md, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
                     Text(repo.path)
-                        .font(AppFont.mono(11, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
                         .lineLimit(1)
                         .truncationMode(.middle)
