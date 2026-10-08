@@ -134,23 +134,8 @@ final class RepositoryViewModel {
     var refsGen: UInt64 = 0
 
     // MARK: Stash detail
-    var selectedStash: Stash?
-    var stashDetail: StashDetail?
-    var stashDetailLoading: Bool = false
-    var stashDetailError: String?
-    var selectedStashFile: String?
-    var stashFileDiff: [DiffHunk] = []
-    var loadingStashFileDiff: Bool = false
-    var stashFileDiffEmptyState: DiffEmptyState = .empty
-    /// Bumped at the start of every stash detail op (`selectStash` /
-    /// `closeStashDetail` / `loadStashDetail`). Guards the post-await writes
-    /// so a slow stash#0 fetch can't paint over a freshly-selected stash#1
-    /// (or onto a closed detail pane).
-    var stashDetailGen: UInt64 = 0
-    /// Counterpart to `commitFileDiffGen` for the stash file-diff pane.
-    /// Bumped on entry to `loadStashFileDiff`; the catch and the success
-    /// branch both guard against it before writing back.
-    var stashFileDiffGen: UInt64 = 0
+    /// The stash detail pane (selection, metadata, files, file diff).
+    let stashDetail: StashDetailStore
     /// Local branches whose tip isn't reachable from HEAD. Fed to `git log`
     /// so already-merged branches don't open redundant lanes in the graph.
     var unmergedLocalBranchRefs: [String] = []
@@ -346,6 +331,7 @@ final class RepositoryViewModel {
         let cli = GitCLI(workingDirectory: repository.url)
         self.cli = cli
         self.pullRequests = PullRequestStore(cli: cli)
+        self.stashDetail = StashDetailStore(cli: cli)
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -392,7 +378,7 @@ final class RepositoryViewModel {
         selectedFilePaths = []
         commitFileDiff = []
         workingCopyDiff = []
-        stashFileDiff = []
+        stashDetail.close()
         conflictFiles = []
         conflictHunks = []
         conflictPicks = [:]

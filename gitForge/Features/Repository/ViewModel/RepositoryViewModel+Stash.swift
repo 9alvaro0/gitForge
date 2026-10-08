@@ -29,7 +29,7 @@ extension RepositoryViewModel {
         isMutating = true
         defer { isMutating = false }
         do {
-            try await cli.stashApply(index: stash.index, drop: drop)
+            try await cli.stashApply(sha: stash.sha, drop: drop)
             await refreshAfterIntegration()
             return .clean
         } catch {
@@ -73,13 +73,16 @@ extension RepositoryViewModel {
         isMutating = true
         defer { isMutating = false }
         do {
-            try await cli.stashDrop(index: stash.index)
+            try await cli.stashDrop(sha: stash.sha)
             // Dropping a stash leaves its dashed-dot row in `commits` until
             // a reloadLog runs — `refreshAfterIntegration` does that, so
             // the phantom row disappears immediately.
             await refreshAfterIntegration()
             return .success(())
         } catch {
+            // Most likely the stash vanished (dropped elsewhere): refresh so
+            // the stale row goes away, as the error message promises.
+            await refreshAfterIntegration()
             return .failure(error)
         }
     }
