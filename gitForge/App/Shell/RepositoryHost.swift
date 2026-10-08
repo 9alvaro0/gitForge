@@ -28,13 +28,15 @@ struct RepositoryHost: View {
             }
         }
         .task(id: repository.url) {
-            guard let viewModel = appState.catalog.activeViewModel else { return }
+            guard let viewModel = appState.catalog.activeViewModel,
+                  viewModel.repository.url == repository.url else { return }
             // Identity first — two cheap config reads — so the sidebar doesn't
             // briefly badge a custom-overridden repo as "Global" while a slow
             // `git log` is still loading. After that, status / log / refs run
-            // concurrently: cli is an actor so they serialize internally, but
-            // submitting `git status` alongside the heavier work lets the
-            // Changes view paint without waiting for `git log` to finish.
+            // concurrently (the `cli` actor is reentrant across each
+            // subprocess await, so these are parallel git processes — fine
+            // for reads) and the Changes view paints without waiting for
+            // `git log` to finish.
             await viewModel.refreshIdentity()
             async let statusTask: Void = viewModel.refreshStatus()
             async let initialTask: Void = viewModel.loadInitial()
@@ -49,6 +51,11 @@ struct RepositoryHost: View {
             _ = await initialTask
             _ = await refsTask
             _ = await conflictTask
+            // The user may have switched repo while the initial loads ran:
+            // the task is cancelled and the catalog has already stopped this
+            // VM. Starting reactivity here would re-arm its watcher and
+            // auto-fetch on a repo nobody is looking at.
+            guard !Task.isCancelled, appState.catalog.activeViewModel === viewModel else { return }
             viewModel.startReactivity(
                 autoFetchIntervalSeconds: appState.gitEnvironment.globalConfig.autoFetchInterval ?? 0
             )

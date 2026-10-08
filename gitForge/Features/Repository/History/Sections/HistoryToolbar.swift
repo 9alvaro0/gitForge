@@ -48,7 +48,9 @@ struct HistoryToolbar: View {
             badge: viewModel.behindCount,
             primary: false,
             loading: viewModel.remoteOperation == .pulling,
-            disabled: viewModel.remoteOperation != nil && viewModel.remoteOperation != .pulling,
+            // Pull is also a local mutation (see `RepositoryViewModel.pull`).
+            disabled: (viewModel.remoteOperation != nil || viewModel.isMutating)
+                && viewModel.remoteOperation != .pulling,
             action: { Task { await viewModel.pull() } }
         ) {
             Button("Pull (only if no merge needed)") {

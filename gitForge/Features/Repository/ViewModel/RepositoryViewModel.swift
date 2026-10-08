@@ -58,7 +58,7 @@ final class RepositoryViewModel {
                 let id = selectedCommitId,
                 let commit = commitsById[id]
             else { return }
-            track(Task { [weak self] in await self?.selectFirstFile(for: commit) })
+            track { [weak self] in await self?.selectFirstFile(for: commit) }
         }
     }
 
@@ -207,7 +207,7 @@ final class RepositoryViewModel {
         didSet {
             guard oldValue != amendMode else { return }
             if amendMode {
-                track(Task { [weak self] in await self?.prefillFromHead() })
+                track { [weak self] in await self?.prefillFromHead() }
             } else {
                 commitSubject = ""
                 commitBody = ""
@@ -224,7 +224,10 @@ final class RepositoryViewModel {
             // the now-empty pane.
             commitFileDiffGen &+= 1
             if let path = selectedCommitFile, let commit = selectedCommit {
-                track(Task { [weak self] in await self?.loadCommitFileDiff(sha: commit.sha, path: path) })
+                track { [weak self] in await self?.loadCommitFileDiff(sha: commit.sha, path: path) }
+            } else {
+                // No new loader will take over the flag.
+                loadingCommitFileDiff = false
             }
         }
     }
@@ -243,7 +246,7 @@ final class RepositoryViewModel {
             guard oldValue != selectedWorkingCopyFile else { return }
             workingCopyDiffGen &+= 1
             if let file = selectedWorkingCopyFile {
-                track(Task { [weak self] in await self?.loadWorkingCopyDiff(file: file) })
+                track { [weak self] in await self?.loadWorkingCopyDiff(file: file) }
             } else {
                 workingCopyDiff = []
                 workingCopyDiffEmptyState = .empty
@@ -346,13 +349,18 @@ final class RepositoryViewModel {
     /// commit / working-copy diff loads, etc.). Stored so `stopReactivity()`
     /// can cancel them — otherwise a slow `git log` lookup keeps the
     /// previous VM alive for seconds after the user opened another repo.
-    private var ownedTasks: [Task<Void, Never>] = []
+    private(set) var ownedTasks: [UUID: Task<Void, Never>] = [:]
 
-    /// Register a Task spawned by the VM. Trims already-finished tasks to
-    /// keep the array from growing unbounded over a long session.
-    func track(_ task: Task<Void, Never>) {
-        ownedTasks.removeAll { $0.isCancelled }
-        ownedTasks.append(task)
+    /// Runs `operation` as a VM-owned task. Each task removes itself when it
+    /// finishes, so the registry only ever holds in-flight work. (The old
+    /// array pruned on `isCancelled`, which is never true for a task that
+    /// simply completed — it grew by one entry per selection click.)
+    func track(_ operation: @escaping @MainActor () async -> Void) {
+        let id = UUID()
+        ownedTasks[id] = Task { [weak self] in
+            await operation()
+            self?.ownedTasks[id] = nil
+        }
     }
 
     init(repository: Repository) {
@@ -380,7 +388,7 @@ final class RepositoryViewModel {
         // `prefillFromHead` or `loadCommitFileDiff` would keep `self` alive
         // (and its commits/graphLayouts/detailCache in memory) for as long
         // as it takes the underlying git subprocess to drain.
-        for task in ownedTasks { task.cancel() }
+        for task in ownedTasks.values { task.cancel() }
         ownedTasks.removeAll()
         purgeCaches()
     }
@@ -435,14 +443,15 @@ final class RepositoryViewModel {
         autoFetcher.resume()
     }
 
-    /// Watcher-driven refresh. Skips the log reload unless HEAD actually
-    /// moved — letting the watcher reload it on every tick was the source
-    /// of feedback loops with our own write paths.
+    /// Watcher-driven refresh. Skips the log reload unless HEAD or a local
+    /// branch tip actually moved — letting the watcher reload it on every
+    /// tick was the source of feedback loops with our own write paths. Every
+    /// local tip counts, not just HEAD's: the graph walks all local branches,
+    /// so a commit made in another worktree or a `git branch -f` from the
+    /// terminal must show up too.
     private func refreshFromExternalChange() async {
         let previousBranch = currentBranchName
-        let previousHeadSha = previousBranch.flatMap { branch in
-            refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
-        }
+        let previousTips = localBranchTips
         async let statusTask: Void = refreshStatus()
         async let refsTask: Void = loadRefs()
         async let conflictTask: Void = loadConflictState()
@@ -462,12 +471,15 @@ final class RepositoryViewModel {
            status.files.contains(where: { $0.path == selected.path }) {
             await loadWorkingCopyDiff(file: selected)
         }
-        let newHeadSha = currentBranchName.flatMap { branch in
-            refs.first(where: { $0.isLocalBranch && $0.name == branch })?.targetSha
-        }
-        if currentBranchName != previousBranch || newHeadSha != previousHeadSha {
+        if currentBranchName != previousBranch || localBranchTips != previousTips {
             await reloadLog()
         }
+    }
+
+    /// Local branch name → tip SHA.
+    private var localBranchTips: [String: String] {
+        Dictionary(refs.filter(\.isLocalBranch).map { ($0.name, $0.targetSha) },
+                   uniquingKeysWith: { first, _ in first })
     }
 
     /// Background fetch driven by `AutoFetcher` — failures are logged, not

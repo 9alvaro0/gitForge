@@ -15,6 +15,19 @@ extension RepositoryViewModel {
         return refs
     }
 
+    // Gen-token contract for the log:
+    //   • `loadInitial` / `reloadLog` replace `commits`, so they bump
+    //     `logGen` and any older load or pagination drops its result.
+    //   • Pagination (`loadMoreIfNeeded`, `revealCommit`) only *snapshots*
+    //     `logGen`: a reload supersedes a page load, never the reverse —
+    //     otherwise scrolling during a watcher refresh discarded the fresh
+    //     first page and left the graph stale.
+    //   • Each loading flag is cleared by the operation that set it, always.
+    //     The ops are non-reentrant (guarded on their own flag), so there's
+    //     no newer owner to protect; clearing only "if gen still matches"
+    //     left the flag stuck at true after a reload, which blocked
+    //     pagination (or `loadInitial`) for the rest of the session.
+
     func loadInitial() async {
         guard commits.isEmpty, !isLoadingInitial else { return }
         logGen &+= 1
@@ -22,10 +35,8 @@ extension RepositoryViewModel {
         isLoadingInitial = true
         loadError = nil
         defer {
-            if gen == logGen {
-                isLoadingInitial = false
-                hasLoadedLogForCurrentScope = true
-            }
+            isLoadingInitial = false
+            if gen == logGen { hasLoadedLogForCurrentScope = true }
         }
         let pageSize = AppTheme.persistedCommitPageSize()
         do {
@@ -75,9 +86,11 @@ extension RepositoryViewModel {
         do {
             async let stashTask = cli.stashes()
             async let unmergedTask = cli.unmergedLocalBranches()
-            stashes = (try? await stashTask) ?? []
-            unmergedLocalBranchRefs = (try? await unmergedTask) ?? []
+            let freshStashes = (try? await stashTask) ?? []
+            let freshUnmerged = (try? await unmergedTask) ?? []
             guard gen == logGen else { return }
+            stashes = freshStashes
+            unmergedLocalBranchRefs = freshUnmerged
             let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
             guard gen == logGen else { return }
             commits = page
@@ -96,14 +109,17 @@ extension RepositoryViewModel {
         }
     }
 
+    /// True while a page is being appended (scroll or reveal). The two
+    /// paths share it so they can't append the same page twice.
+    var isPaginating: Bool { isLoadingMore || isRevealingCommit }
+
     func loadMoreIfNeeded(currentItem: Commit) async {
-        guard hasMore, !isLoadingMore else { return }
+        guard hasMore, !isPaginating else { return }
         guard let last = commits.last, last.id == currentItem.id else { return }
-        logGen &+= 1
         let gen = logGen
         isLoadingMore = true
         loadError = nil
-        defer { if gen == logGen { isLoadingMore = false } }
+        defer { isLoadingMore = false }
         let pageSize = AppTheme.persistedCommitPageSize()
         do {
             _ = try await paginateNextPage(gen: gen, pageSize: pageSize)
@@ -121,11 +137,10 @@ extension RepositoryViewModel {
             scrollTargetSha = sha
             return
         }
-        guard hasMore else { return }
-        logGen &+= 1
+        guard hasMore, !isPaginating else { return }
         let gen = logGen
         isRevealingCommit = true
-        defer { if gen == logGen { isRevealingCommit = false } }
+        defer { isRevealingCommit = false }
         let pageSize = AppTheme.persistedCommitPageSize()
         var pagesLoaded = 0
         while hasMore && pagesLoaded < Self.maxRevealPages {
@@ -137,7 +152,6 @@ extension RepositoryViewModel {
                     return
                 }
             } catch {
-                guard gen == logGen else { return }
                 return
             }
         }
