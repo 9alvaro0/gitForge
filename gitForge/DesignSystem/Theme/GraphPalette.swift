@@ -8,7 +8,7 @@ import SwiftUI
 /// These colours are deliberately theme-agnostic: a branch line should keep
 /// the same hue when the user toggles dark/light so the mental map of the
 /// graph stays stable.
-enum GraphPalette {
+nonisolated enum GraphPalette {
     /// main / master — vivid cobalt. Reads as the canonical production trunk.
     static let main = Color(red: 0.18, green: 0.55, blue: 1.00)
     /// develop / dev — warm amber. Strong contrast against `main`.
@@ -31,4 +31,19 @@ enum GraphPalette {
         Color(red: 0.40, green: 0.55, blue: 0.85),
         Color(red: 0.85, green: 0.65, blue: 0.85),
     ]
+
+    /// Resolves the stroke colour for a lane. Pure lookup, callable from the
+    /// nonisolated `Canvas` renderer.
+    static func color(branchId: Int, priorityRank: Int? = nil) -> Color {
+        // Pinned trunks paint with fixed, saturated hues so the eye instantly
+        // anchors on main / develop / trunk wherever they appear in the graph.
+        // release/* (rank 2) keeps the hashed palette so concurrent siblings
+        // (release/1.0.13 vs release/1.0.14) remain visually distinguishable.
+        switch priorityRank {
+        case 0: return GraphPalette.main
+        case 1: return GraphPalette.develop
+        case 3: return GraphPalette.trunk
+        default: return GraphPalette.lanes[branchId % GraphPalette.lanes.count]
+        }
+    }
 }

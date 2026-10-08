@@ -34,7 +34,7 @@ struct GraphColumnView: View {
                 occ.priorityRank == nil ? baseLineWidth : priorityLineWidth
             }
             func color(for occ: LaneOccupation) -> Color {
-                Self.color(branchId: occ.branchId, priorityRank: occ.priorityRank)
+                GraphPalette.color(branchId: occ.branchId, priorityRank: occ.priorityRank)
             }
             // Stashes ride dashed lanes — the visual cue that says "this isn't a real
             // branch, it's a saved working state hanging off some commit".
@@ -131,7 +131,7 @@ struct GraphColumnView: View {
             // Commit's own lane spine. Top half only if it came in from above; bottom half only
             // if it continues below. New tips and root commits no longer get a phantom stub.
             let isPriorityCommit = row.commitPriorityRank != nil
-            let commitColor = Self.color(branchId: row.commitBranchId, priorityRank: row.commitPriorityRank)
+            let commitColor = GraphPalette.color(branchId: row.commitBranchId, priorityRank: row.commitPriorityRank)
             let commitSpineWidth = isPriorityCommit ? priorityLineWidth + 0.4 : baseLineWidth + 0.6
             let commitSpineStyle: StrokeStyle = row.commitIsStash
                 ? StrokeStyle(lineWidth: commitSpineWidth, lineCap: .butt, lineJoin: .round, dash: [3, 2.5])
@@ -203,19 +203,6 @@ struct GraphColumnView: View {
 
     private func laneCenter(_ lane: Int) -> CGFloat {
         CGFloat(lane) * laneWidth + laneWidth / 2
-    }
-
-    static func color(branchId: Int, priorityRank: Int? = nil) -> Color {
-        // Pinned trunks paint with fixed, saturated hues so the eye instantly
-        // anchors on main / develop / trunk wherever they appear in the graph.
-        // release/* (rank 2) keeps the hashed palette so concurrent siblings
-        // (release/1.0.13 vs release/1.0.14) remain visually distinguishable.
-        switch priorityRank {
-        case 0: return GraphPalette.main
-        case 1: return GraphPalette.develop
-        case 3: return GraphPalette.trunk
-        default: return GraphPalette.lanes[branchId % GraphPalette.lanes.count]
-        }
     }
 }
 

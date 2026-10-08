@@ -4,7 +4,10 @@ import os
 /// Server-trust challenge handler that overrides the OS verdict only for
 /// hosts the user has explicitly added via `RemoteHostTrust`. Every other
 /// host falls back to default macOS validation.
-final class OptInTrustSessionDelegate: NSObject, URLSessionDelegate {
+///
+/// `nonisolated`: URLSession invokes the challenge callback on its delegate
+/// queue, never on the main actor.
+nonisolated final class OptInTrustSessionDelegate: NSObject, URLSessionDelegate {
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "trust-delegate")
 
     func urlSession(

@@ -76,7 +76,7 @@ extension GitCLI {
     }
 }
 
-enum RemoteFailure: Sendable, Equatable {
+nonisolated enum RemoteFailure: Sendable, Equatable {
     /// HTTPS auth — token expired, missing, or never configured.
     case authenticationHTTPS
     /// SSH auth — key not in agent, locked, or wrong key for the host.
