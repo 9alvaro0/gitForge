@@ -41,8 +41,8 @@ struct ProfileStoreSchemaTests {
     }
 
     @Test("Reads a v1 envelope and populates profiles")
-    func readsV1Envelope() throws {
-        try withCleanKey {
+    func readsV1Envelope() {
+        withCleanKey {
             let json = """
             { "version": 1, "profiles": [
               { "id": "00000000-0000-0000-0000-000000000001", "name": "Personal",
@@ -57,8 +57,8 @@ struct ProfileStoreSchemaTests {
     }
 
     @Test("Reads a legacy bare-array (no envelope) and keeps the profiles")
-    func readsLegacyBareArray() throws {
-        try withCleanKey {
+    func readsLegacyBareArray() {
+        withCleanKey {
             let json = """
             [ { "id": "00000000-0000-0000-0000-000000000002", "name": "Legacy",
                 "userName": "Old", "userEmail": "old@example.com" } ]
@@ -71,8 +71,8 @@ struct ProfileStoreSchemaTests {
     }
 
     @Test("Corrupt bytes quarantine the blob and load empty")
-    func corruptBlobQuarantined() throws {
-        try withCleanKey {
+    func corruptBlobQuarantined() {
+        withCleanKey {
             writeRaw("not even close to json".data(using: .utf8)!)
             let store = ProfileStore()
             #expect(store.profiles.isEmpty)
@@ -84,8 +84,8 @@ struct ProfileStoreSchemaTests {
     }
 
     @Test("Envelope with newer schema version quarantines instead of dropping data")
-    func newerVersionQuarantined() throws {
-        try withCleanKey {
+    func newerVersionQuarantined() {
+        withCleanKey {
             let json = """
             { "version": 99, "profiles": [
               { "id": "00000000-0000-0000-0000-000000000003", "name": "Future",

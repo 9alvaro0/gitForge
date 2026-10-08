@@ -49,7 +49,7 @@ extension GitCLI {
     }
 }
 
-enum BranchValidator {
+nonisolated enum BranchValidator {
     /// Lightweight client-side validation; git itself enforces stricter rules.
     static func isValidName(_ raw: String) -> Bool {
         let trimmed = raw.trimmingCharacters(in: .whitespaces)

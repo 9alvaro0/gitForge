@@ -10,7 +10,10 @@ import os
 ///
 /// Events are coalesced by FSEvents itself (`latency`) and then bounced to
 /// the main actor where the caller's existing debounce/cooldown takes over.
-final class WorkingTreeWatcher {
+///
+/// `nonisolated` + `@unchecked Sendable`: the FSEvents callback runs on
+/// `queue`, and `stream` is only written in `init` / read in `deinit`.
+nonisolated final class WorkingTreeWatcher: @unchecked Sendable {
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "fs-watcher")
     /// Coalescing window inside FSEvents before the kernel delivers a batch.
     /// Half a second matches what apps like Xcode and Finder use — short

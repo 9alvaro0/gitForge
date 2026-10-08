@@ -1,6 +1,6 @@
 import Foundation
 
-enum MergeState: Sendable, Equatable {
+nonisolated enum MergeState: Sendable, Equatable {
     case clean
     case merging
     case rebasing
