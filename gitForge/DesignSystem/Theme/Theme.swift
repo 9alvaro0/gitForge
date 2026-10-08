@@ -115,11 +115,39 @@ struct ThemePalette: Equatable, Sendable {
         )
     }
 
-    static func palette(for mode: ThemeMode, accent: Color) -> ThemePalette {
+    /// - Parameter highContrast: the system's "Increase contrast" setting.
+    ///   The default palette leaves secondary text (`fg3` dark, `fg4` both,
+    ///   the light theme's status colours) below WCAG AA (4.5:1) for the
+    ///   10–12pt text the app uses; this swaps in same-hue variants that
+    ///   reach ≥ 4.5:1 on every background. The accent is user-picked and
+    ///   left as is.
+    static func palette(for mode: ThemeMode, accent: Color, highContrast: Bool = false) -> ThemePalette {
         var base = mode == .dark ? Self.dark : Self.light
         base.accent = accent
         base.accentSoft = accent.opacity(mode == .dark ? 0.13 : 0.10)
+        if highContrast {
+            base.applyHighContrast(dark: mode == .dark)
+        }
         return base
+    }
+
+    /// Contrast ratios (worst background) are noted per value; see audit A08.
+    private mutating func applyHighContrast(dark: Bool) {
+        if dark {
+            fg3 = Color(hex: 0x9d9aae)   // 5.9:1 (was 4.2)
+            fg4 = Color(hex: 0x8b889c)   // 4.7:1 (was 1.9)
+            lineStrong = Color(hex: 0x4a4660)
+        } else {
+            fg3 = Color(hex: 0x5a576b)   // 6.0:1 (was 4.7)
+            fg4 = Color(hex: 0x6a677c)   // 4.7:1 (was 2.4)
+            add = Color(hex: 0x16704a)   // 5.2:1 (was 3.9)
+            ok = add
+            del = Color(hex: 0xb03f30)   // 5.0:1 (was 3.6)
+            mod = Color(hex: 0x8a5e10)   // 4.9:1 (was 3.4)
+            warn = mod
+            info = Color(hex: 0x2459b8)  // 5.7:1 (was 4.4)
+            lineStrong = Color.black.opacity(0.25)
+        }
     }
 
     /// Hashed swatch palette used wherever we need to distinguish identities

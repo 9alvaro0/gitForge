@@ -15,7 +15,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Hecha (2026-10-08) |
-| A08 | Accesibilidad y HIG de macOS | Pendiente |
+| A08 | Accesibilidad y HIG de macOS | Hecha (2026-10-08) |
 | A09 | Tests (huecos de cobertura, aislamiento, fiabilidad) | Pendiente |
 | A10 | Higiene de repo y docs (README, `design/`, scripts, CI) | Pendiente |
 
@@ -355,3 +355,58 @@ Hacer una pasada con Instruments (SwiftUI + Time Profiler) sobre un repo grande 
 ### Verificación manual pendiente
 
 Revisión visual rápida de: detalle de stash (título a 16 pt), detalle de PR, onboarding/pantalla "Git is required", sidebar (iconos +), selector de repos remotos (iconos), checkboxes de staging (check) y spinner de los botones de herramienta.
+
+---
+
+## A08 — Accesibilidad y HIG de macOS
+
+**Fecha:** 2026-10-08
+**Alcance:** VoiceOver (etiquetas, traits, acciones), teclado, contraste (WCAG calculado sobre los valores reales de la paleta), Reduce Motion / Increase Contrast, indicadores solo-color y convenciones de macOS.
+**Estado:** escrito sin compilar (a petición) y verificado después. Un único error de compilación: la sobrecarga de `accessibilityAction` no lleva etiqueta `perform:`.
+
+### Diagnóstico
+
+- **Adopción muy baja:** 21 `accessibilityLabel` para 276 botones, 0 hints y ninguna respuesta a *Reduce Motion*, *Increase Contrast* ni Dynamic Type.
+- **Contraste (WCAG AA = 4.5:1 para el texto de 10-12 pt de la app):**
+
+| Color | Oscuro | Claro |
+|---|---|---|
+| `fg1`, `fg2` | ✓ (15.3 / 8.8) | ✓ (15.8 / 8.1) |
+| `fg3` (SHA, fechas, metadatos) | ✗ 4.2 | ✓ 4.7 |
+| `fg4` (números de línea del diff, separadores) | ✗ 1.9 | ✗ 2.4 |
+| acento (enlaces, "Clone") | ✗ 4.0 | ✗ 3.9 |
+| add / del / mod / warn / info | ✓ | ✗ 3.4-4.4 |
+
+### Hallazgos y acciones
+
+| # | Hallazgo | Acción |
+|---|----------|--------|
+| 1 | **Filas clave invisibles para VoiceOver como controles:** commits, "Uncommitted changes" y ramas se seleccionan con `onTapGesture`, sin trait de botón ni acción, y el doble clic (checkout) no tenía alternativa. | Filas de commit con resumen legible ("asunto, autor, fecha, commit abc1234, refs"), traits de botón y seleccionado, acción por defecto y acción "Check out". Lo mismo para "Uncommitted" (traits y acción) y para las ramas (etiqueta, "current branch" y acción "Check out", manteniendo accesibles los botones de la fila). |
+| 2 | **La lista de commits no se manejaba con teclado** (el resolutor y la paleta sí). | La tabla toma foco al hacer clic. ↑/↓ mueven la selección y el scroll la sigue (`ScrollViewReader`). Al llegar al final se dispara la paginación como con el ratón. |
+| 3 | **Contraste por debajo de AA** (ver tabla). | Soporte del ajuste del sistema **Aumentar contraste**: variantes del mismo tono que alcanzan ≥ 4.5:1 en todos los fondos (`ThemePalette.palette(highContrast:)`, sincronizado como claro/oscuro). El aspecto por defecto no cambia; es decisión del rediseño. El acento lo elige el usuario y no se toca. |
+| 4 | **Reduce Motion ignorado:** el spinner gira y el skeleton palpita sin fin. | Con Reduce Motion, el arco del spinner queda quieto y el skeleton fijo. |
+| 5 | **El skeleton leía datos falsos a VoiceOver** (filas de relleno realistas). | Se presenta como un único elemento "Loading". |
+| 6 | **Indicadores falsos en la UI:** `online: true` fijo en la barra de estado y en la tarjeta de usuario, y "UTF-8" / "LF" fijos en la barra de estado (restos del mock de diseño). | Nuevo `NetworkMonitor` (`NWPathMonitor`) con el estado real. Eliminados UTF-8/LF, que no correspondían a ningún fichero. |
+| 7 | **Indicador solo por color:** el punto online/offline de la tarjeta de usuario. | Etiqueta accesible y tooltip "Online"/"Offline". |
+| 8 | **Controles sin nombre:** el "+" del sidebar solo tenía `.help` (tooltip, que no es etiqueta), el chevron de opciones de `SplitToolButton` y el candado/globo de los repos remotos. | Etiquetas añadidas. Los botones en carga anuncian "In progress" (`ToolButton`, `SplitToolButton`). |
+| 9 | **Redimensionado solo con ratón:** los tiradores de columnas y paneles. | Etiqueta, valor en puntos y acción ajustable (VO-↑/↓, pasos de 20 pt, `DesignTokens.Resize.step`) dentro de sus límites. |
+
+### Pendiente para el rediseño (HIG)
+
+- **Ajustes:** ⌘, abre una sección dentro de la ventana; la convención de macOS es una ventana `Settings` propia.
+- **Contraste por defecto:** subir `fg3` (oscuro) y `fg4`, y los colores de estado del tema claro, para cumplir AA sin depender del ajuste del sistema.
+- **Dynamic Type:** macOS no lo tiene a nivel de sistema, pero conviene ofrecer un tamaño de texto propio (hoy solo existe la densidad de filas).
+- **Navegación por teclado** en las demás listas: staging, ramas y stashes.
+- **README:** los atajos documentados no coinciden con los del código (p. ej. ⌘P / ⇧⌘P); ver A10.
+
+### Tests
+
+`PaletteContrastTests`: `fg1`/`fg2` cumplen AA en ambos temas, y con alto contraste cumplen AA todos los colores de texto y de estado. El test calcula la luminancia WCAG a partir de los `Color` reales, así que sirve de red de seguridad si el rediseño toca la paleta.
+
+Resultado: **365/365**, 0 warnings, 2 ejecuciones seguidas en verde. Los tests de contraste confirman que todas las variantes de alto contraste cumplen ≥ 4.5:1. La app queda en reposo.
+
+### Verificación manual pendiente
+
+1. Con VoiceOver (⌘F5): recorrer el historial, seleccionar un commit, "Check out" desde el rotor de acciones y redimensionar un panel con VO-↑/↓.
+2. Ajustes del sistema → Accesibilidad → Pantalla: activar "Aumentar contraste" y "Reducir movimiento" y comprobar el cambio en vivo.
+3. Apagar la Wi-Fi y comprobar que la barra de estado pasa a "offline".

@@ -57,7 +57,7 @@ struct ShellView: View {
                 staged: appState.catalog.activeViewModel?.status.stagedFiles.count ?? 0,
                 unstaged: appState.catalog.activeViewModel?.status.unstagedFiles.count ?? 0,
                 lastFetch: appState.catalog.activeViewModel?.lastFetchedAt,
-                online: true
+                online: appState.network.isOnline
             )
         }
     }

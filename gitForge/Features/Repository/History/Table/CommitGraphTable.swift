@@ -51,6 +51,10 @@ struct CommitGraphTable: View {
     var onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
+    /// The table takes keyboard focus when a row is clicked, so ↑ / ↓ can
+    /// walk the history (a commit list a keyboard can't drive fails the HIG
+    /// and leaves keyboard-only users stuck).
+    @FocusState private var tableFocused: Bool
 
     private var rowHeight: CGFloat { theme.density.rowHeight }
     /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
@@ -108,49 +112,72 @@ struct CommitGraphTable: View {
         let gutterWidth = graphGutterWidth
         let contentWidth = totalContentWidth
         return GeometryReader { geo in
-            ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                LazyVStack(spacing: DesignTokens.Spacing.none, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        if workingCopyDirty {
-                            UncommittedRow(
-                                rowHeight: rowHeight,
+            ScrollViewReader { proxy in
+                ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                    LazyVStack(spacing: DesignTokens.Spacing.none, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            if workingCopyDirty {
+                                UncommittedRow(
+                                    rowHeight: rowHeight,
+                                    gutterWidth: gutterWidth,
+                                    columns: columns,
+                                    isSelected: uncommittedSelected,
+                                    onSelect: { onUncommittedSelect?() }
+                                )
+                            }
+                            ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
+                                CommitRow(
+                                    commit: commit,
+                                    layout: layouts[safe: idx] ?? .empty,
+                                    maxLanes: maxLanes,
+                                    rowHeight: rowHeight,
+                                    gutterWidth: gutterWidth,
+                                    refs: refsBySha[commit.sha] ?? [],
+                                    currentBranch: currentBranch,
+                                    isSelected: commit.sha == selectedSha,
+                                    dimmed: isMatch.map { !$0(commit) } ?? false,
+                                    columns: columns,
+                                    onSelect: {
+                                        tableFocused = true
+                                        onSelect(commit.sha)
+                                    },
+                                    onDoubleClick: { onDoubleClick?(commit.sha) },
+                                    onBranchDrop: onBranchDrop
+                                )
+                                .onAppear { onAppear?(commit) }
+                            }
+                        } header: {
+                            CommitTableHeader(
                                 gutterWidth: gutterWidth,
-                                columns: columns,
-                                isSelected: uncommittedSelected,
-                                onSelect: { onUncommittedSelect?() }
+                                graphHandle: graphHandleBinding,
+                                graphMinWidth: dynamicGraphMin,
+                                columns: columns
                             )
                         }
-                        ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
-                            CommitRow(
-                                commit: commit,
-                                layout: layouts[safe: idx] ?? .empty,
-                                maxLanes: maxLanes,
-                                rowHeight: rowHeight,
-                                gutterWidth: gutterWidth,
-                                refs: refsBySha[commit.sha] ?? [],
-                                currentBranch: currentBranch,
-                                isSelected: commit.sha == selectedSha,
-                                dimmed: isMatch.map { !$0(commit) } ?? false,
-                                columns: columns,
-                                onSelect: { onSelect(commit.sha) },
-                                onDoubleClick: { onDoubleClick?(commit.sha) },
-                                onBranchDrop: onBranchDrop
-                            )
-                            .onAppear { onAppear?(commit) }
-                        }
-                    } header: {
-                        CommitTableHeader(
-                            gutterWidth: gutterWidth,
-                            graphHandle: graphHandleBinding,
-                            graphMinWidth: dynamicGraphMin,
-                            columns: columns
-                        )
                     }
+                    .frame(width: max(contentWidth, geo.size.width), alignment: .leading)
+                    .frame(minHeight: geo.size.height, alignment: .topLeading)
                 }
-                .frame(width: max(contentWidth, geo.size.width), alignment: .leading)
-                .frame(minHeight: geo.size.height, alignment: .topLeading)
+                .focusable()
+                .focusEffectDisabled()
+                .focused($tableFocused)
+                .onKeyPress(.downArrow) { moveSelection(by: 1, proxy: proxy) }
+                .onKeyPress(.upArrow) { moveSelection(by: -1, proxy: proxy) }
             }
         }
+    }
+
+    /// Selects the commit `offset` rows away from the current selection (the
+    /// first row when nothing is selected yet) and scrolls it into view.
+    private func moveSelection(by offset: Int, proxy: ScrollViewProxy) -> KeyPress.Result {
+        guard !commits.isEmpty else { return .ignored }
+        let current = selectedSha.flatMap { sha in commits.firstIndex { $0.sha == sha } }
+        let target = current.map { min(max($0 + offset, 0), commits.count - 1) } ?? 0
+        let sha = commits[target].sha
+        guard sha != selectedSha else { return .handled }
+        onSelect(sha)
+        proxy.scrollTo(sha)
+        return .handled
     }
 }
 

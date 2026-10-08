@@ -67,6 +67,14 @@ struct CommitRow: View {
         .contentShape(.rect)
         .onTapGesture(count: 2, perform: onDoubleClick)
         .onTapGesture(perform: onSelect)
+        // Tap gestures are invisible to VoiceOver: expose the row as one
+        // selectable element with a readable summary, and name the
+        // double-click action so it's reachable from the actions rotor.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { onSelect() }
+        .accessibilityAction(named: "Check out", onDoubleClick)
         .modifier(RowDropModifier(
             enabled: onBranchDrop != nil,
             targetSha: commit.sha,
@@ -115,6 +123,15 @@ struct CommitRow: View {
         } else {
             row
         }
+    }
+
+    /// "Fix login crash, Ana, 2h ago, commit 1a2b3c4, main, v1.2".
+    private var accessibilitySummary: String {
+        var parts = [commit.subject, commit.authorName,
+                     preferences.dateDisplayMode.format(commit.authorDate),
+                     "commit \(commit.shortSha)"]
+        parts += refs.map(\.displayName)
+        return parts.joined(separator: ", ")
     }
 
     private func copy(_ string: String) {

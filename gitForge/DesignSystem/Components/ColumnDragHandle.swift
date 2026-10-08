@@ -59,6 +59,20 @@ struct ColumnDragHandle: View {
                     }
             )
             .pointerStyle(.columnResize)
+            // Dragging is mouse-only; VoiceOver users resize with the
+            // adjustable action (VO-↑ / VO-↓) instead. Increment always means
+            // "make the controlled column wider", whatever `inverted` says.
+            .accessibilityElement()
+            .accessibilityLabel("Resize column")
+            .accessibilityValue("\(Int(width)) points")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: width = min(width + DesignTokens.Resize.step, maxWidth)
+                case .decrement: width = max(width - DesignTokens.Resize.step, minWidth)
+                @unknown default: return
+                }
+                onCommit()
+            }
     }
 }
 
