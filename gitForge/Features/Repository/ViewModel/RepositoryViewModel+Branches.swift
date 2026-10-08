@@ -5,13 +5,11 @@ extension RepositoryViewModel {
         guard BranchValidator.isValidName(name) else {
             return .failure(BranchOpError.invalidName(name))
         }
-        do {
+        return await runRefMutation {
             try await cli.createBranch(name, startingAt: startingAt, checkout: checkout)
             await refreshAfterRefMutation(reloadLog: checkout)
-            return .success(())
-        } catch {
+        } onFailure: {
             await loadRefs()
-            return .failure(error)
         }
     }
 
@@ -20,37 +18,31 @@ extension RepositoryViewModel {
         // it DWIMs into a local tracking branch — matches GitKraken/Sourcetree
         // UX where clicking a remote branch lands you on a local copy.
         let target = ref.isLocalBranch ? ref.name : ref.displayName
-        do {
+        return await runRefMutation {
             try await cli.checkout(branch: target)
             await refreshAfterRefMutation(reloadLog: true)
-            return .success(())
-        } catch {
+        } onFailure: {
             await loadRefs()
-            return .failure(error)
         }
     }
 
     /// Checkout a raw SHA — yields a detached HEAD. Use `checkoutBranch(_:)`
     /// when a local branch already points at the commit.
     func checkoutCommit(_ sha: String) async -> Result<Void, Error> {
-        do {
+        return await runRefMutation {
             try await cli.checkout(branch: sha)
             await refreshAfterRefMutation(reloadLog: true)
-            return .success(())
-        } catch {
+        } onFailure: {
             await loadRefs()
-            return .failure(error)
         }
     }
 
     func deleteBranch(_ ref: GitRef, force: Bool = false) async -> Result<Void, Error> {
-        do {
+        return await runRefMutation {
             try await cli.deleteBranch(ref.name, force: force)
             await refreshAfterRefMutation(reloadLog: false)
-            return .success(())
-        } catch {
+        } onFailure: {
             await loadRefs()
-            return .failure(error)
         }
     }
 
@@ -58,13 +50,11 @@ extension RepositoryViewModel {
         guard BranchValidator.isValidName(newName) else {
             return .failure(BranchOpError.invalidName(newName))
         }
-        do {
+        return await runRefMutation {
             try await cli.renameBranch(from: oldName, to: newName)
             await refreshAfterRefMutation(reloadLog: false)
-            return .success(())
-        } catch {
+        } onFailure: {
             await loadRefs()
-            return .failure(error)
         }
     }
 
@@ -79,12 +69,28 @@ extension RepositoryViewModel {
         if ref.name == currentBranchName {
             return .failure(BranchOpError.cannotMoveCurrentBranch)
         }
-        do {
+        return await runRefMutation {
             try await cli.forceUpdateBranch(ref.name, to: sha)
             await refreshAfterRefMutation(reloadLog: true)
+        } onFailure: {
+            await loadRefs()
+        }
+    }
+
+    /// Ref and checkout operations rewrite `.git/HEAD`, refs and — for
+    /// checkouts — the index and worktree. Like every other local mutation
+    /// they hold `isMutating`: the watcher is suspended and a commit, pull or
+    /// discard can't race them for `.git/index.lock`.
+    func runRefMutation(_ body: () async throws -> Void,
+                        onFailure: () async -> Void = {}) async -> Result<Void, Error> {
+        guard !isMutating else { return .failure(GitError.busy) }
+        isMutating = true
+        defer { isMutating = false }
+        do {
+            try await body()
             return .success(())
         } catch {
-            await loadRefs()
+            await onFailure()
             return .failure(error)
         }
     }

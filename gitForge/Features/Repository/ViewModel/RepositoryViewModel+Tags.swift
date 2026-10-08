@@ -4,22 +4,16 @@ import Foundation
 /// `Result` so the caller can route success/failure to the toast pipeline.
 extension RepositoryViewModel {
     func createTag(name: String, at sha: String? = nil, message: String? = nil) async -> Result<Void, Error> {
-        do {
+        await runRefMutation {
             try await cli.createTag(name: name, at: sha, message: message)
             await loadRefs()
-            return .success(())
-        } catch {
-            return .failure(error)
         }
     }
 
     func deleteTag(_ ref: GitRef) async -> Result<Void, Error> {
-        do {
+        await runRefMutation {
             try await cli.deleteTag(name: ref.name)
             await loadRefs()
-            return .success(())
-        } catch {
-            return .failure(error)
         }
     }
 

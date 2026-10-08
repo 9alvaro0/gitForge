@@ -16,7 +16,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Hecha (2026-10-08) |
 | A08 | Accesibilidad y HIG de macOS | Hecha (2026-10-08) |
-| A09 | Tests (huecos de cobertura, aislamiento, fiabilidad) | Pendiente |
+| A09 | Tests (huecos de cobertura, aislamiento, fiabilidad) | Hecha (2026-10-08) |
 | A10 | Higiene de repo y docs (README, `design/`, scripts, CI) | Pendiente |
 
 ## Hallazgos diferidos
@@ -30,7 +30,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | A02 | A02-bis | Valores raros de config no contemplados: `pull.rebase=merges/interactive` se muestra como "merge"; `setLocalIdentity` no protege valores que empiezan por `-`. | `GitGlobalConfig.swift`, `GitCLI+Identity.swift` |
 | A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
 | A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
-| A01 | A09 | `ProfileStoreSchemaTests` lee y escribe el `UserDefaults.standard` real de la app (el test host es la propia app) y barre todas las claves de cuarentena, incluidas las del usuario. Debería usar una suite inyectada. | `gitForgeTests/App/State/ProfileStoreSchemaTests.swift` |
 
 ---
 
@@ -410,3 +409,37 @@ Resultado: **365/365**, 0 warnings, 2 ejecuciones seguidas en verde. Los tests d
 1. Con VoiceOver (⌘F5): recorrer el historial, seleccionar un commit, "Check out" desde el rotor de acciones y redimensionar un panel con VO-↑/↓.
 2. Ajustes del sistema → Accesibilidad → Pantalla: activar "Aumentar contraste" y "Reducir movimiento" y comprobar el cambio en vivo.
 3. Apagar la Wi-Fi y comprobar que la barra de estado pasa a "offline".
+
+---
+
+## A09 — Tests
+
+**Fecha:** 2026-10-08
+**Alcance:** aislamiento de la suite, huecos de cobertura (mapa de funciones no privadas que ningún test referencia: 141) y fiabilidad.
+**Estado:** escrito sin compilar (a petición) y verificado después.
+
+### Hallazgos y acciones
+
+| # | Severidad | Hallazgo | Acción |
+|---|-----------|----------|--------|
+| 1 | **Alta** | **La suite ejecutaba la app real.** Los tests corren dentro de la app (test host) y no había ningún modo test: cada ejecución reabría tu último repositorio real, lanzaba el poller sobre todos tus recientes, armaba watchers y auto-fetch (**`git fetch` real sobre tus repos**), Sparkle buscaba actualizaciones y se abría una ventana. Todo eso competía por el main actor con los tests (parte de la flakiness de temporización vista en A03 y A04). | Nuevo punto de entrada `AppLauncher`: bajo XCTest lanza `TestHostApp`, una app inerte sin ventana ni `bootstrap()`. |
+| 2 | Media | **Tests que escribían en tus ajustes reales** (diferido de A01): `ProfileStoreSchemaTests` reescribía `gitForge.profiles` y barría tus claves de cuarentena. | `ProfileStore(defaults:)` inyectable; cada test usa su propia suite de `UserDefaults`, que se borra al terminar. |
+| 3 | Media | **Mutaciones sin `isMutating`** (encontradas al escribir tests): checkout de rama o commit, crear/renombrar/mover/borrar rama, crear/borrar tag e "integrar PR localmente". Escriben refs (y en los checkouts, índice y worktree) sin suspender el watcher ni bloquear un commit o pull concurrente: la misma clase de fallo que `pull` en A03. | Helper `runRefMutation` aplicado a todas; la integración de PR también toma `isMutating`. El texto de `GitError.busy` pasa a "Another operation is in progress." (ya no es solo para remotos). |
+| 4 | Alta (cobertura) | **`GraphLayoutEngine` sin un solo test**: es el algoritmo central de la app. | `GraphLayoutEngineTests`, basados en invariantes: filas y carriles en rango, historia lineal en un carril, merge con dos carriles y la cadena de primer padre en el suyo, `main` fijado a la izquierda aunque otra punta vaya antes, carril de stash, tabla de prioridades gitflow. |
+| 5 | Media (cobertura) | Parsers sin test directo: `for-each-ref` (tags anotados, `origin/HEAD`), `stash list`, `stash` name-status + numstat (renames, binarios), `diff-tree` name-status. **`CloneURLValidator`**, la barrera contra la inyección de argumentos en clone, sin test. | `GitParsersTests`, incluida una batería del validador (`--upload-pack=…`, `-oProxyCommand=…`, `file://`, rutas locales y formas SCP mal formadas). |
+| 6 | Media (cobertura) | Flujos de integración del VM solo probados con un directorio falso. | `RepositoryViewModelFlowTests` con git real: merge con conflicto → resolutor → abortar; resolver todos los hunks → continuar crea el commit de merge; ciclo de vida de un tag; checkout y su rechazo con `isMutating`. |
+
+### Huecos que quedan (documentados)
+
+- **Proveedores de PR (GitHub/GitLab):** el mapeo JSON → modelo no tiene tests. Los DTO son privados y `RemoteAPI.session` es estático: conviene inyectar la sesión (o un `URLProtocol` de stub) y añadir fixtures JSON reales.
+- **`RemoteCredentialsStore`:** usa el llavero real. Se podría testear con un `service` inyectable.
+- **`GitPreferencesClampTests`** sigue usando `UserDefaults.standard`, guardando y restaurando el valor. Ahora que la app no corre durante los tests no hay concurrencia, pero lo ideal es inyectar los defaults como en `ProfileStore`.
+- **UI:** el target `gitForgeUITests` está vacío. Para el rediseño conviene un par de tests de humo con XCUITest (abrir repo, seleccionar commit, stage, commit).
+
+### Verificación
+
+- **Compilación:** un único error, en los tests nuevos. Un key path pasado a `allSatisfy` (que es `rethrows`) dentro de `#expect` hace que la macro lo trate como si lanzara; se resolvió con closures.
+- **Un test mío era incorrecto:** suponía que el motor del grafo fija `main` en la columna 0. El motor descarta ese pinning **a propósito**, y el paso 2 documenta por qué (layouts peores con un `main` tardío). El test comprueba ahora el comportamiento real: columnas por orden de aparición y prioridad de `main` solo para el estilo. Corregido además un comentario obsoleto (`LogicalLane.initialRefName`) que seguía hablando de fijar troncos.
+- **Resultado:** **402/402**, 0 warnings, 3 ejecuciones seguidas en verde.
+- **Velocidad:** **la suite pasa de unos 120 s a 12-15 s** con el test host inerte.
+- **Test host comprobado con `CGWindowListCopyWindowInfo`:** lanzada normalmente, la app abre su ventana principal (900×592); con el entorno de XCTest no abre ninguna.

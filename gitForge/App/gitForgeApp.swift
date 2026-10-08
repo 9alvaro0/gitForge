@@ -1,7 +1,36 @@
 import SwiftUI
 import AppKit
 
+/// Process entry point. Unit tests run *inside* the app (it is their test
+/// host), so launching the real `GitForgeApp` there meant every test run
+/// bootstrapped the full app: it reopened the user's last repository, started
+/// the status poller over every recent repo, armed the watchers and the
+/// auto-fetcher (real `git fetch` on the user's repos), and let Sparkle check
+/// for updates — all while competing with the tests for the main actor.
+/// Under XCTest an empty app is launched instead.
 @main
+enum AppLauncher {
+    static func main() {
+        if isRunningTests {
+            TestHostApp.main()
+        } else {
+            GitForgeApp.main()
+        }
+    }
+
+    /// Set by Xcode / xcodebuild when the process hosts a test bundle.
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("XCTest") }
+    }
+}
+
+/// Inert app used as the test host: no window, no bootstrap, no background work.
+private struct TestHostApp: App {
+    var body: some Scene {
+        Settings { EmptyView() }
+    }
+}
+
 struct GitForgeApp: App {
     @State private var appState = AppState()
     @State private var updater = Updater()
