@@ -64,7 +64,7 @@ extension RepositoryViewModel {
             // mutated refs before failing on a hook would leave the sidebar
             // chips stale.
             await refreshAfterIntegration()
-            if mergeState.isInProgress || !conflictFiles.isEmpty {
+            if mergeState.isInProgress || !conflicts.files.isEmpty {
                 return .conflicts
             }
             let message = error.userMessage

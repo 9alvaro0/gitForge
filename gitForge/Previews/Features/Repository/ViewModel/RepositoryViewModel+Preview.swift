@@ -19,11 +19,11 @@ extension RepositoryViewModel {
     static var previewWithConflicts: RepositoryViewModel {
         let vm = preview
         vm.mergeState = .merging
-        vm.conflictFiles = ConflictFile.previewSamples
-        vm.selectedConflictPath = ConflictFile.previewSamples.first?.path
-        vm.conflictHunks = ConflictHunk.previewSamples
+        vm.conflicts.files = ConflictFile.previewSamples
+        vm.conflicts.selectedPath = ConflictFile.previewSamples.first?.path
+        vm.conflicts.hunks = ConflictHunk.previewSamples
         if let firstHunk = ConflictHunk.previewSamples.first {
-            vm.conflictPicks = [firstHunk.id: .ours]
+            vm.conflicts.picks = [firstHunk.id: .ours]
         }
         return vm
     }
