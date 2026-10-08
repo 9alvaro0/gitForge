@@ -6,6 +6,7 @@ struct PullRequestDetailHeader: View {
     let onBack: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
@@ -36,7 +37,7 @@ struct PullRequestDetailHeader: View {
                 MonoText(pullRequest.targetBranch, dim: true)
                 if let updated = pullRequest.updatedAt {
                     Text("·").foregroundStyle(theme.palette.fg4)
-                    MonoText(theme.dateDisplayMode.format(updated), dim: true)
+                    MonoText(preferences.dateDisplayMode.format(updated), dim: true)
                 }
             }
         }

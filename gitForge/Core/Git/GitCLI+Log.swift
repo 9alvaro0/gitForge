@@ -118,7 +118,7 @@ extension GitCLI {
     /// parent probing or fallback is needed (the previous `sha^` + `try?`
     /// fallback also swallowed timeouts and oversize errors).
     func diff(sha: String, file: String) async throws -> String {
-        let context = "-U\(AppTheme.persistedDiffContextLines())"
+        let context = "-U\(GitPreferences.diffContextLines)"
         let result = try await run(["show", "--format=", "--diff-merges=first-parent", context]
                                    + Self.diffOutputFlags + [Self.endOfOptions, sha, "--", file])
         return result.stdout

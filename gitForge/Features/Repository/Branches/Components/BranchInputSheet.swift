@@ -45,6 +45,7 @@ struct BranchInputSheet: View {
         .frame(width: 380)
         .background(theme.palette.bg1)
         .appTheme(appState.ui.theme)
+        .appPreferences(appState.ui.preferences)
         .onAppear { textFieldFocused = true }
     }
 }

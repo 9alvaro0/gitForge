@@ -1,10 +1,6 @@
 import Foundation
 
 extension GitCLI {
-    static func isGitRepository(at url: URL) async -> Bool {
-        await resolveRepositoryRoot(at: url) != nil
-    }
-
     /// Resolves to the worktree toplevel for `url`. Returns the toplevel URL
     /// when `url` is the root or a subdirectory of a repo, `nil` otherwise.
     /// Callers must use the returned URL — not the original — so subsequent

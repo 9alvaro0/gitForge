@@ -6,8 +6,8 @@ import Testing
 /// against `UserDefaults.standard` because that's what production code reads —
 /// each test saves/restores the original value so the suite doesn't pollute
 /// the developer's prefs.
-@Suite("AppTheme — persisted clamps", .serialized)
-struct AppThemeClampTests {
+@Suite("GitPreferences — persisted clamps", .serialized)
+struct GitPreferencesClampTests {
 
     // MARK: gitTimeoutSeconds
 
@@ -32,31 +32,31 @@ struct AppThemeClampTests {
 
     @Test("Git timeout default (no value persisted) is 60 seconds")
     func gitTimeoutDefault() {
-        let result = withTimeoutOverride(nil) { AppTheme.persistedGitTimeoutSeconds() }
+        let result = withTimeoutOverride(nil) { GitPreferences.gitTimeoutSeconds }
         #expect(result == 60)
     }
 
     @Test("Git timeout zero clamps up to 5 (watchdog would fire instantly otherwise)")
     func gitTimeoutZeroClamps() {
-        let result = withTimeoutOverride(0) { AppTheme.persistedGitTimeoutSeconds() }
+        let result = withTimeoutOverride(0) { GitPreferences.gitTimeoutSeconds }
         #expect(result == 5)
     }
 
     @Test("Git timeout negative clamps up to 5")
     func gitTimeoutNegativeClamps() {
-        let result = withTimeoutOverride(-100) { AppTheme.persistedGitTimeoutSeconds() }
+        let result = withTimeoutOverride(-100) { GitPreferences.gitTimeoutSeconds }
         #expect(result == 5)
     }
 
     @Test("Git timeout very large clamps down to 3600")
     func gitTimeoutHugeClamps() {
-        let result = withTimeoutOverride(99_999) { AppTheme.persistedGitTimeoutSeconds() }
+        let result = withTimeoutOverride(99_999) { GitPreferences.gitTimeoutSeconds }
         #expect(result == 3600)
     }
 
     @Test("Git timeout in-range passes through unchanged")
     func gitTimeoutInRange() {
-        let result = withTimeoutOverride(120) { AppTheme.persistedGitTimeoutSeconds() }
+        let result = withTimeoutOverride(120) { GitPreferences.gitTimeoutSeconds }
         #expect(result == 120)
     }
 
@@ -83,31 +83,31 @@ struct AppThemeClampTests {
 
     @Test("Commit page size default is 200")
     func commitPageSizeDefault() {
-        let result = withPageSizeOverride(nil) { AppTheme.persistedCommitPageSize() }
+        let result = withPageSizeOverride(nil) { GitPreferences.commitPageSize }
         #expect(result == 200)
     }
 
     @Test("Commit page size zero clamps up to 50 (would otherwise load no commits)")
     func commitPageSizeZeroClamps() {
-        let result = withPageSizeOverride(0) { AppTheme.persistedCommitPageSize() }
+        let result = withPageSizeOverride(0) { GitPreferences.commitPageSize }
         #expect(result == 50)
     }
 
     @Test("Commit page size negative clamps up to 50")
     func commitPageSizeNegativeClamps() {
-        let result = withPageSizeOverride(-10) { AppTheme.persistedCommitPageSize() }
+        let result = withPageSizeOverride(-10) { GitPreferences.commitPageSize }
         #expect(result == 50)
     }
 
     @Test("Commit page size very large clamps down to 5000")
     func commitPageSizeHugeClamps() {
-        let result = withPageSizeOverride(1_000_000) { AppTheme.persistedCommitPageSize() }
+        let result = withPageSizeOverride(1_000_000) { GitPreferences.commitPageSize }
         #expect(result == 5000)
     }
 
     @Test("Commit page size in-range passes through unchanged")
     func commitPageSizeInRange() {
-        let result = withPageSizeOverride(500) { AppTheme.persistedCommitPageSize() }
+        let result = withPageSizeOverride(500) { GitPreferences.commitPageSize }
         #expect(result == 500)
     }
 
@@ -134,31 +134,31 @@ struct AppThemeClampTests {
 
     @Test("Diff context default is 3")
     func diffContextDefault() {
-        let result = withDiffContextOverride(nil) { AppTheme.persistedDiffContextLines() }
+        let result = withDiffContextOverride(nil) { GitPreferences.diffContextLines }
         #expect(result == 3)
     }
 
     @Test("Diff context negative clamps up to 0 (git -U-3 would error)")
     func diffContextNegativeClamps() {
-        let result = withDiffContextOverride(-1) { AppTheme.persistedDiffContextLines() }
+        let result = withDiffContextOverride(-1) { GitPreferences.diffContextLines }
         #expect(result == 0)
     }
 
     @Test("Diff context zero is allowed (--unified=0 is valid for collapsed diffs)")
     func diffContextZeroAllowed() {
-        let result = withDiffContextOverride(0) { AppTheme.persistedDiffContextLines() }
+        let result = withDiffContextOverride(0) { GitPreferences.diffContextLines }
         #expect(result == 0)
     }
 
     @Test("Diff context very large clamps down to 100")
     func diffContextHugeClamps() {
-        let result = withDiffContextOverride(99_999) { AppTheme.persistedDiffContextLines() }
+        let result = withDiffContextOverride(99_999) { GitPreferences.diffContextLines }
         #expect(result == 100)
     }
 
     @Test("Diff context in-range passes through unchanged")
     func diffContextInRange() {
-        let result = withDiffContextOverride(10) { AppTheme.persistedDiffContextLines() }
+        let result = withDiffContextOverride(10) { GitPreferences.diffContextLines }
         #expect(result == 10)
     }
 }

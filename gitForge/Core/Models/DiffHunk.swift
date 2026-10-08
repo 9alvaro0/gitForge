@@ -26,4 +26,8 @@ nonisolated enum DiffEmptyState: Sendable, Equatable {
     /// Pure rename / move with no content delta. The diff machinery returns
     /// metadata but no hunks; we surface it as such instead of "No changes".
     case renameOnly
+    /// Only the file mode changed (e.g. `chmod +x`): `100644` → `100755`.
+    case modeChange(from: String, to: String)
+    /// A submodule's recorded commit moved.
+    case submoduleUpdate(from: String, to: String)
 }

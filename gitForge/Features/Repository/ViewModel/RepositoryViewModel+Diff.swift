@@ -86,10 +86,9 @@ extension RepositoryViewModel {
             if data.prefix(probeLength).contains(0) {
                 return ("", DiffEmptyState.untrackedBinary)
             }
-            guard let text = String(data: data, encoding: .utf8) else {
-                return ("", DiffEmptyState.untrackedBinary)
-            }
-            return (Self.synthesizeAddDiff(text: text), DiffEmptyState.empty)
+            // Lossy, like every other diff path (see `GitProcess.decode`):
+            // a Latin-1 text file is still text, not "binary".
+            return (Self.synthesizeAddDiff(text: GitProcess.decode(data)), DiffEmptyState.empty)
         }.value
     }
 
@@ -113,19 +112,23 @@ extension RepositoryViewModel {
         return output
     }
 
-    /// Inspects the raw diff output to figure out *why* the parser produced no
-    /// hunks. Git emits `Binary files X and Y differ` for binaries and
-    /// `rename from`/`rename to` headers for pure renames — neither contain
-    /// `@@`, so the parser empties out and we'd otherwise fall back to the
-    /// generic "No changes" copy.
+    /// Explains why `raw` produced no hunks, so the pane can say "binary",
+    /// "renamed", "mode changed"… instead of a misleading "No changes".
+    /// Delegates to `DiffParser.parseSummary`; `GIT binary patch` (emitted
+    /// with `--binary`) is the one marker it doesn't cover.
     nonisolated static func classifyEmptyDiff(raw: String) -> DiffEmptyState {
-        if raw.contains("Binary files") || raw.contains("GIT binary patch") {
+        switch DiffParser.parseSummary(raw) {
+        case .binary:
             return .binary
-        }
-        if raw.contains("\nrename from ") || raw.hasPrefix("rename from ") {
+        case .rename:
             return .renameOnly
+        case .modeChange(let from, let to):
+            return .modeChange(from: from, to: to)
+        case .submoduleUpdate(_, let from, let to):
+            return .submoduleUpdate(from: from, to: to)
+        case nil:
+            return raw.contains("GIT binary patch") ? .binary : .empty
         }
-        return .empty
     }
 
     /// Returns the cached `CommitDetail` for `commit`, fetching once if not

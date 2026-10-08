@@ -38,7 +38,7 @@ extension RepositoryViewModel {
             isLoadingInitial = false
             if gen == logGen { hasLoadedLogForCurrentScope = true }
         }
-        let pageSize = AppTheme.persistedCommitPageSize()
+        let pageSize = GitPreferences.commitPageSize
         do {
             // Stashes + unmerged-branch refs feed graphScope(); without them
             // the first paint walks an incomplete scope. Run both in
@@ -82,7 +82,7 @@ extension RepositoryViewModel {
         logGen &+= 1
         let gen = logGen
         loadError = nil
-        let pageSize = AppTheme.persistedCommitPageSize()
+        let pageSize = GitPreferences.commitPageSize
         do {
             async let stashTask = cli.stashes()
             async let unmergedTask = cli.unmergedLocalBranches()
@@ -120,7 +120,7 @@ extension RepositoryViewModel {
         isLoadingMore = true
         loadError = nil
         defer { isLoadingMore = false }
-        let pageSize = AppTheme.persistedCommitPageSize()
+        let pageSize = GitPreferences.commitPageSize
         do {
             _ = try await paginateNextPage(gen: gen, pageSize: pageSize)
         } catch {
@@ -141,7 +141,7 @@ extension RepositoryViewModel {
         let gen = logGen
         isRevealingCommit = true
         defer { isRevealingCommit = false }
-        let pageSize = AppTheme.persistedCommitPageSize()
+        let pageSize = GitPreferences.commitPageSize
         var pagesLoaded = 0
         while hasMore && pagesLoaded < Self.maxRevealPages {
             do {
@@ -231,18 +231,5 @@ extension RepositoryViewModel {
         }
         guard !internals.isEmpty else { return }
         commits.removeAll { internals.contains($0.sha) }
-    }
-
-    /// Wipes log state so the next `loadInitial` reads a fresh head. Used
-    /// by commit / pull / branch ops that change HEAD.
-    func resetLog() {
-        commits = []
-        loadedRawCount = 0
-        graphLayouts = []
-        graphMaxLanes = 1
-        commitDateBySha = [:]
-        hasMore = true
-        selectedCommitId = nil
-        hasLoadedLogForCurrentScope = false
     }
 }

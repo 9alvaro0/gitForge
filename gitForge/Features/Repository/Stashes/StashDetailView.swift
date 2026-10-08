@@ -8,13 +8,14 @@ struct StashDetailView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
     @State private var tab: Tab = .overview
     @State private var dropTarget: Stash?
     @State private var diffModeOverride: DiffPane.ViewMode?
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
-            get: { diffModeOverride ?? theme.defaultDiffMode },
+            get: { diffModeOverride ?? preferences.defaultDiffMode },
             set: { diffModeOverride = $0 }
         )
     }

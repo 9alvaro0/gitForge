@@ -44,8 +44,8 @@ struct RepositoryViewModelConcurrencyTests {
         _ = await (initial, reload)
 
         #expect(!vm.isLoadingInitial)
-        // And a later reset + loadInitial still runs.
-        vm.resetLog()
+        // And a later loadInitial (empty log) still runs.
+        vm.commits = []
         await vm.loadInitial()
         #expect(vm.commits.count == 3)
     }
@@ -93,9 +93,14 @@ struct RepositoryCatalogOpenTests {
         }
         let catalog = RepositoryCatalog(store: RepositoryStore(directory: storeDir), defaults: defaults)
 
-        async let openFirst = catalog.open(at: first.url)
-        async let openSecond = catalog.open(at: second.url)
-        _ = try await (openFirst, openSecond)
+        // Start the first open and let it run to its first suspension (it
+        // has bumped the generation by then), *then* open the second — the
+        // order a user's two clicks produce. Two `async let`s don't
+        // guarantee which child starts first.
+        let openFirst = Task { try await catalog.open(at: first.url) }
+        await Task.yield()
+        _ = try await catalog.open(at: second.url)
+        _ = try await openFirst.value
 
         let expected = second.url.standardizedFileURL.canonicalFileSystemPath
         #expect(catalog.activeRepository?.url.canonicalFileSystemPath == expected)
