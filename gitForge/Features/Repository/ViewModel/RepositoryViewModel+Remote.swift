@@ -28,11 +28,15 @@ extension RepositoryViewModel {
         }
     }
 
-    func fetch() async {
+    /// Returns `true` only when the fetch ran and succeeded — `false` when it
+    /// was refused (another operation in flight) or failed. Callers use it
+    /// to decide whether a success toast is truthful.
+    @discardableResult
+    func fetch() async -> Bool {
         // `autoFetchInFlight` covers the silent auto-fetcher path — without
         // it the user clicking Fetch while the timer-driven fetch was in
         // flight would fire a second `git fetch` subprocess in parallel.
-        guard remoteOperation == nil, !autoFetchInFlight else { return }
+        guard remoteOperation == nil, !autoFetchInFlight else { return false }
         remoteOperation = .fetching
         remoteFailure = nil
         defer { remoteOperation = nil }
@@ -40,12 +44,14 @@ extension RepositoryViewModel {
             try await cli.fetchAll()
             lastFetchedAt = .now
             await loadRefs()
+            return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
             // A partial fetch may have updated some remote refs before
             // failing. Reload so the UI doesn't keep showing pre-fetch
             // counters until the next 30s poller tick.
             await loadRefs()
+            return false
         }
     }
 
@@ -54,8 +60,10 @@ extension RepositoryViewModel {
     /// so a commit or discard can't race it for `.git/index.lock`. `GitCLI`
     /// being an actor doesn't serialise commands — `run` suspends while the
     /// subprocess runs, so calls interleave.
-    func pull(rebase: Bool = false, ffOnly: Bool = false) async {
-        guard remoteOperation == nil, !isMutating else { return }
+    /// Same return contract as `fetch()`.
+    @discardableResult
+    func pull(rebase: Bool = false, ffOnly: Bool = false) async -> Bool {
+        guard remoteOperation == nil, !isMutating else { return false }
         remoteOperation = .pulling
         isMutating = true
         remoteFailure = nil
@@ -68,6 +76,7 @@ extension RepositoryViewModel {
             await loadRefs()
             await refreshStatus()
             await reloadLog()
+            return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
             // A failed pull may have left a merge in progress (MERGE_HEAD).
@@ -75,11 +84,14 @@ extension RepositoryViewModel {
             // the unmerged paths immediately, instead of waiting on the
             // next watcher tick.
             await refreshAfterIntegration()
+            return false
         }
     }
 
-    func push(forceWithLease: Bool = false) async {
-        guard remoteOperation == nil else { return }
+    /// Same return contract as `fetch()`.
+    @discardableResult
+    func push(forceWithLease: Bool = false) async -> Bool {
+        guard remoteOperation == nil else { return false }
         remoteOperation = .pushing
         remoteFailure = nil
         defer { remoteOperation = nil }
@@ -113,12 +125,14 @@ extension RepositoryViewModel {
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
             await loadRefs()
+            return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
             // Push can partially succeed (pack uploaded but ref update
             // rejected, or N of M refs accepted). Reload so aheadCount and
             // remote-tracking refs reflect what really landed.
             await loadRefs()
+            return false
         }
     }
 }

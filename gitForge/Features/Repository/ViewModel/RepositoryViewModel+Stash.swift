@@ -10,7 +10,7 @@ extension RepositoryViewModel {
         defer { isMutating = false }
         do {
             try await cli.stashPush(message: message,
-                                    includeUntracked: AppTheme.persistedStashIncludeUntracked())
+                                    includeUntracked: GitPreferences.stashIncludeUntracked)
             // refreshAfterIntegration also reloads the log, which is what
             // surfaces the new dashed stash dot in the graph — without it
             // the row only appeared on the next external refresh.

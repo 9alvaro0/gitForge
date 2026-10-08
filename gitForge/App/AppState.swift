@@ -131,15 +131,29 @@ final class AppState {
                     }
                 }
             )
-            try await openRepository(at: destination)
-            ui.workspaceSection = .history
-            ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
         } catch is CancellationError {
             Self.cleanupPartialClone(at: destination)
             ui.activeToast = ToastMessage(message: "Clone cancelled", kind: .info)
+            return
         } catch {
             Self.cleanupPartialClone(at: destination)
             ui.presentedError = PresentedError(error: error, title: "Clone failed")
+            return
+        }
+
+        // The clone is complete on disk from here on. A failure (or a late
+        // cancel) while opening it must never trash it — the previous single
+        // do/catch sent a finished clone to the Trash when Cancel landed
+        // during `openRepository`.
+        do {
+            try await openRepository(at: destination)
+            ui.workspaceSection = .history
+            ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
+        } catch {
+            ui.presentedError = PresentedError(
+                title: "Cloned, but couldn't open it",
+                message: "\(destination.path(percentEncoded: false)) — \(error.userMessage)"
+            )
         }
     }
 

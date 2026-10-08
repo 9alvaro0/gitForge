@@ -27,14 +27,6 @@ struct RepositoryViewModelStagingSelectionTests {
         #expect(vm.selectedFilePaths.contains("a.txt") == false)
     }
 
-    @Test("selectAll inserts every path from the input list (preserving prior selection)")
-    func selectAllPreservesExisting() {
-        let vm = Self.makeVM()
-        vm.selectedFilePaths.insert("preexisting.txt")
-        vm.selectAll(in: [Self.file("a.txt"), Self.file("b.txt")])
-        #expect(vm.selectedFilePaths == ["preexisting.txt", "a.txt", "b.txt"])
-    }
-
     @Test("deselect drops only the requested paths")
     func deselectDropsOnlyRequested() {
         let vm = Self.makeVM()

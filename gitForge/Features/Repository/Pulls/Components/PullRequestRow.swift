@@ -6,6 +6,7 @@ struct PullRequestRow: View {
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
         Button(action: onSelect) {
@@ -46,7 +47,7 @@ struct PullRequestRow: View {
                 MonoText(pullRequest.targetBranch, dim: true)
                 if let updated = pullRequest.updatedAt {
                     Text("·").foregroundStyle(theme.palette.fg4)
-                    MonoText(theme.dateDisplayMode.format(updated), dim: true)
+                    MonoText(preferences.dateDisplayMode.format(updated), dim: true)
                 }
             }
         }

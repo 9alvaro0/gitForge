@@ -4,6 +4,7 @@ struct StashOverviewTab: View {
     let detail: StashDetail?
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
         ScrollView {
@@ -25,7 +26,7 @@ struct StashOverviewTab: View {
             row(label: "Reference", value: detail.stash.reference)
             row(label: "Branch",    value: detail.parentBranch ?? "—")
             row(label: "Parent",    value: String(detail.parentSha.prefix(7)))
-            row(label: "Stashed",   value: detail.authorDate.map { theme.dateDisplayMode.format($0) } ?? "—")
+            row(label: "Stashed",   value: detail.authorDate.map { preferences.dateDisplayMode.format($0) } ?? "—")
             row(label: "Files",     value: "\(detail.files.count) changed")
         }
     }

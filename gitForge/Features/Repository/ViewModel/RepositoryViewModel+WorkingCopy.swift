@@ -76,15 +76,9 @@ extension RepositoryViewModel {
         }
     }
 
-    /// Replace the selection with every path in `files`. Used by the
-    /// "Select all" affordance in the section header.
-    func selectAll(in files: [WorkingCopyFile]) {
-        for f in files { selectedFilePaths.insert(f.path) }
-    }
-
-    /// Drop every selection that comes from `files`. Used both by the
-    /// "Deselect all" affordance and after a batch stage/unstage so the
-    /// ticks don't reappear on a fresh section the rows just moved into.
+    /// Drop every selection that comes from `files`. Used after a batch
+    /// stage/unstage so the ticks don't reappear on a fresh section the rows
+    /// just moved into.
     func deselect(_ files: [WorkingCopyFile]) {
         for f in files { selectedFilePaths.remove(f.path) }
     }

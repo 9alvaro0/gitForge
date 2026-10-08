@@ -10,7 +10,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A01 | Línea base y salud del build (warnings, Swift 6, config) | Hecha (2026-10-08) |
 | A02 | Capa Git (`GitCLI`): spawn de procesos, parsing, errores, inyección de argumentos | Hecha (2026-10-08) |
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
-| A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Pendiente |
+| A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08) — descomposición del VM pendiente de decisión |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Pendiente |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Pendiente |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Pendiente |
@@ -25,7 +25,6 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | Origen | Para | Hallazgo | Ubicación |
 |--------|------|----------|-----------|
 | A01 | A05 | `OptInTrustSessionDelegate` acepta cualquier certificado de un host "de confianza" (sin pinning de huella). La lista vive en `UserDefaults`, que cualquier proceso del usuario puede escribir con `defaults write`. | `gitForge/Core/RemoteHosting/OptInTrustSessionDelegate.swift`, `RemoteHostTrust.swift` |
-| A02 | A04 | `deleteUntracked` intenta la Papelera y, si falla (volúmenes sin Papelera, red), borra **permanentemente** sin avisar, aunque la UI lo presenta como recuperable. | `gitForge/Core/Git/GitCLI+Stage.swift` |
 | A02 | A06 | La caché de `DiffSyntaxHighlighter` no tiene límite (crece con cada hunk visto en la sesión) y usa `hashValue` como clave (colisiones = resaltado erróneo). | `gitForge/Core/Git/DiffSyntaxHighlighter.swift` |
 | A02 | A02-bis | `stage`/`unstage`/`discard` pasan todas las rutas por argv: con decenas de miles de ficheros se puede superar `ARG_MAX` (1 MB). Solución: `--pathspec-from-file=- --pathspec-file-nul` por stdin. | `GitCLI+Stage.swift` |
 | A02 | A02-bis | `DiffParser` descuadra los números de línea si el usuario tiene `diff.suppressBlankEmpty=true` (líneas de contexto vacías sin espacio). Parsear por recuento de líneas del hunk. | `DiffParser.swift` |
@@ -33,9 +32,8 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 | A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
 | A03 | A02-bis | El resolutor de conflictos lee y escribe los ficheros forzando UTF-8: un fichero Latin-1 en conflicto no se puede abrir, y la reescritura podría cambiar su codificación. | `RepositoryViewModel+Conflicts.swift` |
 | A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
-| A03 | A04 | `NSOpenPanel.runModal()` dentro de funciones `async` del main actor. Mejor `begin`/sheet con continuación. | `AppState.swift` |
 | A03 | A06 | `NSWindow.didBecomeKeyNotification` de *cualquier* ventana (sheets, alertas, Settings) fuerza un refresh completo. | `gitForgeApp.swift` |
-| A03 | A04 | Cancelar el clone justo cuando ya terminó, durante `openRepository`, manda a la Papelera un clone completo y correcto (`cleanupPartialClone`). | `AppState.swift` |
+| A04 | A07 | Tokens de diseño sin uso (`fastDuration`, `standardDuration`, `slowDuration`, `chromeRadius`) y vistas casi gemelas sin componente común: cabecera, tabs, lista de ficheros y secciones de los detalles de stash y de PR, y el bloque de onboarding repetido en `GitNotFoundView`/`GitStep`. | `Tokens.swift`, `Stashes/`, `Pulls/`, `Onboarding/` |
 | A01 | A09 | `ProfileStoreSchemaTests` lee y escribe el `UserDefaults.standard` real de la app (el test host es la propia app) y barre todas las claves de cuarentena, incluidas las del usuario. Debería usar una suite inyectada. | `gitForgeTests/App/State/ProfileStoreSchemaTests.swift` |
 
 ---
@@ -168,3 +166,49 @@ Swift 6 añade comprobaciones de aislamiento en runtime en las fronteras con C/O
 ### Pendiente / siguiente
 
 - Siguiente auditoría propuesta: **A04 — Arquitectura y estado** (VM de más de 500 líneas con 15 extensiones, `AppState`, acoplamiento, código muerto). Arrastra tres diferidos.
+
+---
+
+## A04 — Arquitectura y estado
+
+**Fecha:** 2026-10-08
+**Alcance:** reparto de responsabilidades (`AppState`, `WorkspaceUI`, `AppTheme`, `RepositoryViewModel`), dependencias entre capas, código muerto (escaneo de declaraciones sin referencias), duplicación (detector de bloques repetidos) y los tres diferidos.
+
+### Diagnóstico de arquitectura
+
+- **Nivel app: sano.** `AppState` coordina subalmacenes con responsabilidades claras (`RepositoryCatalog`, `GitEnvironment`, `CloneController`, `WorkspaceUI`, `ProfileStore`) que las vistas leen de forma estrecha vía `@Environment`.
+- **`RepositoryViewModel` es un god object.** 96 propiedades almacenadas en 14 dominios (log, detalle, refs, detalle de stash, grafo, working copy, diffs, navegación, remoto, PRs, detalle de PR, conflictos, identidad, reactividad), repartidas en 15 extensiones. 28 vistas reciben el VM entero. Funciona, y `@Observable` evita re-renders de más, pero cada feature nueva engorda el mismo objeto y los tests tienen que construirlo entero. **Propuesta de descomposición en la sección siguiente; pendiente de tu decisión.**
+- **Capas cruzadas:** la capa Git (Core) leía preferencias de `AppTheme` (DesignSystem), y `AppTheme` mezclaba el aspecto visual con preferencias de comportamiento.
+
+### Hallazgos y acciones
+
+| # | Severidad | Hallazgo | Acción |
+|---|-----------|----------|--------|
+| 1 | Media | **Funcionalidad hecha y testeada pero nunca conectada**: `DiffParser.parseSummary` (binario, rename, cambio de modo, submódulo) solo se usaba en tests. Producción usaba un `classifyEmptyDiff` más pobre, así que un `chmod +x` se mostraba como "No changes". Además, un fichero untracked con texto Latin-1 aparecía como "binario". | `classifyEmptyDiff` delega en `parseSummary`. Nuevos estados `modeChange` y `submoduleUpdate` con su texto. El diff de stash también clasifica su estado vacío. Untracked decodificado de forma tolerante. |
+| 2 | Media | **Capas cruzadas**: `GitCLI` dependía de `AppTheme`, y `AppTheme` (DesignSystem) dependía de `DiffPane` (Features) por las preferencias. | `AppTheme` queda solo con lo visual. Nuevo `AppPreferences` (`@Observable`, inyectado con `\.appPreferences`) para comportamiento y presentación. Nuevo `GitPreferences` (Core, `nonisolated`) con los lectores acotados que usa la capa Git. **Se mantienen las claves `appTheme.*`**, así que no se pierde ningún ajuste guardado. |
+| 3 | Media | **Toasts de éxito falsos**: la paleta mostraba "Fetched", "Pulled" o "Pushed" aunque la operación se rechazara por haber otra en curso. Abrir un repo reciente desde la paleta tragaba el error (no pasaba nada si el repo se había movido). | `fetch`/`pull`/`push` devuelven si se ejecutaron con éxito, y la paleta solo celebra entonces. El error de apertura se muestra. |
+| 4 | Media | **Descarte sin confirmación**: "Discard conflict (revert to HEAD)" del resolutor era el único descarte destructivo de la app sin diálogo, y pierde la resolución manual del fichero. | Diálogo de confirmación como en el resto. |
+| 5 | Media | **Clone completo a la Papelera** (diferido de A03): cancelar justo durante la apertura posterior al clone borraba el repo ya clonado. | Clonado y apertura separados. Un fallo al abrir informa ("Cloned, but couldn't open it") y nunca borra. |
+| 6 | Baja | `deleteUntracked` (diferido de A02): si la Papelera fallaba, borraba permanentemente, y si eso también fallaba se tragaba el error y el fichero seguía ahí sin explicación. Matiz: la UI ya dice "can't be undone", así que el borrado permanente como último recurso no engaña. | Se omiten las rutas que ya no existen, se mantiene Papelera y luego borrado, y los ficheros que sobreviven se reportan con `DeleteUntrackedError`. |
+| 7 | Baja | **Código muerto**: `GitCLI.isGitRepository`, `AppTheme.toggleMode`, `RepositoryViewModel.resetLog` (solo lo usaban tests; su comentario describía un flujo que ya no existe) y `selectAll(in:)` (la UI ya no tiene "Select all"). | Eliminados junto con sus tests. |
+| 8 | Baja | Definición de columnas del historial copiada en 4 sitios (tabla y 3 previews). | `ResizableTableModel.historyColumns(id:)` como única fuente. |
+| — | — | `NSOpenPanel.runModal()` en funciones async (diferido de A03). | **Aceptado sin cambios**: es un selector modal, bloquear el main durante su presentación es el comportamiento esperado y no hay trabajo de fondo que dependa de él. |
+
+### Tests
+
+- Nuevos: clasificación de cambio de modo y de submódulo, y `deleteUntracked` con un fichero imborrable (directorio sin permiso de escritura).
+- `AppThemeClampTests` pasa a `GitPreferencesClampTests` (Core).
+- Corregido un test de A03 (`lastOpenWins`) que dependía del orden de arranque de dos `async let`, que no está garantizado. Ahora reproduce el orden real de dos clics.
+- Resultado: **339/339**, 0 warnings, 3 ejecuciones seguidas en verde.
+
+### Propuesta: descomposición de `RepositoryViewModel` (pendiente de decisión)
+
+Extraer almacenes por dominio, de uno en uno y cada uno en su propio PR, empezando por los más autocontenidos:
+
+1. `PullRequestStore` (lista y detalle de PR/MR: solo necesita host y token).
+2. `StashStore` (lista y detalle de stash).
+3. `ConflictStore` (estado de merge, ficheros, hunks y picks).
+4. `HistoryStore` (log, grafo, caché de detalle, selección y diff de commit).
+5. `WorkingCopyStore` (status, selección por lotes, composer de commit y diff del working copy).
+
+`RepositoryViewModel` quedaría como `RepositorySession`: `cli`, `isMutating`, watcher y auto-fetch, y la orquestación de refrescos (`refreshAfterIntegration`). Las vistas recibirían solo el almacén que usan.

@@ -6,13 +6,14 @@ struct StagingView: View {
     @Environment(AppState.self) private var appState
     @Environment(WorkspaceUI.self) private var ui
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
     @State private var commitMessage: String = ""
     @State private var commitDescription: String = ""
     @State private var diffModeOverride: DiffPane.ViewMode?
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
-            get: { diffModeOverride ?? theme.defaultDiffMode },
+            get: { diffModeOverride ?? preferences.defaultDiffMode },
             set: { diffModeOverride = $0 }
         )
     }

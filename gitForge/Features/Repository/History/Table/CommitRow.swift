@@ -19,6 +19,7 @@ struct CommitRow: View {
     var onFilterByAuthor: ((String) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
     @State private var rowDropTargeted = false
 
     var body: some View {
@@ -49,7 +50,7 @@ struct CommitRow: View {
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("sha"), alignment: .leading)
             Color.clear.frame(width: DesignTokens.Spacing.md)
-            Text(theme.dateDisplayMode.format(commit.authorDate))
+            Text(preferences.dateDisplayMode.format(commit.authorDate))
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
                 .frame(width: columns.width("when"), alignment: .trailing)
@@ -139,17 +140,7 @@ struct CommitRow: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    @Previewable @State var columns = ResizableTableModel(
-        id: "history.row.preview",
-        columns: [
-            (id: "graph",     defaultWidth: 110, minWidth: 80),
-            (id: "branchTag", defaultWidth: 220, minWidth: 80),
-            (id: "message",   defaultWidth: 480, minWidth: 240),
-            (id: "author",    defaultWidth: 130, minWidth: 80),
-            (id: "sha",       defaultWidth: 80,  minWidth: 60),
-            (id: "when",      defaultWidth: 70,  minWidth: 50),
-        ]
-    )
+    @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.row.preview")
     let commit = Commit.previewSamples[0]
     VStack(spacing: 0) {
         CommitRow(

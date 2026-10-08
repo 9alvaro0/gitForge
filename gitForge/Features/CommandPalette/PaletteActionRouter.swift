@@ -10,7 +10,15 @@ struct PaletteActionRouter {
     func route(_ action: PaletteAction) {
         switch action {
         case .openRepo(let url):
-            Task { try? await appState.openRepository(at: url) }
+            Task {
+                do {
+                    try await appState.openRepository(at: url)
+                } catch {
+                    // A recent that was moved or deleted must say so, not
+                    // silently do nothing.
+                    appState.ui.presentedError = PresentedError(error: error)
+                }
+            }
         case .selectSection(let section):
             appState.ui.workspaceSection = section
         case .fetch:
@@ -41,15 +49,15 @@ struct PaletteActionRouter {
         }
     }
 
-    /// Runs a remote VM operation. Only emits the success toast — failures
-    /// are surfaced by the global `remoteFailure` observer in `ShellView`,
-    /// so menu / toolbar / palette entry points all share the same error UX.
-    private func runRemote(label: String, _ block: @escaping (RepositoryViewModel) async -> Void) {
+    /// Runs a remote VM operation. Only emits the success toast, and only
+    /// when the op actually ran and succeeded — a refused op (another one in
+    /// flight) used to toast "Fetched" too. Failures are surfaced by the
+    /// global `remoteFailure` observer in `ShellView`, so menu / toolbar /
+    /// palette entry points all share the same error UX.
+    private func runRemote(label: String, _ block: @escaping (RepositoryViewModel) async -> Bool) {
         Task {
             guard let vm = appState.catalog.activeViewModel else { return }
-            vm.remoteFailure = nil
-            await block(vm)
-            if vm.remoteFailure == nil {
+            if await block(vm) {
                 appState.ui.activeToast = ToastMessage(message: label, kind: .ok)
             }
         }

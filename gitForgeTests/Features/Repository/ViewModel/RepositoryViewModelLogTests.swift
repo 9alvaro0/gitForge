@@ -61,48 +61,6 @@ struct RepositoryViewModelLogHelperTests {
         #expect(vm.commits.map(\.sha) == ["a", "b"])
     }
 
-    @Test("resetLog wipes log state to defaults")
-    func resetLogClearsState() {
-        let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa")]
-        vm.loadedRawCount = 100
-        vm.graphMaxLanes = 4
-        vm.hasMore = false
-        vm.selectedCommitId = "aaa"
-        vm.hasLoadedLogForCurrentScope = true
-
-        vm.resetLog()
-
-        #expect(vm.commits.isEmpty)
-        #expect(vm.loadedRawCount == 0)
-        #expect(vm.graphLayouts.isEmpty)
-        #expect(vm.graphMaxLanes == 1)
-        #expect(vm.hasMore == true)
-        #expect(vm.selectedCommitId == nil)
-        #expect(vm.hasLoadedLogForCurrentScope == false)
-    }
-}
-
-@Suite("RepositoryViewModel — log op guards", .serialized)
-@MainActor
-struct RepositoryViewModelLogGuardsTests {
-
-    private static func makeVM() -> RepositoryViewModel {
-        let url = URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")
-        return RepositoryViewModel(repository: Repository(url: url))
-    }
-
-    private static func commit(_ sha: String) -> Commit {
-        Commit(
-            sha: sha,
-            parentShas: [],
-            authorName: "Test",
-            authorEmail: "t@example.com",
-            authorDate: .init(timeIntervalSince1970: 0),
-            subject: "subject"
-        )
-    }
-
     @Test("loadInitial is a no-op when commits already populated")
     func loadInitialNoOpWhenCommitsExist() async {
         let vm = Self.makeVM()

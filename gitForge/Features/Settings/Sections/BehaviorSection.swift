@@ -15,8 +15,8 @@ struct BehaviorSection: View {
                 label: "Confirm force push",
                 description: "Show a dialog before pushing with --force-with-lease.",
                 isOn: Binding(
-                    get: { ui.theme.confirmForcePush },
-                    set: { ui.theme.confirmForcePush = $0 }
+                    get: { ui.preferences.confirmForcePush },
+                    set: { ui.preferences.confirmForcePush = $0 }
                 )
             )
             SettingsDivider()
@@ -33,27 +33,27 @@ struct BehaviorSection: View {
                 label: "Stash untracked files",
                 description: "Pass --include-untracked to git stash so quick stashes capture new files too.",
                 isOn: Binding(
-                    get: { ui.theme.stashIncludeUntracked },
-                    set: { ui.theme.stashIncludeUntracked = $0 }
+                    get: { ui.preferences.stashIncludeUntracked },
+                    set: { ui.preferences.stashIncludeUntracked = $0 }
                 )
             )
             SettingsDivider()
             pickerRow(
                 label: "Commits per page",
                 description: "How many commits History fetches per round-trip. Bigger pages mean fewer reloads on huge repos at the cost of slower first paint.",
-                current: "\(ui.theme.commitPageSize)",
+                current: "\(ui.preferences.commitPageSize)",
                 options: Self.pageSizeOptions
             ) { value in
-                if let n = Int(value) { ui.theme.commitPageSize = n }
+                if let n = Int(value) { ui.preferences.commitPageSize = n }
             }
             SettingsDivider()
             pickerRow(
                 label: "Git command timeout",
                 description: "Seconds before a stuck git subprocess is killed. Raise it if you hit timeouts on a slow network or very large fetches.",
-                current: "\(ui.theme.gitTimeoutSeconds)s",
+                current: "\(ui.preferences.gitTimeoutSeconds)s",
                 options: Self.timeoutOptions
             ) { value in
-                if let n = Int(value) { ui.theme.gitTimeoutSeconds = n }
+                if let n = Int(value) { ui.preferences.gitTimeoutSeconds = n }
             }
         }
     }

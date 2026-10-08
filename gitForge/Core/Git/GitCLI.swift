@@ -59,7 +59,7 @@ actor GitCLI {
         // Resolve once per invocation so the watchdog and the synthesized
         // timeout message use a consistent value even if the user flips the
         // setting mid-fetch.
-        let watchdog = GitWatchdog(timeout: TimeInterval(AppTheme.persistedGitTimeoutSeconds()))
+        let watchdog = GitWatchdog(timeout: TimeInterval(GitPreferences.gitTimeoutSeconds))
         if Diagnostics.traceGitCommands {
             Self.logger.debug("→ git \(safeArgsString, privacy: .public)")
         }

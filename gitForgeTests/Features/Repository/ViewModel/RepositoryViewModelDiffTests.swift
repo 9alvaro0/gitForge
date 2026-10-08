@@ -70,6 +70,18 @@ struct ClassifyEmptyDiffTests {
         #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .renameOnly)
     }
 
+    @Test("Mode-only change is reported instead of 'No changes'")
+    func detectsModeChange() {
+        let raw = "diff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n"
+        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .modeChange(from: "100644", to: "100755"))
+    }
+
+    @Test("Submodule pointer bump is reported")
+    func detectsSubmodule() {
+        let raw = "diff --git a/lib b/lib\nindex 1111111..2222222 160000\n--- a/lib\n+++ b/lib\n-Subproject commit 1111111aaaa\n+Subproject commit 2222222bbbb\n"
+        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .submoduleUpdate(from: "1111111aaaa", to: "2222222bbbb"))
+    }
+
     @Test("Falls back to .empty when no recognised markers are present")
     func fallsBackToEmpty() {
         #expect(RepositoryViewModel.classifyEmptyDiff(raw: "") == .empty)

@@ -4,6 +4,7 @@ struct CommitMetaCard: View {
     let commit: Commit
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.lg) {
@@ -17,7 +18,7 @@ struct CommitMetaCard: View {
                     .foregroundStyle(theme.palette.fg3)
             }
             Spacer()
-            Text(theme.dateDisplayMode.format(commit.authorDate))
+            Text(preferences.dateDisplayMode.format(commit.authorDate))
                 .font(AppFont.mono(11, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
         }

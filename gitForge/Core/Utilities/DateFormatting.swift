@@ -1,7 +1,7 @@
 import Foundation
 
 /// User-facing presentation style for `Date` values across History, Pulls,
-/// Branches, and Commit detail. Persisted via `AppTheme.dateDisplayMode`.
+/// Branches, and Commit detail. Persisted via `AppPreferences.dateDisplayMode`.
 nonisolated enum DateDisplayMode: String, CaseIterable, Identifiable, Sendable {
     /// "2h ago" — `RelativeDateTimeFormatter` with `.abbreviated` units.
     case relative

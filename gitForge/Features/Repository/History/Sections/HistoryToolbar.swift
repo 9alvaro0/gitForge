@@ -7,6 +7,7 @@ struct HistoryToolbar: View {
     @Bindable var viewModel: RepositoryViewModel
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
     @State private var pendingForcePush = false
 
     var body: some View {
@@ -74,7 +75,7 @@ struct HistoryToolbar: View {
             action: { Task { await viewModel.push() } }
         ) {
             Button("Force push (only if remote unchanged)", role: .destructive) {
-                if theme.confirmForcePush {
+                if preferences.confirmForcePush {
                     pendingForcePush = true
                 } else {
                     Task { await viewModel.push(forceWithLease: true) }

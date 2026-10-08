@@ -56,17 +56,7 @@ struct CommitTableHeader: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    @Previewable @State var columns = ResizableTableModel(
-        id: "history.header.preview",
-        columns: [
-            (id: "graph",     defaultWidth: 110, minWidth: 80),
-            (id: "branchTag", defaultWidth: 220, minWidth: 80),
-            (id: "message",   defaultWidth: 480, minWidth: 240),
-            (id: "author",    defaultWidth: 130, minWidth: 80),
-            (id: "sha",       defaultWidth: 80,  minWidth: 60),
-            (id: "when",      defaultWidth: 70,  minWidth: 50),
-        ]
-    )
+    @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.header.preview")
     CommitTableHeader(
         gutterWidth: 110,
         graphHandle: columns.binding(for: "graph"),

@@ -9,6 +9,7 @@ import Foundation
 final class WorkspaceUI {
     var workspaceSection: WorkspaceSection = .history
     var theme: AppTheme = AppTheme()
+    var preferences: AppPreferences = AppPreferences()
     var commandPaletteOpen: Bool = false
     var activeToast: ToastMessage?
     var presentedError: PresentedError?

@@ -3,6 +3,7 @@ import SwiftUI
 struct PullRequestCommitRow: View {
     let commit: PullRequestCommit
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.xl) {
@@ -19,7 +20,7 @@ struct PullRequestCommitRow: View {
                     }
                     if let date = commit.authorDate {
                         Text("·").foregroundStyle(theme.palette.fg4)
-                        MonoText(theme.dateDisplayMode.format(date), dim: true)
+                        MonoText(preferences.dateDisplayMode.format(date), dim: true)
                     }
                 }
             }

@@ -11,9 +11,10 @@ struct DiffRow: View {
     let attributed: AttributedString?
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     var body: some View {
-        HStack(alignment: theme.diffWrapLongLines ? .top : .center, spacing: DesignTokens.Spacing.none) {
+        HStack(alignment: preferences.diffWrapLongLines ? .top : .center, spacing: DesignTokens.Spacing.none) {
             lineNumber(line.oldLineNumber)
             lineNumber(line.newLineNumber)
             Text(sign)
@@ -21,7 +22,7 @@ struct DiffRow: View {
                 .frame(width: DesignTokens.IconSize.xl)
                 .foregroundStyle(signColor)
             wrappedContent
-            if !theme.diffWrapLongLines { Spacer(minLength: 0) }
+            if !preferences.diffWrapLongLines { Spacer(minLength: 0) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
@@ -31,7 +32,7 @@ struct DiffRow: View {
     /// soft-wrap when the user opts in via Settings → Appearance.
     @ViewBuilder
     private var wrappedContent: some View {
-        if theme.diffWrapLongLines {
+        if preferences.diffWrapLongLines {
             content
                 .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
                 .fixedSize(horizontal: false, vertical: true)
