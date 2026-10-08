@@ -286,31 +286,9 @@ final class RepositoryViewModel {
     var autoFetchInFlight: Bool = false
 
     // MARK: Pull / merge requests
-    var pullRequests: [PullRequest] = []
-    var pullRequestsHost: RemoteHost?
-    var pullRequestsLoading: Bool = false
-    var pullRequestsError: String?
-    /// Host detected but no token configured — drives the "Connect a host"
-    /// empty state in `PullsView`.
-    var pullRequestsRequiresToken: Bool = false
-    var pullRequestsLastLoadedAt: Date?
-
-    // MARK: PR detail
-    var selectedPullRequest: PullRequest?
-    var pullRequestDetail: PullRequestDetail?
-    var pullRequestCommits: [PullRequestCommit] = []
-    var pullRequestFiles: [PullRequestFileChange] = []
-    var pullRequestDetailLoading: Bool = false
-    var pullRequestDetailError: String?
-    /// Bumped at the start of every PR detail op (`selectPullRequest` /
-    /// `loadPullRequestDetail` / `closePullRequestDetail`). The detail loader
-    /// snapshots it on entry and drops its writes if the token moved while
-    /// it was awaiting — keeps a slow PR#1 fetch from landing on top of a
-    /// freshly-selected PR#2 (or on a closed detail pane).
-    var pullRequestDetailGen: UInt64 = 0
-    /// Drives the spinner on the "Resolve locally" button while a try-merge
-    /// attempt is in flight.
-    var pullRequestLocalMergeRunning: Bool = false
+    /// List + detail of the repo's PRs/MRs. Local integration of a PR stays
+    /// on the view model (`attemptLocalMergeForPullRequest`).
+    let pullRequests: PullRequestStore
 
     // MARK: Conflicts
     var mergeState: MergeState = .clean
@@ -365,7 +343,9 @@ final class RepositoryViewModel {
 
     init(repository: Repository) {
         self.repository = repository
-        self.cli = GitCLI(workingDirectory: repository.url)
+        let cli = GitCLI(workingDirectory: repository.url)
+        self.cli = cli
+        self.pullRequests = PullRequestStore(cli: cli)
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -416,7 +396,7 @@ final class RepositoryViewModel {
         conflictFiles = []
         conflictHunks = []
         conflictPicks = [:]
-        pullRequests = []
+        pullRequests.reset()
         repoIdentity = nil
         upstream = nil
         aheadCount = 0

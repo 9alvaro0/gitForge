@@ -3,7 +3,10 @@ import SwiftUI
 /// Pull/merge request list. Reads from GitHub or GitLab based on the active
 /// repository's `origin` remote, authenticated with a PAT stored in Keychain.
 struct PullsView: View {
-    @Bindable var viewModel: RepositoryViewModel
+    let store: PullRequestStore
+    /// Integrates the selected PR locally ("Resolve locally"); session-wide
+    /// work owned by `RepositoryViewModel`.
+    let integrateLocally: () async -> RepositoryViewModel.IntegrationOutcome
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -14,15 +17,15 @@ struct PullsView: View {
 
     var body: some View {
         Group {
-            if viewModel.selectedPullRequest != nil {
-                PullRequestDetailView(viewModel: viewModel)
+            if store.selected != nil {
+                PullRequestDetailView(store: store, integrateLocally: integrateLocally)
             } else {
                 listLayout
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
-        .task { await viewModel.loadPullRequests() }
+        .task { await store.load() }
         .sheet(item: $tokenSheetHost) { host in
             PullsTokenSheet(
                 host: host,
@@ -39,12 +42,12 @@ struct PullsView: View {
             ContentHeader(title: headerTitle) {
                 subtitle
             } right: {
-                ToolButton(.fetch, label: "Refresh", disabled: viewModel.pullRequestsLoading) {
-                    Task { await viewModel.loadPullRequests(force: true) }
+                ToolButton(.fetch, label: "Refresh", disabled: store.isLoading) {
+                    Task { await store.load(force: true) }
                 }
             }
             PullsContentSection(
-                viewModel: viewModel,
+                store: store,
                 nounPlural: headerTitle.lowercased(),
                 onAddToken: presentTokenSheet,
                 onOpenSettings: { appState.ui.workspaceSection = .settings }
@@ -53,12 +56,12 @@ struct PullsView: View {
     }
 
     private var headerTitle: String {
-        viewModel.pullRequestsHost?.provider.pullNoun.appending("s") ?? "Pull requests"
+        store.host?.provider.pullNoun.appending("s") ?? "Pull requests"
     }
 
     @ViewBuilder
     private var subtitle: some View {
-        if let host = viewModel.pullRequestsHost {
+        if let host = store.host {
             MonoText("\(host.slug) · \(host.provider.label.lowercased())", dim: true)
         } else {
             MonoText("not connected", dim: true)
@@ -68,7 +71,7 @@ struct PullsView: View {
     private func presentTokenSheet() {
         tokenDraft = ""
         tokenError = nil
-        tokenSheetHost = viewModel.pullRequestsHost
+        tokenSheetHost = store.host
     }
 
     private func saveToken(for host: RemoteHost) {
@@ -77,14 +80,14 @@ struct PullsView: View {
             tokenError = error
         } else {
             tokenSheetHost = nil
-            Task { await viewModel.loadPullRequests(force: true) }
+            Task { await store.load(force: true) }
         }
     }
 }
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    PullsView(viewModel: .previewWithPullRequests)
+    PullsView(store: .previewWithPullRequests, integrateLocally: { .clean })
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -92,13 +95,13 @@ struct PullsView: View {
 
 #Preview("Loading") {
     @Previewable @State var theme = AppTheme()
-    let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.previewWithPullRequests
-        v.pullRequests = []
-        v.pullRequestsLoading = true
-        return v
+    let store: PullRequestStore = {
+        let s = PullRequestStore.previewWithPullRequests
+        s.items = []
+        s.isLoading = true
+        return s
     }()
-    PullsView(viewModel: vm)
+    PullsView(store: store, integrateLocally: { .clean })
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -106,13 +109,13 @@ struct PullsView: View {
 
 #Preview("Token missing") {
     @Previewable @State var theme = AppTheme()
-    let vm: RepositoryViewModel = {
-        let v = RepositoryViewModel.preview
-        v.pullRequestsHost = .previewGitLab
-        v.pullRequestsRequiresToken = true
-        return v
+    let store: PullRequestStore = {
+        let s = PullRequestStore.preview
+        s.host = .previewGitLab
+        s.requiresToken = true
+        return s
     }()
-    PullsView(viewModel: vm)
+    PullsView(store: store, integrateLocally: { .clean })
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import gitForge
 
-@Suite("RepositoryViewModel — pull request detail state", .serialized)
+@Suite("PullRequestStore — detail state", .serialized)
 @MainActor
 struct RepositoryViewModelPullDetailTests {
 
@@ -27,53 +27,53 @@ struct RepositoryViewModelPullDetailTests {
         )
     }
 
-    @Test("selectPullRequest clears prior detail state and bumps the gen-token")
+    @Test("select clears prior detail state and bumps the gen-token")
     func selectClearsAndBumps() {
         let vm = Self.makeVM()
         // Pre-seed detail state from a previous PR.
-        vm.pullRequestDetail = nil
-        vm.pullRequestCommits = []
-        vm.pullRequestFiles = []
-        vm.pullRequestDetailError = "stale error"
-        let beforeGen = vm.pullRequestDetailGen
+        vm.pullRequests.detail = nil
+        vm.pullRequests.commits = []
+        vm.pullRequests.files = []
+        vm.pullRequests.detailError = "stale error"
+        let beforeGen = vm.pullRequests.detailGen
 
-        vm.selectPullRequest(Self.pr(42))
+        vm.pullRequests.select(Self.pr(42))
 
-        #expect(vm.selectedPullRequest?.number == 42)
-        #expect(vm.pullRequestDetail == nil)
-        #expect(vm.pullRequestCommits.isEmpty)
-        #expect(vm.pullRequestFiles.isEmpty)
-        #expect(vm.pullRequestDetailError == nil)
-        #expect(vm.pullRequestDetailGen == beforeGen &+ 1)
+        #expect(vm.pullRequests.selected?.number == 42)
+        #expect(vm.pullRequests.detail == nil)
+        #expect(vm.pullRequests.commits.isEmpty)
+        #expect(vm.pullRequests.files.isEmpty)
+        #expect(vm.pullRequests.detailError == nil)
+        #expect(vm.pullRequests.detailGen == beforeGen &+ 1)
     }
 
-    @Test("closePullRequestDetail clears state and bumps the gen-token")
+    @Test("closeDetail clears state and bumps the gen-token")
     func closeClearsAndBumps() {
         let vm = Self.makeVM()
-        vm.selectedPullRequest = Self.pr(42)
-        vm.pullRequestDetailError = "old"
-        let beforeGen = vm.pullRequestDetailGen
+        vm.pullRequests.selected = Self.pr(42)
+        vm.pullRequests.detailError = "old"
+        let beforeGen = vm.pullRequests.detailGen
 
-        vm.closePullRequestDetail()
+        vm.pullRequests.closeDetail()
 
-        #expect(vm.selectedPullRequest == nil)
-        #expect(vm.pullRequestDetail == nil)
-        #expect(vm.pullRequestCommits.isEmpty)
-        #expect(vm.pullRequestFiles.isEmpty)
-        #expect(vm.pullRequestDetailError == nil)
-        #expect(vm.pullRequestDetailGen == beforeGen &+ 1)
+        #expect(vm.pullRequests.selected == nil)
+        #expect(vm.pullRequests.detail == nil)
+        #expect(vm.pullRequests.commits.isEmpty)
+        #expect(vm.pullRequests.files.isEmpty)
+        #expect(vm.pullRequests.detailError == nil)
+        #expect(vm.pullRequests.detailGen == beforeGen &+ 1)
     }
 
-    @Test("loadPullRequestDetail short-circuits when no PR is selected")
+    @Test("loadDetail short-circuits when no PR is selected")
     func loadDetailNoPR() async {
         let vm = Self.makeVM()
         // Bump once to detect the early-return: the function bumps the token
         // before it can short-circuit on the missing PR.
-        let beforeGen = vm.pullRequestDetailGen
-        await vm.loadPullRequestDetail()
-        #expect(vm.pullRequestDetailGen == beforeGen &+ 1)
-        #expect(vm.pullRequestDetail == nil)
-        #expect(vm.pullRequestDetailError == nil)
+        let beforeGen = vm.pullRequests.detailGen
+        await vm.pullRequests.loadDetail()
+        #expect(vm.pullRequests.detailGen == beforeGen &+ 1)
+        #expect(vm.pullRequests.detail == nil)
+        #expect(vm.pullRequests.detailError == nil)
     }
 }
 
@@ -109,8 +109,8 @@ struct RepositoryViewModelPullMergeGuardsTests {
     @Test("attemptLocalMergeForPullRequest fails when another local merge is already running")
     func failsWhenAlreadyRunning() async {
         let vm = Self.makeVM()
-        vm.selectedPullRequest = Self.pr()
-        vm.pullRequestLocalMergeRunning = true
+        vm.pullRequests.selected = Self.pr()
+        vm.pullRequests.localMergeRunning = true
         let outcome = await vm.attemptLocalMergeForPullRequest()
         guard case .failed(let message) = outcome else {
             Issue.record("Expected .failed, got \(outcome)")
@@ -122,7 +122,7 @@ struct RepositoryViewModelPullMergeGuardsTests {
     @Test("attemptLocalMergeForPullRequest fails when a merge or rebase is in progress")
     func failsWhenMergeInProgress() async {
         let vm = Self.makeVM()
-        vm.selectedPullRequest = Self.pr()
+        vm.pullRequests.selected = Self.pr()
         vm.mergeState = .merging
         let outcome = await vm.attemptLocalMergeForPullRequest()
         guard case .failed(let message) = outcome else {
@@ -130,14 +130,14 @@ struct RepositoryViewModelPullMergeGuardsTests {
             return
         }
         #expect(message.contains("merge or rebase"))
-        // Guard ran before pullRequestLocalMergeRunning was flipped.
-        #expect(vm.pullRequestLocalMergeRunning == false)
+        // Guard ran before localMergeRunning was flipped.
+        #expect(vm.pullRequests.localMergeRunning == false)
     }
 
     @Test("attemptLocalMergeForPullRequest fails when working tree is dirty")
     func failsWhenDirty() async {
         let vm = Self.makeVM()
-        vm.selectedPullRequest = Self.pr()
+        vm.pullRequests.selected = Self.pr()
         let dirty = WorkingCopyFile(
             path: "README.md",
             stagedStatus: .unmodified,
@@ -151,11 +151,11 @@ struct RepositoryViewModelPullMergeGuardsTests {
             return
         }
         #expect(message.contains("uncommitted"))
-        #expect(vm.pullRequestLocalMergeRunning == false)
+        #expect(vm.pullRequests.localMergeRunning == false)
     }
 }
 
-@Suite("RepositoryViewModel — pull request list throttle", .serialized)
+@Suite("PullRequestStore — list throttle", .serialized)
 @MainActor
 struct RepositoryViewModelPullListTests {
 
@@ -164,25 +164,47 @@ struct RepositoryViewModelPullListTests {
         return RepositoryViewModel(repository: Repository(url: url))
     }
 
-    @Test("loadPullRequests short-circuits inside the 30s throttle window when not forced")
+    @Test("load short-circuits inside the 30s throttle window when not forced")
     func throttlesUnforced() async {
         let vm = Self.makeVM()
-        vm.pullRequestsLastLoadedAt = .now
+        vm.pullRequests.lastLoadedAt = .now
         // Pre-seed an error so we can detect that the function bailed before
-        // touching anything (it would clear `pullRequestsError` on entry).
-        vm.pullRequestsError = "sentinel"
-        await vm.loadPullRequests()
-        #expect(vm.pullRequestsError == "sentinel")
-        #expect(vm.pullRequestsLoading == false)
+        // touching anything (it would clear `error` on entry).
+        vm.pullRequests.error = "sentinel"
+        await vm.pullRequests.load()
+        #expect(vm.pullRequests.error == "sentinel")
+        #expect(vm.pullRequests.isLoading == false)
     }
 
-    @Test("loadPullRequests is a no-op when another load is already in flight")
+    @Test("load is a no-op when another load is already in flight")
     func noOpWhenAlreadyLoading() async {
         let vm = Self.makeVM()
-        vm.pullRequestsLoading = true
-        vm.pullRequestsError = "sentinel"
-        await vm.loadPullRequests(force: true)
-        #expect(vm.pullRequestsError == "sentinel")
-        #expect(vm.pullRequestsLoading == true)
+        vm.pullRequests.isLoading = true
+        vm.pullRequests.error = "sentinel"
+        await vm.pullRequests.load(force: true)
+        #expect(vm.pullRequests.error == "sentinel")
+        #expect(vm.pullRequests.isLoading == true)
+    }
+
+    @Test("closeDetail clears the loading flag of the invalidated load")
+    func closeClearsLoadingFlag() {
+        let vm = Self.makeVM()
+        vm.pullRequests.isLoadingDetail = true
+        vm.pullRequests.closeDetail()
+        #expect(vm.pullRequests.isLoadingDetail == false)
+    }
+
+    @Test("reset drops list and detail state")
+    func resetDropsEverything() {
+        let vm = Self.makeVM()
+        vm.pullRequests.items = PullRequest.previewSamples
+        vm.pullRequests.host = .previewGitHub
+        vm.pullRequests.requiresToken = true
+        vm.pullRequests.lastLoadedAt = .now
+        vm.pullRequests.reset()
+        #expect(vm.pullRequests.items.isEmpty)
+        #expect(vm.pullRequests.host == nil)
+        #expect(vm.pullRequests.requiresToken == false)
+        #expect(vm.pullRequests.lastLoadedAt == nil)
     }
 }
