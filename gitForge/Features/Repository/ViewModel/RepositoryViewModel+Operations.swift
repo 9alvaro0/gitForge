@@ -18,7 +18,7 @@ extension RepositoryViewModel {
             await refreshAfterIntegration()
             // cherry-pick may pause without setting MERGE_HEAD; check both
             // `mergeState` and unmerged paths so the resolver still opens.
-            if mergeState.isInProgress || !conflictFiles.isEmpty {
+            if mergeState.isInProgress || !conflicts.files.isEmpty {
                 return .conflicts
             }
             let message = error.userMessage
@@ -39,7 +39,7 @@ extension RepositoryViewModel {
             return .clean
         } catch {
             await refreshAfterIntegration()
-            if mergeState.isInProgress || !conflictFiles.isEmpty {
+            if mergeState.isInProgress || !conflicts.files.isEmpty {
                 return .conflicts
             }
             let message = error.userMessage

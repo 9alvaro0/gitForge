@@ -277,16 +277,12 @@ final class RepositoryViewModel {
 
     // MARK: Conflicts
     var mergeState: MergeState = .clean
-    var conflictFiles: [ConflictFile] = []
-    var conflictHunks: [ConflictHunk] = []
-    var selectedConflictPath: String?
-    var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
+    /// Resolver state: unmerged files, hunks of the selected one, picks.
+    let conflicts: ConflictStore
     /// SHA of the stash whose apply/pop left the tree `.unmerged`. Lets
     /// `abortStashApply()` undo exactly the paths that stash touched instead
     /// of resetting the whole tree. Cleared once the tree is clean again.
     var conflictedStashSha: String?
-    /// Counterpart to `commitFileDiffGen` for the conflict hunks pane.
-    var conflictHunksGen: UInt64 = 0
 
     // MARK: Identity
     /// `user.name` / `user.email` resolved for this repo (local override
@@ -332,6 +328,7 @@ final class RepositoryViewModel {
         self.cli = cli
         self.pullRequests = PullRequestStore(cli: cli)
         self.stashDetail = StashDetailStore(cli: cli)
+        self.conflicts = ConflictStore(repositoryURL: repository.url)
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -379,9 +376,7 @@ final class RepositoryViewModel {
         commitFileDiff = []
         workingCopyDiff = []
         stashDetail.close()
-        conflictFiles = []
-        conflictHunks = []
-        conflictPicks = [:]
+        conflicts.clear()
         pullRequests.reset()
         repoIdentity = nil
         upstream = nil

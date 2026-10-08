@@ -56,7 +56,7 @@ struct ConflictView: View {
                     ToolButton(.check,
                                label: "Continue \(operationLabel)",
                                primary: true,
-                               disabled: !viewModel.conflictFiles.allSatisfy(\.resolved)) {
+                               disabled: !viewModel.conflicts.files.allSatisfy(\.resolved)) {
                         Task { await viewModel.continueMerge() }
                     }
                 }

@@ -106,7 +106,7 @@ extension RepositoryViewModel {
         }()
         // Force-with-lease compares against the local remote-tracking ref. If
         // the user never fetched, that ref can be days old and the "safe
-        // force" silently pisas commits a collaborator pushed in the
+        // force" silently overwrites commits a collaborator pushed in the
         // meantime. Refresh the remote ref first so the lease has real teeth.
         // We fail silently on the fetch — git will reject the push if
         // anything's wrong with the remote anyway.
