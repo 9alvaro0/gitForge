@@ -13,7 +13,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
 | A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
-| A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Pendiente |
+| A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Pendiente |
 | A08 | Accesibilidad y HIG de macOS | Pendiente |
 | A09 | Tests (huecos de cobertura, aislamiento, fiabilidad) | Pendiente |
@@ -25,13 +25,11 @@ Cosas detectadas de pasada que pertenecen a otra auditoría. Se mueven a su entr
 
 | Origen | Para | Hallazgo | Ubicación |
 |--------|------|----------|-----------|
-| A02 | A06 | La caché de `DiffSyntaxHighlighter` no tiene límite (crece con cada hunk visto en la sesión) y usa `hashValue` como clave (colisiones = resaltado erróneo). | `gitForge/Core/Git/DiffSyntaxHighlighter.swift` |
 | A02 | A02-bis | `stage`/`unstage`/`discard` pasan todas las rutas por argv: con decenas de miles de ficheros se puede superar `ARG_MAX` (1 MB). Solución: `--pathspec-from-file=- --pathspec-file-nul` por stdin. | `GitCLI+Stage.swift` |
 | A02 | A02-bis | `DiffParser` descuadra los números de línea si el usuario tiene `diff.suppressBlankEmpty=true` (líneas de contexto vacías sin espacio). Parsear por recuento de líneas del hunk. | `DiffParser.swift` |
 | A02 | A02-bis | Valores raros de config no contemplados: `pull.rebase=merges/interactive` se muestra como "merge"; `setLocalIdentity` no protege valores que empiezan por `-`. | `GitGlobalConfig.swift`, `GitCLI+Identity.swift` |
 | A02 | A10 | El README anuncia "staging by file or by hunk", pero el staging por hunk no existe en el código. | `README.md` |
 | A03 | A02-bis | No se pudo reproducir el motivo del commit 254f238 para quitar `--no-optional-locks` ("falsos M"): git compara contenido en memoria y da el mismo resultado sin el lock. Revisar si vuelve a haber contención con `index.lock` en el repo activo. | `GitCLI+Status.swift` |
-| A03 | A06 | `NSWindow.didBecomeKeyNotification` de *cualquier* ventana (sheets, alertas, Settings) fuerza un refresh completo. | `gitForgeApp.swift` |
 | A04 | A07 | Tokens de diseño sin uso (`fastDuration`, `standardDuration`, `slowDuration`, `chromeRadius`) y vistas casi gemelas sin componente común: cabecera, tabs, lista de ficheros y secciones de los detalles de stash y de PR, y el bloque de onboarding repetido en `GitNotFoundView`/`GitStep`. | `Tokens.swift`, `Stashes/`, `Pulls/`, `Onboarding/` |
 | A01 | A09 | `ProfileStoreSchemaTests` lee y escribe el `UserDefaults.standard` real de la app (el test host es la propia app) y barre todas las claves de cuarentena, incluidas las del usuario. Debería usar una suite inyectada. | `gitForgeTests/App/State/ProfileStoreSchemaTests.swift` |
 
@@ -272,3 +270,41 @@ Resultado: **359/359**, 0 warnings, 2 ejecuciones seguidas en verde. La app arra
 
 - Textual: confirmado en su código fuente que los enlaces de `StructuredText` pasan por el `openURL` del entorno (`TextLinkInteraction`), así que el filtro de `MarkdownView` tiene efecto.
 - **Pendiente (manual):** prueba contra un GitLab con certificado propio. Confiar (ver la huella), recargar PRs y, si se puede, cambiar el certificado del servidor para comprobar que se rechaza.
+
+---
+
+## A06 — Rendimiento de UI
+
+**Fecha:** 2026-10-08
+**Alcance:** tabla de historial y grafo, formateo por fila, coloreado de diffs, listas de ramas y tags, disparadores de refresco, contenedores lazy. Análisis por lectura de código (coste por render y por fila); sin perfilado con Instruments.
+
+### Hallazgo estructural
+
+`CommitGraphTable` y otras vistas reciben closures. SwiftUI no puede compararlos, así que su `body` se reevalúa cada vez que se reevalúa el padre: en History, cada refresco de status del watcher y cada diff cargado. Por eso el coste por render de la tabla importa aunque nada visible cambie. Este patrón conviene tenerlo en cuenta en el rediseño (pasar datos en vez de closures donde se pueda, o envolver en vistas `Equatable`).
+
+### Hallazgos y acciones
+
+| # | Impacto | Hallazgo | Acción |
+|---|---------|----------|--------|
+| 1 | Alto | **O(filas visibles × commits) en cada render de History**: `maxLanes` recorría todos los layouts y se evaluaba (a través de `graphGutterWidth`/`dynamicGraphMin`) para cada fila que SwiftUI construía. Con 50.000 commits y unas 40 filas, del orden de 2 millones de operaciones por render. | La tabla recibe `graphMaxLanes`, que el VM ya calcula una vez por pasada de layout. Los anchos derivados se resuelven una vez por render. |
+| 2 | Alto | **Un `RelativeDateTimeFormatter` nuevo por llamada** (carga datos de ICU y locale) en el modo por defecto, es decir, por fila visible y por render en History, Branches y PRs. | Formatter compartido, como ya lo era el absoluto. |
+| 3 | Medio | **Coloreado de diffs sin límites**: tokenizaba todos los hunks en JavaScriptCore antes de mostrar nada, sin tope de tamaño (lockfiles y ficheros generados). La caché crecía con cada hunk visto en la sesión y usaba `hashValue` como clave, con riesgo de colisión (diferido de A02). | Sin coloreado por encima de 5.000 líneas. Publicación por tandas de unas 300 líneas. Caché `LRUCache` (nuevo, genérico y testeado) con tope de 400 hunks y el contenido como clave. |
+| 4 | Medio (visual) | Al cambiar de fichero, el diff nuevo podía mostrar durante un instante el **texto coloreado del fichero anterior**: los ids de hunk y de línea se repiten entre ficheros y el mapa anterior seguía vivo hasta terminar de tokenizar el nuevo. | El mapa se limpia al empezar a tokenizar. |
+| 5 | Medio | **Ramas y tags se filtraban y ordenaban en cada acceso**, y la vista las lee varias veces por render, en cada pulsación del filtro. | Listas precalculadas en `refs.didSet`, igual que `refsBySha`. |
+| 6 | Bajo | **Refresco completo cada vez que una ventana se volvía key**, también sheets, alertas y paneles (diferido de A03). | Se ignoran `NSPanel` y sheets. Queda un refresco al volver a la ventana principal tras cerrar un sheet, que es el comportamiento esperado. |
+| 7 | Bajo | **Código muerto de "reveal commit"**: `revealCommit`, `scrollTargetSha` e `isRevealingCommit` no tenían llamadores y ninguna vista hacía scroll al objetivo. Restos de una función eliminada; el escaneo de A04 no los vio porque los tests los mantenían referenciados. | Eliminados junto con sus tests. La paginación vuelve a un único guard (`isLoadingMore`). |
+
+### Revisado sin cambios
+
+- Diffs: ya usan `LazyVStack` por fuera con hunks eager por dentro.
+- Grafo: un `Canvas` por fila, con el layout calculado fuera del main actor (`recomputeGraph`).
+- Listas con `ScrollView` sin lazy (sidebar, paleta, overview de PR, hunks de conflicto): acotadas (la paleta muestra 16 como máximo).
+- `Array(commits.enumerated())` en el `ForEach` del historial: es una copia O(n) por render, pero cambiar la identidad por índice rompería la estabilidad de las filas. Mejora posible en el rediseño: filas precalculadas en el almacén de historial (A04-bis).
+
+### Tests
+
+Nuevos: `LRUCacheTests` (expulsión del menos usado, reinserción) y listas derivadas de refs (orden y separación por tipo). Eliminados los dos tests de `revealCommit`. Resultado: **360/360**, 0 warnings, 2 ejecuciones seguidas en verde. La app queda en reposo al 0 %.
+
+### Recomendación
+
+Hacer una pasada con Instruments (SwiftUI + Time Profiler) sobre un repo grande (por ejemplo, el kernel de Linux o uno de 50.000+ commits) antes del rediseño, para medir con datos y no solo por lectura.

@@ -29,7 +29,6 @@ struct RepositoryViewModelConcurrencyTests {
         _ = await (page, reload)
 
         #expect(!vm.isLoadingMore)
-        #expect(!vm.isPaginating)
         #expect(vm.commits.count == 3)
     }
 
