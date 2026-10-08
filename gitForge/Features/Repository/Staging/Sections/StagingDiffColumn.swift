@@ -33,7 +33,7 @@ struct StagingDiffColumn: View {
 
     private func openInEditor(file: WorkingCopyFile) {
         let absolute = viewModel.repository.url.appendingPathComponent(file.path)
-        NSWorkspace.shared.open(absolute)
+        ExternalURL.openFile(absolute)
     }
 }
 

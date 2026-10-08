@@ -80,7 +80,7 @@ struct StagingRow: View {
         }
         Divider()
         Button("Open in editor") {
-            NSWorkspace.shared.open(absoluteURL)
+            ExternalURL.openFile(absoluteURL)
         }
         Button("Reveal in Finder") {
             NSWorkspace.shared.activateFileViewerSelecting([absoluteURL])
