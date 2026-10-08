@@ -8,7 +8,7 @@ import os
 /// Stored in `UserDefaults` so it survives launches without depending on
 /// Keychain or extra config files. Keys are normalized to lowercase to
 /// match what `RemoteHost` produces.
-struct RemoteHostTrust: Sendable {
+nonisolated struct RemoteHostTrust: Sendable {
     static let shared = RemoteHostTrust()
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "trust")
     private let key = "com.warwarelabs.gitForge.trustedHosts"

@@ -13,7 +13,7 @@ import Foundation
 /// slot for unrelated branches that come and go.
 ///
 /// Pass 3 emits the renderer-friendly `GraphRowLayout` per commit.
-enum GraphLayoutEngine {
+nonisolated enum GraphLayoutEngine {
     private struct LogicalLane {
         let id: Int
         let branchId: Int
@@ -330,7 +330,7 @@ enum GraphLayoutEngine {
 private extension Array where Element == GitRef {
     /// Pick the most "interesting" ref to derive a graph color from.
     /// HEAD-tagged > local branch > remote branch > tag.
-    func preferredForGraph() -> GitRef? {
+    nonisolated func preferredForGraph() -> GitRef? {
         if let head = first(where: { $0.isHead }) { return head }
         if let local = first(where: { $0.isLocalBranch }) { return local }
         if let remote = first(where: { $0.isRemoteBranch }) { return remote }
