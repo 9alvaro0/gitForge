@@ -78,6 +78,11 @@ enum DesignTokens {
         static let spin: Animation = .linear(duration: 0.9).repeatForever(autoreverses: false)
     }
 
+    /// Keyboard / VoiceOver resize increment for the drag handles.
+    enum Resize {
+        static let step: CGFloat = 20
+    }
+
     /// Standard heights for interactive controls (buttons, text fields,
     /// toolbar pills, list rows that don't follow `Density.rowHeight`).
     enum Control {

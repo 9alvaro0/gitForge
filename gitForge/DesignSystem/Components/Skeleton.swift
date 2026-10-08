@@ -11,16 +11,24 @@ import SwiftUI
 struct SkeletonModifier: ViewModifier {
     let isActive: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func body(content: Content) -> some View {
         if isActive {
             content
                 .redacted(reason: .placeholder)
                 .allowsHitTesting(false)
-                .phaseAnimator([0.45, 1.0]) { view, phase in
+                // With Reduce Motion the placeholder holds still at the
+                // middle of its pulse instead of breathing forever.
+                .phaseAnimator(reduceMotion ? [0.7] : [0.45, 1.0]) { view, phase in
                     view.opacity(phase)
                 } animation: { _ in
                     DesignTokens.Motion.slow
                 }
+                // The placeholder is built from realistic *fake* rows; without
+                // this VoiceOver reads the dummy text as if it were content.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Loading")
                 .transition(.opacity)
         } else {
             content

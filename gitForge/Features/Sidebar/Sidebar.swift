@@ -16,6 +16,8 @@ struct Sidebar: View {
     let conflictsBadge: Int
     let identity: GitIdentity
     let scopeTag: SidebarUserCard.ScopeTag
+    /// Network reachability for the user card's status dot.
+    var online: Bool = true
     let profiles: [GitProfile]
     let activeProfileId: GitProfile.ID?
     let canResetIdentityToGlobal: Bool
@@ -55,6 +57,8 @@ struct Sidebar: View {
                         .buttonStyle(.plain)
                         .fixedSize()
                         .help("Add repository")
+                        // `.help` is only a tooltip; VoiceOver needs a label.
+                        .accessibilityLabel("Add repository")
                     }
                     VStack(spacing: DesignTokens.Spacing.hairline) {
                         ForEach(repositories) { repo in
@@ -109,7 +113,7 @@ struct Sidebar: View {
             SidebarUserCard(
                 identity: identity,
                 scopeTag: scopeTag,
-                online: true,
+                online: online,
                 profiles: profiles,
                 activeProfileId: activeProfileId,
                 canResetToGlobal: canResetIdentityToGlobal,

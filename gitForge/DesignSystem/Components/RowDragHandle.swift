@@ -42,6 +42,19 @@ struct RowDragHandle: View {
                     }
             )
             .pointerStyle(.rowResize)
+            // Dragging is mouse-only; VoiceOver users resize with the
+            // adjustable action (VO-↑ / VO-↓) instead.
+            .accessibilityElement()
+            .accessibilityLabel("Resize pane")
+            .accessibilityValue("\(Int(height)) points")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: height = min(height + DesignTokens.Resize.step, maxHeight)
+                case .decrement: height = max(height - DesignTokens.Resize.step, minHeight)
+                @unknown default: return
+                }
+                onCommit()
+            }
     }
 }
 

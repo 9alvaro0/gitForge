@@ -73,6 +73,7 @@ struct ToolButton<Icon: View>: View {
     }
 
     private var accessibilityValue: String {
+        if loading { return "In progress" }
         if let badge, badge > 0 {
             return "\(badge)"
         }
@@ -122,6 +123,7 @@ struct SpinnerGlyph: View {
     var lineWidth: CGFloat = 1.6
 
     @State private var rotation: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -130,10 +132,14 @@ struct SpinnerGlyph: View {
             .frame(width: size, height: size)
             .rotationEffect(.degrees(rotation))
             .onAppear {
+                // Reduce Motion: a still arc; the host's label / state still
+                // says something is in progress.
+                guard !reduceMotion else { return }
                 withAnimation(DesignTokens.Motion.spin) {
                     rotation = 360
                 }
             }
+            .accessibilityHidden(true)
     }
 }
 

@@ -90,6 +90,9 @@ struct SidebarUserCard: View {
             Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
                 .frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
                 .overlay(Circle().stroke(theme.palette.bg3, lineWidth: DesignTokens.Stroke.thick))
+                // Colour alone doesn't reach VoiceOver (or colour-blind users).
+                .accessibilityLabel(online ? "Online" : "Offline")
+                .help(online ? "Online" : "Offline")
         }
         .padding(.horizontal, DesignTokens.Spacing.lg)
         .padding(.vertical, DesignTokens.Spacing.md)
