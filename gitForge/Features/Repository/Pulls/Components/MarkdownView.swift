@@ -18,6 +18,11 @@ struct MarkdownView: View {
             .tint(theme.palette.accent)
             .textual.textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // PR descriptions are written by anyone who can open a PR: only
+            // web and mail links may leave the app (see `ExternalURL`).
+            .environment(\.openURL, OpenURLAction { url in
+                ExternalURL.isSafeWebURL(url) ? .systemAction : .discarded
+            })
     }
 }
 

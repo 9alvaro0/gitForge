@@ -28,7 +28,7 @@ struct CIPill: View {
         .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
 
         if let url = ci.webURL {
-            Button { NSWorkspace.shared.open(url) } label: {
+            Button { ExternalURL.open(url) } label: {
                 content.contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
             }
             .buttonStyle(.plain)
