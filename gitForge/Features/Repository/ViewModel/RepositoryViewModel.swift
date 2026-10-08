@@ -315,6 +315,10 @@ final class RepositoryViewModel {
     var conflictHunks: [ConflictHunk] = []
     var selectedConflictPath: String?
     var conflictPicks: [UUID: ConflictHunk.Pick] = [:]
+    /// SHA of the stash whose apply/pop left the tree `.unmerged`. Lets
+    /// `abortStashApply()` undo exactly the paths that stash touched instead
+    /// of resetting the whole tree. Cleared once the tree is clean again.
+    var conflictedStashSha: String?
     /// Counterpart to `commitFileDiffGen` for the conflict hunks pane.
     var conflictHunksGen: UInt64 = 0
 

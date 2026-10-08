@@ -61,6 +61,33 @@ struct RemoteFailureCategorizationTests {
         #expect(RemoteFailure(stderr: "fatal: unable to access ...: Connection refused") == .network)
     }
 
+    @Test("SSH connectivity errors are .network, not SSH auth")
+    func sshOffline() {
+        let offline = """
+        ssh: Could not resolve hostname github.com: nodename nor servname provided, or not known
+        fatal: Could not read from remote repository.
+        """
+        #expect(RemoteFailure(stderr: offline) == .network)
+        #expect(RemoteFailure(stderr: "ssh: connect to host github.com port 22: Connection refused") == .network)
+        #expect(RemoteFailure(stderr: "ssh: connect to host github.com port 22: Operation timed out") == .network)
+    }
+
+    @Test("Host key verification failure is SSH")
+    func hostKeyVerification() {
+        #expect(RemoteFailure(stderr: "Host key verification failed.\nfatal: Could not read from remote repository.") == .authenticationSSH)
+    }
+
+    @Test("A bare 401 inside unrelated output is not an auth failure")
+    func bare401IsNotAuth() {
+        let stderr = "error: cannot lock ref 'refs/heads/x': is at 401af3c but expected 9b2e110"
+        #expect(RemoteFailure(stderr: stderr) != .authenticationHTTPS)
+    }
+
+    @Test("HTTP 403 without the reason phrase is HTTPS auth")
+    func plain403() {
+        #expect(RemoteFailure(stderr: "fatal: unable to access ...: The requested URL returned error: 403") == .authenticationHTTPS)
+    }
+
     @Test("Non-fast-forward (without protected-branch markers) still categorised as .nonFastForward")
     func nonFastForward() {
         let stderr = """

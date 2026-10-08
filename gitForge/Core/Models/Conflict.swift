@@ -13,6 +13,9 @@ nonisolated struct ConflictHunk: Identifiable, Hashable, Sendable {
     var ours: [String]
     var base: [String]
     var theirs: [String]
+    /// The marker lines exactly as they appeared on disk (labels and CRLF
+    /// endings included), so a hunk left unresolved is written back verbatim.
+    var markers = ConflictMarkers()
 
     /// Lines that would be written to disk for the given pick. `.both`
     /// concatenates ours then theirs — there is no native git equivalent so
@@ -24,4 +27,11 @@ nonisolated struct ConflictHunk: Identifiable, Hashable, Sendable {
         case .both:   return ours + theirs
         }
     }
+}
+
+nonisolated struct ConflictMarkers: Hashable, Sendable {
+    var ours = "<<<<<<< HEAD"
+    var base = "|||||||"
+    var separator = "======="
+    var theirs = ">>>>>>> branch"
 }

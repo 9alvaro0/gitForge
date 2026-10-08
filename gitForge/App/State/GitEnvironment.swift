@@ -27,6 +27,15 @@ final class GitEnvironment {
         gitStatus = isAvailable ? .available : .notFound
     }
 
+    /// Opens Apple's Command Line Tools installer (`xcode-select --install`)
+    /// and re-probes git once that command returns. The installer UI runs
+    /// out of process, so the probe may still report `.notFound` until the
+    /// user finishes it.
+    func installCommandLineTools() async {
+        _ = await GitProcess.runTool("/usr/bin/xcode-select", arguments: ["--install"])
+        await refreshGitInstallation()
+    }
+
     /// Re-reads `git config --global` into `globalConfig`.
     func refreshGlobalConfig() async {
         globalConfig = await configReader.read()

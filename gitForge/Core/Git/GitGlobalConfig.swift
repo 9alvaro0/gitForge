@@ -111,7 +111,8 @@ actor GitGlobalConfigReader {
 
     private func get(_ key: String) async -> String? {
         do {
-            let result = try await runGlobal(["config", "--global", "--get", key], allowFailure: true)
+            // Exit 1 = key not set; anything else is logged by `runGlobal`.
+            let result = try await runGlobal(["config", "--global", "--get", key], allowedExitCodes: [0, 1])
             let value = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             return value.isEmpty ? nil : value
         } catch {
@@ -120,43 +121,41 @@ actor GitGlobalConfigReader {
     }
 
     private func set(_ key: String, value: String) async throws {
-        _ = try await runGlobal(["config", "--global", key, value], allowFailure: false)
+        _ = try await runGlobal(["config", "--global", key, value])
     }
 
-    /// Best-effort `git config --unset`. Exit code 5 means "the key wasn't
-    /// there to begin with" — we treat that as success.
+    /// `git config --unset`. Exit code 5 means "the key wasn't there to
+    /// begin with" — the desired post-state, so it counts as success. Any
+    /// other failure (locked or unwritable `~/.gitconfig`) throws instead of
+    /// pretending the setting was cleared.
     private func unset(_ key: String) async throws {
-        _ = try await runGlobal(["config", "--global", "--unset", key], allowFailure: true)
+        _ = try await runGlobal(["config", "--global", "--unset", key], allowedExitCodes: [0, 5])
     }
 
     /// `git config --global` works against `$HOME`, not the cwd, but Process
     /// still needs an existing working directory. Use the user's home.
-    private func runGlobal(_ args: [String], allowFailure: Bool) async throws -> GitResult {
-        let process = Process()
+    private func runGlobal(_ args: [String], allowedExitCodes: Set<Int32> = [0]) async throws -> GitResult {
+        let process = GitProcess.make(arguments: args,
+                                      workingDirectory: URL(fileURLWithPath: NSHomeDirectory()))
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + args
-        process.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory())
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        let exit: ProcessExit
         do {
-            try process.run()
+            exit = try GitProcess.start(process)
         } catch {
             throw GitError.launchFailed(error.localizedDescription)
         }
 
-        async let stdoutData: Data = readToEnd(stdoutPipe.fileHandleForReading)
-        async let stderrData: Data = readToEnd(stderrPipe.fileHandleForReading)
-        async let exitWait: Void = waitForExit(process)
+        async let stdoutData: Data = GitProcess.readToEnd(stdoutPipe.fileHandleForReading)
+        async let stderrData: Data = GitProcess.readToEnd(stderrPipe.fileHandleForReading)
+        async let exitWait: Void = exit.wait()
 
-        let stdoutBytes = await stdoutData
-        let stderrBytes = await stderrData
+        let stdout = GitProcess.decode(await stdoutData)
+        let stderr = GitProcess.decode(await stderrData)
         _ = await exitWait
-
-        let stdout = String(data: stdoutBytes, encoding: .utf8) ?? ""
-        let stderr = String(data: stderrBytes, encoding: .utf8) ?? ""
 
         let result = GitResult(
             stdout: stdout,
@@ -165,17 +164,10 @@ actor GitGlobalConfigReader {
             duration: 0
         )
 
-        if !result.isSuccess && !allowFailure {
+        guard allowedExitCodes.contains(result.exitCode) else {
+            Self.logger.error("git \(args.joined(separator: " "), privacy: .public) exited \(result.exitCode): \(stderr, privacy: .public)")
             throw GitError.commandFailed(args: args, exitCode: result.exitCode, stderr: stderr)
         }
         return result
-    }
-
-    private func readToEnd(_ handle: FileHandle) async -> Data {
-        await Task.detached { (try? handle.readToEnd()) ?? Data() }.value
-    }
-
-    private func waitForExit(_ process: Process) async {
-        await Task.detached { process.waitUntilExit() }.value
     }
 }
