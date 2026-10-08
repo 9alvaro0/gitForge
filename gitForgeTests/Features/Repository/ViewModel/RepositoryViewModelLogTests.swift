@@ -90,25 +90,4 @@ struct RepositoryViewModelLogHelperTests {
         await vm.loadMoreIfNeeded(currentItem: Self.commit("aaa"))
         #expect(vm.logGen == beforeGen)
     }
-
-    @Test("revealCommit fast-paths when the sha is already in commitsById")
-    func revealCommitFastPath() async {
-        let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa"), Self.commit("bbb")]
-        let beforeGen = vm.logGen
-        await vm.revealCommit(sha: "bbb")
-        #expect(vm.scrollTargetSha == "bbb")
-        #expect(vm.logGen == beforeGen, "fast path shouldn't bump the token")
-    }
-
-    @Test("revealCommit short-circuits when sha is missing and hasMore is false")
-    func revealCommitNoOpWhenSearchExhausted() async {
-        let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa")]
-        vm.hasMore = false
-        let beforeGen = vm.logGen
-        await vm.revealCommit(sha: "missing")
-        #expect(vm.scrollTargetSha == nil)
-        #expect(vm.logGen == beforeGen)
-    }
 }

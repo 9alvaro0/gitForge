@@ -5,10 +5,6 @@ import os
 @Observable
 @MainActor
 final class RepositoryViewModel {
-    /// Hard cap on `revealCommit(...)` pagination — without it a stray ref
-    /// can quietly walk the entire history.
-    static let maxRevealPages = 10
-
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "repo-vm")
 
     let repository: Repository
@@ -120,8 +116,16 @@ final class RepositoryViewModel {
             // nothing changed to avoid chip re-paint storms during scroll.
             guard refs != oldValue else { return }
             refsBySha = Dictionary(grouping: refs) { $0.targetSha }
+            // Sorted once per refs change: the Branches view reads these
+            // several times per render, i.e. on every filter keystroke.
+            localBranches = refs.filter(\.isLocalBranch).sorted { $0.name < $1.name }
+            remoteBranches = refs.filter(\.isRemoteBranch).sorted { $0.name < $1.name }
+            tags = refs.filter(\.isTag).sorted { $0.name < $1.name }
         }
     }
+    private(set) var localBranches: [GitRef] = []
+    private(set) var remoteBranches: [GitRef] = []
+    private(set) var tags: [GitRef] = []
     /// Cached so chip cells don't regroup `refs` on every scroll tick.
     var refsBySha: [String: [GitRef]] = [:]
     var currentBranchName: String?
@@ -246,9 +250,6 @@ final class RepositoryViewModel {
     /// Counterpart to `commitFileDiffGen` for the working-copy diff pane.
     var workingCopyDiffGen: UInt64 = 0
 
-    // MARK: Navigation
-    var scrollTargetSha: String?
-    var isRevealingCommit = false
 
     // MARK: Remote
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
@@ -472,17 +473,5 @@ final class RepositoryViewModel {
     var selectedCommit: Commit? {
         guard let id = selectedCommitId else { return nil }
         return commitsById[id]
-    }
-
-    var localBranches: [GitRef] {
-        refs.filter(\.isLocalBranch).sorted { $0.name < $1.name }
-    }
-
-    var remoteBranches: [GitRef] {
-        refs.filter(\.isRemoteBranch).sorted { $0.name < $1.name }
-    }
-
-    var tags: [GitRef] {
-        refs.filter(\.isTag).sorted { $0.name < $1.name }
     }
 }

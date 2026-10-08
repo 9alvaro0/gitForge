@@ -140,6 +140,7 @@ struct HistoryView: View {
                     CommitGraphTable(
                         commits: viewModel.commits,
                         layouts: viewModel.graphLayouts,
+                        maxLanes: viewModel.graphMaxLanes,
                         refsBySha: viewModel.refsBySha,
                         currentBranch: viewModel.currentBranchName,
                         selectedSha: viewModel.selectedCommitId,
