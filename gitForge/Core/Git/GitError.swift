@@ -30,7 +30,7 @@ extension GitError: LocalizedError {
             let trimmed = GitCLI.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
             return "`\(command)` exited with code \(exitCode): \(trimmed)"
         case .busy:
-            return "Another remote operation is in progress."
+            return "Another operation is in progress."
         case .outputTooLarge(let consumed, let cap):
             let consumedMB = consumed / 1_048_576
             let capMB = cap / 1_048_576
