@@ -8,13 +8,14 @@ struct StashDetailView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
     @State private var tab: Tab = .overview
     @State private var dropTarget: Stash?
     @State private var diffModeOverride: DiffPane.ViewMode?
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
-            get: { diffModeOverride ?? theme.defaultDiffMode },
+            get: { diffModeOverride ?? preferences.defaultDiffMode },
             set: { diffModeOverride = $0 }
         )
     }
@@ -32,16 +33,16 @@ struct StashDetailView: View {
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            if let stash = viewModel.selectedStash {
+            if let stash = viewModel.stashDetail.selected {
                 StashDetailHeader(
                     stash: stash,
-                    onBack:  { viewModel.closeStashDetail() },
+                    onBack:  { viewModel.stashDetail.close() },
                     onApply: { Task { await runApply(stash, drop: false) } },
                     onPop:   { Task { await runApply(stash, drop: true)  } },
                     onDrop:  { dropTarget = stash }
                 )
             }
-            StashDetailTabBar(tab: $tab, loading: viewModel.stashDetailLoading)
+            StashDetailTabBar(tab: $tab, loading: viewModel.stashDetail.isLoading)
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -64,18 +65,18 @@ struct StashDetailView: View {
     @ViewBuilder
     private var content: some View {
         Group {
-            if let error = viewModel.stashDetailError, viewModel.stashDetail == nil {
+            if let error = viewModel.stashDetail.error, viewModel.stashDetail.detail == nil {
                 EmptyState(icon: .warn, title: "Couldn't load stash", subtitle: error) {
                     GFButton(title: "Retry", style: .primary) {
-                        Task { await viewModel.loadStashDetail() }
+                        Task { await viewModel.stashDetail.load() }
                     }
                 }
             } else {
                 switch tab {
                 case .overview:
-                    StashOverviewTab(detail: viewModel.stashDetail)
+                    StashOverviewTab(detail: viewModel.stashDetail.detail)
                 case .files:
-                    StashFilesTab(viewModel: viewModel, diffMode: diffMode)
+                    StashFilesTab(store: viewModel.stashDetail, diffMode: diffMode)
                 }
             }
         }
@@ -94,7 +95,7 @@ struct StashDetailView: View {
                 message: drop ? "Popped \(stash.reference)" : "Applied \(stash.reference)",
                 kind: .ok)
             // Pop removed the stash; close the detail to bounce back to the list.
-            if drop { viewModel.closeStashDetail() }
+            if drop { viewModel.stashDetail.close() }
         case .conflicts:
             appState.ui.activeToast = ToastMessage(
                 message: "Stash applied with conflicts — resolve to continue",
@@ -109,7 +110,7 @@ struct StashDetailView: View {
         switch await viewModel.dropStash(stash) {
         case .success:
             appState.ui.activeToast = ToastMessage(message: "Dropped \(stash.reference)", kind: .ok)
-            viewModel.closeStashDetail()
+            viewModel.stashDetail.close()
         case .failure(let err):
             appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
@@ -130,8 +131,8 @@ struct StashDetailView: View {
     @Previewable @State var theme = AppTheme()
     let vm: RepositoryViewModel = {
         let v = RepositoryViewModel.previewWithStashes
-        v.selectedStash = Stash.previewSamples.first
-        v.stashDetailLoading = true
+        v.stashDetail.selected = Stash.previewSamples.first
+        v.stashDetail.isLoading = true
         return v
     }()
     StashDetailView(viewModel: vm)

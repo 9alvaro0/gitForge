@@ -26,4 +26,29 @@ nonisolated enum DiffEmptyState: Sendable, Equatable {
     /// Pure rename / move with no content delta. The diff machinery returns
     /// metadata but no hunks; we surface it as such instead of "No changes".
     case renameOnly
+    /// Only the file mode changed (e.g. `chmod +x`): `100644` → `100755`.
+    case modeChange(from: String, to: String)
+    /// A submodule's recorded commit moved.
+    case submoduleUpdate(from: String, to: String)
+}
+
+nonisolated extension DiffEmptyState {
+    /// Explains why `raw` produced no hunks, so the pane can say "binary",
+    /// "renamed", "mode changed"… instead of a misleading "No changes".
+    /// Delegates to `DiffParser.parseSummary`; `GIT binary patch` (emitted
+    /// with `--binary`) is the one marker it doesn't cover.
+    static func classifying(raw: String) -> DiffEmptyState {
+        switch DiffParser.parseSummary(raw) {
+        case .binary:
+            return .binary
+        case .rename:
+            return .renameOnly
+        case .modeChange(let from, let to):
+            return .modeChange(from: from, to: to)
+        case .submoduleUpdate(_, let from, let to):
+            return .submoduleUpdate(from: from, to: to)
+        case nil:
+            return raw.contains("GIT binary patch") ? .binary : .empty
+        }
+    }
 }

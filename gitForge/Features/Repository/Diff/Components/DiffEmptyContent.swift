@@ -35,6 +35,10 @@ struct DiffEmptyContent: View {
                     "This file is untracked and isn't text — open it in an external app to inspect it.")
         case .renameOnly:
             return ("Renamed", "The file was moved without content changes.")
+        case .modeChange(let from, let to):
+            return ("File mode changed", "\(from) → \(to). The contents are unchanged.")
+        case .submoduleUpdate(let from, let to):
+            return ("Submodule updated", "\(from.prefix(7)) → \(to.prefix(7))")
         }
     }
 }
@@ -66,6 +70,14 @@ struct DiffEmptyContent: View {
 #Preview("Rename only") {
     @Previewable @State var theme = AppTheme()
     DiffEmptyContent(state: .renameOnly)
+        .frame(width: 520, height: 200)
+        .background(theme.palette.bg2)
+        .appTheme(theme)
+}
+
+#Preview("Mode change") {
+    @Previewable @State var theme = AppTheme()
+    DiffEmptyContent(state: .modeChange(from: "100644", to: "100755"))
         .frame(width: 520, height: 200)
         .background(theme.palette.bg2)
         .appTheme(theme)

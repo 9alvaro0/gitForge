@@ -8,6 +8,7 @@ import SwiftUI
 struct HistoryView: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) var theme
+    @Environment(\.appPreferences) var preferences
     @Environment(AppState.self) var appState
 
     @State var search: String = ""
@@ -21,7 +22,7 @@ struct HistoryView: View {
     @State var resetHeadRequest: ResetHeadRequest?
     @State var mergeRebaseRequest: MergeRebaseRequest?
     /// `nil` until the user toggles Unified/Split locally. While it stays nil
-    /// the pane reads `theme.defaultDiffMode` so changes in Settings show up
+    /// the pane reads `preferences.defaultDiffMode` so changes in Settings show up
     /// immediately and re-entering History always lands on the default.
     @State private var diffModeOverride: DiffPane.ViewMode?
     /// `true` while the pinned "Uncommitted changes" row is the active selection.
@@ -29,17 +30,7 @@ struct HistoryView: View {
     /// bottom diff pane (working-copy diff for the selected file).
     @State private var isUncommittedSelected: Bool = false
 
-    @State private var columns = ResizableTableModel(
-        id: "history",
-        columns: [
-            (id: "graph",     defaultWidth: 110, minWidth: 80),
-            (id: "branchTag", defaultWidth: 220, minWidth: 80),
-            (id: "message",   defaultWidth: 480, minWidth: 240),
-            (id: "author",    defaultWidth: 130, minWidth: 80),
-            (id: "sha",       defaultWidth: 80,  minWidth: 60),
-            (id: "when",      defaultWidth: 70,  minWidth: 50),
-        ]
-    )
+    @State private var columns = ResizableTableModel.historyColumns()
 
     private static let diffHeightKey = "gitForge.history.diffPaneHeight"
     private static let detailWidthKey = "gitForge.history.detailPanelWidth"
@@ -66,7 +57,7 @@ struct HistoryView: View {
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
-            get: { diffModeOverride ?? theme.defaultDiffMode },
+            get: { diffModeOverride ?? preferences.defaultDiffMode },
             set: { diffModeOverride = $0 }
         )
     }

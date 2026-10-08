@@ -27,19 +27,32 @@ extension GitCLI {
         try await run(["checkout", "HEAD", "--"] + paths)
     }
 
-    /// Sends untracked files to the Trash (recoverable) instead of `removeItem`
-    /// so a misclick on "Discard" doesn't permanently lose unstaged work.
+    /// Sends untracked files to the Trash when the volume has one, so a
+    /// misclick on "Discard" is usually recoverable; volumes without a Trash
+    /// (network shares, some external disks) fall back to deleting — the UI
+    /// copy already says the action can't be undone. Paths already gone are
+    /// skipped. Files that could be neither trashed nor deleted are reported
+    /// together at the end instead of silently staying on disk.
     func deleteUntracked(paths: [String]) async throws {
         guard !paths.isEmpty else { return }
         let fm = FileManager.default
         let base = workingDirectory.path(percentEncoded: false)
+        var failures: [String] = []
         for path in paths {
             let full = URL(fileURLWithPath: (base as NSString).appendingPathComponent(path))
+            guard fm.fileExists(atPath: full.path(percentEncoded: false)) else { continue }
             do {
                 try fm.trashItem(at: full, resultingItemURL: nil)
             } catch {
-                try? fm.removeItem(at: full)
+                do {
+                    try fm.removeItem(at: full)
+                } catch {
+                    failures.append(path)
+                }
             }
+        }
+        if !failures.isEmpty {
+            throw DeleteUntrackedError(paths: failures)
         }
     }
 
@@ -53,5 +66,16 @@ extension GitCLI {
             args.append(body)
         }
         try await run(args)
+    }
+}
+
+/// Untracked files that survived `deleteUntracked` (permissions, locks).
+nonisolated struct DeleteUntrackedError: LocalizedError, Equatable {
+    let paths: [String]
+
+    var errorDescription: String? {
+        let listed = paths.prefix(3).joined(separator: ", ")
+        let more = paths.count > 3 ? " and \(paths.count - 3) more" : ""
+        return "Couldn't delete \(listed)\(more). Check the file permissions and try again."
     }
 }

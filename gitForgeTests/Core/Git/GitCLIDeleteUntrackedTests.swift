@@ -87,4 +87,26 @@ struct GitCLIDeleteUntrackedTests {
         // a partial-success discard would leave the UI in an inconsistent state).
         try await cli.deleteUntracked(paths: ["nope-not-here.txt"])
     }
+
+    @Test("A file that can be neither trashed nor deleted is reported, not silently kept")
+    func reportsUndeletableFile() async throws {
+        let dir = try makeTempDir()
+        let locked = dir.appendingPathComponent("locked")
+        try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+        try write("stuck", to: locked.appendingPathComponent("stuck.txt"))
+        try write("free", to: dir.appendingPathComponent("free.txt"))
+        // Read+execute only: entries inside can't be unlinked or moved out.
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked.path(percentEncoded: false))
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path(percentEncoded: false))
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        let cli = GitCLI(workingDirectory: dir)
+        await #expect(throws: DeleteUntrackedError(paths: ["locked/stuck.txt"])) {
+            try await cli.deleteUntracked(paths: ["locked/stuck.txt", "free.txt"])
+        }
+        // The deletable file was still handled.
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("free.txt").path(percentEncoded: false)))
+    }
 }

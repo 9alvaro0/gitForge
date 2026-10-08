@@ -28,6 +28,7 @@ struct RootView: View {
             }
         }
         .appTheme(ui.theme)
+        .appPreferences(ui.preferences)
         .alert(
             ui.presentedError?.title ?? "",
             isPresented: $ui.presentedError.isPresent(),

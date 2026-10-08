@@ -3,18 +3,19 @@ import SwiftUI
 struct ConflictHunksColumn: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) private var theme
-    /// Index of the keyboard-focused hunk. Flechas mueven, 1/2/3 piquean.
-    /// Resetea al cambiar de archivo (`.onChange` sobre `selectedConflictPath`).
+    /// Index of the keyboard-focused hunk. Arrow keys move it, 1/2/3 pick a
+    /// side. Reset when the selected file changes (`.onChange` on
+    /// `conflicts.selectedPath`).
     @State private var focusedHunkIndex: Int = 0
 
-    private var hunks: [ConflictHunk] { viewModel.conflictHunks }
-    private var picks: [UUID: ConflictHunk.Pick] { viewModel.conflictPicks }
+    private var hunks: [ConflictHunk] { viewModel.conflicts.hunks }
+    private var picks: [UUID: ConflictHunk.Pick] { viewModel.conflicts.picks }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxxl) {
-                    if let path = viewModel.selectedConflictPath {
+                    if let path = viewModel.conflicts.selectedPath {
                         pathHeader(path: path)
                     }
                     if hunks.isEmpty {
@@ -31,7 +32,7 @@ struct ConflictHunksColumn: View {
                             index: index,
                             pick: picks[hunk.id],
                             currentBranchName: viewModel.currentBranchName,
-                            onPick: { viewModel.setConflictPick(hunkId: hunk.id, pick: $0) }
+                            onPick: { viewModel.conflicts.setPick(hunkId: hunk.id, pick: $0) }
                         )
                         .overlay(focusedHunkIndex == index ? focusBorder : nil)
                         .id("hunk-\(index)")
@@ -60,7 +61,7 @@ struct ConflictHunksColumn: View {
             .onKeyPress("1") { pick(.ours) }
             .onKeyPress("2") { pick(.theirs) }
             .onKeyPress("3") { pick(.both) }
-            .onChange(of: viewModel.selectedConflictPath) { _, _ in
+            .onChange(of: viewModel.conflicts.selectedPath) { _, _ in
                 focusedHunkIndex = 0
             }
         }
@@ -80,7 +81,7 @@ struct ConflictHunksColumn: View {
     private func pick(_ pick: ConflictHunk.Pick) -> KeyPress.Result {
         guard hunks.indices.contains(focusedHunkIndex) else { return .ignored }
         let hunk = hunks[focusedHunkIndex]
-        viewModel.setConflictPick(hunkId: hunk.id, pick: pick)
+        viewModel.conflicts.setPick(hunkId: hunk.id, pick: pick)
         return .handled
     }
 

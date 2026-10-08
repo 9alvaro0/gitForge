@@ -112,7 +112,7 @@ extension GitCLI {
         // Resets on every stage tick git emits. A stuck clone (DNS hung,
         // askpass deadlock, BatchMode rejected) is terminated; large clones
         // run uninterrupted as long as they keep reporting bytes.
-        let watchdog = GitWatchdog(timeout: TimeInterval(AppTheme.persistedGitTimeoutSeconds()))
+        let watchdog = GitWatchdog(timeout: TimeInterval(GitPreferences.gitTimeoutSeconds))
         let tickedProgress: @Sendable (CloneProgress) -> Void = { p in
             watchdog.tick()
             onProgress?(p)

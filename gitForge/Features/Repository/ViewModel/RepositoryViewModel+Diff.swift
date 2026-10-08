@@ -21,7 +21,7 @@ extension RepositoryViewModel {
             guard gen == commitFileDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             commitFileDiff = hunks
-            commitFileDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
+            commitFileDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
         } catch {
             guard gen == commitFileDiffGen else { return }
             commitFileDiff = []
@@ -52,7 +52,7 @@ extension RepositoryViewModel {
             guard gen == workingCopyDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             workingCopyDiff = hunks
-            workingCopyDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
+            workingCopyDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
         } catch {
             guard gen == workingCopyDiffGen else { return }
             workingCopyDiff = []
@@ -86,10 +86,9 @@ extension RepositoryViewModel {
             if data.prefix(probeLength).contains(0) {
                 return ("", DiffEmptyState.untrackedBinary)
             }
-            guard let text = String(data: data, encoding: .utf8) else {
-                return ("", DiffEmptyState.untrackedBinary)
-            }
-            return (Self.synthesizeAddDiff(text: text), DiffEmptyState.empty)
+            // Lossy, like every other diff path (see `GitProcess.decode`):
+            // a Latin-1 text file is still text, not "binary".
+            return (Self.synthesizeAddDiff(text: GitProcess.decode(data)), DiffEmptyState.empty)
         }.value
     }
 
@@ -111,21 +110,6 @@ extension RepositoryViewModel {
             output += "\\ No newline at end of file\n"
         }
         return output
-    }
-
-    /// Inspects the raw diff output to figure out *why* the parser produced no
-    /// hunks. Git emits `Binary files X and Y differ` for binaries and
-    /// `rename from`/`rename to` headers for pure renames — neither contain
-    /// `@@`, so the parser empties out and we'd otherwise fall back to the
-    /// generic "No changes" copy.
-    nonisolated static func classifyEmptyDiff(raw: String) -> DiffEmptyState {
-        if raw.contains("Binary files") || raw.contains("GIT binary patch") {
-            return .binary
-        }
-        if raw.contains("\nrename from ") || raw.hasPrefix("rename from ") {
-            return .renameOnly
-        }
-        return .empty
     }
 
     /// Returns the cached `CommitDetail` for `commit`, fetching once if not

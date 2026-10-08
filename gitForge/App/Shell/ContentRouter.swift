@@ -13,7 +13,9 @@ struct ContentRouter: View {
         case .changes:  StagingView(viewModel: viewModel)
         case .branches: BranchesView(viewModel: viewModel)
         case .stashes:  StashesView(viewModel: viewModel)
-        case .pulls:    PullsView(viewModel: viewModel)
+        case .pulls:
+            PullsView(store: viewModel.pullRequests,
+                      integrateLocally: { await viewModel.attemptLocalMergeForPullRequest() })
         case .conflict: ConflictView(viewModel: viewModel)
         case .clone:    CloneView()
         case .settings: SettingsView()
