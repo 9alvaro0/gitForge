@@ -20,9 +20,7 @@ nonisolated enum DateDisplayMode: String, CaseIterable, Identifiable, Sendable {
     func format(_ date: Date, reference: Date = .now) -> String {
         switch self {
         case .relative:
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .abbreviated
-            return formatter.localizedString(for: date, relativeTo: reference)
+            return Self.relativeFormatter.localizedString(for: date, relativeTo: reference)
         case .absolute:
             return absoluteFormatter.string(from: date)
         }
@@ -34,6 +32,17 @@ nonisolated enum DateDisplayMode: String, CaseIterable, Identifiable, Sendable {
     private var absoluteFormatter: DateFormatter {
         Self.absoluteFormatter
     }
+
+    /// Shared like `absoluteFormatter`: this runs for every visible History,
+    /// Branches and PR row on every render, and building a formatter (ICU
+    /// data, locale lookup) per call dominated the row cost.
+    /// `nonisolated(unsafe)`: configured once here and never mutated after;
+    /// Foundation formatters are thread-safe for formatting.
+    nonisolated(unsafe) private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
 
     private static let absoluteFormatter: DateFormatter = {
         let f = DateFormatter()

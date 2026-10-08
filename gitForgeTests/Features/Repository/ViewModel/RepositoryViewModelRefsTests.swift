@@ -58,6 +58,29 @@ struct RepositoryViewModelRefsLoaderTests {
     }
 }
 
+@Suite("RepositoryViewModel — derived ref lists")
+@MainActor
+struct RepositoryViewModelRefListsTests {
+
+    @Test("Branch and tag lists are split by kind and sorted when refs change")
+    func listsFollowRefs() {
+        let vm = RepositoryViewModel(repository: Repository(url: URL(fileURLWithPath: "/var/empty")))
+        vm.refs = [
+            GitRef(name: "zeta", kind: .localBranch, targetSha: "1", isHead: false),
+            GitRef(name: "v2", kind: .tag, targetSha: "2", isHead: false),
+            GitRef(name: "origin/main", kind: .remoteBranch(remote: "origin"), targetSha: "3", isHead: false),
+            GitRef(name: "alpha", kind: .localBranch, targetSha: "4", isHead: true),
+            GitRef(name: "v1", kind: .tag, targetSha: "5", isHead: false),
+        ]
+        #expect(vm.localBranches.map(\.name) == ["alpha", "zeta"])
+        #expect(vm.remoteBranches.map(\.name) == ["origin/main"])
+        #expect(vm.tags.map(\.name) == ["v1", "v2"])
+
+        vm.refs = []
+        #expect(vm.localBranches.isEmpty && vm.remoteBranches.isEmpty && vm.tags.isEmpty)
+    }
+}
+
 @Suite("RepositoryViewModel — manual refresh", .serialized)
 @MainActor
 struct RepositoryViewModelManualRefreshTests {

@@ -14,6 +14,11 @@ import SwiftUI
 struct CommitGraphTable: View {
     let commits: [Commit]
     let layouts: [GraphRowLayout]
+    /// Widest row of the graph (`RepositoryViewModel.graphMaxLanes`, computed
+    /// once per layout pass). Recomputing it here walked every layout, and
+    /// did so for each row SwiftUI built — O(visible rows × commits) on every
+    /// re-render of History.
+    let maxLanes: Int
     let refsBySha: [String: [GitRef]]
     let currentBranch: String?
     let selectedSha: Commit.ID?
@@ -47,9 +52,6 @@ struct CommitGraphTable: View {
 
     @Environment(\.appTheme) private var theme
 
-    private var maxLanes: Int {
-        layouts.map(\.totalLanes).max() ?? 1
-    }
     private var rowHeight: CGFloat { theme.density.rowHeight }
     /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
     /// Grows with the number of simultaneously alive lanes so a wide history
@@ -102,14 +104,17 @@ struct CommitGraphTable: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
+        // Resolve the derived widths once per render, not once per row.
+        let gutterWidth = graphGutterWidth
+        let contentWidth = totalContentWidth
+        return GeometryReader { geo in
             ScrollView([.vertical, .horizontal], showsIndicators: true) {
                 LazyVStack(spacing: DesignTokens.Spacing.none, pinnedViews: [.sectionHeaders]) {
                     Section {
                         if workingCopyDirty {
                             UncommittedRow(
                                 rowHeight: rowHeight,
-                                gutterWidth: graphGutterWidth,
+                                gutterWidth: gutterWidth,
                                 columns: columns,
                                 isSelected: uncommittedSelected,
                                 onSelect: { onUncommittedSelect?() }
@@ -121,7 +126,7 @@ struct CommitGraphTable: View {
                                 layout: layouts[safe: idx] ?? .empty,
                                 maxLanes: maxLanes,
                                 rowHeight: rowHeight,
-                                gutterWidth: graphGutterWidth,
+                                gutterWidth: gutterWidth,
                                 refs: refsBySha[commit.sha] ?? [],
                                 currentBranch: currentBranch,
                                 isSelected: commit.sha == selectedSha,
@@ -135,14 +140,14 @@ struct CommitGraphTable: View {
                         }
                     } header: {
                         CommitTableHeader(
-                            gutterWidth: graphGutterWidth,
+                            gutterWidth: gutterWidth,
                             graphHandle: graphHandleBinding,
                             graphMinWidth: dynamicGraphMin,
                             columns: columns
                         )
                     }
                 }
-                .frame(width: max(totalContentWidth, geo.size.width), alignment: .leading)
+                .frame(width: max(contentWidth, geo.size.width), alignment: .leading)
                 .frame(minHeight: geo.size.height, alignment: .topLeading)
             }
         }
@@ -151,21 +156,12 @@ struct CommitGraphTable: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    @Previewable @State var columns = ResizableTableModel(
-        id: "history.preview",
-        columns: [
-            (id: "graph",     defaultWidth: 110, minWidth: 80),
-            (id: "branchTag", defaultWidth: 220, minWidth: 80),
-            (id: "message",   defaultWidth: 480, minWidth: 240),
-            (id: "author",    defaultWidth: 130, minWidth: 80),
-            (id: "sha",       defaultWidth: 80,  minWidth: 60),
-            (id: "when",      defaultWidth: 70,  minWidth: 50),
-        ]
-    )
+    @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.preview")
     let vm = RepositoryViewModel.preview
     CommitGraphTable(
         commits: vm.commits,
         layouts: vm.graphLayouts,
+        maxLanes: vm.graphMaxLanes,
         refsBySha: vm.refsBySha,
         currentBranch: vm.currentBranchName,
         selectedSha: vm.commits.first?.sha,

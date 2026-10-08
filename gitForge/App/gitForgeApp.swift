@@ -51,7 +51,14 @@ struct GitForgeApp: App {
                     appState.catalog.pauseBackgroundWork()
                     appState.catalog.activeViewModel?.pauseBackgroundWork()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+                    // Only a real window coming forward is a signal that the
+                    // user may have changed things elsewhere. Sheets, alerts
+                    // and panels (open panel, popovers) become key too, and
+                    // each one used to trigger a full refresh on dismissal.
+                    guard let window = note.object as? NSWindow,
+                          !(window is NSPanel),
+                          window.sheetParent == nil else { return }
                     appState.catalog.activeViewModel?.pokeReactivity(force: true)
                 }
         }
