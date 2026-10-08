@@ -61,7 +61,7 @@ final class AppTheme {
 
     init() {
         let savedMode = UserDefaults.standard.string(forKey: Keys.mode).flatMap(ThemeMode.init(rawValue:)) ?? .system
-        let savedDensity = UserDefaults.standard.string(forKey: Keys.density).flatMap(Density.init(rawValue:)) ?? .regular
+        let savedDensity = Density.resolve(UserDefaults.standard.string(forKey: Keys.density))
         let savedMonoRaw = UserDefaults.standard.string(forKey: Keys.monoFont) ?? MonoFontFamily.systemMono.rawValue
         let savedMono = (MonoFontFamily(rawValue: savedMonoRaw)?.resolved()) ?? .systemMono
         let savedAccent = UserDefaults.standard.string(forKey: Keys.accent).flatMap(Color.init(stringHex:)) ?? Color(hex: 0x7c5cff)
