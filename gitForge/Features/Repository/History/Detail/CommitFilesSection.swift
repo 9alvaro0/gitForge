@@ -99,7 +99,7 @@ private struct FileMiniRow: View {
             // The file may have been deleted after the commit; the OS handles
             // missing-file fallout (Open just fails silently).
             Button("Open in editor") {
-                NSWorkspace.shared.open(absoluteURL)
+                ExternalURL.openFile(absoluteURL)
             }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([absoluteURL])

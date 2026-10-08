@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Switch over the various PR list states (loading / error / no host /
-/// missing-token / empty / list). Owns no state of its own — every action
-/// flows back to the compositor via callbacks.
+/// missing-token / empty / list). Its only state is the certificate trust
+/// flow offered on TLS errors; every other action flows back to the
+/// compositor via callbacks.
 struct PullsContentSection: View {
     let store: PullRequestStore
     let nounPlural: String
@@ -10,8 +11,17 @@ struct PullsContentSection: View {
     let onOpenSettings: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var trustHost: String?
 
     var body: some View {
+        content
+            .trustCertificatePrompt(host: $trustHost) {
+                Task { await store.load(force: true) }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if store.isLoading && store.items.isEmpty {
             PullsLoadingPlaceholder()
         } else if let message = store.error {
@@ -57,9 +67,8 @@ struct PullsContentSection: View {
         EmptyState(icon: .warn, title: "Couldn't load", subtitle: message) {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 if isTLSError(message), let host = store.host {
-                    GFButton(title: "Trust \(host.host)", style: .primary) {
-                        RemoteHostTrust.shared.setTrusted(host.host, true)
-                        Task { await store.load(force: true) }
+                    GFButton(title: "Trust \(host.host)…", style: .primary) {
+                        trustHost = host.host
                     }
                     GFButton(title: "Try again") {
                         Task { await store.load(force: true) }

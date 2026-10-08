@@ -67,7 +67,7 @@ struct ConflictFileRow: View {
             Button("Discard conflict (revert to HEAD)…", role: .destructive) { confirmDiscard = true }
             Divider()
         }
-        Button("Open in editor") { NSWorkspace.shared.open(absoluteURL) }
+        Button("Open in editor") { ExternalURL.openFile(absoluteURL) }
         Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([absoluteURL]) }
         Divider()
         Button("Copy path") { copy(file.path) }

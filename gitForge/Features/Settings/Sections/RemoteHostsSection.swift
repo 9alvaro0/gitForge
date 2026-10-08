@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Tokens land in the Keychain via `RemoteCredentialsStore`; per-host TLS
-/// trust lives in `RemoteHostTrust`. The default list (github.com /
+/// Tokens land in the Keychain via `RemoteCredentialsStore`; per-host pinned
+/// certificates live in `RemoteHostTrust`. The default list (github.com /
 /// gitlab.com) gets the active repo's host appended at render time so
 /// self-hosted instances show up without per-user configuration.
 struct RemoteHostsSection: View {
@@ -13,10 +13,16 @@ struct RemoteHostsSection: View {
     @State private var editing: HostEntry?
     @State private var draftToken: String = ""
     @State private var sheetError: String?
+    @State private var trustHost: String?
+
+    /// gitForge only reads from GitHub, so a read-only fine-grained token is
+    /// enough; the classic `repo` scope also grants write access.
+    private static let gitHubScopeHint =
+        "Recommended: a fine-grained token with read-only access to Pull requests, Contents and Commit statuses. Classic tokens need `repo` (private) or `public_repo`."
 
     private static let defaults: [HostEntry] = [
         HostEntry(provider: .github, host: "github.com",
-                  scopeHint: "Required scope: `repo` (for private repos) or `public_repo`."),
+                  scopeHint: Self.gitHubScopeHint),
         HostEntry(provider: .gitlab, host: "gitlab.com",
                   scopeHint: "Required scope: `read_api` (or `api` to create MRs later)."),
     ]
@@ -29,7 +35,7 @@ struct RemoteHostsSection: View {
                 provider: host.provider,
                 host: host.host,
                 scopeHint: host.provider == .github
-                    ? "Required scope: `repo` (private) or `public_repo`."
+                    ? Self.gitHubScopeHint
                     : "Required scope: `read_api` (or `api` for write actions)."
             ))
         }
@@ -44,6 +50,7 @@ struct RemoteHostsSection: View {
             }
         }
         .onAppear { refreshConfiguredState() }
+        .trustCertificatePrompt(host: $trustHost) { refreshConfiguredState() }
         .sheet(item: $editing) { entry in
             tokenSheet(for: entry)
         }
@@ -82,14 +89,19 @@ struct RemoteHostsSection: View {
             }
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Button {
-                    RemoteHostTrust.shared.setTrusted(entry.host, !isTrusted)
-                    refreshConfiguredState()
+                    if isTrusted {
+                        RemoteHostTrust.shared.revoke(entry.host)
+                        refreshConfiguredState()
+                    } else {
+                        // Reads the certificate and asks for confirmation.
+                        trustHost = entry.host
+                    }
                 } label: {
                     HStack(spacing: DesignTokens.Spacing.sm) {
                         Text(isTrusted ? "☑" : "☐")
                             .font(AppFont.sans(13))
                             .foregroundStyle(isTrusted ? theme.palette.mod : theme.palette.fg3)
-                        Text("Trust self-signed certificate")
+                        Text("Trust this host's certificate")
                             .font(AppFont.sans(11))
                             .foregroundStyle(theme.palette.fg2)
                     }
@@ -97,9 +109,12 @@ struct RemoteHostsSection: View {
                 }
                 .buttonStyle(.plain)
                 if isTrusted {
-                    Text("• Skips TLS validation for this host")
-                        .font(AppFont.sans(11))
+                    Text(pinDescription(for: entry.host))
+                        .font(AppFont.mono(10.5, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(RemoteHostTrust.shared.pinnedFingerprint(for: entry.host) ?? "")
                 }
             }
         }
@@ -152,6 +167,14 @@ struct RemoteHostsSection: View {
         .frame(width: 460)
         .background(theme.palette.bg1)
         .appTheme(theme)
+    }
+
+    /// Hosts trusted before pinning existed pin on their next connection.
+    private func pinDescription(for host: String) -> String {
+        guard let fingerprint = RemoteHostTrust.shared.pinnedFingerprint(for: host) else {
+            return "• Certificate will be pinned on next connection"
+        }
+        return "• Pinned SHA-256 \(fingerprint.prefix(23))…"
     }
 
     private func refreshConfiguredState() {

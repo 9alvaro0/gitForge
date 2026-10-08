@@ -55,7 +55,7 @@ struct PullRequestRow: View {
 
     private func openButton(url: URL) -> some View {
         Button {
-            NSWorkspace.shared.open(url)
+            ExternalURL.open(url)
         } label: {
             Text("Open")
                 .font(AppFont.sans(11))
