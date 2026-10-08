@@ -5,7 +5,11 @@ import Foundation
 /// Setup commands run with the user's global and system config disabled so
 /// a personal `commit.gpgsign` or hook can't make fixtures flaky. `GitCLI`
 /// itself still runs with the normal environment — that's what's under test.
-struct GitTestRepo {
+///
+/// The plain methods block the calling thread. `@MainActor` suites must use
+/// `make(setup:)` / `gitAsync` instead: blocking the main actor on git under
+/// full-suite load starved unrelated timing-sensitive tests.
+struct GitTestRepo: Sendable {
     struct CommandFailed: Error, CustomStringConvertible {
         let args: [String]
         let output: String
@@ -28,6 +32,34 @@ struct GitTestRepo {
             try git("config", "user.email", "test@example.com")
             try git("config", "commit.gpgsign", "false")
         }
+    }
+
+    /// Creates a repo and runs `setup` against it on a GCD thread.
+    static func make(bare: Bool = false,
+                     setup: @escaping @Sendable (GitTestRepo) throws -> Void = { _ in }) async throws -> GitTestRepo {
+        let result: Result<GitTestRepo, Error> = await GitProcess.offPool {
+            Result {
+                let repo = try GitTestRepo(bare: bare)
+                try setup(repo)
+                return repo
+            }
+        }
+        return try result.get()
+    }
+
+    /// `git(_:)` on a GCD thread.
+    @discardableResult
+    func gitAsync(_ args: String...) async throws -> String {
+        let repo = self
+        let result: Result<String, Error> = await GitProcess.offPool { Result { try repo.git(args) } }
+        return try result.get()
+    }
+
+    /// `externalWrite(_:to:)` on a GCD thread.
+    func externalWriteAsync(_ text: String, to path: String) async throws {
+        let repo = self
+        let result: Result<Void, Error> = await GitProcess.offPool { Result { try repo.externalWrite(text, to: path) } }
+        try result.get()
     }
 
     func remove() {
@@ -77,6 +109,20 @@ struct GitTestRepo {
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data.write(to: file)
+    }
+
+    /// Writes from a separate process, like an editor would. FSEvents is
+    /// created with `IgnoreSelf`, and the test host *is* the app process, so
+    /// a plain `write` from the test is invisible to the watcher.
+    func externalWrite(_ text: String, to path: String) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "printf '%s' \"$1\" > \"$2\"", "sh", text,
+                             url.appendingPathComponent(path).path(percentEncoded: false)]
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
+        try process.run()
+        exited.wait()
     }
 
     func read(_ path: String) -> String? {

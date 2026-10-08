@@ -123,7 +123,11 @@ final class AppState {
                 branch: branch,
                 onProgress: { [weak self] progress in
                     Task { @MainActor [weak self] in
-                        self?.clone.cloneState = .running(stage: progress.stage, percent: progress.percent)
+                        // Progress hops are unordered relative to this
+                        // function's own continuation: a late tick must not
+                        // flip a finished (idle) clone back to "running".
+                        guard let self, self.clone.cloneState.isRunning else { return }
+                        self.clone.cloneState = .running(stage: progress.stage, percent: progress.percent)
                     }
                 }
             )
