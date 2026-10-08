@@ -39,24 +39,24 @@ struct SynthesizeAddDiffTests {
     }
 }
 
-@Suite("RepositoryViewModel.classifyEmptyDiff")
+@Suite("DiffEmptyState.classifying")
 struct ClassifyEmptyDiffTests {
 
     @Test("Detects 'Binary files' marker")
     func detectsBinary() {
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: "Binary files a and b differ") == .binary)
+        #expect(DiffEmptyState.classifying(raw: "Binary files a and b differ") == .binary)
     }
 
     @Test("Detects 'GIT binary patch' marker")
     func detectsBinaryPatch() {
         let raw = "diff --git a/foo b/foo\nGIT binary patch\nliteral 1024\n..."
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .binary)
+        #expect(DiffEmptyState.classifying(raw: raw) == .binary)
     }
 
     @Test("Detects 'rename from' header at start of output")
     func detectsRenameAtStart() {
         let raw = "rename from old.swift\nrename to new.swift\n"
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .renameOnly)
+        #expect(DiffEmptyState.classifying(raw: raw) == .renameOnly)
     }
 
     @Test("Detects 'rename from' header in the middle of output")
@@ -67,25 +67,25 @@ struct ClassifyEmptyDiffTests {
         rename from old
         rename to new
         """
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .renameOnly)
+        #expect(DiffEmptyState.classifying(raw: raw) == .renameOnly)
     }
 
     @Test("Mode-only change is reported instead of 'No changes'")
     func detectsModeChange() {
         let raw = "diff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n"
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .modeChange(from: "100644", to: "100755"))
+        #expect(DiffEmptyState.classifying(raw: raw) == .modeChange(from: "100644", to: "100755"))
     }
 
     @Test("Submodule pointer bump is reported")
     func detectsSubmodule() {
         let raw = "diff --git a/lib b/lib\nindex 1111111..2222222 160000\n--- a/lib\n+++ b/lib\n-Subproject commit 1111111aaaa\n+Subproject commit 2222222bbbb\n"
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: raw) == .submoduleUpdate(from: "1111111aaaa", to: "2222222bbbb"))
+        #expect(DiffEmptyState.classifying(raw: raw) == .submoduleUpdate(from: "1111111aaaa", to: "2222222bbbb"))
     }
 
     @Test("Falls back to .empty when no recognised markers are present")
     func fallsBackToEmpty() {
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: "") == .empty)
-        #expect(RepositoryViewModel.classifyEmptyDiff(raw: "diff --git a/x b/x\n") == .empty)
+        #expect(DiffEmptyState.classifying(raw: "") == .empty)
+        #expect(DiffEmptyState.classifying(raw: "diff --git a/x b/x\n") == .empty)
     }
 }
 

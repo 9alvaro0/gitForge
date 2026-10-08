@@ -21,7 +21,7 @@ extension RepositoryViewModel {
             guard gen == commitFileDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             commitFileDiff = hunks
-            commitFileDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
+            commitFileDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
         } catch {
             guard gen == commitFileDiffGen else { return }
             commitFileDiff = []
@@ -52,7 +52,7 @@ extension RepositoryViewModel {
             guard gen == workingCopyDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             workingCopyDiff = hunks
-            workingCopyDiffEmptyState = hunks.isEmpty ? Self.classifyEmptyDiff(raw: raw) : .empty
+            workingCopyDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
         } catch {
             guard gen == workingCopyDiffGen else { return }
             workingCopyDiff = []
@@ -110,25 +110,6 @@ extension RepositoryViewModel {
             output += "\\ No newline at end of file\n"
         }
         return output
-    }
-
-    /// Explains why `raw` produced no hunks, so the pane can say "binary",
-    /// "renamed", "mode changed"… instead of a misleading "No changes".
-    /// Delegates to `DiffParser.parseSummary`; `GIT binary patch` (emitted
-    /// with `--binary`) is the one marker it doesn't cover.
-    nonisolated static func classifyEmptyDiff(raw: String) -> DiffEmptyState {
-        switch DiffParser.parseSummary(raw) {
-        case .binary:
-            return .binary
-        case .rename:
-            return .renameOnly
-        case .modeChange(let from, let to):
-            return .modeChange(from: from, to: to)
-        case .submoduleUpdate(_, let from, let to):
-            return .submoduleUpdate(from: from, to: to)
-        case nil:
-            return raw.contains("GIT binary patch") ? .binary : .empty
-        }
     }
 
     /// Returns the cached `CommitDetail` for `commit`, fetching once if not

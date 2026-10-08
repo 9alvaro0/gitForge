@@ -17,7 +17,7 @@ struct StashesView: View {
 
     var body: some View {
         Group {
-            if viewModel.selectedStash != nil {
+            if viewModel.stashDetail.selected != nil {
                 StashDetailView(viewModel: viewModel)
             } else {
                 listLayout
@@ -61,7 +61,7 @@ struct StashesView: View {
             StashList(
                 stashes: viewModel.stashes,
                 hasDirtyChanges: hasDirtyChanges,
-                onSelect: { viewModel.selectStash($0) },
+                onSelect: { viewModel.stashDetail.select($0) },
                 onApply:  { stash in Task { await runApply(stash, drop: false) } },
                 onPop:    { stash in Task { await runApply(stash, drop: true)  } },
                 onDrop:   { stash in dropTarget = stash }

@@ -36,13 +36,14 @@ struct GitCLITagAndStashFilesTests {
         try repo.write("one\ntwo\n", to: "new.txt")
         try repo.git("stash", "push", "-q", "--include-untracked")
 
-        let files = try await repo.cli.stashFiles(index: 0)
+        let sha = try repo.git("rev-parse", "stash@{0}").trimmingCharacters(in: .whitespacesAndNewlines)
+        let files = try await repo.cli.stashFiles(sha: sha)
         #expect(files.first { $0.path == "tracked.txt" }?.status == .modified)
         let untracked = try #require(files.first { $0.path == "new.txt" })
         #expect(untracked.status == .untracked)
         #expect(untracked.additions == 2)
 
-        let raw = try await repo.cli.stashFileDiff(index: 0, path: "new.txt", untracked: true)
+        let raw = try await repo.cli.stashFileDiff(sha: sha, path: "new.txt", untracked: true)
         #expect(DiffParser.parse(raw).first?.lines.count == 2)
     }
 
@@ -54,7 +55,38 @@ struct GitCLITagAndStashFilesTests {
         try repo.write("t2\n", to: "tracked.txt")
         try repo.git("stash", "push", "-q")
 
-        let files = try await repo.cli.stashFiles(index: 0)
+        let sha = try repo.git("rev-parse", "stash@{0}").trimmingCharacters(in: .whitespacesAndNewlines)
+        let files = try await repo.cli.stashFiles(sha: sha)
         #expect(files.map(\.path) == ["tracked.txt"])
+    }
+
+    @Test("Stash ops target the stash by SHA even after its index shifted")
+    func stashOpsFollowSha() async throws {
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("init", files: ["a.txt": "a\n", "b.txt": "b\n"])
+        try repo.write("first\n", to: "a.txt")
+        try repo.git("stash", "push", "-q", "-m", "first")
+        let first = try repo.git("rev-parse", "stash@{0}").trimmingCharacters(in: .whitespacesAndNewlines)
+        // A newer stash pushes `first` from stash@{0} to stash@{1}.
+        try repo.write("second\n", to: "b.txt")
+        try repo.git("stash", "push", "-q", "-m", "second")
+
+        #expect(try await repo.cli.stashFiles(sha: first).map(\.path) == ["a.txt"])
+        try await repo.cli.stashDrop(sha: first)
+
+        let remaining = try await repo.cli.stashes()
+        #expect(remaining.map(\.subject).allSatisfy { $0.contains("second") })
+        #expect(remaining.count == 1)
+    }
+
+    @Test("Acting on a stash that no longer exists fails clearly")
+    func missingStash() async throws {
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("init", files: ["a.txt": "a\n"])
+        await #expect(throws: StashLookupError.notFound(sha: "deadbeef")) {
+            try await repo.cli.stashDrop(sha: "deadbeef")
+        }
     }
 }

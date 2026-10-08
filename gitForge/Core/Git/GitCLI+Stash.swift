@@ -23,13 +23,27 @@ extension GitCLI {
         }
     }
 
-    func stashApply(index: Int, drop: Bool = false) async throws {
+    /// Stashes are addressed by their commit SHA, not by `stash@{n}`: the
+    /// index of an entry shifts whenever a stash is pushed or dropped
+    /// (another tool, the terminal), so an index captured when the list was
+    /// drawn can point at a *different* stash by the time the user acts.
+    /// `apply`/`pop`/`drop` only accept `stash@{n}`, so the current index is
+    /// resolved from the SHA right before running them.
+    func stashApply(sha: String, drop: Bool = false) async throws {
         let action = drop ? "pop" : "apply"
-        try await run(["stash", action, "stash@{\(index)}"])
+        try await run(["stash", action, try await stashRef(for: sha)])
     }
 
-    func stashDrop(index: Int) async throws {
-        try await run(["stash", "drop", "stash@{\(index)}"])
+    func stashDrop(sha: String) async throws {
+        try await run(["stash", "drop", try await stashRef(for: sha)])
+    }
+
+    /// Current `stash@{n}` for the stash commit `sha`.
+    func stashRef(for sha: String) async throws -> String {
+        guard let stash = try await stashes().first(where: { $0.sha == sha }) else {
+            throw StashLookupError.notFound(sha: sha)
+        }
+        return "stash@{\(stash.index)}"
     }
 
     /// Undoes a conflicted `git stash apply/pop`. git has no `--abort` for
@@ -101,12 +115,12 @@ extension GitCLI {
         try await run(args)
     }
 
-    /// Files changed in `stash@{index}` compared to its first parent, plus
-    /// any untracked files it saved (third parent). Combines `--name-status`
+    /// Files changed in stash `sha` compared to its first parent, plus any
+    /// untracked files it saved (third parent). Combines `--name-status`
     /// (status letter + path) and `--numstat` (additions/deletions per path)
     /// since git can't emit both in a single `diff` pass cleanly.
-    func stashFiles(index: Int) async throws -> [StashFileChange] {
-        let ref = "stash@{\(index)}"
+    func stashFiles(sha: String) async throws -> [StashFileChange] {
+        let ref = sha
         async let names = run(["diff", "--name-status"] + Self.diffOutputFlags + ["\(ref)^", ref])
         async let numstat = run(["diff", "--numstat"] + Self.diffOutputFlags + ["\(ref)^", ref])
         async let untracked = untrackedStashNumstat(ref: ref)
@@ -119,8 +133,8 @@ extension GitCLI {
     /// base in the stash, so they're shown from the third parent (a root
     /// commit — `show` diffs it against the empty tree). Caller parses with
     /// `DiffParser`.
-    func stashFileDiff(index: Int, path: String, untracked: Bool = false) async throws -> String {
-        let ref = "stash@{\(index)}"
+    func stashFileDiff(sha: String, path: String, untracked: Bool = false) async throws -> String {
+        let ref = sha
         let args: [String] = untracked
             ? ["show", "--format="] + Self.diffOutputFlags + [Self.endOfOptions, "\(ref)^3", "--", path]
             : ["diff"] + Self.diffOutputFlags + ["\(ref)^", ref, "--", path]
@@ -148,8 +162,8 @@ extension GitCLI {
     }
 
     /// Parent SHA (the HEAD when stashed) and the stash's author date.
-    func stashParent(index: Int) async throws -> (parentSha: String, authorDate: Date?) {
-        let ref = "stash@{\(index)}"
+    func stashParent(sha: String) async throws -> (parentSha: String, authorDate: Date?) {
+        let ref = sha
         let result = try await run(["log", "-1", "--format=%H%x09%aI", "\(ref)^"])
         let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmed.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
@@ -190,5 +204,16 @@ extension GitCLI {
             ))
         }
         return out
+    }
+}
+
+nonisolated enum StashLookupError: LocalizedError, Equatable {
+    case notFound(sha: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notFound:
+            "That stash no longer exists — it was dropped or popped elsewhere. The list has been refreshed."
+        }
     }
 }
