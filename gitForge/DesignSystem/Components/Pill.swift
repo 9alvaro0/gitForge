@@ -24,7 +24,7 @@ struct Pill: View {
             }
         }()
         return Text(text)
-            .font(AppFont.mono(10, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
             .foregroundStyle(fg)
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.hairline)

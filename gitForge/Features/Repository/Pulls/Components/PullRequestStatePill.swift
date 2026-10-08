@@ -15,7 +15,7 @@ struct PullRequestStatePill: View {
             }
         }()
         Text(label)
-            .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xxs)
             .foregroundStyle(fg)

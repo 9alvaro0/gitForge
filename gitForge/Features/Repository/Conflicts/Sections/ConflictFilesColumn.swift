@@ -11,7 +11,7 @@ struct ConflictFilesColumn: View {
             header
             if files.isEmpty {
                 Text("No unresolved files.")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg3)
                     .padding(DesignTokens.Spacing.xxl)
                 Spacer()
@@ -40,7 +40,7 @@ struct ConflictFilesColumn: View {
 
     private var header: some View {
         Text("Files with conflicts".uppercased())
-            .font(.system(size: FontSize.footnote, weight: .semibold))
+            .font(.system(size: FontSize.sm, weight: .semibold))
             .tracking(0.6)
             .foregroundStyle(theme.palette.fg3)
             .padding(.horizontal, DesignTokens.Spacing.xxl)

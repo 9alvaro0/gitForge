@@ -60,7 +60,7 @@ struct DiffRow: View {
     @ViewBuilder
     private func lineNumber(_ n: Int?) -> some View {
         Text(n.map(String.init) ?? "")
-            .font(AppFont.mono(11, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
             .foregroundStyle(theme.palette.fg4)
             .frame(width: 44, alignment: .trailing)
             .padding(.horizontal, DesignTokens.Spacing.md)

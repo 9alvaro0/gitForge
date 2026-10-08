@@ -22,11 +22,11 @@ struct UncommittedDetailColumn: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
             header
             Text("Working tree changes not yet committed.")
-                .font(AppFont.sans(12.5))
+                .font(AppFont.sans(FontSize.mdPlus))
                 .foregroundStyle(theme.palette.fg3)
             if totalCount == 0 {
                 Text("No changes")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .italic()
                     .foregroundStyle(theme.palette.fg3)
             } else {
@@ -40,7 +40,7 @@ struct UncommittedDetailColumn: View {
         HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: .diff, size: 14, stroke: theme.palette.fg1)
             Text("Uncommitted changes")
-                .font(AppFont.sans(13))
+                .font(AppFont.sans(FontSize.lg))
                 .foregroundStyle(theme.palette.fg1)
             Spacer()
             if let onClose {
@@ -55,16 +55,16 @@ struct UncommittedDetailColumn: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack {
                 Text(title)
-                    .font(.system(size: FontSize.footnote, weight: .semibold))
+                    .font(.system(size: FontSize.sm, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(theme.palette.fg3)
                 Text("\(count)")
-                    .font(.system(size: FontSize.footnote))
+                    .font(.system(size: FontSize.sm))
                     .foregroundStyle(theme.palette.fg3)
             }
             if files.isEmpty {
                 Text("Nothing \(title.lowercased())")
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .italic()
                     .foregroundStyle(theme.palette.fg3)
             } else {
@@ -97,7 +97,7 @@ private struct WorkingCopyMiniRow: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
                 Text(file.path)
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.head)

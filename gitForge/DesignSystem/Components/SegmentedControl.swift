@@ -38,7 +38,7 @@ struct SegmentedControl<Value: Hashable>: View {
         let isActive = opt.value == selection
         Button(action: { selection = opt.value }) {
             Text(opt.label)
-                .font(AppFont.sans(11))
+                .font(AppFont.sans(FontSize.sm))
                 .padding(.horizontal, DesignTokens.Spacing.lg)
                 .frame(height: 22)
                 .foregroundStyle(isActive ? theme.palette.fg1 : theme.palette.fg3)

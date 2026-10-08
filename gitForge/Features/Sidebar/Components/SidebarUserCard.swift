@@ -64,14 +64,14 @@ struct SidebarUserCard: View {
                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                 .overlay {
                     Text(identity.initials)
-                        .font(.system(size: FontSize.footnote, weight: .bold))
+                        .font(.system(size: FontSize.sm, weight: .bold))
                         .foregroundStyle(theme.palette.accentFg)
                 }
                 .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text(identity.displayName)
-                        .font(AppFont.sans(12, weight: .medium))
+                        .font(AppFont.sans(FontSize.md, weight: .medium))
                         .foregroundStyle(theme.palette.fg1)
                         .lineLimit(1)
                     if let label = scopeTag.label {
@@ -80,7 +80,7 @@ struct SidebarUserCard: View {
                 }
                 if let email = identity.email {
                     Text(email)
-                        .font(AppFont.mono(10, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg3)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -140,7 +140,7 @@ struct SidebarUserCard: View {
 
     private func scopeBadge(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: FontSize.caption, weight: .semibold))
+            .font(.system(size: FontSize.xxs, weight: .semibold))
             .foregroundStyle(theme.palette.fg2)
             .padding(.horizontal, DesignTokens.Spacing.xs)
             .padding(.vertical, DesignTokens.Spacing.hairline)

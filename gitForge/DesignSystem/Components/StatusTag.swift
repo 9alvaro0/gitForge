@@ -10,7 +10,7 @@ struct StatusTag: View {
 
     var body: some View {
         Text(letter)
-            .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
+            .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
             .frame(width: DesignTokens.IconSize.xl, height: DesignTokens.IconSize.xl)
             .foregroundStyle(color)
             .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(color.opacity(DesignTokens.Opacity.muted)))

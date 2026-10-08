@@ -26,7 +26,7 @@ struct BranchInputSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
-            Text(title).font(AppFont.sans(14, weight: .semibold))
+            Text(title).font(AppFont.sans(FontSize.xl, weight: .semibold))
             GFTextField(placeholder: placeholder, text: $text)
                 .focused($textFieldFocused)
                 .onSubmit {

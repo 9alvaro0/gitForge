@@ -33,11 +33,11 @@ struct CommitFilesSection: View {
     private var header: some View {
         HStack {
             Text("FILES CHANGED")
-                .font(.system(size: FontSize.footnote, weight: .semibold))
+                .font(.system(size: FontSize.sm, weight: .semibold))
                 .tracking(0.8)
                 .foregroundStyle(theme.palette.fg3)
             Text("\(detail?.files.count ?? 0)")
-                .font(.system(size: FontSize.footnote))
+                .font(.system(size: FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
         }
     }
@@ -56,7 +56,7 @@ struct CommitFilesSection: View {
                 HStack(spacing: DesignTokens.Spacing.md) {
                     StatusTag(kind: .modified)
                     Text(Self.placeholderPaths[index % Self.placeholderPaths.count])
-                        .font(AppFont.mono(11.5, family: theme.monoFont))
+                        .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                         .foregroundStyle(theme.palette.fg2)
                         .lineLimit(1)
                         .truncationMode(.head)
@@ -83,7 +83,7 @@ private struct FileMiniRow: View {
             HStack(spacing: DesignTokens.Spacing.md) {
                 StatusTag(kind: tagKind)
                 Text(file.path)
-                    .font(AppFont.mono(11.5, family: theme.monoFont))
+                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg1)
                     .lineLimit(1)
                     .truncationMode(.head)

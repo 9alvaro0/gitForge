@@ -10,7 +10,7 @@ struct ConflictLineRow: View {
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.none) {
             Text("\(lineNumber)")
-                .font(AppFont.mono(11, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg4)
                 .frame(width: 36, alignment: .trailing)
                 .padding(.horizontal, DesignTokens.Spacing.md)

@@ -38,7 +38,7 @@ struct StagingLoadingPlaceholder: View {
                 .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
             StatusTag(kind: .modified)
             Text(path)
-                .font(AppFont.mono(11.5, family: theme.monoFont))
+                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg2)
                 .lineLimit(1)
                 .truncationMode(.head)

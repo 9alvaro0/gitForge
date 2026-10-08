@@ -12,7 +12,7 @@ struct SettingsPicker<Items: View>: View {
         } label: {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Text(current)
-                    .font(AppFont.sans(12))
+                    .font(AppFont.sans(FontSize.md))
                     .foregroundStyle(theme.palette.fg1)
                 Spacer(minLength: 0)
                 GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
