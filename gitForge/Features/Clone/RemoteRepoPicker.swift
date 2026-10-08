@@ -145,6 +145,7 @@ struct RemoteRepoPicker: View {
                     .font(.system(size: FontSize.md, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
                     .frame(width: DesignTokens.IconSize.md)
+                    .accessibilityLabel(repo.isPrivate ? "Private" : "Public")
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                     Text(repo.fullName)
                         .font(AppFont.mono(FontSize.md, weight: .medium, family: theme.monoFont))

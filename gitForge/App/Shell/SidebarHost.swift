@@ -21,6 +21,7 @@ struct SidebarHost: View {
             conflictsBadge: appState.catalog.activeViewModel?.conflicts.files.filter { !$0.resolved }.count ?? 0,
             identity: identitySnapshot.identity,
             scopeTag: identitySnapshot.scopeTag,
+            online: appState.network.isOnline,
             profiles: appState.profiles.profiles,
             activeProfileId: identitySnapshot.activeProfileId,
             canResetIdentityToGlobal: identitySnapshot.canResetToGlobal,

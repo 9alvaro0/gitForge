@@ -36,12 +36,6 @@ struct AppStatusBar: View {
             Text(fetchLabel)
                 .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                 .foregroundStyle(theme.palette.fg3)
-            Text("UTF-8")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-            Text("LF")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
                     .frame(width: 7, height: 7)

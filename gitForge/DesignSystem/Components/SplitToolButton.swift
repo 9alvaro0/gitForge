@@ -56,6 +56,7 @@ struct SplitToolButton<Menu: View>: View {
         .buttonStyle(.plain)
         .disabled(disabled || loading)
         .onHover { hoveringMain = $0 }
+        .accessibilityValue(loading ? "In progress" : "")
     }
 
     private var divider: some View {
@@ -80,6 +81,7 @@ struct SplitToolButton<Menu: View>: View {
         .fixedSize()
         .disabled(disabled || loading)
         .onHover { hoveringChev = $0 }
+        .accessibilityLabel("\(label) options")
     }
 
     private var bg: Color {
