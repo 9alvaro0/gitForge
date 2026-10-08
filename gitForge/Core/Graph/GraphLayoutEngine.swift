@@ -19,8 +19,8 @@ nonisolated enum GraphLayoutEngine {
         let branchId: Int
         let startRow: Int
         /// Display name of the ref pointing at this lane's tip when it was
-        /// opened. Used to pin gitflow trunks (main, develop, release/*) to
-        /// stable leftmost columns.
+        /// opened. Drives the gitflow priority rank (fixed trunk colours and
+        /// thicker strokes); it does *not* affect columns — see Pass 2.
         let initialRefName: String?
         /// True when the lane originates from a stash commit. Propagates into
         /// `LaneOccupation.isStash` so the renderer can draw it dashed.
