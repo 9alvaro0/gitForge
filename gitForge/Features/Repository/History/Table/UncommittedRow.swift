@@ -58,9 +58,10 @@ struct UncommittedRow: View {
         .contentShape(.rect)
         .onTapGesture(count: 2) { onDoubleClick?() }
         .onTapGesture(perform: onSelect)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Uncommitted changes")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { onSelect() }
     }
 
     private var rowBackground: AnyShapeStyle {

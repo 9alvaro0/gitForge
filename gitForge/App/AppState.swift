@@ -14,13 +14,15 @@ final class AppState {
     let clone: CloneController
     let ui: WorkspaceUI
     let profiles: ProfileStore
+    let network: NetworkMonitor
 
     init(
         catalog: RepositoryCatalog? = nil,
         gitEnvironment: GitEnvironment? = nil,
         clone: CloneController? = nil,
         ui: WorkspaceUI? = nil,
-        profiles: ProfileStore? = nil
+        profiles: ProfileStore? = nil,
+        network: NetworkMonitor? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
@@ -30,6 +32,7 @@ final class AppState {
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
         self.profiles = profiles ?? ProfileStore()
+        self.network = network ?? NetworkMonitor()
     }
 
     // MARK: - Bootstrap

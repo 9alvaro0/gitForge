@@ -7,6 +7,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var systemColorScheme
+    @Environment(\.colorSchemeContrast) private var systemContrast
     @AppStorage("gitForge.onboarding.completed") private var onboardingCompleted = false
 
     var body: some View {
@@ -40,9 +41,15 @@ struct RootView: View {
         } message: { error in
             Text(error.message)
         }
-        .onAppear { ui.theme.systemColorScheme = systemColorScheme }
+        .onAppear {
+            ui.theme.systemColorScheme = systemColorScheme
+            ui.theme.increasedContrast = systemContrast == .increased
+        }
         .onChange(of: systemColorScheme) { _, scheme in
             ui.theme.systemColorScheme = scheme
+        }
+        .onChange(of: systemContrast) { _, contrast in
+            ui.theme.increasedContrast = contrast == .increased
         }
     }
 }

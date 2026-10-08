@@ -27,6 +27,11 @@ final class AppTheme {
     var systemColorScheme: ColorScheme = .dark {
         didSet { if mode == .system { refreshPalette() } }
     }
+    /// System "Increase contrast" accessibility setting, synced by the shell
+    /// like `systemColorScheme`.
+    var increasedContrast = false {
+        didSet { if increasedContrast != oldValue { refreshPalette() } }
+    }
 
     /// `mode` after collapsing `.system` to whatever the OS reports. Use
     /// this anywhere a binary dark/light decision is needed.
@@ -59,7 +64,7 @@ final class AppTheme {
     }
 
     private func refreshPalette() {
-        palette = ThemePalette.palette(for: effectiveMode, accent: accent)
+        palette = ThemePalette.palette(for: effectiveMode, accent: accent, highContrast: increasedContrast)
     }
 
     private func persist() {

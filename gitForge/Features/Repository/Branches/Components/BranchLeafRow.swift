@@ -49,6 +49,14 @@ struct BranchLeafRow: View {
             guard !isCurrent else { return }
             onCheckout(ref)
         }
+        // Keep the inline action buttons reachable, but give the row itself
+        // a spoken name and the double-click checkout as a named action.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(ref.displayName)\(isCurrent ? ", current branch" : ""), \(lastCommitLabel)")
+        .accessibilityAction(named: "Check out") {
+            guard !isCurrent else { return }
+            onCheckout(ref)
+        }
     }
 
     @ViewBuilder
