@@ -25,8 +25,17 @@ extension RepositoryViewModel {
             return .failed("Working tree has uncommitted changes. Commit, stash or discard them before integrating.")
         }
 
+        // Checkout + merge rewrite the index and worktree: hold `isMutating`
+        // like every other local mutation.
+        guard !isMutating else {
+            return .failed("Another operation is in progress.")
+        }
+        isMutating = true
         pullRequests.localMergeRunning = true
-        defer { pullRequests.localMergeRunning = false }
+        defer {
+            pullRequests.localMergeRunning = false
+            isMutating = false
+        }
 
         do {
             try await cli.fetchAll()

@@ -29,7 +29,12 @@ final class ProfileStore {
         let profiles: [GitProfile]
     }
 
-    init() {
+    private let defaults: UserDefaults
+
+    /// Tests pass a throwaway suite; they used to read and rewrite the
+    /// user's real profiles (and sweep their quarantine keys).
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         load()
     }
 
@@ -80,7 +85,7 @@ final class ProfileStore {
     // MARK: persistence
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: Self.storageKey) else { return }
+        guard let data = defaults.data(forKey: Self.storageKey) else { return }
         let decoder = JSONDecoder()
         // v1 envelope first; fall back to the bare-array legacy format so
         // users upgrading from a pre-versioned build don't lose profiles.
@@ -104,7 +109,7 @@ final class ProfileStore {
     private func save() {
         let envelope = StoredProfiles(version: Self.schemaVersion, profiles: profiles)
         guard let data = try? JSONEncoder().encode(envelope) else { return }
-        UserDefaults.standard.set(data, forKey: Self.storageKey)
+        defaults.set(data, forKey: Self.storageKey)
     }
 
     /// Copies the unparseable bytes to a timestamped key (and removes the
@@ -114,8 +119,8 @@ final class ProfileStore {
         let stamp = ISO8601DateFormatter().string(from: .now)
             .replacingOccurrences(of: ":", with: "-")
         let key = "\(Self.corruptedKeyPrefix).\(reason).\(stamp)"
-        UserDefaults.standard.set(data, forKey: key)
-        UserDefaults.standard.removeObject(forKey: Self.storageKey)
+        defaults.set(data, forKey: key)
+        defaults.removeObject(forKey: Self.storageKey)
     }
 }
 
