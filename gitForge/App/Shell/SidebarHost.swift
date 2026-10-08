@@ -17,7 +17,7 @@ struct SidebarHost: View {
             activeSection: appState.ui.workspaceSection,
             unstagedBadge: appState.catalog.activeViewModel?.status.unstagedFiles.count ?? 0,
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
-            pullsBadge: appState.catalog.activeViewModel?.pullRequests.count ?? 0,
+            pullsBadge: appState.catalog.activeViewModel?.pullRequests.items.count ?? 0,
             conflictsBadge: appState.catalog.activeViewModel?.conflictFiles.filter { !$0.resolved }.count ?? 0,
             identity: identitySnapshot.identity,
             scopeTag: identitySnapshot.scopeTag,
