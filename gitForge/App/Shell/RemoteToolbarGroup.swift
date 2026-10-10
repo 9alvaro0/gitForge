@@ -1,7 +1,9 @@
 import SwiftUI
 
 /// Fetch + Pull (split) + Push (split) for the shell toolbar on every
-/// repository screen (redesign spec §6.1). Force-with-lease sits behind a
+/// repository screen (redesign spec §6.1). Native controls only: the
+/// toolbar's Liquid Glass capsule is the one and only chrome, so nothing
+/// here draws its own background. Force-with-lease sits behind a
 /// confirmation when `confirmForcePush` is on. Offline disables the group.
 struct RemoteToolbarGroup: View {
     @Bindable var viewModel: RepositoryViewModel
@@ -11,69 +13,53 @@ struct RemoteToolbarGroup: View {
     @State private var pendingForcePush = false
 
     var body: some View {
-        HStack(spacing: Spacing.s6) {
-            if !online {
-                Image(systemName: "wifi.slash")
-                    .accessibilityLabel("Offline")
-                    .help("Offline")
+        ControlGroup {
+            Button { Task { await viewModel.fetch() } } label: {
+                label("Fetch", systemImage: "arrow.triangle.2.circlepath",
+                      loading: viewModel.remoteOperation == .fetching)
             }
-            ToolButton(
-                .fetch,
-                label: "Fetch",
-                disabled: !online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .fetching),
-                loading: viewModel.remoteOperation == .fetching
-            ) {
-                Task { await viewModel.fetch() }
-            }
+            .disabled(!online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .fetching))
             .help(ShellStatus.fetchHelp(lastFetch: viewModel.lastFetchedAt, now: .now, online: online))
-            pullSplitButton
-            pushSplitButton
-        }
-        // The toolbar compresses items to fit; the labels must not truncate.
-        .fixedSize()
-    }
 
-    @ViewBuilder
-    private var pullSplitButton: some View {
-        SplitToolButton(
-            kind: .pull,
-            label: "Pull",
-            badge: viewModel.behindCount,
-            primary: false,
-            loading: viewModel.remoteOperation == .pulling,
-            // Pull is also a local mutation (see `RepositoryViewModel.pull`).
-            disabled: !online || ((viewModel.remoteOperation != nil || viewModel.isMutating)
-                && viewModel.remoteOperation != .pulling),
-            action: { Task { await viewModel.pull() } }
-        ) {
-            Button("Pull (only if no merge needed)") {
-                Task { await viewModel.pull(ffOnly: true) }
-            }
-            Button("Pull and rebase my commits") {
-                Task { await viewModel.pull(rebase: true) }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var pushSplitButton: some View {
-        SplitToolButton(
-            kind: .push,
-            label: "Push",
-            badge: viewModel.aheadCount,
-            primary: true,
-            loading: viewModel.remoteOperation == .pushing,
-            disabled: !online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .pushing),
-            action: { Task { await viewModel.push() } }
-        ) {
-            Button("Force push (only if remote unchanged)", role: .destructive) {
-                if preferences.confirmForcePush {
-                    pendingForcePush = true
-                } else {
-                    Task { await viewModel.push(forceWithLease: true) }
+            Menu {
+                Button("Pull (only if no merge needed)") {
+                    Task { await viewModel.pull(ffOnly: true) }
                 }
+                Button("Pull and rebase my commits") {
+                    Task { await viewModel.pull(rebase: true) }
+                }
+            } label: {
+                label(countedTitle("Pull", viewModel.behindCount), systemImage: "arrow.down.to.line",
+                      loading: viewModel.remoteOperation == .pulling)
+            } primaryAction: {
+                Task { await viewModel.pull() }
             }
+            // Pull is also a local mutation (see `RepositoryViewModel.pull`).
+            .disabled(!online || ((viewModel.remoteOperation != nil || viewModel.isMutating)
+                && viewModel.remoteOperation != .pulling))
+            .help(online ? "Pull" : "Offline")
+
+            Menu {
+                Button("Force push (only if remote unchanged)", role: .destructive) {
+                    if preferences.confirmForcePush {
+                        pendingForcePush = true
+                    } else {
+                        Task { await viewModel.push(forceWithLease: true) }
+                    }
+                }
+            } label: {
+                label(countedTitle("Push", viewModel.aheadCount), systemImage: "arrow.up.to.line",
+                      loading: viewModel.remoteOperation == .pushing)
+            } primaryAction: {
+                Task { await viewModel.push() }
+            }
+            .disabled(!online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .pushing))
+            .help(online ? "Push" : "Offline")
         }
+        .labelStyle(.titleAndIcon)
+        // A ControlGroup reports a flexible width; without this the toolbar
+        // reserves too much room and pushes items into its overflow menu.
+        .fixedSize()
         .confirmationDialog(
             "Force push to \(viewModel.currentBranchName ?? "remote")?",
             isPresented: $pendingForcePush,
@@ -84,6 +70,20 @@ struct RemoteToolbarGroup: View {
             }
         } message: {
             Text("Uses --force-with-lease, so the push only succeeds if the remote hasn't moved since your last fetch. This still rewrites remote history.")
+        }
+    }
+
+    /// "Push 2": the count rides in the title, as in the design.
+    private func countedTitle(_ title: String, _ count: Int) -> String {
+        count > 0 ? "\(title) \(count)" : title
+    }
+
+    @ViewBuilder
+    private func label(_ title: String, systemImage: String, loading: Bool) -> some View {
+        if loading {
+            Label { Text(title) } icon: { ProgressView().controlSize(.small) }
+        } else {
+            Label(title, systemImage: online ? systemImage : "wifi.slash")
         }
     }
 }

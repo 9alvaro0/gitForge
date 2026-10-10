@@ -49,8 +49,16 @@ struct StagingView: View {
         .navigationTitle("Changes")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                ToolButton(.stash, label: "Stash") { Task { _ = await viewModel.stashAll() } }
-                ToolButton(.x, label: "Discard all") { ui.discardAllConfirmVisible = true }
+                Button { Task { _ = await viewModel.stashAll() } } label: {
+                    Label("Stash", systemImage: "tray.and.arrow.down")
+                }
+                .labelStyle(.iconOnly)
+                .help("Stash all changes")
+                Button { ui.discardAllConfirmVisible = true } label: {
+                    Label("Discard all", systemImage: "arrow.uturn.backward")
+                }
+                .labelStyle(.iconOnly)
+                .help("Discard all changes…")
             }
         }
         // Driven by WorkspaceUI.discardAllConfirmVisible so the Repository ▸

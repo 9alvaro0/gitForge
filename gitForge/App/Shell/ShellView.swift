@@ -14,7 +14,7 @@ struct ShellView: View {
     var body: some View {
         NavigationSplitView {
             SidebarHost()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } detail: {
             mainColumn
                 .navigationSubtitle(subtitle)
@@ -26,6 +26,11 @@ struct ShellView: View {
                     )
                 }
         }
+        // The accent tints the prominent toolbar actions (New branch,
+        // Continue, Stash changes…). Label styles are set per item: a global
+        // `.titleAndIcon` also titles the system sidebar toggle, which then
+        // no longer fits and drops into the toolbar overflow menu.
+        .tint(theme.colors.accentFill)
         .preferredColorScheme(preferredScheme)
         .overlay {
             if appState.ui.commandPaletteOpen {
@@ -54,11 +59,10 @@ struct ShellView: View {
         }
     }
 
-    /// Branch and ahead/behind (the old status bar's left half). Empty
-    /// without an active repository.
+    /// Branch and ahead/behind (the old status bar's left half), or the
+    /// section's own context. Empty without an active repository.
     private var subtitle: String {
-        guard let vm = appState.catalog.activeViewModel else { return "" }
-        return ShellStatus.subtitle(branch: vm.currentBranchName, ahead: vm.aheadCount, behind: vm.behindCount)
+        appState.catalog.activeViewModel?.toolbarSubtitle(for: appState.ui.workspaceSection) ?? ""
     }
 
     /// `.system` returns `nil` so SwiftUI keeps the OS scheme; explicit modes

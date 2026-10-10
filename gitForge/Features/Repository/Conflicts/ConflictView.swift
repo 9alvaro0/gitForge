@@ -38,7 +38,6 @@ struct ConflictView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
         .navigationTitle("Resolve conflicts")
-        .navigationSubtitle(headerSubtitle)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 switch viewModel.mergeState {
@@ -46,9 +45,11 @@ struct ConflictView: View {
                     // Stash apply has no `--abort` in git; the VM reverts the
                     // paths the stash touched. Confirm because it discards
                     // the half-applied stash content from the worktree.
-                    ToolButton(.x, label: "Abort stash apply") {
-                        confirmAbortStash = true
+                    Button { confirmAbortStash = true } label: {
+                        Label("Abort stash apply", systemImage: "xmark")
                     }
+                    .labelStyle(.iconOnly)
+                    .help("Abort stash apply…")
                 case .bisecting:
                     // No native conflict resolution loop for bisect; the user
                     // marks good/bad from terminal. Surface the situation so
@@ -59,29 +60,19 @@ struct ConflictView: View {
                 case .clean:
                     EmptyView()
                 case .merging, .rebasing, .cherryPicking, .reverting:
-                    ToolButton(.x, label: "Abort \(operationLabel)") {
-                        Task { await viewModel.abortMerge() }
+                    Button { Task { await viewModel.abortMerge() } } label: {
+                        Label("Abort \(operationLabel)", systemImage: "xmark")
                     }
-                    ToolButton(.check,
-                               label: "Continue \(operationLabel)",
-                               primary: true,
-                               disabled: !viewModel.conflicts.files.allSatisfy(\.resolved)) {
-                        Task { await viewModel.continueMerge() }
+                    .labelStyle(.iconOnly)
+                    .help("Abort \(operationLabel)")
+                    Button { Task { await viewModel.continueMerge() } } label: {
+                        Label("Continue \(operationLabel)", systemImage: "checkmark")
                     }
+                    .labelStyle(.titleAndIcon)
+                    .buttonStyle(.glassProminent)
+                    .disabled(!viewModel.conflicts.files.allSatisfy(\.resolved))
                 }
             }
-        }
-    }
-
-    private var headerSubtitle: String {
-        switch viewModel.mergeState {
-        case .merging:       return "merging into \(viewModel.currentBranchName ?? "HEAD")"
-        case .rebasing:      return "rebasing \(viewModel.currentBranchName ?? "HEAD")"
-        case .cherryPicking: return "cherry-picking onto \(viewModel.currentBranchName ?? "HEAD")"
-        case .reverting:     return "reverting on \(viewModel.currentBranchName ?? "HEAD")"
-        case .bisecting:     return "bisecting"
-        case .unmerged:      return "applying stash on \(viewModel.currentBranchName ?? "HEAD")"
-        case .clean:         return ""
         }
     }
 

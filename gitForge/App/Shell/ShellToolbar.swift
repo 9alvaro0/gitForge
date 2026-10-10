@@ -13,11 +13,18 @@ struct ShellToolbar: ToolbarContent {
                 RemoteToolbarGroup(viewModel: viewModel, online: online)
             }
         }
+        // ⌘K is its own capsule, apart from the remote group and the
+        // screen's actions.
+        ToolbarSpacer(.fixed, placement: .primaryAction)
         ToolbarItem(placement: .primaryAction) {
             Button(action: onOpenPalette) {
                 Label("Search or run a command", systemImage: "magnifyingglass")
             }
+            .labelStyle(.titleAndIcon)
             .help("Search or run a command (⌘K)")
         }
+        // The screen's own actions (declared after these) get a capsule of
+        // their own instead of sharing ⌘K's.
+        ToolbarSpacer(.fixed, placement: .primaryAction)
     }
 }

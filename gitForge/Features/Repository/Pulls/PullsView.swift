@@ -47,12 +47,14 @@ struct PullsView: View {
                 onOpenSettings: { appState.ui.workspaceSection = .settings }
             )
         }
-        .navigationSubtitle(pullsSubtitle)
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                ToolButton(.fetch, label: "Refresh", disabled: store.isLoading) {
-                    Task { await store.load(force: true) }
+            ToolbarItem(placement: .primaryAction) {
+                Button { Task { await store.load(force: true) } } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .labelStyle(.iconOnly)
+                .help("Refresh pull requests")
+                .disabled(store.isLoading)
             }
         }
     }
@@ -61,11 +63,6 @@ struct PullsView: View {
         store.host?.provider.pullNoun.appending("s") ?? "Pull requests"
     }
 
-    /// The host replaces the shell's branch subtitle on this screen.
-    private var pullsSubtitle: String {
-        guard let host = store.host else { return "not connected" }
-        return "\(host.slug) · \(host.provider.label.lowercased())"
-    }
 
     private func presentTokenSheet() {
         tokenDraft = ""
