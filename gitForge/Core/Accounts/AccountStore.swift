@@ -27,7 +27,9 @@ final class AccountStore {
     private(set) var accounts: [HostingAccount] = []
     /// repo path → remote name → account id.
     private(set) var assignments: [String: [String: UUID]] = [:]
-    /// Set once the pre-accounts host tokens have been copied over.
+    /// Old store host → the account its token was copied into.
+    var legacyHostAccounts: [String: UUID] = [:]
+    /// Set once a sync read and copied every old host token without error.
     var migratedLegacyTokens = false {
         didSet { if oldValue != migratedLegacyTokens { save() } }
     }
@@ -41,6 +43,8 @@ final class AccountStore {
         let accounts: [HostingAccount]
         let assignments: [String: [String: UUID]]
         let migratedLegacyTokens: Bool
+        /// Optional: absent in files written before the sync existed.
+        let legacyHostAccounts: [String: UUID]?
     }
 
     init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore()) {
@@ -98,6 +102,7 @@ final class AccountStore {
     func removeAccount(_ id: UUID) {
         secrets.delete(id)
         accounts.removeAll { $0.id == id }
+        legacyHostAccounts = legacyHostAccounts.filter { $0.value != id }
         for (repo, remotes) in assignments {
             let kept = remotes.filter { $0.value != id }
             assignments[repo] = kept.isEmpty ? nil : kept
@@ -140,6 +145,9 @@ final class AccountStore {
             accounts = stored.accounts.filter { account in instances.contains { $0.id == account.instanceId } }
             assignments = stored.assignments
             migratedLegacyTokens = stored.migratedLegacyTokens
+            legacyHostAccounts = (stored.legacyHostAccounts ?? [:]).filter { mapping in
+                accounts.contains { $0.id == mapping.value }
+            }
         } catch {
             Self.logger.error("Failed to load accounts.json: \(error.localizedDescription, privacy: .public)")
             quarantine()
@@ -151,7 +159,8 @@ final class AccountStore {
                             instances: instances.filter { !$0.isBuiltIn },
                             accounts: accounts,
                             assignments: assignments,
-                            migratedLegacyTokens: migratedLegacyTokens)
+                            migratedLegacyTokens: migratedLegacyTokens,
+                            legacyHostAccounts: legacyHostAccounts)
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -170,23 +179,36 @@ final class AccountStore {
 }
 
 /// The pre-accounts token store, one token per host.
+/// The pre-accounts token store, one token per host. Reads throw when the
+/// store can't be read (e.g. Keychain access denied), so that isn't taken
+/// for "no token".
 protocol LegacyTokenSource {
-    func knownHosts() -> [String]
-    func token(for host: String) -> String?
+    func legacyHosts() throws -> [String]
+    /// `nil` = no token stored for `host`.
+    func legacyToken(for host: String) throws -> String?
 }
 
 extension AccountStore {
-    /// Copies each old per-host token into a token account (spec §4.4).
-    /// Non-destructive in phase 1: the old entries stay until phase 5 moves
-    /// PRs and clone onto accounts. Marked done only when every copy landed,
-    /// so a Keychain failure is retried next launch.
+    /// Syncs each old per-host token into a token account (spec §4.4). Runs
+    /// every launch until phase 5 retires the old store, so a token added
+    /// or rotated in Settings › Remote hosts meanwhile still reaches the
+    /// accounts. Non-destructive: the old entries stay until phase 5.
+    /// `migratedLegacyTokens` is set only once a run read and copied every
+    /// host without error; phase 5 must see it set before deleting.
     func migrateLegacyTokens(from legacy: LegacyTokenSource) {
-        guard !migratedLegacyTokens else { return }
-        var allCopied = true
-        for host in legacy.knownHosts() {
-            guard let token = legacy.token(for: host),
-                  let normalized = HostingInstance.normalizedHost(host),
+        guard let hosts = try? legacy.legacyHosts() else { return }
+        var complete = true
+        for host in hosts {
+            guard let normalized = HostingInstance.normalizedHost(host),
                   let kind = Self.legacyKind(forHost: normalized) else { continue }
+            let token: String
+            do {
+                guard let stored = try legacy.legacyToken(for: host) else { continue }
+                token = stored
+            } catch {
+                complete = false
+                continue
+            }
             let target: HostingInstance
             if let existing = instance(forHost: normalized) {
                 target = existing
@@ -194,18 +216,34 @@ extension AccountStore {
                 target = HostingInstance(kind: kind, host: normalized)
                 do { try addInstance(target) } catch { continue }
             }
-            // Already copied on an earlier, partly failed run.
-            if accounts(in: target.id).contains(where: { $0.method == .personalToken && secret(for: $0.id)?.accessToken == token }) {
+            // Already synced: keep its secret current (only while it's still
+            // a token account; a reconnect via OAuth owns its own secret).
+            if let mapped = legacyHostAccounts[normalized],
+               let account = accounts.first(where: { $0.id == mapped }) {
+                if account.method == .personalToken, secret(for: mapped)?.accessToken != token {
+                    do { try secrets.write(AccountSecret(accessToken: token), for: mapped) } catch { complete = false }
+                }
                 continue
             }
+            // Copied by an earlier version, before the host map existed.
+            if let earlier = accounts(in: target.id).first(where: {
+                $0.method == .personalToken && !legacyHostAccounts.values.contains($0.id)
+                    && secret(for: $0.id)?.accessToken == token
+            }) {
+                legacyHostAccounts[normalized] = earlier.id
+                save()
+                continue
+            }
+            let account = HostingAccount(instanceId: target.id, method: .personalToken, status: .unverified)
             do {
-                try addAccount(HostingAccount(instanceId: target.id, method: .personalToken, status: .unverified),
-                               secret: AccountSecret(accessToken: token))
+                try addAccount(account, secret: AccountSecret(accessToken: token))
+                legacyHostAccounts[normalized] = account.id
+                save()
             } catch {
-                allCopied = false
+                complete = false
             }
         }
-        if allCopied { migratedLegacyTokens = true }
+        if complete { migratedLegacyTokens = true }
     }
 
     /// The old host-name heuristic, used only to type migrated hosts.

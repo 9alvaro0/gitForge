@@ -25,7 +25,7 @@ struct RemoteCredentialsStore: Sendable {
 
     private let service = "com.warwarelabs.gitForge.remote-token"
 
-    private func baseQuery() -> [String: Any] {
+    fileprivate func baseQuery() -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -138,4 +138,31 @@ struct RemoteCredentialsStore: Sendable {
     }
 }
 
-extension RemoteCredentialsStore: LegacyTokenSource {}
+/// Throwing reads for the account sync, which must tell "no token" apart
+/// from "couldn't read" (e.g. the user denied Keychain access).
+extension RemoteCredentialsStore: LegacyTokenSource {
+    struct ReadError: Error { let status: OSStatus }
+
+    func legacyHosts() throws -> [String] {
+        var query = baseQuery()
+        query[kSecMatchLimit as String] = kSecMatchLimitAll
+        query[kSecReturnAttributes as String] = true
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return [] }
+        guard status == errSecSuccess, let items = result as? [[String: Any]] else { throw ReadError(status: status) }
+        return items.compactMap { $0[kSecAttrAccount as String] as? String }.sorted()
+    }
+
+    func legacyToken(for host: String) throws -> String? {
+        var query = baseQuery()
+        query[kSecAttrAccount as String] = host
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else { throw ReadError(status: status) }
+        return String(data: data, encoding: .utf8)
+    }
+}
