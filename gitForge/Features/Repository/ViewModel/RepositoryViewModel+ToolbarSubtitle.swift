@@ -15,7 +15,7 @@ extension RepositoryViewModel {
             // The staged / unstaged counts the old status bar showed.
             let branch = currentBranchName ?? "Detached HEAD"
             guard !status.isClean else { return "\(branch) · no changes" }
-            return "\(branch) · \(status.stagedFiles.count) staged, \(status.unstagedFiles.count) unstaged"
+            return "\(branch) · \(status.unstagedFiles.count) unstaged, \(status.stagedFiles.count) staged"
         default:
             return ShellStatus.subtitle(branch: currentBranchName, ahead: aheadCount, behind: behindCount)
         }

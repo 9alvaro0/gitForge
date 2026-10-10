@@ -15,31 +15,31 @@ struct DiffSplitContent: View {
             ScrollView(.vertical) {
                 // LazyVStack of HStack rows replaces the eager Grid so a diff
                 // with thousands of rows doesn't realise every cell on first
-                // paint. Trade-off vs. Grid: paired left/right cells align at
-                // top (`.alignment(.top)`) instead of stretching to a shared
-                // row height — if one side wraps further than the other, the
-                // shorter side's background ends sooner. Acceptable: the line
-                // numbers stay aligned and the visual cue (added/removed
-                // tints) still carries.
+                // paint. Each row sizes itself to its taller half (see the
+                // `fixedSize` below), which is what the Grid used to do.
                 // Row offsets reset to 0 inside each hunk; compose with hunk
                 // id so the LazyVStack sees globally-unique IDs (otherwise
                 // SwiftUI logs "the ID … is used by multiple child views").
-                LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(hunks) { hunk in
                         DiffHunkHeader(hunk: hunk)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
                         ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { idx, row in
-                            HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
+                            HStack(alignment: .top, spacing: 0) {
                                 DiffSplitCell(line: row.left,  side: .left,  attributed: row.left.flatMap  { table?[$0.id] })
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                 Rectangle()
-                                    .fill(theme.palette.line)
-                                    .frame(width: DesignTokens.Stroke.regular)
+                                    .fill(theme.colors.separator)
+                                    .frame(width: 1)
                                 DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             }
+                            // Both halves stretch to the taller one, so a line
+                            // that wraps on one side keeps the other side's
+                            // tint or hatch the same height.
+                            .fixedSize(horizontal: false, vertical: true)
                             .id("h-\(hunk.id)-r-\(idx)")
                         }
                     }
@@ -95,6 +95,6 @@ private struct SplitRow {
     @Previewable @State var theme = AppTheme()
     DiffSplitContent(hunks: DiffHunk.previewSamples, highlighted: [:])
         .frame(width: 720, height: 320)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }

@@ -9,18 +9,15 @@ struct DiffHunkHeader: View {
 
     var body: some View {
         Text(hunk.header.isEmpty ? "@@" : hunk.header)
-            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg3)
+            .font(AppFont.font(.mono, monoFamily: theme.monoFont))
+            .foregroundStyle(theme.colors.textQuaternary)
             .lineLimit(1)
             .truncationMode(.tail)
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
-            .padding(.vertical, DesignTokens.Spacing.xs)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.palette.bg3)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(theme.palette.line)
-                    .frame(height: DesignTokens.Stroke.regular)
+            .padding(.horizontal, Spacing.s12)
+            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+            .background(theme.colors.info.opacity(0.07))
+            .overlay(alignment: .top) {
+                Rectangle().fill(theme.colors.separator).frame(height: 1)
             }
     }
 }
@@ -29,6 +26,5 @@ struct DiffHunkHeader: View {
     @Previewable @State var theme = AppTheme()
     DiffHunkHeader(hunk: DiffHunk.previewSamples[0])
         .frame(width: 520)
-        .background(theme.palette.bg2)
         .appTheme(theme)
 }

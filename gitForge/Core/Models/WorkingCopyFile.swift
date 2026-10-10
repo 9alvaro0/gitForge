@@ -71,6 +71,8 @@ nonisolated struct WorkingCopyFile: Sendable, Equatable, Identifiable, Hashable 
     var id: String { path }
 
     var isStaged: Bool { stagedStatus != .unmodified && stagedStatus != .untracked && stagedStatus != .ignored }
+    /// The side the file's badge shows: its staged change when there is one.
+    var displayStatus: Status { isStaged ? stagedStatus : unstagedStatus }
     var isUnstaged: Bool { unstagedStatus != .unmodified && unstagedStatus != .ignored }
     var isUntracked: Bool { stagedStatus == .untracked || unstagedStatus == .untracked }
     var isUnmerged: Bool { stagedStatus == .unmerged || unstagedStatus == .unmerged }

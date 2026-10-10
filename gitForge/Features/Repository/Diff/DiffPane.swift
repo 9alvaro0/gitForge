@@ -3,6 +3,8 @@ import SwiftUI
 /// File diff viewer used in History and Changes.
 struct DiffPane: View {
     let file: String?
+    /// Change kind of `file`, shown as the header badge when the host knows it.
+    var status: StatusTag.Kind? = nil
     let hunks: [DiffHunk]
     var loading: Bool = false
     /// Reason the diff is empty when `hunks.isEmpty`. Drives the empty-state
@@ -35,21 +37,19 @@ struct DiffPane: View {
     @State private var highlighted: [Int: [Int: AttributedString]] = [:]
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
+        VStack(spacing: 0) {
             DiffHeader(
                 file: file,
+                status: status,
+                stats: loading || hunks.isEmpty ? nil : DiffStats(hunks: hunks),
                 viewMode: $viewMode,
                 onOpenInEditor: onOpenInEditor,
                 onClose: onClose
             )
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(theme.palette.bg2)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(theme.palette.lineStrong)
-                .frame(height: DesignTokens.Stroke.regular)
-        }
+        .background(theme.colors.bgCode)
         .task(id: tokenizeKey) { await tokenizeHunks() }
     }
 
@@ -67,10 +67,11 @@ struct DiffPane: View {
         }
     }
 
-    /// Re-tokenises when file, hunks, theme mode, or accent change —
-    /// everything the cached attributed strings depend on.
+    /// Re-tokenises when the file, its hunks or the light/dark syntax
+    /// palette change — everything the cached attributed strings depend on.
+    /// Uses the effective mode so following the system appearance re-colours.
     private var tokenizeKey: String {
-        "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.mode.rawValue)|\(theme.accent.cssHex)"
+        "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.effectiveMode.rawValue)"
     }
 
     /// Above this many lines the diff renders as plain text: tokenising runs
@@ -89,8 +90,8 @@ struct DiffPane: View {
               hunks.reduce(0, { $0 + $1.lines.count }) <= Self.highlightLineLimit else {
             return
         }
-        let css = DiffSyntaxHighlighter.css(for: theme.palette)
-        let themeId = "\(theme.mode.rawValue)-\(theme.accent.cssHex)"
+        let css = DiffSyntaxHighlighter.css(for: SyntaxPalette.make(theme.variant))
+        let themeId = theme.effectiveMode.rawValue
         var output: [Int: [Int: AttributedString]] = [:]
         var unpublishedLines = 0
         for hunk in hunks {
@@ -117,11 +118,11 @@ struct DiffPane: View {
     @Previewable @State var mode: DiffPane.ViewMode = .unified
     DiffPane(
         file: "src/components/CommitGraph.tsx",
+        status: .modified,
         hunks: DiffHunk.previewSamples,
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -130,11 +131,11 @@ struct DiffPane: View {
     @Previewable @State var mode: DiffPane.ViewMode = .split
     DiffPane(
         file: "src/components/CommitGraph.tsx",
+        status: .modified,
         hunks: DiffHunk.previewSamples,
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -148,7 +149,6 @@ struct DiffPane: View {
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -162,6 +162,5 @@ struct DiffPane: View {
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
