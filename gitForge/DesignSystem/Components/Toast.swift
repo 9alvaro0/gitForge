@@ -5,8 +5,15 @@ struct ToastMessage: Equatable, Identifiable {
     let id = UUID()
     var message: String
     var kind: Kind = .ok
+
+    /// Redesign spec §5: toasts leave after 4 s, errors stay until dismissed.
+    var autoDismissAfter: Duration? {
+        kind == .error ? nil : .seconds(4)
+    }
 }
 
+/// Bottom-centre glass toast (redesign spec §5): shape-coded glyph plus
+/// message. Click dismisses it.
 struct ToastView: View {
     let toast: ToastMessage
     var onDismiss: () -> Void = {}
@@ -14,47 +21,57 @@ struct ToastView: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.lg) {
-            GFIcon(kind: icon, size: 14, stroke: iconColor)
+        HStack(spacing: Spacing.s8) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
             Text(toast.message)
-                .font(AppFont.sans(FontSize.mdPlus))
-                .foregroundStyle(theme.palette.fg1)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textPrimary)
+                .lineLimit(2)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxl)
-        .padding(.vertical, DesignTokens.Spacing.lg)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg3))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
-        .shadow(color: theme.palette.shadowColor, radius: 20, y: 8)
+        .padding(.horizontal, Spacing.s16)
+        .padding(.vertical, Spacing.s8)
+        .frame(minHeight: 44)
+        .glassEffect(.regular, in: .rect(cornerRadius: Radius.popover))
+        .shadow(color: theme.colors.shadow, radius: 15, y: 10)
+        .contentShape(.rect(cornerRadius: Radius.popover))
         .onTapGesture { onDismiss() }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isStaticText)
+        .accessibilityAction(named: "Dismiss") { onDismiss() }
     }
 
-    private var icon: GFIconKind {
+    /// Glyphs differ in shape, not just colour.
+    private var symbol: String {
         switch toast.kind {
-        case .ok:    return .check
-        case .info:  return .dot
-        case .warn:  return .warn
-        case .error: return .x
+        case .ok:    "checkmark.circle.fill"
+        case .info:  "info.circle.fill"
+        case .warn:  "exclamationmark.triangle.fill"
+        case .error: "xmark.octagon.fill"
         }
     }
-    private var iconColor: Color {
+
+    private var tint: Color {
         switch toast.kind {
-        case .ok:    return theme.palette.ok
-        case .info:  return theme.palette.info
-        case .warn:  return theme.palette.warn
-        case .error: return theme.palette.del
+        case .ok:    theme.colors.ok
+        case .info:  theme.colors.info
+        case .warn:  theme.colors.warn
+        case .error: theme.colors.del
         }
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: DesignTokens.Spacing.xl) {
+    VStack(spacing: Spacing.s12) {
         ToastView(toast: .previewOk)
         ToastView(toast: .previewInfo)
         ToastView(toast: .previewWarn)
         ToastView(toast: .previewError)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
