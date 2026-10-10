@@ -12,8 +12,8 @@ struct ConflictView: View {
                 resolverShell
             } else {
                 EmptyState(icon: .check, title: "No merge in progress",
-                           subtitle: "Conflicts will show up here when a merge or rebase pauses.") { EmptyView() }
-                    .background(theme.palette.bg2)
+                           subtitle: "Conflicts will show up here when a merge or rebase pauses.")
+                    .background(theme.colors.bgContent)
                     .navigationTitle("Conflicts")
             }
         }
@@ -29,14 +29,14 @@ struct ConflictView: View {
     }
 
     private var resolverShell: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            HStack(spacing: DesignTokens.Spacing.none) {
-                ConflictFilesColumn(viewModel: viewModel)
-                ConflictHunksColumn(viewModel: viewModel)
-            }
+        HStack(spacing: 0) {
+            ConflictFilesColumn(viewModel: viewModel)
+            Rectangle().fill(theme.colors.separator).frame(width: 1)
+            selectedFile
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .navigationTitle("Resolve conflicts")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -73,6 +73,39 @@ struct ConflictView: View {
                     .disabled(!viewModel.conflicts.files.allSatisfy(\.resolved))
                 }
             }
+        }
+    }
+
+    /// Header, then the hunks over the read-only result (60 / 40).
+    @ViewBuilder
+    private var selectedFile: some View {
+        let conflicts = viewModel.conflicts
+        if let path = conflicts.selectedPath, !conflicts.hunks.isEmpty {
+            VStack(spacing: 0) {
+                ConflictFileHeader(
+                    path: path,
+                    hunkCount: conflicts.hunks.count,
+                    pickedCount: conflicts.hunks.filter { conflicts.picks[$0.id] != nil }.count,
+                    currentBranchName: viewModel.currentBranchName,
+                    onTakeOurs: { Task { await viewModel.resolveFile(at: path, using: .ours) } },
+                    onTakeTheirs: { Task { await viewModel.resolveFile(at: path, using: .theirs) } },
+                    onOpenInEditor: { ExternalURL.openFile(viewModel.repository.url.appendingPathComponent(path)) },
+                    onMarkResolved: { Task { await viewModel.resolveSelectedFile() } }
+                )
+                GeometryReader { geo in
+                    VStack(spacing: 0) {
+                        ConflictHunksColumn(viewModel: viewModel)
+                            .frame(height: geo.size.height * 0.6)
+                        Rectangle().fill(theme.colors.separator).frame(height: 1)
+                        ConflictResultPanel(lines: conflicts.resultLines)
+                    }
+                }
+            }
+        } else if conflicts.selectedPath != nil {
+            EmptyState(icon: .check, title: "No conflicts left in this file",
+                       subtitle: "Pick another file on the left, or continue when every file is resolved.")
+        } else {
+            EmptyState(icon: .conflict, title: "Pick a conflicted file")
         }
     }
 
