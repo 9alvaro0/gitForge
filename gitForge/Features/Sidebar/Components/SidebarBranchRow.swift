@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A folder or local branch in the sidebar tree. Click reveals the tip in
-/// History, double-click checks it out; both are also accessibility actions.
+/// History (the default action), double-click or the "Check out" accessibility
+/// action checks it out.
 struct SidebarBranchRow: View {
     let row: BranchTreeRow
     let onToggleFolder: (String) -> Void
@@ -46,7 +47,30 @@ struct SidebarBranchRow: View {
         .accessibilityValue(expanded ? "expanded" : "collapsed")
     }
 
+    /// A `Button`, not `onTapGesture`: inside the sidebar `List` plain tap
+    /// gestures never receive the click. The double-click runs alongside it,
+    /// so a checkout also re-reveals the tip, which is harmless.
     private func branch(_ ref: GitRef) -> some View {
+        Button { onReveal(ref) } label: {
+            branchLabel(ref)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            if !ref.isHead { onCheckout(ref) }
+        })
+        .help(ref.name)
+        .contextMenu {
+            Button("Reveal in History") { onReveal(ref) }
+            Button("Check Out") { onCheckout(ref) }
+                .disabled(ref.isHead)
+            Divider()
+            Button("Show in Branches") { onShowInBranches() }
+        }
+        .accessibilityLabel(ref.isHead ? "\(ref.name), current branch" : ref.name)
+        .accessibilityAction(named: "Check out") { if !ref.isHead { onCheckout(ref) } }
+    }
+
+    private func branchLabel(_ ref: GitRef) -> some View {
         HStack(spacing: Spacing.s6) {
             Circle()
                 .fill(row.containsHead ? theme.colors.accent : theme.colors.textQuaternary)
@@ -67,20 +91,5 @@ struct SidebarBranchRow: View {
         }
         .padding(.leading, CGFloat(row.depth) * Spacing.s12)
         .contentShape(.rect)
-        .onTapGesture(count: 2) { if !ref.isHead { onCheckout(ref) } }
-        .onTapGesture { onReveal(ref) }
-        .help(ref.name)
-        .contextMenu {
-            Button("Reveal in History") { onReveal(ref) }
-            Button("Check Out") { onCheckout(ref) }
-                .disabled(ref.isHead)
-            Divider()
-            Button("Show in Branches") { onShowInBranches() }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(ref.isHead ? "\(ref.name), current branch" : ref.name)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { onReveal(ref) }
-        .accessibilityAction(named: "Check out") { if !ref.isHead { onCheckout(ref) } }
     }
 }
