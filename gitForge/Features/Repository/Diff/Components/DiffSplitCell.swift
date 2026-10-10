@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// `nil` `line` means "this slot doesn't exist on this side" — the cell
-/// renders a muted background so the asymmetry reads without overpainting
-/// the actual added/removed tints.
+/// One side of a split-diff row. A `nil` `line` means "this slot doesn't
+/// exist on this side": the cell shows a diagonal hatch so the asymmetry
+/// reads without overpainting the added/removed tints.
 struct DiffSplitCell: View {
     enum Side { case left, right }
 
@@ -13,108 +13,90 @@ struct DiffSplitCell: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
-            lineNumber
-            Text(sign)
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .frame(width: DesignTokens.IconSize.xl)
-                .foregroundStyle(signColor)
-            content
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, DesignTokens.Spacing.xxl)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            DiffLineNumber(number: number, width: DiffGutter.splitNumber)
+                .background(gutterTint)
+            DiffSign(kind: signKind, width: DiffGutter.splitSign)
+            if let line {
+                // Long lines wrap so both halves stay readable without
+                // horizontal scroll.
+                DiffCode(line: line, attributed: attributed)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.trailing, Spacing.s12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(" ")
+                    .font(AppFont.font(.mono, monoFamily: theme.monoFont))
+                    .frame(maxWidth: .infinity)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(background)
-    }
-
-    /// Long lines wrap to multiple visual rows so the content stays readable
-    /// without horizontal scroll. `GridRow` in `DiffSplitContent` aligns both
-    /// sides to the taller wrapped height — so paired changed lines remain
-    /// horizontally aligned even when one side wraps further than the other.
-    @ViewBuilder
-    private var content: some View {
-        if let attributed {
-            Text(attributed)
-        } else {
-            Text(displayContent)
-                .foregroundStyle(textColor)
+        .frame(maxWidth: .infinity, minHeight: theme.density.metrics.diffLine, alignment: .leading)
+        .background {
+            if let line {
+                DiffTint.row(line.kind, colors: theme.colors)
+            } else {
+                DiffHatch(color: theme.colors.textPrimary.opacity(0.05))
+            }
         }
     }
 
-    private var lineNumber: some View {
-        let number: Int? = {
-            guard let line else { return nil }
-            return side == .left ? line.oldLineNumber : line.newLineNumber
-        }()
-        return Text(number.map(String.init) ?? "")
-            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg4)
-            .frame(width: 44, alignment: .trailing)
-            .padding(.horizontal, DesignTokens.Spacing.md)
+    private var number: Int? {
+        guard let line else { return nil }
+        return side == .left ? line.oldLineNumber : line.newLineNumber
     }
 
-    private var displayContent: String {
-        guard let line, !line.content.isEmpty else { return " " }
-        return line.content
-    }
-
-    private var sign: String {
-        guard let line else { return " " }
+    /// The sign only shows on the side the change belongs to.
+    private var signKind: DiffLine.Kind {
+        guard let line else { return .context }
         switch line.kind {
-        case .added:    return side == .right ? "+" : " "
-        case .removed:  return side == .left  ? "−" : " "
-        case .context:  return " "
-        case .noNewline: return "\\"
+        case .added: return side == .right ? .added : .context
+        case .removed: return side == .left ? .removed : .context
+        case .context, .noNewline: return line.kind
         }
     }
 
-    private var signColor: Color {
+    /// The number column carries a second layer of the change tint, so the
+    /// changed side reads at a glance down the gutter.
+    private var gutterTint: Color {
         guard let line else { return .clear }
-        switch line.kind {
-        case .added:    return theme.palette.add
-        case .removed:  return theme.palette.del
-        case .context:  return theme.palette.fg3
-        case .noNewline: return theme.palette.fg3
-        }
+        return DiffTint.row(line.kind, colors: theme.colors)
     }
+}
 
-    private var textColor: Color {
-        guard let line else { return .clear }
-        switch line.kind {
-        case .added:   return theme.palette.add
-        case .removed: return theme.palette.del
-        default:       return theme.palette.fg2
-        }
-    }
+/// 135° stripes for the empty side of a split row, as in the artboard.
+struct DiffHatch: View {
+    let color: Color
 
-    /// Standard split-diff convention: nil cells render as a muted gray
-    /// "this line doesn't exist here" indicator — subtler than tinting them
-    /// like a change so the actual changes still pop.
-    private var background: Color {
-        guard let line else { return theme.palette.bg3.opacity(0.5) }
-        switch line.kind {
-        case .added:   return theme.palette.addSoft
-        case .removed: return theme.palette.delSoft
-        default:       return .clear
+    var body: some View {
+        Canvas { context, size in
+            let spacing: CGFloat = 8
+            var path = Path()
+            var x: CGFloat = -size.height
+            while x < size.width {
+                path.move(to: CGPoint(x: x, y: size.height))
+                path.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += spacing
+            }
+            context.stroke(path, with: .color(color), lineWidth: 2.8)
         }
+        .clipped()
+        .accessibilityHidden(true)
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     let sample = DiffHunk.previewSamples[0].lines
-    Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+    VStack(spacing: 0) {
         ForEach(sample) { line in
-            GridRow {
-                DiffSplitCell(line: line, side: .left,  attributed: nil)
-                Rectangle().fill(theme.palette.line).frame(width: 1)
-                DiffSplitCell(line: line, side: .right, attributed: nil)
+            HStack(spacing: 0) {
+                DiffSplitCell(line: line.kind == .added ? nil : line, side: .left, attributed: nil)
+                Rectangle().fill(theme.colors.separator).frame(width: 1)
+                DiffSplitCell(line: line.kind == .removed ? nil : line, side: .right, attributed: nil)
             }
         }
     }
     .frame(width: 720)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgCode)
     .appTheme(theme)
 }

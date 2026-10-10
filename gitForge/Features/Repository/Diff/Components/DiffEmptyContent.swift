@@ -6,22 +6,18 @@ import SwiftUI
 struct DiffEmptyContent: View {
     let state: DiffEmptyState
 
-    @Environment(\.appTheme) private var theme
-
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
-            Text(copy.title)
-                .font(AppFont.sans(FontSize.mdPlus, weight: .semibold))
-                .foregroundStyle(theme.palette.fg2)
-            if let subtitle = copy.subtitle {
-                Text(subtitle)
-                    .font(AppFont.sans(FontSize.smPlus))
-                    .foregroundStyle(theme.palette.fg3)
-                    .multilineTextAlignment(.center)
-            }
+        EmptyState(icon: icon, title: copy.title, subtitle: copy.subtitle)
+    }
+
+    private var icon: GFIconKind {
+        switch state {
+        case .empty: .check
+        case .binary, .untrackedBinary: .square
+        case .renameOnly: .ext
+        case .modeChange: .settings
+        case .submoduleUpdate: .folder
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var copy: (title: String, subtitle: String?) {
@@ -47,7 +43,7 @@ struct DiffEmptyContent: View {
     @Previewable @State var theme = AppTheme()
     DiffEmptyContent(state: .empty)
         .frame(width: 520, height: 200)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }
 
@@ -55,7 +51,7 @@ struct DiffEmptyContent: View {
     @Previewable @State var theme = AppTheme()
     DiffEmptyContent(state: .binary)
         .frame(width: 520, height: 200)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }
 
@@ -63,7 +59,7 @@ struct DiffEmptyContent: View {
     @Previewable @State var theme = AppTheme()
     DiffEmptyContent(state: .untrackedBinary)
         .frame(width: 520, height: 200)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }
 
@@ -71,7 +67,7 @@ struct DiffEmptyContent: View {
     @Previewable @State var theme = AppTheme()
     DiffEmptyContent(state: .renameOnly)
         .frame(width: 520, height: 200)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }
 
@@ -79,6 +75,6 @@ struct DiffEmptyContent: View {
     @Previewable @State var theme = AppTheme()
     DiffEmptyContent(state: .modeChange(from: "100644", to: "100755"))
         .frame(width: 520, height: 200)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }

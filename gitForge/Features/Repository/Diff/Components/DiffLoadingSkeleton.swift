@@ -7,8 +7,8 @@ struct DiffLoadingSkeleton: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
                         DiffHunkHeader(hunk: Self.placeholderHunk)
                         ForEach(Self.placeholderHunk.lines) { line in
                             DiffRow(line: line, attributed: nil)
@@ -45,6 +45,6 @@ struct DiffLoadingSkeleton: View {
     @Previewable @State var theme = AppTheme()
     DiffLoadingSkeleton()
         .frame(width: 720, height: 320)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }

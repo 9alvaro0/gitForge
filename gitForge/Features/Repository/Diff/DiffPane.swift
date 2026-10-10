@@ -3,6 +3,8 @@ import SwiftUI
 /// File diff viewer used in History and Changes.
 struct DiffPane: View {
     let file: String?
+    /// Change kind of `file`, shown as the header badge when the host knows it.
+    var status: StatusTag.Kind? = nil
     let hunks: [DiffHunk]
     var loading: Bool = false
     /// Reason the diff is empty when `hunks.isEmpty`. Drives the empty-state
@@ -35,21 +37,19 @@ struct DiffPane: View {
     @State private var highlighted: [Int: [Int: AttributedString]] = [:]
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
+        VStack(spacing: 0) {
             DiffHeader(
                 file: file,
+                status: status,
+                stats: loading || hunks.isEmpty ? nil : DiffStats(hunks: hunks),
                 viewMode: $viewMode,
                 onOpenInEditor: onOpenInEditor,
                 onClose: onClose
             )
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(theme.palette.bg2)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(theme.palette.lineStrong)
-                .frame(height: DesignTokens.Stroke.regular)
-        }
+        .background(theme.colors.bgCode)
         .task(id: tokenizeKey) { await tokenizeHunks() }
     }
 
@@ -118,11 +118,11 @@ struct DiffPane: View {
     @Previewable @State var mode: DiffPane.ViewMode = .unified
     DiffPane(
         file: "src/components/CommitGraph.tsx",
+        status: .modified,
         hunks: DiffHunk.previewSamples,
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -131,11 +131,11 @@ struct DiffPane: View {
     @Previewable @State var mode: DiffPane.ViewMode = .split
     DiffPane(
         file: "src/components/CommitGraph.tsx",
+        status: .modified,
         hunks: DiffHunk.previewSamples,
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -149,7 +149,6 @@ struct DiffPane: View {
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -163,6 +162,5 @@ struct DiffPane: View {
         viewMode: $mode
     )
     .frame(width: 720, height: 320)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }

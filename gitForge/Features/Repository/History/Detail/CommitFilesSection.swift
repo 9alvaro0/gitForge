@@ -139,17 +139,7 @@ private struct FileMiniRow: View {
         NSPasteboard.general.setString(string, forType: .string)
     }
 
-    private var tagKind: StatusTag.Kind {
-        switch file.status {
-        case .added: return .added
-        case .modified, .typeChanged: return .modified
-        case .deleted: return .deleted
-        case .renamed: return .renamed
-        case .copied: return .copied
-        case .unmerged: return .unmerged
-        case .unknown: return .modified
-        }
-    }
+    private var tagKind: StatusTag.Kind { StatusTag.Kind(commitFile: file.status) }
 }
 
 #Preview {
