@@ -1,44 +1,34 @@
 import SwiftUI
 
-/// Right-side toolbar of the History header: Fetch + Pull (split) + Push
-/// (split, with force-with-lease behind a confirmation when the theme flag
-/// `confirmForcePush` is on).
-struct HistoryToolbar: View {
+/// Fetch + Pull (split) + Push (split) for the shell toolbar on every
+/// repository screen (redesign spec §6.1). Force-with-lease sits behind a
+/// confirmation when `confirmForcePush` is on. Offline disables the group.
+struct RemoteToolbarGroup: View {
     @Bindable var viewModel: RepositoryViewModel
+    let online: Bool
 
-    @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
     @State private var pendingForcePush = false
 
     var body: some View {
-        Group {
-            if let label = lastFetchedLabel {
-                MonoText(label, dim: true)
-                    .help(viewModel.lastFetchedAt.map { "Last fetched \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "")
+        HStack(spacing: Spacing.s6) {
+            if !online {
+                Image(systemName: "wifi.slash")
+                    .accessibilityLabel("Offline")
+                    .help("Offline")
             }
             ToolButton(
                 .fetch,
                 label: "Fetch",
-                disabled: viewModel.remoteOperation != nil && viewModel.remoteOperation != .fetching,
+                disabled: !online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .fetching),
                 loading: viewModel.remoteOperation == .fetching
             ) {
                 Task { await viewModel.fetch() }
             }
+            .help(ShellStatus.fetchHelp(lastFetch: viewModel.lastFetchedAt, now: .now, online: online))
             pullSplitButton
             pushSplitButton
         }
-    }
-
-    /// Coarse "fetched X ago" label. SwiftUI re-renders this view on its own
-    /// cadence (state changes / view switches) so the value drifts a little
-    /// — that's acceptable for a hint, not for a clock.
-    private var lastFetchedLabel: String? {
-        guard let last = viewModel.lastFetchedAt else { return nil }
-        let interval = -last.timeIntervalSinceNow
-        if interval < 60     { return "fetched now" }
-        if interval < 3600   { return "fetched \(Int(interval / 60))m ago" }
-        if interval < 86400  { return "fetched \(Int(interval / 3600))h ago" }
-        return "fetched \(Int(interval / 86400))d ago"
     }
 
     @ViewBuilder
@@ -50,8 +40,8 @@ struct HistoryToolbar: View {
             primary: false,
             loading: viewModel.remoteOperation == .pulling,
             // Pull is also a local mutation (see `RepositoryViewModel.pull`).
-            disabled: (viewModel.remoteOperation != nil || viewModel.isMutating)
-                && viewModel.remoteOperation != .pulling,
+            disabled: !online || ((viewModel.remoteOperation != nil || viewModel.isMutating)
+                && viewModel.remoteOperation != .pulling),
             action: { Task { await viewModel.pull() } }
         ) {
             Button("Pull (only if no merge needed)") {
@@ -71,7 +61,7 @@ struct HistoryToolbar: View {
             badge: viewModel.aheadCount,
             primary: true,
             loading: viewModel.remoteOperation == .pushing,
-            disabled: viewModel.remoteOperation != nil && viewModel.remoteOperation != .pushing,
+            disabled: !online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .pushing),
             action: { Task { await viewModel.push() } }
         ) {
             Button("Force push (only if remote unchanged)", role: .destructive) {
@@ -97,11 +87,6 @@ struct HistoryToolbar: View {
 }
 
 #Preview {
-    @Previewable @State var theme = AppTheme()
-    HStack {
-        HistoryToolbar(viewModel: .preview)
-    }
-    .padding()
-    .background(theme.palette.bg2)
-    .appTheme(theme)
+    RemoteToolbarGroup(viewModel: .preview, online: true)
+        .padding()
 }
