@@ -1151,6 +1151,7 @@ PR: "feat: hosting accounts model (connections phase 1)". Cuerpo: qué entra, la
 
 ### Fase 4: Settings › Accounts y cuenta por repo (`P4-ui-cuentas.md`)
 - Settings › Accounts (lista por instancia, estados y acciones), "Add instance…" con verificación contra la API, y el asistente "Connect account" (device flow con el código y token guiado).
+- **Pendiente de la fase 1:** `HostingInstance.init` revienta con un host que no se puede parsear (fuerza la URL). Antes de exponer "Add instance…" hay que hacerlo fallible y quitar la trailing dot del host.
 - La línea "Hosting account" en el menú del perfil del sidebar y la hoja "Choose an account" para el caso `.ambiguous`.
 - Revisión en pantalla en oscuro, claro y 1100.
 
@@ -1158,4 +1159,4 @@ PR: "feat: hosting accounts model (connections phase 1)". Cuerpo: qué entra, la
 - `PullRequestStore` y los proveedores reciben la cuenta resuelta; "Connect a GitHub account" sustituye a "token required".
 - Clonado › "My repos" por cuenta, y clonado HTTPS autenticado.
 - `RemoteHost.parse` busca primero entre las instancias conocidas; la heurística solo propone añadir una instancia.
-- Borrado de las entradas antiguas del Llavero (spec §4.4, paso 3) y retirada de `RemoteCredentialsStore` y de Settings › Remote hosts.
+- Borrado de las entradas antiguas del Llavero (spec §4.4, paso 3) y retirada de `RemoteCredentialsStore` y de Settings › Remote hosts. **Antes de borrar:** una última sincronización (`migrateLegacyTokens`), y solo se borra si `migratedLegacyTokens` es `true`. Esto sale de la revisión final de la fase 1: la sincronización corre en cada arranque hasta aquí.
