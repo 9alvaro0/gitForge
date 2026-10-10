@@ -22,6 +22,8 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable {
     let webURL: URL?
     let createdAt: Date?
     let updatedAt: Date?
+    /// SHA of the source branch tip; CI checks are looked up by it.
+    var headSha: String? = nil
 
     var label: String {
         switch state {
@@ -31,4 +33,25 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable {
         case .draft:  "Draft"
         }
     }
+}
+
+/// Which pull requests the list shows.
+nonisolated enum PullListScope: String, CaseIterable, Identifiable, Sendable {
+    case open, mine, closed
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .open: "Open"
+        case .mine: "Mine"
+        case .closed: "Closed"
+        }
+    }
+}
+
+/// What a provider list request asks for. "Mine" is the open list filtered
+/// locally by author, so it doesn't need its own request.
+nonisolated enum PullListState: Sendable {
+    case open, closed
 }

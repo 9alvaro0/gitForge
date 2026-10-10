@@ -13,17 +13,15 @@ struct PullRequestFilesTab: View {
             if loading {
                 placeholderList
             } else {
-                EmptyState(icon: .diff, title: "No files changed", subtitle: nil) { EmptyView() }
+                EmptyState(icon: .diff, title: "No files changed")
             }
         } else {
-            HStack(spacing: DesignTokens.Spacing.none) {
+            // Files over the diff: next to the PR list the detail is too
+            // narrow for two columns.
+            VStack(spacing: 0) {
                 fileList
-                    .frame(width: DesignTokens.Pulls.listWidth)
-                    .frame(maxHeight: .infinity)
-                    .background(theme.palette.bg1)
-                    .overlay(alignment: .trailing) {
-                        Rectangle().fill(theme.palette.line).frame(width: DesignTokens.Stroke.regular)
-                    }
+                    .frame(height: fileListHeight)
+                Rectangle().fill(theme.colors.separator).frame(height: 1)
                 diffPane
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -39,9 +37,14 @@ struct PullRequestFilesTab: View {
         }
     }
 
+    /// Up to about seven rows, then it scrolls.
+    private var fileListHeight: CGFloat {
+        CGFloat(min(files.count, 7)) * theme.density.metrics.rowFile + Spacing.s6 * 2
+    }
+
     private var fileList: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.none) {
+            LazyVStack(spacing: 0) {
                 ForEach(files) { file in
                     PullRequestFileRow(
                         file: file,
@@ -50,6 +53,7 @@ struct PullRequestFilesTab: View {
                     )
                 }
             }
+            .padding(Spacing.s6)
         }
     }
 
@@ -65,14 +69,13 @@ struct PullRequestFilesTab: View {
 
     private var placeholderList: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.none) {
+            LazyVStack(spacing: 0) {
                 ForEach(Self.placeholderSamples) { file in
                     PullRequestFileRow(file: file, isSelected: false, onSelect: {})
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.palette.bg1)
         .skeleton(true)
     }
 
@@ -95,7 +98,7 @@ struct PullRequestFilesTab: View {
     @Previewable @State var theme = AppTheme()
     PullRequestFilesTab(files: PullRequestFileChange.previewSamples, loading: false)
         .frame(width: 1200, height: 720)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }
 
@@ -103,6 +106,6 @@ struct PullRequestFilesTab: View {
     @Previewable @State var theme = AppTheme()
     PullRequestFilesTab(files: [], loading: true)
         .frame(width: 1200, height: 720)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

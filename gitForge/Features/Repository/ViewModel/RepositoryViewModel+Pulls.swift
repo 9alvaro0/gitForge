@@ -81,6 +81,30 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Fetches and checks out the selected PR's source branch (creating it
+    /// tracking the remote when it doesn't exist locally).
+    func checkoutPullRequestBranch() async -> Result<String, Error> {
+        guard let pr = pullRequests.selected else {
+            return .failure(PullCheckoutError.noSelection)
+        }
+        guard !isMutating else {
+            return .failure(PullCheckoutError.busy)
+        }
+        isMutating = true
+        defer { isMutating = false }
+        do {
+            try await cli.fetchAll()
+            lastFetchedAt = .now
+            await loadRefs()
+            try await ensureCheckedOut(branch: pr.sourceBranch)
+            await refreshAfterRefMutation(reloadLog: true)
+            return .success(pr.sourceBranch)
+        } catch {
+            await refreshAfterRefMutation(reloadLog: true)
+            return .failure(error)
+        }
+    }
+
     /// Resolves a branch name to the merge spec we should pass to `git merge`.
     /// Prefers `origin/<branch>` then any other remote, then a local branch.
     /// Returns nil when no matching ref exists.
@@ -122,5 +146,16 @@ extension RepositoryViewModel {
             )
         }
         try await cli.createBranch(branch, startingAt: remoteRef.name, checkout: true)
+    }
+}
+
+enum PullCheckoutError: LocalizedError {
+    case noSelection, busy
+
+    var errorDescription: String? {
+        switch self {
+        case .noSelection: "No pull request selected."
+        case .busy: "Another operation is in progress."
+        }
     }
 }

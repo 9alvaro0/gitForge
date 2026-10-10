@@ -11,16 +11,16 @@ struct PullRequestCommitsTab: View {
             if loading {
                 placeholderList
             } else {
-                EmptyState(icon: .graph, title: "No commits", subtitle: nil) { EmptyView() }
+                EmptyState(icon: .graph, title: "No commits")
             }
         } else {
             ScrollView {
-                LazyVStack(spacing: DesignTokens.Spacing.xs) {
+                LazyVStack(spacing: Spacing.s2) {
                     ForEach(commits) { commit in
                         PullRequestCommitRow(commit: commit)
                     }
                 }
-                .padding(DesignTokens.Spacing.xxxxl)
+                .padding(Spacing.s16)
             }
         }
     }
@@ -40,12 +40,12 @@ struct PullRequestCommitsTab: View {
 
     private var placeholderList: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.xs) {
+            LazyVStack(spacing: Spacing.s2) {
                 ForEach(Self.placeholderSamples) { commit in
                     PullRequestCommitRow(commit: commit)
                 }
             }
-            .padding(DesignTokens.Spacing.xxxxl)
+            .padding(Spacing.s16)
         }
         .skeleton(true)
     }
@@ -55,7 +55,7 @@ struct PullRequestCommitsTab: View {
     @Previewable @State var theme = AppTheme()
     PullRequestCommitsTab(commits: PullRequestCommit.previewSamples, loading: false)
         .frame(width: 1100, height: 600)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }
 
@@ -63,6 +63,6 @@ struct PullRequestCommitsTab: View {
     @Previewable @State var theme = AppTheme()
     PullRequestCommitsTab(commits: [], loading: true)
         .frame(width: 1100, height: 600)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

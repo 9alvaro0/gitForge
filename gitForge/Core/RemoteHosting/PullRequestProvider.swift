@@ -35,9 +35,16 @@ enum PullRequestFetchError: LocalizedError, Sendable, Equatable {
 
 /// Abstracts the platform-specific API calls for PR/MR list and detail.
 protocol PullRequestProvider: Sendable {
-    /// Fetch open PRs/MRs for the given repo coordinates, authenticated with
-    /// `token`. Returns an empty array on success-but-no-results.
-    func fetchOpen(host: RemoteHost, token: String) async throws -> [PullRequest]
+    /// Fetch the open, or the closed and merged, PRs/MRs for the given repo
+    /// coordinates, newest update first. Empty array on no results.
+    func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest]
+
+    /// Login of the token's owner, for the "Mine" filter.
+    func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String
+
+    /// CI jobs for the PR's head commit (GitHub check runs and statuses,
+    /// GitLab jobs of the MR's latest pipeline).
+    func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck]
 
     /// Fetch the full detail (description, reviewers, labels, CI status…)
     /// for a single PR/MR identified by its number.
