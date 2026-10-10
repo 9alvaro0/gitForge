@@ -129,12 +129,22 @@ struct ThemePalette: Equatable, Sendable {
         let dark = mode == .dark
         var base = dark ? Self.dark : Self.light
         let swatch = AccentSwatch.nearest(toHex: Self.hex(of: accent))
-        base.accent = Color(hex: swatch.fill)
-        base.accentFg = Color(hex: swatch.onFill)
-        base.accentSoft = Color(hex: swatch.swatch, alpha: dark ? 0.24 : 0.14)
         if highContrast {
             base.applyHighContrast(dark: dark)
         }
+        // Unmigrated screens use `accent` mostly as a text / glyph colour,
+        // so it carries the v2 *foreground* accent, nudged until it reads at
+        // AA on every surface of this palette. Fills that need text on top
+        // read `theme.colors.accentFill` / `accentOnFill` instead.
+        let variant = ThemeVariant(isDark: dark, highContrast: highContrast)
+        var text = swatch.foreground(for: variant)
+        for surface in [base.bg1, base.bg2, base.bg3] {
+            text = ColorMath.raise(text, toContrast: 4.5, on: Self.hex(of: surface),
+                                   toward: dark ? 0xFFFFFF : 0x000000)
+        }
+        base.accent = Color(hex: text)
+        base.accentFg = Color(hex: swatch.onFill)
+        base.accentSoft = Color(hex: swatch.swatch, alpha: dark ? 0.24 : 0.14)
         return base
     }
 

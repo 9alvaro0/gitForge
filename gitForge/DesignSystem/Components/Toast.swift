@@ -10,6 +10,12 @@ struct ToastMessage: Equatable, Identifiable {
     var autoDismissAfter: Duration? {
         kind == .error ? nil : .seconds(4)
     }
+
+    /// Errors carry the remedy at the end ("…run `ssh-add -l`"), so they wrap
+    /// in full; the rest keep to two lines.
+    var lineLimit: Int? {
+        kind == .error ? nil : 2
+    }
 }
 
 /// Bottom-centre glass toast (redesign spec §5): shape-coded glyph plus
@@ -29,11 +35,14 @@ struct ToastView: View {
             Text(toast.message)
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textPrimary)
-                .lineLimit(2)
+                .lineLimit(toast.lineLimit)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
         }
         .padding(.horizontal, Spacing.s16)
         .padding(.vertical, Spacing.s8)
         .frame(minHeight: 44)
+        .frame(maxWidth: 560)
         .glassEffect(.regular, in: .rect(cornerRadius: Radius.popover))
         .shadow(color: theme.colors.shadow, radius: 15, y: 10)
         .contentShape(.rect(cornerRadius: Radius.popover))

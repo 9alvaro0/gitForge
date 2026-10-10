@@ -47,4 +47,15 @@ struct PaletteContrastTests {
             #expect(Self.worst(color, on: palette) >= 4.5, "\(mode) \(name)")
         }
     }
+
+    @Test("Accent used as text meets AA on every background, for every swatch",
+          arguments: [ThemeMode.dark, .light])
+    func accentText(mode: ThemeMode) {
+        for swatch in AccentSwatch.allCases {
+            for highContrast in [false, true] {
+                let palette = ThemePalette.palette(for: mode, accent: Color(hex: swatch.swatch), highContrast: highContrast)
+                #expect(Self.worst(palette.accent, on: palette) >= 4.5, "\(mode) \(swatch) hc=\(highContrast)")
+            }
+        }
+    }
 }
