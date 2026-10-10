@@ -15,10 +15,13 @@ struct BranchInspector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
             header
-            if let ahead = ref.ahead, let behind = ref.behind, let upstream = ref.upstream, !ref.upstreamGone {
+            // Cards only when there is a difference; "in sync" reads in the
+            // tracking line. The upstream is named there too, so the captions
+            // stay short enough not to truncate.
+            if let ahead = ref.ahead, let behind = ref.behind, ahead + behind > 0, !ref.upstreamGone {
                 HStack(spacing: Spacing.s8) {
-                    countCard(value: "↑ \(ahead)", color: theme.colors.add, caption: "ahead of \(upstream)")
-                    countCard(value: "↓ \(behind)", color: theme.colors.warn, caption: "behind \(upstream)")
+                    countCard(value: "↑ \(ahead)", color: theme.colors.add, caption: "ahead")
+                    countCard(value: "↓ \(behind)", color: theme.colors.warn, caption: "behind")
                 }
             }
             lastCommit
@@ -58,7 +61,9 @@ struct BranchInspector: View {
     private var trackingLine: String? {
         guard ref.isLocalBranch else { return nil }
         guard let upstream = ref.upstream else { return "No upstream" }
-        return ref.upstreamGone ? "Tracked \(upstream), which no longer exists" : "Tracks \(upstream)"
+        if ref.upstreamGone { return "Tracked \(upstream), which no longer exists" }
+        let inSync = (ref.ahead ?? 0) == 0 && (ref.behind ?? 0) == 0
+        return inSync ? "Tracks \(upstream) · in sync" : "Tracks \(upstream)"
     }
 
     /// Spec §4.2: the ahead/behind figures are the one `title`-size mono text.

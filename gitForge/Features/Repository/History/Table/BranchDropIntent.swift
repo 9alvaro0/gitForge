@@ -19,7 +19,7 @@ nonisolated enum BranchDropIntent: Equatable, Sendable {
     var detail: String {
         switch self {
         case .commit(_, let subject):
-            "\(subject) · the checked-out branch is reset instead"
+            subject
         case .branch:
             "Drop, then pick merge or rebase"
         }

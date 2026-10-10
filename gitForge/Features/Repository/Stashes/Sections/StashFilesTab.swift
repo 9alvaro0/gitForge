@@ -8,7 +8,11 @@ struct StashFilesTab: View {
 
     private var files: [StashFileChange] { store.detail?.files ?? [] }
 
-    static let fileListWidth: CGFloat = 300
+    /// Fits the files up to about seven rows, then scrolls.
+    private var fileListHeight: CGFloat {
+        let rows = CGFloat(min(files.count, 7))
+        return rows * theme.density.metrics.rowFile + Spacing.s6 * 2
+    }
 
     var body: some View {
         if files.isEmpty {
@@ -18,11 +22,12 @@ struct StashFilesTab: View {
                 EmptyState(icon: .diff, title: "No files changed")
             }
         } else {
-            HStack(spacing: 0) {
+            // Files over the diff, as in the commit inspector: side by side
+            // the diff would get too narrow next to the stash list.
+            VStack(spacing: 0) {
                 fileList
-                    .frame(width: Self.fileListWidth)
-                    .frame(maxHeight: .infinity)
-                Rectangle().fill(theme.colors.separator).frame(width: 1)
+                    .frame(height: fileListHeight)
+                Rectangle().fill(theme.colors.separator).frame(height: 1)
                 DiffPane(
                     file: store.selectedFile,
                     status: files.first { $0.path == store.selectedFile }.map { StatusTag.Kind(stashFile: $0.status) },
