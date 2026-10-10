@@ -72,6 +72,12 @@ struct CommitRow: View {
         .padding(.trailing, HistoryTableLayout.trailingPadding)
         .frame(height: rowHeight)
         .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowBackground))
+        // Drop target: accent ring on top of the accent-soft fill.
+        .overlay {
+            if rowDropTargeted {
+                RoundedRectangle(cornerRadius: Radius.row).strokeBorder(theme.colors.accent, lineWidth: 1.5)
+            }
+        }
         .padding(.horizontal, HistoryTableLayout.rowInset)
         .onHover { hovering = $0 }
         .opacity(dimmed ? 0.35 : 1)
@@ -89,6 +95,7 @@ struct CommitRow: View {
         .modifier(RowDropModifier(
             enabled: onBranchDrop != nil,
             targetSha: commit.sha,
+            intent: .commit(shortSha: commit.shortSha, subject: commit.subject),
             isTargeted: $rowDropTargeted,
             onDrop: { dropped in
                 onBranchDrop?(dropped, .onCommit(targetSha: commit.sha))

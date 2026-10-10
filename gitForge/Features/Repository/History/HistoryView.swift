@@ -30,6 +30,8 @@ struct HistoryView: View {
     /// Drives both the right detail panel (working-copy file list) and the
     /// bottom diff pane (working-copy diff for the selected file).
     @State private var isUncommittedSelected: Bool = false
+    /// Drop target under a dragged branch chip, shown in the intent HUD.
+    @State var dropTracker = BranchDropTracker()
 
     @State private var columns = ResizableTableModel.historyColumns()
 
@@ -107,6 +109,15 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.colors.bgContent)
+        .overlay(alignment: .bottom) {
+            if let intent = dropTracker.intent {
+                BranchDropHUD(intent: intent)
+                    .padding(.bottom, Spacing.s16)
+                    .transition(.opacity)
+            }
+        }
+        .animation(DesignTokens.Motion.fast, value: dropTracker.intent)
+        .environment(\.branchDropTracker, dropTracker)
         .navigationTitle("History")
         .confirmationDialog(detachedCheckoutTitle,
                             isPresented: detachedCheckoutBinding,
