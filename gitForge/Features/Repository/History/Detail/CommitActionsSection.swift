@@ -103,7 +103,7 @@ struct CommitActionsSection: View {
                 newBranchSheet = true
             }
             CommitActionButton(
-                icon: .square, title: "Tag",
+                icon: .tag, title: "Tag",
                 tooltip: "Create a tag pointing at \(commit.shortSha)."
             ) {
                 newTagName = ""
