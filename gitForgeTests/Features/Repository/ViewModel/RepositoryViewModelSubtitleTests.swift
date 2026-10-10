@@ -29,7 +29,7 @@ struct RepositoryViewModelSubtitleTests {
             WorkingCopyFile(path: "b", stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil),
             WorkingCopyFile(path: "c", stagedStatus: .unmodified, unstagedStatus: .untracked, originalPath: nil),
         ])
-        #expect(vm.toolbarSubtitle(for: .changes) == "main · 1 staged, 2 unstaged")
+        #expect(vm.toolbarSubtitle(for: .changes) == "main · 2 unstaged, 1 staged")
     }
 
     @Test("A clean working copy says so on Changes")

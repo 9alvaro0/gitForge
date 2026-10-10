@@ -15,11 +15,11 @@ struct StagingRow: View {
         let isSelected = viewModel.selectedWorkingCopyFile?.id == file.id
         let isTicked = viewModel.selectedFilePaths.contains(file.path)
         Button(action: { viewModel.selectedWorkingCopyFile = file }) {
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: Spacing.s8) {
                 // The checkbox is for *batch selection*, not stage/unstage —
-                // pairing it with the "Stage selected" / "Unstage selected"
-                // button in the section header. Stage/unstage on a single
-                // row stays available via double-click and the context menu.
+                // pairing it with the batch bar under the section. Stage /
+                // unstage on a single row stays available via double-click
+                // and the context menu.
                 Toggle("", isOn: Binding(
                     get: { isTicked },
                     set: { _ in viewModel.toggleSelection(file) }
@@ -27,14 +27,15 @@ struct StagingRow: View {
                 .toggleStyle(GFCheckboxStyle())
                 .accessibilityLabel("Select \(file.path)")
                 .accessibilityValue(isTicked ? "selected" : "not selected")
-                StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
+                StatusTag(kind: StatusTag.Kind(workingFile: file.displayStatus))
                 pathView
-                Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
-            .padding(.vertical, DesignTokens.Spacing.xs)
-            .frame(height: DesignTokens.IconSize.huge)
-            .background(isSelected ? theme.palette.bg4 : (hovering ? theme.palette.bg3 : .clear))
+            .padding(.leading, Spacing.s8)
+            .padding(.trailing, Spacing.s12)
+            .frame(height: theme.density.metrics.rowList)
+            .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowFill(isSelected: isSelected, isTicked: isTicked)))
+            .contentShape(.rect(cornerRadius: Radius.row))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .contain)
@@ -90,6 +91,14 @@ struct StagingRow: View {
         Button("Copy filename") { copyToPasteboard(filename) }
     }
 
+    /// The file whose diff is open takes the accent; ticked and hovered rows
+    /// a neutral fill.
+    private func rowFill(isSelected: Bool, isTicked: Bool) -> Color {
+        if isSelected { return theme.colors.accentSoft }
+        if isTicked || hovering { return theme.colors.fillHover }
+        return .clear
+    }
+
     private var absoluteURL: URL {
         viewModel.repository.url.appendingPathComponent(file.path)
     }
@@ -131,17 +140,17 @@ struct StagingRow: View {
         let parts = path.split(separator: "/")
         let directory = parts.dropLast().joined(separator: "/")
         let name = parts.last.map(String.init) ?? path
-        return HStack(spacing: DesignTokens.Spacing.none) {
+        return HStack(spacing: 0) {
             if !directory.isEmpty {
                 Text("\(directory)/")
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg3)
+                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                    .foregroundStyle(theme.colors.textQuaternary)
                     .lineLimit(1)
                     .truncationMode(.head)
             }
             Text(name)
-                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg1)
+                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                .foregroundStyle(theme.colors.textPrimary)
                 .lineLimit(1)
         }
     }
@@ -156,51 +165,32 @@ struct StagingRow: View {
         let oldDir = (oldPath as NSString).deletingLastPathComponent
         let newDir = (newPath as NSString).deletingLastPathComponent
         let sameName = oldName == newName
-        return HStack(spacing: DesignTokens.Spacing.xxs) {
+        return HStack(spacing: Spacing.s2) {
             Text(sameName ? "\(oldDir)/" : oldPath)
-                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
+                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                .foregroundStyle(theme.colors.textQuaternary)
                 .lineLimit(1)
                 .truncationMode(.head)
             Text("→")
-                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg4)
+                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                .foregroundStyle(theme.colors.textQuaternary)
             if sameName {
                 Text("\(newDir)/")
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg3)
+                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                    .foregroundStyle(theme.colors.textQuaternary)
                     .lineLimit(1)
                     .truncationMode(.head)
                 Text(newName)
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg1)
+                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                    .foregroundStyle(theme.colors.textPrimary)
                     .lineLimit(1)
             } else {
                 Text(newPath)
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg1)
+                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                    .foregroundStyle(theme.colors.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.head)
             }
-        }
-    }
-}
-
-extension StatusTag.Kind {
-    /// Maps a working-copy status to the visual badge. `.unmodified` collapses
-    /// to `.modified` so partially-staged files (where one side is unmodified)
-    /// still render a badge instead of disappearing.
-    init(workingFile: WorkingCopyFile.Status) {
-        switch workingFile {
-        case .modified, .typeChanged: self = .modified
-        case .added:                  self = .added
-        case .deleted:                self = .deleted
-        case .renamed:                self = .renamed
-        case .copied:                 self = .copied
-        case .untracked:              self = .untracked
-        case .unmerged:               self = .unmerged
-        case .ignored:                self = .ignored
-        case .unmodified:             self = .modified
         }
     }
 }
@@ -213,6 +203,6 @@ extension StatusTag.Kind {
         }
     }
     .frame(width: 480)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

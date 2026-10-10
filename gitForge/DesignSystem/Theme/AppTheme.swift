@@ -40,6 +40,11 @@ final class AppTheme {
         return systemColorScheme == .dark ? .dark : .light
     }
 
+    /// Which of the four v2 colour variants is active.
+    var variant: ThemeVariant {
+        ThemeVariant(isDark: effectiveMode == .dark, highContrast: increasedContrast)
+    }
+
     private(set) var palette: ThemePalette = .dark
 
     /// v2 colour tokens (redesign spec §4.1). Replaces `palette` once every
@@ -75,7 +80,7 @@ final class AppTheme {
 
     private func refreshPalette() {
         palette = ThemePalette.palette(for: effectiveMode, accent: accent, highContrast: increasedContrast)
-        colors = .make(ThemeVariant(isDark: effectiveMode == .dark, highContrast: increasedContrast), accent: accentSwatch)
+        colors = .make(variant, accent: accentSwatch)
     }
 
     private func persist() {

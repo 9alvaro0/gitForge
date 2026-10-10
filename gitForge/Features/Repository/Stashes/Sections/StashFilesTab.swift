@@ -26,6 +26,7 @@ struct StashFilesTab: View {
                     }
                 DiffPane(
                     file: store.selectedFile,
+                    status: files.first { $0.path == store.selectedFile }.map { StatusTag.Kind(stashFile: $0.status) },
                     hunks: store.fileDiff,
                     loading: store.isLoadingFileDiff,
                     emptyState: store.fileDiffEmptyState,

@@ -7,11 +7,14 @@ struct StagingDiffColumn: View {
     let statusLoading: Bool
     @Binding var diffMode: DiffPane.ViewMode
 
+    @Environment(\.appTheme) private var theme
+
     var body: some View {
         Group {
             if let file = viewModel.selectedWorkingCopyFile {
                 DiffPane(
                     file: file.path,
+                    status: StatusTag.Kind(workingFile: file.displayStatus),
                     hunks: viewModel.workingCopyDiff,
                     loading: viewModel.loadingWorkingCopyDiff,
                     emptyState: viewModel.workingCopyDiffEmptyState,
@@ -29,6 +32,7 @@ struct StagingDiffColumn: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.colors.bgCode)
     }
 
     private func openInEditor(file: WorkingCopyFile) {
@@ -47,7 +51,6 @@ struct StagingDiffColumn: View {
         diffMode: $mode
     )
     .frame(width: 720, height: 600)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -61,7 +64,6 @@ struct StagingDiffColumn: View {
         diffMode: $mode
     )
     .frame(width: 720, height: 600)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 
@@ -75,7 +77,6 @@ struct StagingDiffColumn: View {
         diffMode: $mode
     )
     .frame(width: 720, height: 600)
-    .background(theme.palette.bg2)
     .appTheme(theme)
 }
 

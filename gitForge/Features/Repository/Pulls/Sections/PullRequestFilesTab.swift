@@ -82,7 +82,12 @@ struct PullRequestFilesTab: View {
             guard let patch = selected?.patch, !patch.isEmpty else { return [] }
             return DiffParser.parse(patch)
         }()
-        return DiffPane(file: selected?.path, hunks: hunks, viewMode: $diffViewMode)
+        return DiffPane(
+            file: selected?.path,
+            status: selected.map { StatusTag.Kind(pullRequestFile: $0.status) },
+            hunks: hunks,
+            viewMode: $diffViewMode
+        )
     }
 }
 

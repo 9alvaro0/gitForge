@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Unstaged above Staged, each with its select-all header, rows and — while
+/// some of its files are ticked — the batch bar.
 struct StagingFilesColumn: View {
     @Bindable var viewModel: RepositoryViewModel
     let staged: [WorkingCopyFile]
@@ -10,69 +12,87 @@ struct StagingFilesColumn: View {
 
     var body: some View {
         ScrollView {
-            if statusLoading && staged.isEmpty && unstaged.isEmpty {
-                StagingLoadingPlaceholder()
-            } else {
-                fileList
+            Group {
+                if statusLoading && staged.isEmpty && unstaged.isEmpty {
+                    StagingLoadingPlaceholder()
+                } else {
+                    fileList
+                }
             }
+            .padding(Spacing.s8)
         }
     }
 
     private var fileList: some View {
-        // Selected counts per section drive the action button label —
-        // "Unstage 3 selected" when the user has ticks within the section,
-        // "Unstage all" when they don't.
-        let stagedSelectedCount = staged.filter { viewModel.selectedFilePaths.contains($0.path) }.count
-        let unstagedSelectedCount = unstaged.filter { viewModel.selectedFilePaths.contains($0.path) }.count
-        return LazyVStack(spacing: DesignTokens.Spacing.none) {
-            StagingFileSectionHeader(
-                title: "Staged",
-                count: staged.count,
-                actionLabel: stagedSelectedCount > 0
-                    ? "Unstage \(stagedSelectedCount) selected"
-                    : "Unstage all"
-            ) {
-                if stagedSelectedCount > 0 {
-                    Task { await viewModel.unstageSelected() }
-                } else {
-                    Task { await viewModel.unstage(staged) }
-                }
-            }
-            if staged.isEmpty {
-                emptyLabel("Nothing staged")
-            } else {
-                ForEach(staged) { f in
-                    StagingRow(file: f, viewModel: viewModel)
-                }
-            }
-            Divider().background(theme.palette.line)
-            StagingFileSectionHeader(
+        LazyVStack(spacing: 0) {
+            section(
                 title: "Unstaged",
-                count: unstaged.count,
-                actionLabel: unstagedSelectedCount > 0
-                    ? "Stage \(unstagedSelectedCount) selected"
-                    : "Stage all"
-            ) {
-                if unstagedSelectedCount > 0 {
-                    Task { await viewModel.stageSelected() }
-                } else {
-                    Task { await viewModel.stage(unstaged) }
-                }
-            }
-            ForEach(unstaged) { f in
-                StagingRow(file: f, viewModel: viewModel)
-            }
+                files: unstaged,
+                emptyText: "No unstaged changes",
+                allLabel: "Stage all",
+                onAll: { Task { await viewModel.stage(unstaged) } },
+                moveTitle: "Stage",
+                onMove: { Task { await viewModel.stageSelected() } }
+            )
+            section(
+                title: "Staged",
+                files: staged,
+                emptyText: "Nothing staged",
+                allLabel: "Unstage all",
+                onAll: { Task { await viewModel.unstage(staged) } },
+                moveTitle: "Unstage",
+                onMove: { Task { await viewModel.unstageSelected() } }
+            )
+            .padding(.top, Spacing.s12)
         }
     }
 
-    private func emptyLabel(_ text: String) -> some View {
-        Text(text)
-            .font(AppFont.sans(FontSize.md))
-            .foregroundStyle(theme.palette.fg3)
-            .italic()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
-            .padding(.vertical, DesignTokens.Spacing.md)
+    @ViewBuilder
+    private func section(title: String,
+                         files: [WorkingCopyFile],
+                         emptyText: String,
+                         allLabel: String,
+                         onAll: @escaping () -> Void,
+                         moveTitle: String,
+                         onMove: @escaping () -> Void) -> some View {
+        let selection = StagingSectionSelection(paths: files.map(\.path), selected: viewModel.selectedFilePaths)
+        VStack(spacing: 0) {
+            StagingFileSectionHeader(
+                title: title,
+                count: files.count,
+                selection: selection,
+                onToggleAll: { viewModel.setSelection(files, selected: selection != .full) },
+                actionLabel: allLabel,
+                onAction: onAll
+            )
+            if files.isEmpty {
+                Text(emptyText)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Spacing.s8)
+                    .frame(height: theme.density.metrics.rowList)
+            } else {
+                ForEach(files) { f in
+                    StagingRow(file: f, viewModel: viewModel)
+                }
+            }
+            if selection != .empty {
+                StagingBatchBar(
+                    count: selection.count(of: files.count),
+                    moveTitle: moveTitle,
+                    onMove: onMove,
+                    onDiscard: {
+                        let ticked = files.filter { viewModel.selectedFilePaths.contains($0.path) }
+                        Task {
+                            await viewModel.discardChanges(ticked)
+                            viewModel.deselect(ticked)
+                        }
+                    },
+                    disabled: viewModel.isMutating
+                )
+            }
+        }
     }
 }
 
@@ -85,7 +105,7 @@ struct StagingFilesColumn: View {
         unstaged: vm.status.unstagedFiles,
         statusLoading: false
     )
-    .frame(width: 380, height: 600)
-    .background(theme.palette.bg1)
+    .frame(width: 440, height: 600)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

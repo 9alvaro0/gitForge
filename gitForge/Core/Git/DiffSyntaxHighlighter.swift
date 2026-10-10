@@ -107,59 +107,52 @@ final class DiffSyntaxHighlighter {
 
     // MARK: - CSS theme
 
-    /// Builds a highlight.js-compatible CSS sheet from the active palette.
-    /// Token mappings stay conservative: keywords get accent, strings reuse
-    /// the add green, comments take a muted fg3, types/functions/numbers
-    /// each get a distinct palette colour so dense code stays scannable
-    /// without a rainbow.
+    /// Builds a highlight.js-compatible CSS sheet from the v2 syntax palette.
     ///
-    /// Crucially the rule omits any `background` declaration: the row
+    /// Crucially the rules omit any `background` declaration: the row
     /// already has its own kind-tinted background (`addSoft`/`delSoft`/
     /// clear), and a CSS background here would round-trip through Cocoa's
     /// HTML parser as a per-run `.backgroundColor` attribute, painting a
     /// rectangle behind every glyph and obliterating the row tint.
-    static func css(for p: ThemePalette) -> String {
-        let accent = p.accent.cssHex
-        let add = p.add.cssHex
-        let del = p.del.cssHex
-        let info = p.info.cssHex
-        let mod = p.mod.cssHex
-        let muted = p.fg3.cssHex
+    static func css(for p: SyntaxPalette) -> String {
+        func hex(_ value: UInt32) -> String { String(format: "#%06X", value) }
         return """
+        .hljs { color: \(hex(p.plain)); }
         .hljs-keyword,
         .hljs-selector-tag,
-        .hljs-built_in,
         .hljs-literal,
         .hljs-section,
-        .hljs-meta,
-        .hljs-meta-keyword { color: \(accent); }
+        .hljs-meta-keyword { color: \(hex(p.keyword)); }
+        .hljs-type,
+        .hljs-built_in,
+        .hljs-class .hljs-title,
+        .hljs-title.class_,
+        .hljs-tag,
+        .hljs-name,
+        .hljs-selector-id,
+        .hljs-selector-class { color: \(hex(p.type)); }
+        .hljs-function .hljs-title,
+        .hljs-title.function_ { color: \(hex(p.function)); }
         .hljs-string,
         .hljs-template-string,
         .hljs-regexp,
         .hljs-attr-string,
         .hljs-symbol,
         .hljs-bullet,
-        .hljs-link { color: \(add); }
+        .hljs-link { color: \(hex(p.string)); }
+        .hljs-number,
+        .hljs-formula { color: \(hex(p.number)); }
         .hljs-comment,
         .hljs-quote,
-        .hljs-doctag,
-        .hljs-meta .hljs-keyword { color: \(muted); font-style: italic; }
-        .hljs-number,
-        .hljs-formula { color: \(mod); }
-        .hljs-type,
-        .hljs-class .hljs-title,
-        .hljs-title.class_,
-        .hljs-tag,
-        .hljs-name,
-        .hljs-selector-id,
-        .hljs-selector-class { color: \(info); }
-        .hljs-function .hljs-title,
-        .hljs-title.function_,
-        .hljs-property,
+        .hljs-doctag { color: \(hex(p.comment)); font-style: italic; }
+        .hljs-meta,
         .hljs-attr,
-        .hljs-attribute { color: \(mod); }
-        .hljs-deletion { color: \(del); }
-        .hljs-addition { color: \(add); }
+        .hljs-attribute { color: \(hex(p.attribute)); }
+        .hljs-property,
+        .hljs-variable,
+        .hljs-params { color: \(hex(p.member)); }
+        .hljs-addition { color: \(hex(p.addition)); }
+        .hljs-deletion { color: \(hex(p.deletion)); }
         .hljs-emphasis { font-style: italic; }
         .hljs-strong { font-weight: bold; }
         """

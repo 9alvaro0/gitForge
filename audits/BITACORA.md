@@ -485,3 +485,16 @@ Diez auditorías completadas y mergeadas (PR #68 a #76, más la de A10).
 3. **Decisiones de diseño** (A07/A08): familia tipográfica (empaquetar Inter Tight o adoptar SF Pro), consolidar la escala tipográfica, paleta por defecto que cumpla AA, set de iconos, Ajustes como ventana `Settings`.
 4. **Tests** (A09): proveedores de PR con fixtures JSON, `RemoteCredentialsStore`, smoke tests de UI.
 5. **Verificaciones manuales** pendientes, anotadas en cada auditoría (VoiceOver, alto contraste, GitLab con certificado propio, primera ejecución de la CI).
+
+---
+
+## Rediseño v2 — funciones candidatas a spec propia
+
+Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño (§2), no se pinta y se apunta aquí.
+
+| Función | Artboard | Fase | Nota |
+|---|---|---|---|
+| Contadores +N −M por fichero en la lista de Changes | `Changes` | F4 | `git status` no los da; haría falta un `diff --numstat` por refresco. |
+| Stash de los ficheros seleccionados | `Changes` | F4 | `stashPush` no recibe rutas (`git stash push -- <paths>`). |
+| Atajo ⌘↵ para hacer commit | `Changes` | F4 | |
+| Campo "Filter files" en la toolbar de Changes | `Changes` | F4 | |

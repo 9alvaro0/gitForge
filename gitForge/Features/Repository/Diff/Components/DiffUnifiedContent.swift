@@ -10,9 +10,14 @@ struct DiffUnifiedContent: View {
     /// `hunk.id → line.id → AttributedString` from the parent's tokenisation.
     let highlighted: [Int: [Int: AttributedString]]
 
+    @Environment(\.appPreferences) private var preferences
+
     var body: some View {
+        // Wrapped lines must be measured against the viewport, so the
+        // horizontal axis only scrolls when lines overflow instead.
+        let wrap = preferences.diffWrapLongLines
         GeometryReader { geo in
-            ScrollView([.vertical, .horizontal]) {
+            ScrollView(wrap ? [.vertical] : [.vertical, .horizontal]) {
                 // LazyVStack at the outer level so a diff of 50k lines doesn't
                 // materialise every DiffRow at first paint. Hunks are usually
                 // small (<1k lines each) so the inner ForEach stays eager —
@@ -22,7 +27,7 @@ struct DiffUnifiedContent: View {
                 // composing it with `hunk.id` the LazyVStack sees the same
                 // ID across multiple hunks and SwiftUI logs "the ID … is
                 // used by multiple child views".
-                LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none, pinnedViews: []) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(hunks) { hunk in
                         DiffHunkHeader(hunk: hunk)
                             .id("h-\(hunk.id)")
@@ -33,7 +38,8 @@ struct DiffUnifiedContent: View {
                         }
                     }
                 }
-                .frame(minWidth: geo.size.width, minHeight: geo.size.height, alignment: .topLeading)
+                .frame(minWidth: geo.size.width, maxWidth: wrap ? geo.size.width : nil,
+                       minHeight: geo.size.height, alignment: .topLeading)
             }
         }
     }
@@ -43,6 +49,6 @@ struct DiffUnifiedContent: View {
     @Previewable @State var theme = AppTheme()
     DiffUnifiedContent(hunks: DiffHunk.previewSamples, highlighted: [:])
         .frame(width: 720, height: 320)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }

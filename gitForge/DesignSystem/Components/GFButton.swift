@@ -4,13 +4,15 @@ import SwiftUI
 /// buttons instead, so the window's Liquid Glass is their only chrome.
 struct GFButton: View {
     enum Style { case secondary, primary, destructive }
-    enum Size  { case regular, small }
+    enum Size  { case regular, small, large }
 
     let title: String
     var systemImage: String? = nil
     var style: Style = .secondary
     var size: Size = .regular
     var disabled: Bool = false
+    /// Stretches the button (background included) to the available width.
+    var fullWidth: Bool = false
     let action: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -24,10 +26,11 @@ struct GFButton: View {
                         .font(.system(size: size == .small ? 10 : 12, weight: .semibold))
                 }
                 Text(title)
-                    .textRole(size == .small ? .caption : .callout, weight: .semibold)
+                    .textRole(textRole, weight: .semibold)
             }
             .lineLimit(1)
-            .padding(.horizontal, size == .small ? 9 : 14)
+            .padding(.horizontal, horizontalPadding)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
             .frame(height: height)
             .foregroundStyle(foreground)
             .background(shape.fill(background))
@@ -46,7 +49,27 @@ struct GFButton: View {
 
     private var height: CGFloat {
         let metrics = theme.density.metrics
-        return size == .small ? metrics.buttonSmall : metrics.buttonRegular
+        switch size {
+        case .small: return metrics.buttonSmall
+        case .regular: return metrics.buttonRegular
+        case .large: return metrics.buttonLarge
+        }
+    }
+
+    private var textRole: TypeRole {
+        switch size {
+        case .small: .caption
+        case .regular: .callout
+        case .large: .body
+        }
+    }
+
+    private var horizontalPadding: CGFloat {
+        switch size {
+        case .small: 9
+        case .regular: 14
+        case .large: 18
+        }
     }
 
     private var background: Color {
