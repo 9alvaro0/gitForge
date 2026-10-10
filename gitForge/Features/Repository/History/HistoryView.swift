@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Top-level History pane: graph + diff pane on the left, commit detail on
-/// the right. Owns the resizable layout state (panel widths / collapsed
+/// Top-level History pane: the commit table on the left, the inspector
+/// (commit detail over the selected file's diff) on the right (redesign
+/// spec §6.2). Owns the resizable layout state (panel widths / collapsed
 /// flags / column widths) and routes drag-drop / double-click events into
 /// the right confirmation dialogs (action runners live in
 /// `HistoryView+Actions.swift`).
@@ -37,18 +38,21 @@ struct HistoryView: View {
     private static let diffCollapsedKey = "gitForge.history.diffPaneCollapsed"
     private static let detailCollapsedKey = "gitForge.history.detailPanelCollapsed"
     private static let collapsedThreshold: CGFloat = 80
-    private static let defaultDiffHeight: CGFloat = 280
-    private static let minDetailWidth: CGFloat = 280
-    private static let maxDetailWidth: CGFloat = 600
+    private static let defaultDiffHeight: CGFloat = 340
+    private static let minDetailWidth: CGFloat = 320
+    private static let maxDetailWidth: CGFloat = 760
+    /// Spec §4.6: inspector 480; the table keeps at least this much.
+    private static let defaultDetailWidth: CGFloat = 480
+    private static let minTableWidth: CGFloat = 520
 
     @State private var diffPaneHeight: CGFloat = {
         let stored = UserDefaults.standard.double(forKey: HistoryView.diffHeightKey)
-        return stored > 0 ? CGFloat(stored) : 280
+        return stored > 0 ? CGFloat(stored) : HistoryView.defaultDiffHeight
     }()
 
     @State private var detailColumnWidth: CGFloat = {
         let stored = UserDefaults.standard.double(forKey: HistoryView.detailWidthKey)
-        let resolved = stored > 0 ? CGFloat(stored) : DesignTokens.Detail.panelWidth
+        let resolved = stored > 0 ? CGFloat(stored) : HistoryView.defaultDetailWidth
         return min(max(HistoryView.minDetailWidth, resolved), HistoryView.maxDetailWidth)
     }()
 
@@ -70,31 +74,33 @@ struct HistoryView: View {
         let matchCount = matcher.map { fn in viewModel.commits.lazy.filter(fn).count }
             ?? viewModel.commits.count
 
-        return VStack(spacing: DesignTokens.Spacing.none) {
+        return VStack(spacing: 0) {
             HistoryFiltersBar(
                 search: $search,
                 totalCount: viewModel.commits.count,
                 matchCount: matchCount
             )
-            HStack(spacing: DesignTokens.Spacing.none) {
-                graphAndDiffColumn(matcher: matcher)
-                if detailColumnCollapsed {
-                    CollapsedPaneStrip(kind: .detail) { setDetailColumnCollapsed(false) }
-                } else {
-                    ColumnDragHandle(
-                        width: $detailColumnWidth,
-                        minWidth: Self.minDetailWidth,
-                        maxWidth: Self.maxDetailWidth,
-                        inverted: true,
-                        dividerColor: theme.palette.lineStrong,
-                        onCommit: { persistDetailWidth() }
-                    )
-                    detailColumn
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    tableColumn(matcher: matcher)
+                    if detailColumnCollapsed {
+                        CollapsedPaneStrip(kind: .detail) { setDetailColumnCollapsed(false) }
+                    } else {
+                        ColumnDragHandle(
+                            width: $detailColumnWidth,
+                            minWidth: Self.minDetailWidth,
+                            maxWidth: Self.maxDetailWidth,
+                            inverted: true,
+                            dividerColor: theme.colors.separator,
+                            onCommit: { persistDetailWidth() }
+                        )
+                        detailColumn(width: inspectorWidth(available: geo.size.width))
+                    }
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .navigationTitle("History")
         .confirmationDialog(detachedCheckoutTitle,
                             isPresented: detachedCheckoutBinding,
@@ -127,53 +133,44 @@ struct HistoryView: View {
         ))
     }
 
-    private func graphAndDiffColumn(matcher: ((Commit) -> Bool)?) -> some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            ZStack(alignment: .bottom) {
-                if viewModel.commits.isEmpty && !viewModel.hasLoadedLogForCurrentScope {
-                    HistorySkeleton()
-                } else {
-                    CommitGraphTable(
-                        commits: viewModel.commits,
-                        layouts: viewModel.graphLayouts,
-                        maxLanes: viewModel.graphMaxLanes,
-                        refsBySha: viewModel.refsBySha,
-                        currentBranch: viewModel.currentBranchName,
-                        selectedSha: viewModel.selectedCommitId,
-                        workingCopyDirty: !viewModel.status.isClean,
-                        uncommittedSelected: isUncommittedSelected,
-                        columns: columns,
-                        isMatch: matcher,
-                        onSelect: { sha in selectCommit(sha) },
-                        onUncommittedSelect: { selectUncommitted() },
-                        onDoubleClick: { sha in handleDoubleClick(sha) },
-                        onAppear: { commit in
-                            Task { await viewModel.loadMoreIfNeeded(currentItem: commit) }
-                        },
-                        onBranchDrop: { dropped, context in
-                            resolveDrop(dropped, context: context)
-                        }
-                    )
-                }
-                if viewModel.isLoadingMore && !viewModel.commits.isEmpty {
-                    LoadingMoreFooter()
-                }
-            }
-            .frame(maxHeight: .infinity)
-            if diffPaneCollapsed {
-                CollapsedPaneStrip(kind: .diff) { setDiffPaneCollapsed(false) }
+    private func tableColumn(matcher: ((Commit) -> Bool)?) -> some View {
+        ZStack(alignment: .bottom) {
+            if viewModel.commits.isEmpty && !viewModel.hasLoadedLogForCurrentScope {
+                HistorySkeleton()
             } else {
-                RowDragHandle(
-                    height: $diffPaneHeight,
-                    minHeight: 36,
-                    maxHeight: 800,
-                    onCommit: { persistDiffPaneHeight() }
+                CommitGraphTable(
+                    commits: viewModel.commits,
+                    layouts: viewModel.graphLayouts,
+                    maxLanes: viewModel.graphMaxLanes,
+                    refsBySha: viewModel.refsBySha,
+                    currentBranch: viewModel.currentBranchName,
+                    selectedSha: viewModel.selectedCommitId,
+                    workingCopyDirty: !viewModel.status.isClean,
+                    uncommittedSelected: isUncommittedSelected,
+                    columns: columns,
+                    isMatch: matcher,
+                    onSelect: { sha in selectCommit(sha) },
+                    onUncommittedSelect: { selectUncommitted() },
+                    onDoubleClick: { sha in handleDoubleClick(sha) },
+                    onAppear: { commit in
+                        Task { await viewModel.loadMoreIfNeeded(currentItem: commit) }
+                    },
+                    onBranchDrop: { dropped, context in
+                        resolveDrop(dropped, context: context)
+                    }
                 )
-                diffPaneContent
-                    .frame(height: diffPaneHeight)
+            }
+            if viewModel.isLoadingMore && !viewModel.commits.isEmpty {
+                LoadingMoreFooter()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// The stored inspector width, capped so the table keeps `minTableWidth`.
+    private func inspectorWidth(available: CGFloat) -> CGFloat {
+        let cap = max(Self.minDetailWidth, available - Self.minTableWidth)
+        return min(detailColumnWidth, cap)
     }
 
     /// Routes the bottom pane between commit-mode and uncommitted-mode so a
@@ -202,39 +199,65 @@ struct HistoryView: View {
         }
     }
 
-    private var detailColumn: some View {
-        Group {
-            if isUncommittedSelected {
-                ScrollView {
-                    UncommittedDetailColumn(
-                        viewModel: viewModel,
-                        onClose: { setDetailColumnCollapsed(true) }
+    /// Inspector: commit (or working-copy) detail over the selected file's
+    /// diff, with the same resizable / collapsible diff as before.
+    private func detailColumn(width: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            detailContent
+                .frame(maxHeight: .infinity)
+            if hasInspectorSelection {
+                if diffPaneCollapsed {
+                    CollapsedPaneStrip(kind: .diff) { setDiffPaneCollapsed(false) }
+                } else {
+                    RowDragHandle(
+                        height: $diffPaneHeight,
+                        minHeight: 36,
+                        maxHeight: 800,
+                        onCommit: { persistDiffPaneHeight() }
                     )
-                    .padding(DesignTokens.Spacing.xxxxl)
+                    diffPaneContent
+                        .frame(height: diffPaneHeight)
                 }
-            } else if let commit = viewModel.selectedCommit {
-                ScrollView {
-                    CommitDetailColumn(
-                        commit: commit,
-                        viewModel: viewModel,
-                        onClose: { setDetailColumnCollapsed(true) }
-                    )
-                    .padding(DesignTokens.Spacing.xxxxl)
-                }
-            } else {
-                EmptyState(icon: .diamond, title: "Select a commit",
-                           subtitle: "Detail appears here.") { EmptyView() }
-                    .overlay(alignment: .topTrailing) {
-                        IconButton(.x, accessibilityLabel: "Hide commit detail") {
-                            setDetailColumnCollapsed(true)
-                        }
-                        .help("Hide commit detail")
-                        .padding(DesignTokens.Spacing.md)
-                    }
             }
         }
-        .frame(width: detailColumnWidth)
-        .background(theme.palette.bg1)
+        .frame(width: width)
+        .background(theme.colors.bgElevated)
+    }
+
+    private var hasInspectorSelection: Bool {
+        isUncommittedSelected || viewModel.selectedCommit != nil
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        if isUncommittedSelected {
+            ScrollView {
+                UncommittedDetailColumn(
+                    viewModel: viewModel,
+                    onClose: { setDetailColumnCollapsed(true) }
+                )
+                .padding(Spacing.s16)
+            }
+        } else if let commit = viewModel.selectedCommit {
+            ScrollView {
+                CommitDetailColumn(
+                    commit: commit,
+                    viewModel: viewModel,
+                    onClose: { setDetailColumnCollapsed(true) }
+                )
+                .padding(Spacing.s16)
+            }
+        } else {
+            EmptyState(icon: .graph, title: "Select a commit",
+                       subtitle: "Its detail and changes appear here.") { EmptyView() }
+                .overlay(alignment: .topTrailing) {
+                    IconButton(.x, accessibilityLabel: "Hide commit detail") {
+                        setDetailColumnCollapsed(true)
+                    }
+                    .help("Hide commit detail")
+                    .padding(Spacing.s8)
+                }
+        }
     }
 
     // MARK: Selection

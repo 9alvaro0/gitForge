@@ -28,10 +28,9 @@ struct CommitTableHeader: View {
             ColumnDragHandle(width: columns.binding(for: "when"),
                              minWidth: columns.minWidth("when"), maxWidth: 200,
                              onCommit: { columns.commit() })
+            // Last column: no trailing handle, which would make the header
+            // wider than the rows and force a horizontal scroll bar.
             Text("Commit").frame(width: layout.commit, alignment: .trailing)
-            ColumnDragHandle(width: columns.binding(for: "sha"),
-                             minWidth: columns.minWidth("sha"), maxWidth: 160,
-                             onCommit: { columns.commit() })
             Spacer(minLength: 0)
         }
         .textRole(.caption, weight: .semibold)
