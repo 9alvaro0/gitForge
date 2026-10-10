@@ -2,6 +2,7 @@ import SwiftUI
 
 extension HistoryView {
     func resolveDrop(_ dropped: DraggedBranch, context: BranchDropContext) {
+        dropTracker.clear()
         guard let source = viewModel.refs.first(where: { $0.isLocalBranch && $0.name == dropped.name })
         else { return }
 

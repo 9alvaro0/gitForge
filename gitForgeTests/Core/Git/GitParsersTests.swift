@@ -34,6 +34,43 @@ struct GitParsersTests {
         #expect(refs.allSatisfy { $0.isTag })
     }
 
+    @Test("parseRefs reads upstream, tracking, date and subject (tabs in the subject survive)")
+    func refsTracking() {
+        let out = """
+        aaa\t\trefs/heads/main\t*\torigin/main\t[ahead 2, behind 3]\t1760000000\tFix\tthing
+        bbb\t\trefs/heads/old\t\torigin/old\t[gone]\t1760000001\tOld work
+        ccc\t\trefs/heads/local-only\t\t\t\t1760000002\tWIP
+        ddd\t\trefs/remotes/origin/main\t\t\t\t1760000003\tRemote tip
+        """
+        let refs = GitCLI.parseRefs(out)
+        #expect(refs[0].upstream == "origin/main")
+        #expect(refs[0].ahead == 2 && refs[0].behind == 3)
+        #expect(refs[0].subject == "Fix\tthing")
+        #expect(refs[0].date == Date(timeIntervalSince1970: 1_760_000_000))
+        #expect(refs[1].upstreamGone)
+        #expect(refs[2].upstream == nil && refs[2].ahead == nil && refs[2].behind == nil)
+        #expect(refs[3].subject == "Remote tip" && refs[3].upstream == nil)
+    }
+
+    @Test("parseRefs still reads the four-column format")
+    func refsLegacyColumns() {
+        let refs = GitCLI.parseRefs("aaa\t\trefs/heads/main\t*\n")
+        #expect(refs.count == 1)
+        #expect(refs[0].upstream == nil && refs[0].subject == nil && refs[0].date == nil)
+    }
+
+    @Test("UpstreamTrack parses ahead, behind, both, gone and in sync",
+          arguments: [
+            ("[ahead 2, behind 3]", 2, 3, false),
+            ("[ahead 1]", 1, 0, false),
+            ("[behind 4]", 0, 4, false),
+            ("[gone]", 0, 0, true),
+            ("", 0, 0, false),
+          ])
+    func track(raw: String, ahead: Int, behind: Int, gone: Bool) {
+        #expect(UpstreamTrack.parse(raw) == UpstreamTrack(ahead: ahead, behind: behind, gone: gone))
+    }
+
     @Test("parseRefs ignores malformed lines and unknown namespaces")
     func refsMalformed() {
         let refs = GitCLI.parseRefs("garbage\nsha\t\trefs/notes/commits\t\n")

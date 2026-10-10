@@ -25,8 +25,10 @@ struct BranchInputSheet: View {
     @FocusState private var textFieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
-            Text(title).font(AppFont.sans(FontSize.xl, weight: .semibold))
+        VStack(alignment: .leading, spacing: Spacing.s16) {
+            Text(title)
+                .textRole(.title)
+                .foregroundStyle(theme.colors.textPrimary)
             GFTextField(placeholder: placeholder, text: $text)
                 .focused($textFieldFocused)
                 .onSubmit {
@@ -41,9 +43,9 @@ struct BranchInputSheet: View {
                          disabled: confirmDisabled) { onConfirm(text) }
             }
         }
-        .padding(DesignTokens.Spacing.huge)
+        .padding(Spacing.s20)
         .frame(width: 380)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(appState.ui.theme)
         .appPreferences(appState.ui.preferences)
         .onAppear { textFieldFocused = true }

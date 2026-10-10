@@ -6,46 +6,47 @@ struct StashFileRow: View {
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var hovering = false
+
+    private var directory: String {
+        let dir = (file.path as NSString).deletingLastPathComponent
+        return dir.isEmpty ? "" : dir + "/"
+    }
+    private var fileName: String { (file.path as NSString).lastPathComponent }
+
+    private var rowFill: Color {
+        if isSelected { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : .clear
+    }
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                StatusTag(kind: StatusTag.Kind(stashFileStatus: file.status))
-                Text(file.path)
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(isSelected ? theme.palette.fg1 : theme.palette.fg2)
+            HStack(spacing: Spacing.s8) {
+                StatusTag(kind: StatusTag.Kind(stashFile: file.status))
+                // Folder dim, file name bright: the name is what the eye scans.
+                Text("\(Text(directory).foregroundStyle(theme.colors.textQuaternary))\(Text(fileName).foregroundStyle(theme.colors.textPrimary))")
+                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                     .lineLimit(1)
-                    .truncationMode(.middle)
+                    .truncationMode(.head)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if file.additions > 0 {
-                    MonoText("+\(file.additions)", color: theme.palette.add)
+                    Text("+\(file.additions)").foregroundStyle(theme.colors.add)
+                        .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                 }
                 if file.deletions > 0 {
-                    MonoText("−\(file.deletions)", color: theme.palette.del)
+                    Text("−\(file.deletions)").foregroundStyle(theme.colors.del)
+                        .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                 }
             }
-            .padding(.horizontal, DesignTokens.Spacing.lg)
-            .padding(.vertical, DesignTokens.Spacing.sm)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? theme.palette.bg3 : Color.clear)
-            .contentShape(.rect)
+            .padding(.horizontal, Spacing.s8)
+            .frame(height: theme.density.metrics.rowFile)
+            .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(rowFill))
+            .contentShape(.rect(cornerRadius: Radius.controlSmall))
         }
         .buttonStyle(.plain)
-    }
-}
-
-extension StatusTag.Kind {
-    init(stashFileStatus: StashFileChange.Status) {
-        switch stashFileStatus {
-        case .added:        self = .added
-        case .modified:     self = .modified
-        case .deleted:      self = .deleted
-        case .renamed:      self = .renamed
-        case .copied:       self = .copied
-        case .typeChanged:  self = .typeChanged
-        case .untracked:    self = .untracked
-        case .other:        self = .modified
-        }
+        .onHover { hovering = $0 }
+        .accessibilityLabel("\(file.path), \(file.additions) additions, \(file.deletions) deletions")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -62,6 +63,6 @@ extension StatusTag.Kind {
     }
     .padding()
     .frame(width: 480)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

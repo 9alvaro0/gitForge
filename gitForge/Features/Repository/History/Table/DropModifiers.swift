@@ -6,8 +6,12 @@ import SwiftUI
 struct RowDropModifier: ViewModifier {
     let enabled: Bool
     let targetSha: String
+    /// What the HUD says while a drag hovers this row.
+    let intent: BranchDropIntent
     @Binding var isTargeted: Bool
     let onDrop: (DraggedBranch) -> Void
+
+    @Environment(\.branchDropTracker) private var dropTracker
 
     func body(content: Content) -> some View {
         if enabled {
@@ -20,6 +24,7 @@ struct RowDropModifier: ViewModifier {
                 return true
             } isTargeted: { hovered in
                 isTargeted = hovered
+                dropTracker?.hover(intent, isOver: hovered)
             }
         } else {
             content
@@ -37,11 +42,17 @@ struct ChipDropModifier: ViewModifier {
 
     @State private var hovered = false
     @Environment(\.appTheme) private var theme
+    @Environment(\.branchDropTracker) private var dropTracker
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(hovered ? 1.06 : 1.0)
-            .shadow(color: hovered ? theme.palette.accent.opacity(0.45) : .clear, radius: 4)
+            // Target ring instead of a bounce: the chip stays put under the cursor.
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.chip)
+                    .strokeBorder(theme.colors.accent, lineWidth: 1.5)
+                    .padding(-2)
+                    .opacity(hovered ? 1 : 0)
+            }
             .animation(DesignTokens.Motion.fast, value: hovered)
             .dropDestination(for: DraggedBranch.self) { items, _ in
                 guard let dropped = items.first else { return false }
@@ -51,6 +62,7 @@ struct ChipDropModifier: ViewModifier {
                 return true
             } isTargeted: { isHovered in
                 hovered = isHovered
+                dropTracker?.hover(.branch(name: targetBranchName), isOver: isHovered)
             }
     }
 }
@@ -68,15 +80,16 @@ extension Array {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var targeted = false
     Text("Drag a DraggedBranch onto me")
-        .font(AppFont.sans(FontSize.md))
-        .foregroundStyle(theme.palette.fg1)
+        .textRole(.body)
+        .foregroundStyle(theme.colors.textPrimary)
         .padding(40)
         .frame(width: 360, height: 80)
-        .background(targeted ? theme.palette.accent.opacity(DesignTokens.Opacity.subtle) : theme.palette.bg1)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.palette.line, lineWidth: 1))
+        .background(targeted ? theme.colors.accentSoft : theme.colors.bgContent)
+        .overlay(RoundedRectangle(cornerRadius: Radius.control).stroke(theme.colors.separator, lineWidth: 1))
         .modifier(RowDropModifier(
             enabled: true,
             targetSha: "abc1234",
+            intent: .commit(shortSha: "abc1234", subject: "Preview"),
             isTargeted: $targeted,
             onDrop: { _ in }
         ))
@@ -92,7 +105,7 @@ extension Array {
             onDrop: { _ in }
         ))
         .padding(40)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
 

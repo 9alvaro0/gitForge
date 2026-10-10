@@ -8,12 +8,14 @@ struct StashCreateSheet: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
-            Text("Stash current changes").font(AppFont.sans(FontSize.xl, weight: .semibold))
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+        VStack(alignment: .leading, spacing: Spacing.s16) {
+            Text("Stash current changes")
+                .textRole(.title)
+                .foregroundStyle(theme.colors.textPrimary)
+            VStack(alignment: .leading, spacing: Spacing.s6) {
                 Text("Message (optional)")
-                    .font(AppFont.sans(FontSize.sm, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout, weight: .semibold)
+                    .foregroundStyle(theme.colors.textSecondary)
                 GFTextField(placeholder: "WIP: refactor commit graph", text: $message)
             }
             HStack {
@@ -22,9 +24,9 @@ struct StashCreateSheet: View {
                 GFButton(title: "Stash", style: .primary, action: onStash)
             }
         }
-        .padding(DesignTokens.Spacing.huge)
+        .padding(Spacing.s20)
         .frame(width: 420)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
     }
 }
