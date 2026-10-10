@@ -66,8 +66,11 @@ struct StashesView: View {
                 } label: {
                     Label("Stash changes…", systemImage: "tray.and.arrow.down")
                 }
-                .labelStyle(.titleAndIcon)
+                // Icon only: with a title it falls into the toolbar's `»`
+                // overflow at the minimum window width.
+                .labelStyle(.iconOnly)
                 .buttonStyle(.glassProminent)
+                .help("Stash changes…")
                 .disabled(!hasDirtyChanges)
             }
         }

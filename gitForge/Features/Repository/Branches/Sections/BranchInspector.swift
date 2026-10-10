@@ -117,13 +117,12 @@ struct BranchInspector: View {
                 GFButton(title: isCurrent ? "Checked out" : "Check out", disabled: isCurrent, fullWidth: true) {
                     actions.checkout(ref)
                 }
+                // Branch names go in the help: in the button they'd truncate.
                 if !isCurrent, let current = currentBranchName {
-                    HStack(spacing: Spacing.s6) {
-                        GFButton(title: "Merge into \(current)", fullWidth: true) { actions.merge(ref, nil) }
-                            .help("Merge \(ref.displayName) into \(current)")
-                        GFButton(title: "Rebase onto", fullWidth: true) { actions.rebase(ref) }
-                            .help("Rebase \(current) onto \(ref.displayName)")
-                    }
+                    GFButton(title: "Merge into current branch", fullWidth: true) { actions.merge(ref, nil) }
+                        .help("Merge \(ref.displayName) into \(current)")
+                    GFButton(title: "Rebase current branch onto this", fullWidth: true) { actions.rebase(ref) }
+                        .help("Rebase \(current) onto \(ref.displayName)")
                 }
                 if ref.isLocalBranch {
                     GFButton(title: "Rename…", fullWidth: true) { actions.rename(ref) }

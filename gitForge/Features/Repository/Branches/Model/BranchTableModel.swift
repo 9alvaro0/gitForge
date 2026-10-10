@@ -56,8 +56,8 @@ nonisolated struct BranchTableLayout: Equatable, Sendable {
     static let commitWidth: CGFloat = 72
     static let updatedWidth: CGFloat = 84
     static let maxSubject: CGFloat = 250
-    static let minSubject: CGFloat = 120
-    static let minName: CGFloat = 180
+    static let minSubject: CGFloat = 160
+    static let minName: CGFloat = 240
     /// Row padding plus the list's outer margin, both sides.
     static let chrome: CGFloat = 36
 
