@@ -498,3 +498,8 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | Stash de los ficheros seleccionados | `Changes` | F4 | `stashPush` no recibe rutas (`git stash push -- <paths>`). |
 | Atajo ⌘↵ para hacer commit | `Changes` | F4 | |
 | Campo "Filter files" en la toolbar de Changes | `Changes` | F4 | |
+| Badge "merged" en la tabla de ramas | `Branches` | F5 | Haría falta `git branch --merged` por refresco. |
+| "Commits not in main" y ahead/behind contra main en el inspector | `Branches` | F5 | Consultas nuevas (`rev-list`/`log`) por rama seleccionada. |
+| Arrastre entre filas de la tabla de Branches | `Branches` | F5 | Hoy el arrastre de ramas solo existe en History. |
+| Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
+| Push de una rama que no es la actual desde el inspector | `Branches` | F5 | Hoy solo se hace push de la rama actual. |
