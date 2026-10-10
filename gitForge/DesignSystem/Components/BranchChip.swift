@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// `.gf-branch-chip` — branch / tag chip rendered next to commit messages.
+/// Branch / tag chip rendered next to commit messages (redesign spec §5).
 struct BranchChip: View {
     let name: String
     var current: Bool = false
@@ -16,55 +16,50 @@ struct BranchChip: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.xs) {
-            GFIcon(kind: iconKind, size: 10, stroke: foreground)
+        HStack(spacing: Spacing.s4) {
+            GFIcon(kind: iconKind, size: 11, stroke: foreground)
             Text(name)
-                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
+                .textRole(tag ? .monoSmall : .caption, weight: .semibold)
                 .lineLimit(1)
                 .truncationMode(.tail)
             if hasRemoteCounterpart {
-                GFIcon(kind: .cloud, size: 10, stroke: foreground)
+                Rectangle()
+                    .fill(foreground.opacity(0.35))
+                    .frame(width: 1, height: 10)
+                GFIcon(kind: .cloud, size: 11, stroke: foreground)
             }
         }
-        .padding(.leading, DesignTokens.Spacing.sm)
-        .padding(.trailing, DesignTokens.Spacing.md)
-        .padding(.vertical, DesignTokens.Spacing.hairline)
+        .padding(.horizontal, Spacing.s6)
+        .frame(height: theme.density.metrics.graph.chipHeight)
         .foregroundStyle(foreground)
-        .background(
-            RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
-                .fill(background)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
-                .stroke(border, lineWidth: DesignTokens.Stroke.regular)
-        )
+        .background(shape.fill(background))
+        .overlay(shape.strokeBorder(border, lineWidth: 1))
     }
 
-    /// Local → monitor, remote → cloud, tag → tag silhouette. Communicates
-    /// origin at a glance so the user doesn't have to read the `origin/` prefix.
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Radius.chip) }
+
+    /// Local → monitor, remote → cloud, tag → tag. Origin reads at a glance
+    /// without the `origin/` prefix. HEAD keeps the local glyph.
     private var iconKind: GFIconKind {
         if tag    { return .tag }
         if remote { return .cloud }
         return .desktop
     }
 
+    // Redesign spec §5 (RefChip). The per-lane tint of local chips arrives
+    // with the v2 lane colours in F3.
     private var foreground: Color {
-        if current { return theme.palette.accent }
-        if tag     { return theme.palette.mod }
-        if remote  { return theme.palette.info }
-        return theme.palette.fg2
+        if current { return theme.colors.accentOnFill }
+        if remote  { return theme.colors.textSecondary }
+        return theme.colors.textPrimary
     }
     private var background: Color {
-        if current { return theme.palette.accent.opacity(DesignTokens.Opacity.muted) }
-        if tag     { return theme.palette.mod.opacity(DesignTokens.Opacity.subtle) }
-        if remote  { return theme.palette.bg3 }
-        return theme.palette.bg3
+        if current { return theme.colors.accentFill }
+        if remote  { return .clear }
+        return theme.colors.fillControl
     }
     private var border: Color {
-        if current { return theme.palette.accent.opacity(DesignTokens.Opacity.dim) }
-        if tag     { return theme.palette.mod.opacity(DesignTokens.Opacity.dim) }
-        if remote  { return theme.palette.info.opacity(DesignTokens.Opacity.dim) }
-        return theme.palette.lineStrong
+        current ? .clear : theme.colors.strokeControl
     }
 }
 
