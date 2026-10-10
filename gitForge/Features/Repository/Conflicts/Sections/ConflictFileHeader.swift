@@ -6,6 +6,9 @@ struct ConflictFileHeader: View {
     let path: String
     let hunkCount: Int
     let pickedCount: Int
+    /// The result is being written by hand instead of with picks.
+    let isManual: Bool
+    let canMarkResolved: Bool
     let currentBranchName: String?
     let onTakeOurs: () -> Void
     let onTakeTheirs: () -> Void
@@ -23,11 +26,17 @@ struct ConflictFileHeader: View {
                         .foregroundStyle(theme.colors.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.head)
-                    HStack(spacing: Spacing.s6) {
-                        ConflictProgressBar(done: pickedCount, total: hunkCount, width: 60)
-                        Text("\(pickedCount) of \(hunkCount) hunks picked")
+                    if isManual {
+                        Text("Resolving by hand")
                             .textRole(.caption)
                             .foregroundStyle(theme.colors.textTertiary)
+                    } else {
+                        HStack(spacing: Spacing.s6) {
+                            ConflictProgressBar(done: pickedCount, total: hunkCount, width: 60)
+                            Text("\(pickedCount) of \(hunkCount) hunks picked")
+                                .textRole(.caption)
+                                .foregroundStyle(theme.colors.textTertiary)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -38,8 +47,8 @@ struct ConflictFileHeader: View {
                 IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
                     .help("Open in editor")
                 GFButton(title: "Mark resolved", style: .primary,
-                         disabled: hunkCount == 0 || pickedCount < hunkCount, action: onMarkResolved)
-                    .help("Write the picks to the file and stage it")
+                         disabled: !canMarkResolved, action: onMarkResolved)
+                    .help(isManual ? "Write your result to the file and stage it" : "Write the picks to the file and stage it")
             }
             .padding(.horizontal, Spacing.s16)
             .frame(height: 52)

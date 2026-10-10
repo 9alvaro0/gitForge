@@ -76,7 +76,8 @@ struct ConflictView: View {
         }
     }
 
-    /// Header, then the hunks over the read-only result (60 / 40).
+    /// Header, then the hunks over the result (60 / 40, or 30 / 70 while the
+/// result is edited by hand).
     @ViewBuilder
     private var selectedFile: some View {
         let conflicts = viewModel.conflicts
@@ -86,6 +87,8 @@ struct ConflictView: View {
                     path: path,
                     hunkCount: conflicts.hunks.count,
                     pickedCount: conflicts.hunks.filter { conflicts.picks[$0.id] != nil }.count,
+                    isManual: conflicts.manualText != nil,
+                    canMarkResolved: conflicts.canMarkResolved,
                     currentBranchName: viewModel.currentBranchName,
                     onTakeOurs: { Task { await viewModel.resolveFile(at: path, using: .ours) } },
                     onTakeTheirs: { Task { await viewModel.resolveFile(at: path, using: .theirs) } },
@@ -93,12 +96,24 @@ struct ConflictView: View {
                     onMarkResolved: { Task { await viewModel.resolveSelectedFile() } }
                 )
                 GeometryReader { geo in
+                    let manual = conflicts.manualText != nil
                     VStack(spacing: 0) {
+                        // While the result is edited by hand the picks are
+                        // paused, and the editor gets most of the height.
                         ConflictHunksColumn(viewModel: viewModel)
-                            .frame(height: geo.size.height * 0.6)
+                            .disabled(manual)
+                            .opacity(manual ? 0.45 : 1)
+                            .frame(height: geo.size.height * (manual ? 0.3 : 0.6))
                         Rectangle().fill(theme.colors.separator).frame(height: 1)
-                        ConflictResultPanel(lines: conflicts.resultLines)
+                        ConflictResultPanel(
+                            lines: conflicts.resultLines,
+                            manualText: Bindable(conflicts).manualText,
+                            manualTextHasMarkers: conflicts.manualTextHasMarkers,
+                            onEdit: { conflicts.beginManualEdit() },
+                            onDiscardEdits: { conflicts.discardManualEdit() }
+                        )
                     }
+                    .animation(DesignTokens.Motion.standard, value: manual)
                 }
             }
         } else if conflicts.selectedPath != nil {
