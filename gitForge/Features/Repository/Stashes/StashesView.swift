@@ -60,12 +60,16 @@ struct StashesView: View {
             )
         }
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                ToolButton(.stash, label: "Stash changes…", primary: true,
-                           disabled: !hasDirtyChanges) {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
                     stashMessage = ""
                     stashSheet = true
+                } label: {
+                    Label("Stash changes…", systemImage: "tray.and.arrow.down")
                 }
+                .labelStyle(.titleAndIcon)
+                .buttonStyle(.glassProminent)
+                .disabled(!hasDirtyChanges)
             }
         }
     }

@@ -58,12 +58,19 @@ struct BranchesView: View {
         .searchable(text: $filter, placement: .toolbar, prompt: "Filter branches")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                ToolButton(.push, label: "Push tags", disabled: viewModel.tags.isEmpty) {
-                    Task { await runPushAllTags() }
+                Button { Task { await runPushAllTags() } } label: {
+                    Label("Push tags", systemImage: "tag")
                 }
-                ToolButton(.plus, label: "New branch", primary: true) {
-                    ui.newBranchSheetVisible = true
+                .labelStyle(.iconOnly)
+                .help("Push all tags")
+                .disabled(viewModel.tags.isEmpty)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button { ui.newBranchSheetVisible = true } label: {
+                    Label("New branch", systemImage: "plus")
                 }
+                .labelStyle(.titleAndIcon)
+                .buttonStyle(.glassProminent)
             }
         }
         .sheet(isPresented: $ui.newBranchSheetVisible) {
