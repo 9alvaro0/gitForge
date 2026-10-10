@@ -72,7 +72,8 @@ struct GraphColumnView: View {
             // Stashes ride dashed lanes: "a saved working state, not a branch".
             func strokeStyle(stash: Bool) -> StrokeStyle {
                 stash
-                    ? StrokeStyle(lineWidth: edge, lineCap: .round, lineJoin: .round, dash: [3, 3])
+                    // Butt caps: round caps would eat the gaps of a 3–3 dash.
+                    ? StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: [3, 3])
                     : StrokeStyle(lineWidth: edge, lineCap: .round, lineJoin: .round)
             }
             // Orthogonal routing with a small rounded corner: lanes read as

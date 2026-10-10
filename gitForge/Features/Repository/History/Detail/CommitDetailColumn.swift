@@ -100,6 +100,8 @@ struct CommitDetailColumn: View {
                     .textRole(.monoSmall)
                     .foregroundStyle(theme.colors.accent)
                     .help("Select parent \(parent.prefix(7))")
+                    .accessibilityLabel("Select parent commit \(parent.prefix(7))")
+                    .disabled(!viewModel.commits.contains { $0.sha == parent })
                 }
             }
         }

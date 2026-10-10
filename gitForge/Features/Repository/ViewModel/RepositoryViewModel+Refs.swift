@@ -12,11 +12,13 @@ extension RepositoryViewModel {
         async let currentTask: String? = cli.currentBranchName()
         async let stashTask: [Stash]? = try? cli.stashes()
         async let unmergedTask: [String]? = try? cli.unmergedLocalBranches()
+        async let headTask: String? = cli.headSha()
 
         let refsResult = await refsTask
         let currentResult = await currentTask
         let stashResult = await stashTask
         let unmergedResult = await unmergedTask
+        let headResult = await headTask
 
         guard gen == refsGen else { return }
 
@@ -34,6 +36,9 @@ extension RepositoryViewModel {
         if let unmerged = unmergedResult {
             self.unmergedLocalBranchRefs = unmerged
         }
+        // Unlike the branch name, nil here is meaningful (empty repo), so it's
+        // always written.
+        self.headSha = headResult
         // Refs feed into the graph layout (priority lanes — main/develop/
         // release/* pin to the leftmost columns). When loadInitial and
         // loadRefs run concurrently the first recomputeGraph fires with an

@@ -129,6 +129,8 @@ final class RepositoryViewModel {
     /// Cached so chip cells don't regroup `refs` on every scroll tick.
     var refsBySha: [String: [GitRef]] = [:]
     var currentBranchName: String?
+    /// Commit HEAD points at, detached or not. Marks HEAD in the graph.
+    var headSha: String?
     var stashes: [Stash] = []
     /// Bumped at the start of every `loadRefs()` call. The 4 parallel CLI
     /// reads (refs / current branch / stashes / unmerged) collect into locals
