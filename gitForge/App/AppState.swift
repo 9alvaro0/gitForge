@@ -14,6 +14,7 @@ final class AppState {
     let clone: CloneController
     let ui: WorkspaceUI
     let profiles: ProfileStore
+    let accounts: AccountStore
     let network: NetworkMonitor
 
     init(
@@ -22,6 +23,7 @@ final class AppState {
         clone: CloneController? = nil,
         ui: WorkspaceUI? = nil,
         profiles: ProfileStore? = nil,
+        accounts: AccountStore? = nil,
         network: NetworkMonitor? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
@@ -32,6 +34,7 @@ final class AppState {
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
         self.profiles = profiles ?? ProfileStore()
+        self.accounts = accounts ?? AccountStore()
         self.network = network ?? NetworkMonitor()
     }
 
@@ -52,6 +55,10 @@ final class AppState {
         // existing users who already had a `~/.gitconfig` before the app
         // learned about profiles.
         profiles.seedFromGlobalIfEmpty(gitEnvironment.globalConfig)
+
+        // Phase 1 of hosting accounts: copy the old per-host tokens into
+        // accounts (non-destructive; PRs and clone still read the old store).
+        accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
 
         if await catalog.restoreLastActive() {
             ui.workspaceSection = .history
