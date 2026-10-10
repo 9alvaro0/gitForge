@@ -25,7 +25,9 @@ struct BehaviorSection: View {
                 description: signCommitsDescription,
                 isOn: Binding(
                     get: { gitEnvironment.globalConfig.signCommits == true },
-                    set: setSignCommits
+                    // An explicit closure, not the method reference: Xcode 26.6's
+                    // compiler crashes generating the reabstraction thunk for it.
+                    set: { setSignCommits($0) }
                 )
             )
             SettingsDivider()
