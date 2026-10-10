@@ -59,6 +59,28 @@ nonisolated enum TypeRole: CaseIterable, Sendable {
     }
 
     var isMono: Bool { self == .mono || self == .monoSmall }
+
+    /// Extra leading that brings a font's natural line height up to
+    /// `lineHeight`. SwiftUI's `lineSpacing` adds to the font's own line
+    /// height (about 1.2× its size), not to the point size.
+    func lineSpacing(over naturalLineHeight: CGFloat) -> CGFloat {
+        max(0, lineHeight - naturalLineHeight)
+    }
+
+    /// Natural line height of the font this role renders with. Weight barely
+    /// moves it, so the regular face stands in for every weight.
+    @MainActor
+    func naturalLineHeight(monoFamily: MonoFontFamily) -> CGFloat {
+        let font: NSFont
+        if isMono {
+            font = monoFamily == .systemMono
+                ? .monospacedSystemFont(ofSize: size, weight: .regular)
+                : NSFont(name: monoFamily.rawValue, size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)
+        } else {
+            font = .systemFont(ofSize: size)
+        }
+        return NSLayoutManager().defaultLineHeight(for: font)
+    }
 }
 
 extension AppFont {
@@ -82,7 +104,7 @@ private struct TextRoleModifier: ViewModifier {
         content
             .font(AppFont.font(role, weight: weight, monoFamily: theme.monoFont))
             .tracking(role.tracking)
-            .lineSpacing(role.lineHeight - role.size)
+            .lineSpacing(role.lineSpacing(over: role.naturalLineHeight(monoFamily: theme.monoFont)))
     }
 }
 
