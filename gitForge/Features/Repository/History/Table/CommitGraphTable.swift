@@ -163,6 +163,13 @@ struct CommitGraphTable: View {
                 .focused($tableFocused)
                 .onKeyPress(.downArrow) { moveSelection(by: 1, proxy: proxy) }
                 .onKeyPress(.upArrow) { moveSelection(by: -1, proxy: proxy) }
+                // A selection made elsewhere (sidebar branch tree, palette)
+                // must bring its row into view. A click on a visible row
+                // makes this a no-op scroll.
+                .onChange(of: selectedSha) { _, sha in
+                    guard let sha else { return }
+                    proxy.scrollTo(sha)
+                }
             }
         }
     }
