@@ -29,6 +29,8 @@ struct RemoteToolbarGroup: View {
             pullSplitButton
             pushSplitButton
         }
+        // The toolbar compresses items to fit; the labels must not truncate.
+        .fixedSize()
     }
 
     @ViewBuilder
