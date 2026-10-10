@@ -57,6 +57,15 @@ struct CommitGraphTable: View {
     @FocusState private var tableFocused: Bool
 
     private var rowHeight: CGFloat { theme.density.metrics.rowList }
+
+    /// With "Show scroll bars: Always" the vertical scroller takes width out
+    /// of the viewport; without subtracting it the rows overflow by that
+    /// much and a horizontal scroll bar appears for nothing.
+    private static var legacyScrollerWidth: CGFloat {
+        NSScroller.preferredScrollerStyle == .legacy
+            ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+            : 0
+    }
     /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
     /// Grows with the number of simultaneously alive lanes so a wide history
     /// (e.g. many parallel `release/*` branches) is never cramped, and floors
@@ -111,7 +120,7 @@ struct CommitGraphTable: View {
         }?.sha
         return GeometryReader { geo in
             let layout = HistoryTableLayout(
-                viewport: geo.size.width,
+                viewport: geo.size.width - Self.legacyScrollerWidth,
                 graph: gutterWidth,
                 author: columns.width("author"),
                 date: columns.width("when"),
@@ -160,7 +169,7 @@ struct CommitGraphTable: View {
                             )
                         }
                     }
-                    .frame(width: max(layout.totalWidth, geo.size.width), alignment: .leading)
+                    .frame(width: max(layout.totalWidth, geo.size.width - Self.legacyScrollerWidth), alignment: .leading)
                     .frame(minHeight: geo.size.height, alignment: .topLeading)
                 }
                 .focusable()
