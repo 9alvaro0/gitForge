@@ -56,7 +56,7 @@ struct CommitGraphTable: View {
     /// and leaves keyboard-only users stuck).
     @FocusState private var tableFocused: Bool
 
-    private var rowHeight: CGFloat { theme.density.rowHeight }
+    private var rowHeight: CGFloat { theme.density.metrics.rowList }
     /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
     /// Grows with the number of simultaneously alive lanes so a wide history
     /// (e.g. many parallel `release/*` branches) is never cramped, and floors
@@ -92,35 +92,25 @@ struct CommitGraphTable: View {
         )
     }
 
-    /// Sum of every fixed-width piece in a row (six resizable columns +
-    /// six 8pt handle gaps + 36pt horizontal padding). When the viewport is
-    /// wider, a trailing Spacer absorbs the slack; when it's narrower,
-    /// ScrollView's horizontal axis takes over.
-    private var totalContentWidth: CGFloat {
-        let columnsWidth: CGFloat = columns.width("branchTag")
-            + columns.width("message")
-            + columns.width("author")
-            + columns.width("sha")
-            + columns.width("when")
-        let handleGaps: CGFloat = 6 * 8
-        let horizontalPadding: CGFloat = 36
-        return graphGutterWidth + columnsWidth + handleGaps + horizontalPadding
-    }
-
     var body: some View {
         // Resolve the derived widths once per render, not once per row.
         let gutterWidth = graphGutterWidth
-        let contentWidth = totalContentWidth
         return GeometryReader { geo in
+            let layout = HistoryTableLayout(
+                viewport: geo.size.width,
+                graph: gutterWidth,
+                author: columns.width("author"),
+                date: columns.width("when"),
+                commit: columns.width("sha")
+            )
             ScrollViewReader { proxy in
                 ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                    LazyVStack(spacing: DesignTokens.Spacing.none, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
                         Section {
                             if workingCopyDirty {
                                 UncommittedRow(
                                     rowHeight: rowHeight,
-                                    gutterWidth: gutterWidth,
-                                    columns: columns,
+                                    layout: layout,
                                     isSelected: uncommittedSelected,
                                     onSelect: { onUncommittedSelect?() }
                                 )
@@ -131,12 +121,11 @@ struct CommitGraphTable: View {
                                     layout: layouts[safe: idx] ?? .empty,
                                     maxLanes: maxLanes,
                                     rowHeight: rowHeight,
-                                    gutterWidth: gutterWidth,
+                                    tableLayout: layout,
                                     refs: refsBySha[commit.sha] ?? [],
                                     currentBranch: currentBranch,
                                     isSelected: commit.sha == selectedSha,
                                     dimmed: isMatch.map { !$0(commit) } ?? false,
-                                    columns: columns,
                                     onSelect: {
                                         tableFocused = true
                                         onSelect(commit.sha)
@@ -148,14 +137,14 @@ struct CommitGraphTable: View {
                             }
                         } header: {
                             CommitTableHeader(
-                                gutterWidth: gutterWidth,
+                                layout: layout,
                                 graphHandle: graphHandleBinding,
                                 graphMinWidth: dynamicGraphMin,
                                 columns: columns
                             )
                         }
                     }
-                    .frame(width: max(contentWidth, geo.size.width), alignment: .leading)
+                    .frame(width: max(layout.totalWidth, geo.size.width), alignment: .leading)
                     .frame(minHeight: geo.size.height, alignment: .topLeading)
                 }
                 .focusable()
@@ -207,6 +196,6 @@ struct CommitGraphTable: View {
         onSelect: { _ in }
     )
     .frame(width: 920, height: 480)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

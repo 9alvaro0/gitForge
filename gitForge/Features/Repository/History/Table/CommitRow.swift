@@ -6,12 +6,11 @@ struct CommitRow: View {
     let layout: GraphRowLayout
     let maxLanes: Int
     let rowHeight: CGFloat
-    let gutterWidth: CGFloat
+    let tableLayout: HistoryTableLayout
     let refs: [GitRef]
     let currentBranch: String?
     let isSelected: Bool
     let dimmed: Bool
-    let columns: ResizableTableModel
     let onSelect: () -> Void
     let onDoubleClick: () -> Void
     let onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)?
@@ -21,48 +20,51 @@ struct CommitRow: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
     @State private var rowDropTargeted = false
+    @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
+        HStack(spacing: 0) {
             graphGutter
-                .frame(width: gutterWidth, alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            CommitRowChips(
-                commitSha: commit.sha,
-                refs: refs,
-                currentBranch: currentBranch,
-                onBranchDrop: onBranchDrop
-            )
-            .frame(width: columns.width("branchTag"), alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            Text(commit.subject)
-                .font(AppFont.sans(FontSize.mdPlus))
-                .foregroundStyle(theme.palette.fg1)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: columns.width("message"), alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
+                .frame(width: tableLayout.graph, alignment: .leading)
+            gap
+            HStack(spacing: Spacing.s6) {
+                CommitRowChips(
+                    commitSha: commit.sha,
+                    refs: refs,
+                    currentBranch: currentBranch,
+                    onBranchDrop: onBranchDrop
+                )
+                .fixedSize()
+                Text(commit.subject)
+                    .textRole(.body, weight: isSelected ? .medium : .regular)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(width: tableLayout.description, alignment: .leading)
+            gap
             authorCell
-                .frame(width: columns.width("author"), alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            Text(commit.shortSha)
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-                .frame(width: columns.width("sha"), alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
+                .frame(width: tableLayout.author, alignment: .leading)
+            gap
             Text(preferences.dateDisplayMode.format(commit.authorDate))
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-                .frame(width: columns.width("when"), alignment: .trailing)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
+                .textRole(.callout)
+                .monospacedDigit()
+                .foregroundStyle(theme.colors.textTertiary)
+                .lineLimit(1)
+                .frame(width: tableLayout.date, alignment: .leading)
+            gap
+            Text(commit.shortSha)
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.textTertiary)
+                .frame(width: tableLayout.commit, alignment: .trailing)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+        .padding(.leading, HistoryTableLayout.leadingPadding)
+        .padding(.trailing, HistoryTableLayout.trailingPadding)
         .frame(height: rowHeight)
-        .background(rowBackground)
-        .overlay(alignment: .leading) {
-            if isSelected { Rectangle().fill(theme.palette.accent).frame(width: 2) }
-        }
+        .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowBackground))
+        .padding(.horizontal, HistoryTableLayout.rowInset)
+        .onHover { hovering = $0 }
         .opacity(dimmed ? 0.35 : 1)
         .contentShape(.rect)
         .onTapGesture(count: 2, perform: onDoubleClick)
@@ -104,11 +106,11 @@ struct CommitRow: View {
     /// shortcut to scope the log to one person without typing.
     @ViewBuilder
     private var authorCell: some View {
-        let row = HStack(spacing: DesignTokens.Spacing.sm) {
+        let row = HStack(spacing: Spacing.s6) {
             Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
             Text(commit.authorName)
-                .font(AppFont.sans(FontSize.md))
-                .foregroundStyle(theme.palette.fg2)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
@@ -142,65 +144,63 @@ struct CommitRow: View {
     /// Re-uses the existing `GraphColumnView` so lane drawing matches the
     /// rest of the app.
     private var graphGutter: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
-            Spacer().frame(width: DesignTokens.IconSize.xl)
-            GraphColumnView(row: layout, maxLanes: max(maxLanes, 1))
-        }
+        GraphColumnView(row: layout, maxLanes: max(maxLanes, 1))
     }
 
+    private var gap: some View {
+        Color.clear.frame(width: HistoryTableLayout.gap)
+    }
+
+    /// Redesign spec §5 list row: accent-soft selected, hover fill otherwise.
     private var rowBackground: Color {
-        if rowDropTargeted { return theme.palette.accent.opacity(DesignTokens.Opacity.subtle) }
-        if isSelected { return theme.palette.accentSoft }
-        return .clear
+        if rowDropTargeted { return theme.colors.accentSoft }
+        if isSelected { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : .clear
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.row.preview")
     let commit = Commit.previewSamples[0]
     VStack(spacing: 0) {
         CommitRow(
             commit: commit,
             layout: [GraphRowLayout].previewSamples[1],
             maxLanes: 2,
-            rowHeight: 36,
-            gutterWidth: 110,
+            rowHeight: 28,
+            tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
             refs: GitRef.previewSamples,
             currentBranch: "main",
             isSelected: true,
             dimmed: false,
-            columns: columns,
             onSelect: {}, onDoubleClick: {}, onBranchDrop: nil
         )
         CommitRow(
             commit: Commit.previewSamples[1],
             layout: [GraphRowLayout].previewSamples[2],
             maxLanes: 2,
-            rowHeight: 36,
-            gutterWidth: 110,
+            rowHeight: 28,
+            tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
             refs: [],
             currentBranch: "main",
             isSelected: false,
             dimmed: false,
-            columns: columns,
             onSelect: {}, onDoubleClick: {}, onBranchDrop: nil
         )
         CommitRow(
             commit: Commit.previewSamples[2],
             layout: [GraphRowLayout].previewSamples[3],
             maxLanes: 2,
-            rowHeight: 36,
-            gutterWidth: 110,
+            rowHeight: 28,
+            tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
             refs: [],
             currentBranch: "main",
             isSelected: false,
             dimmed: true,
-            columns: columns,
             onSelect: {}, onDoubleClick: {}, onBranchDrop: nil
         )
     }
     .frame(width: 1100)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
