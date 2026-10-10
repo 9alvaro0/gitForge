@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Collapsible folder header inside `BranchListSection`. Single-line button
-/// that toggles the folder via `onToggle`; the row body shows the chevron,
-/// folder icon, name and total leaf count under it.
+/// Collapsible folder (`feature/`, `release/`…) inside the Branches & Tags
+/// table: chevron, folder glyph, name and how many refs it holds.
 struct BranchFolderRow: View {
     let name: String
     let depth: Int
@@ -11,30 +10,36 @@ struct BranchFolderRow: View {
     let onToggle: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var hovering = false
 
     var body: some View {
         Button(action: onToggle) {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Spacer().frame(width: BranchRowMetrics.indent(depth: depth))
-                GFIcon(kind: isCollapsed ? .chevR : .chevD,
-                       size: 10, stroke: theme.palette.fg3)
-                GFIcon(kind: .folder, size: 12, stroke: theme.palette.fg2)
+            HStack(spacing: Spacing.s6) {
+                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: 16)
+                Image(systemName: "folder")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.colors.textTertiary)
                 Text(name)
-                    .font(AppFont.sans(FontSize.md, weight: .medium))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.body, weight: .medium)
+                    .foregroundStyle(theme.colors.textPrimary)
                 Text("\(leafCount)")
-                    .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg3)
-                Spacer()
+                    .textRole(.caption)
+                    .foregroundStyle(theme.colors.textTertiary)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, DesignTokens.Spacing.xl)
-            .padding(.vertical, DesignTokens.Spacing.sm)
-            .contentShape(.rect)
+            .padding(.leading, Spacing.s12 + BranchRow.indent(depth: depth))
+            .padding(.trailing, Spacing.s12)
+            .frame(height: theme.density.metrics.rowBranch)
+            .background(RoundedRectangle(cornerRadius: Radius.row).fill(hovering ? theme.colors.fillHover : .clear))
+            .contentShape(.rect(cornerRadius: Radius.row))
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular)
-        }
+        .onHover { hovering = $0 }
+        .accessibilityLabel("\(name) folder, \(leafCount) \(leafCount == 1 ? "item" : "items")")
+        .accessibilityValue(isCollapsed ? "collapsed" : "expanded")
     }
 }
 
@@ -46,6 +51,6 @@ struct BranchFolderRow: View {
         BranchFolderRow(name: "ios", depth: 1, leafCount: 5, isCollapsed: false, onToggle: {})
     }
     .frame(width: 720)
-    .background(theme.palette.bg3)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
