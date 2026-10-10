@@ -13,17 +13,17 @@ struct StagingSectionSelectionTests {
     @Test("Select-all state follows the ticked paths of the section only")
     func state() {
         let paths = ["a", "b", "c"]
-        #expect(StagingSectionSelection(paths: paths, selected: []) == .none)
-        #expect(StagingSectionSelection(paths: paths, selected: ["b", "elsewhere"]) == .some(1))
-        #expect(StagingSectionSelection(paths: paths, selected: ["a", "b", "c", "elsewhere"]) == .all)
-        #expect(StagingSectionSelection(paths: [], selected: ["a"]) == .none)
+        #expect(StagingSectionSelection(paths: paths, selected: []) == .empty)
+        #expect(StagingSectionSelection(paths: paths, selected: ["b", "elsewhere"]) == .partial(1))
+        #expect(StagingSectionSelection(paths: paths, selected: ["a", "b", "c", "elsewhere"]) == .full)
+        #expect(StagingSectionSelection(paths: [], selected: ["a"]) == .empty)
     }
 
-    @Test("Ticked count resolves .all to the section size")
+    @Test("Ticked count resolves .full to the section size")
     func count() {
-        #expect(StagingSectionSelection.none.count(of: 4) == 0)
-        #expect(StagingSectionSelection.some(2).count(of: 4) == 2)
-        #expect(StagingSectionSelection.all.count(of: 4) == 4)
+        #expect(StagingSectionSelection.empty.count(of: 4) == 0)
+        #expect(StagingSectionSelection.partial(2).count(of: 4) == 2)
+        #expect(StagingSectionSelection.full.count(of: 4) == 4)
     }
 
     @Test("setSelection ticks a whole section and unticks only that section")

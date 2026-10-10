@@ -3,27 +3,27 @@ import Foundation
 /// How much of a Staged / Unstaged section is ticked for a batch action.
 /// Drives the section header's select-all checkbox (mixed when partial).
 nonisolated enum StagingSectionSelection: Equatable, Sendable {
-    case none
-    case some(Int)
-    case all
+    case empty
+    case partial(Int)
+    case full
 
     init(paths: [String], selected: Set<String>) {
         let count = paths.lazy.filter(selected.contains).count
         if count == 0 {
-            self = .none
+            self = .empty
         } else if count == paths.count {
-            self = .all
+            self = .full
         } else {
-            self = .some(count)
+            self = .partial(count)
         }
     }
 
     /// Ticked files in the section.
     func count(of total: Int) -> Int {
         switch self {
-        case .none: 0
-        case .some(let n): n
-        case .all: total
+        case .empty: 0
+        case .partial(let n): n
+        case .full: total
         }
     }
 }
