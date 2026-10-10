@@ -164,11 +164,14 @@ struct CommitGraphTable: View {
                 .onKeyPress(.downArrow) { moveSelection(by: 1, proxy: proxy) }
                 .onKeyPress(.upArrow) { moveSelection(by: -1, proxy: proxy) }
                 // A selection made elsewhere (sidebar branch tree, palette)
-                // must bring its row into view. A click on a visible row
-                // makes this a no-op scroll.
-                .onChange(of: selectedSha) { _, sha in
+                // must bring its row into view. `initial: true` covers the
+                // reveal that switches to History: the table mounts with the
+                // selection already set, so a plain onChange never fires.
+                // The hop to the next run-loop turn lets the lazy stack lay
+                // out first. A click on a visible row is a no-op scroll.
+                .onChange(of: selectedSha, initial: true) { _, sha in
                     guard let sha else { return }
-                    proxy.scrollTo(sha)
+                    Task { @MainActor in proxy.scrollTo(sha) }
                 }
             }
         }
