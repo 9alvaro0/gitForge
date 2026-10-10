@@ -41,10 +41,9 @@ struct RemoteHostTrustDecisionTests {
 struct RemoteHostTrustStorageTests {
 
     private func withSuite(_ body: (RemoteHostTrust, UserDefaults) throws -> Void) rethrows {
-        let name = "gitForge-trust-tests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defer { defaults.removePersistentDomain(forName: name) }
-        try body(RemoteHostTrust(suiteName: name), defaults)
+        try TestDefaults.with(prefix: "gitForge-trust-tests") { suite in
+            try body(RemoteHostTrust(suiteName: suite.suiteName), suite.defaults)
+        }
     }
 
     @Test("trust pins a fingerprint; revoke removes it; hosts are case-insensitive")
