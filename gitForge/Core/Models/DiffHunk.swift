@@ -52,3 +52,25 @@ nonisolated extension DiffEmptyState {
         }
     }
 }
+
+/// Added / removed line totals for the diff header's `+N −M`.
+nonisolated struct DiffStats: Equatable, Sendable {
+    let additions: Int
+    let deletions: Int
+
+    init(hunks: [DiffHunk]) {
+        var additions = 0
+        var deletions = 0
+        for line in hunks.lazy.flatMap(\.lines) {
+            switch line.kind {
+            case .added: additions += 1
+            case .removed: deletions += 1
+            case .context, .noNewline: break
+            }
+        }
+        self.additions = additions
+        self.deletions = deletions
+    }
+
+    var isEmpty: Bool { additions == 0 && deletions == 0 }
+}

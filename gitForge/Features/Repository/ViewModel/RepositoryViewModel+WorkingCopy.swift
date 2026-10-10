@@ -76,6 +76,15 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Tick or untick a whole section at once (the select-all checkbox).
+    func setSelection(_ files: [WorkingCopyFile], selected: Bool) {
+        if selected {
+            selectedFilePaths.formUnion(files.map(\.path))
+        } else {
+            deselect(files)
+        }
+    }
+
     /// Drop every selection that comes from `files`. Used after a batch
     /// stage/unstage so the ticks don't reappear on a fresh section the rows
     /// just moved into.
