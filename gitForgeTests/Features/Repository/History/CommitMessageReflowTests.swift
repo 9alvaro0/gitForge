@@ -27,4 +27,10 @@ struct CommitMessageReflowTests {
         #expect(CommitMessage.reflow("Body text.\n\nRefs #187\nCo-authored-by: Marc <m@p.dev>")
                 == "Body text.\n\nRefs #187\nCo-authored-by: Marc <m@p.dev>")
     }
+
+    @Test("A wrapped line that happens to contain 'word:' is prose, not a trailer")
+    func lowercaseColonIsProse() {
+        #expect(CommitMessage.reflow("The header follows the\nartboard: title, author and date.")
+                == "The header follows the artboard: title, author and date.")
+    }
 }
