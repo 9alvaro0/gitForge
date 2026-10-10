@@ -15,45 +15,41 @@ struct StagingLoadingPlaceholder: View {
     ]
 
     var body: some View {
-        LazyVStack(spacing: DesignTokens.Spacing.none) {
-            StagingFileSectionHeader(title: "Staged", count: 0)
-            ForEach(0..<2, id: \.self) { index in
+        LazyVStack(spacing: 0) {
+            StagingFileSectionHeader(title: "Unstaged", count: 0)
+            ForEach(0..<3, id: \.self) { index in
                 row(index: index)
             }
-            Divider().background(theme.palette.line)
-            StagingFileSectionHeader(title: "Unstaged", count: 0)
-            ForEach(2..<5, id: \.self) { index in
+            StagingFileSectionHeader(title: "Staged", count: 0)
+                .padding(.top, Spacing.s12)
+            ForEach(3..<5, id: \.self) { index in
                 row(index: index)
             }
         }
         .skeleton(true)
     }
 
-    @ViewBuilder
     private func row(index: Int) -> some View {
-        let path = Self.placeholderPaths[index % Self.placeholderPaths.count]
-        HStack(spacing: DesignTokens.Spacing.md) {
-            RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                .fill(theme.palette.bg2)
-                .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
+        HStack(spacing: Spacing.s8) {
+            GFCheckboxBox(state: .off)
             StatusTag(kind: .modified)
-            Text(path)
-                .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg2)
+            Text(Self.placeholderPaths[index % Self.placeholderPaths.count])
+                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                .foregroundStyle(theme.colors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.head)
-            Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxl)
-        .padding(.vertical, DesignTokens.Spacing.xs)
-        .frame(height: DesignTokens.IconSize.huge)
+        .padding(.leading, Spacing.s8)
+        .padding(.trailing, Spacing.s12)
+        .frame(height: theme.density.metrics.rowList)
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     StagingLoadingPlaceholder()
-        .frame(width: 380, height: 360)
-        .background(theme.palette.bg1)
+        .frame(width: 440, height: 360)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
