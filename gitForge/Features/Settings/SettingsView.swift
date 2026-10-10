@@ -8,7 +8,6 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Settings")
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
                     AppearanceSection()
@@ -24,6 +23,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle("Settings")
         .task { await gitEnvironment.refreshGlobalConfig() }
     }
 }

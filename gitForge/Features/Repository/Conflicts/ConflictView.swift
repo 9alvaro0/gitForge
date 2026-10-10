@@ -14,6 +14,7 @@ struct ConflictView: View {
                 EmptyState(icon: .check, title: "No merge in progress",
                            subtitle: "Conflicts will show up here when a merge or rebase pauses.") { EmptyView() }
                     .background(theme.palette.bg2)
+                    .navigationTitle("Conflicts")
             }
         }
         .task { await viewModel.loadConflictState() }
@@ -29,9 +30,17 @@ struct ConflictView: View {
 
     private var resolverShell: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Resolve conflicts") {
-                MonoText(headerSubtitle, dim: true)
-            } right: {
+            HStack(spacing: DesignTokens.Spacing.none) {
+                ConflictFilesColumn(viewModel: viewModel)
+                ConflictHunksColumn(viewModel: viewModel)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(theme.palette.bg2)
+        .navigationTitle("Resolve conflicts")
+        .navigationSubtitle(headerSubtitle)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
                 switch viewModel.mergeState {
                 case .unmerged:
                     // Stash apply has no `--abort` in git; the VM reverts the
@@ -45,8 +54,8 @@ struct ConflictView: View {
                     // marks good/bad from terminal. Surface the situation so
                     // they're not blindly hitting Continue.
                     Text("Bisect in progress — finish from terminal with `git bisect reset`.")
-                        .font(.system(size: FontSize.sm))
-                        .foregroundStyle(theme.palette.fg3)
+                        .textRole(.callout)
+                        .foregroundStyle(theme.colors.textTertiary)
                 case .clean:
                     EmptyView()
                 case .merging, .rebasing, .cherryPicking, .reverting:
@@ -61,13 +70,7 @@ struct ConflictView: View {
                     }
                 }
             }
-            HStack(spacing: DesignTokens.Spacing.none) {
-                ConflictFilesColumn(viewModel: viewModel)
-                ConflictHunksColumn(viewModel: viewModel)
-            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
     }
 
     private var headerSubtitle: String {
