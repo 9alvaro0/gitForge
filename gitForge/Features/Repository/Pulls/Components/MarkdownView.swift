@@ -13,9 +13,9 @@ struct MarkdownView: View {
 
     var body: some View {
         StructuredText(markdown: source)
-            .font(AppFont.sans(FontSize.mdPlus))
-            .foregroundStyle(theme.palette.fg1)
-            .tint(theme.palette.accent)
+            .font(AppFont.font(.body))
+            .foregroundStyle(theme.colors.textPrimary)
+            .tint(theme.colors.accent)
             .textual.textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
             // PR descriptions are written by anyone who can open a PR: only
@@ -57,9 +57,9 @@ struct MarkdownView: View {
     """
     ScrollView {
         MarkdownView(source: sample)
-            .padding(DesignTokens.Spacing.huge)
+            .padding(Spacing.s20)
     }
     .frame(width: 600, height: 800)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

@@ -10,27 +10,28 @@ struct PullsTokenSheet: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             Text("\(host.provider.label) token")
-                .font(AppFont.sans(FontSize.xl, weight: .semibold))
+                .textRole(.title)
+                .foregroundStyle(theme.colors.textPrimary)
             Text("Token will be stored in macOS Keychain for \(host.host).")
-                .font(AppFont.sans(FontSize.sm))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
             Text(scopeHint)
-                .font(AppFont.sans(FontSize.sm))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
             SecureField("ghp_… / glpat_…", text: $draft)
                 .textFieldStyle(.plain)
-                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .frame(height: DesignTokens.Control.height)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
+                .font(AppFont.font(.mono, monoFamily: theme.monoFont))
+                .padding(.horizontal, Spacing.s8)
+                .frame(height: theme.density.metrics.fieldHeight)
+                .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.effectiveMode == .dark ? Color.black.opacity(0.3) : .white))
+                .overlay(RoundedRectangle(cornerRadius: Radius.control).strokeBorder(theme.colors.strokeControl, lineWidth: 1))
             if let error {
                 Text(error)
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.del)
+                    .textRole(.caption)
+                    .foregroundStyle(theme.colors.del)
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
@@ -40,9 +41,9 @@ struct PullsTokenSheet: View {
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(DesignTokens.Spacing.huge)
+        .padding(Spacing.s20)
         .frame(width: 460)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
     }
 

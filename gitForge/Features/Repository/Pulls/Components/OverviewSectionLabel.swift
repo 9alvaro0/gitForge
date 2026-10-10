@@ -10,9 +10,8 @@ struct OverviewSectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: FontSize.xxs, weight: .semibold))
-            .tracking(0.7)
-            .foregroundStyle(theme.palette.fg3)
+            .textRole(.caption, weight: .semibold)
+            .foregroundStyle(theme.colors.textQuaternary)
     }
 }
 
