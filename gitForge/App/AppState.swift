@@ -56,14 +56,15 @@ final class AppState {
         // learned about profiles.
         profiles.seedFromGlobalIfEmpty(gitEnvironment.globalConfig)
 
-        // Phase 1 of hosting accounts: copy the old per-host tokens into
-        // accounts (non-destructive; PRs and clone still read the old store).
-        accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
-
         if await catalog.restoreLastActive() {
             ui.workspaceSection = .history
         }
         catalog.startStatusPolling()
+
+        // Hosting accounts, phase 1: sync the old per-host tokens into
+        // accounts (non-destructive; PRs and clone still read the old store).
+        // Last, so any Keychain prompt comes after the window is restored.
+        accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
     }
 
     // MARK: - Repository open / activate (cross-cutting: catalog + ui)

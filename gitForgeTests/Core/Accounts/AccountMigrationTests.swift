@@ -3,9 +3,18 @@ import Testing
 @testable import gitForge
 
 private struct FakeLegacy: LegacyTokenSource {
+    struct ReadFailed: Error {}
     var tokens: [String: String]
-    func knownHosts() -> [String] { Array(tokens.keys).sorted() }
-    func token(for host: String) -> String? { tokens[host] }
+    var failList = false
+    var failHosts: Set<String> = []
+    func legacyHosts() throws -> [String] {
+        if failList { throw ReadFailed() }
+        return Array(tokens.keys).sorted()
+    }
+    func legacyToken(for host: String) throws -> String? {
+        if failHosts.contains(host) { throw ReadFailed() }
+        return tokens[host]
+    }
 }
 
 @Suite("Accounts — copying the old host tokens", .serialized)
@@ -56,5 +65,43 @@ struct AccountMigrationTests {
         store.migrateLegacyTokens(from: FakeLegacy(tokens: ["github.com": "ghp_1"]))
         #expect(store.migratedLegacyTokens)
         #expect(store.accounts.count == 1)
+    }
+
+    @Test("A failed read of the old store (e.g. access denied) doesn't count as migrated")
+    func readFailureRetries() {
+        let store = Self.store()
+        store.migrateLegacyTokens(from: FakeLegacy(tokens: ["github.com": "ghp_1"], failHosts: ["github.com"]))
+        #expect(!store.migratedLegacyTokens)
+        #expect(store.accounts.isEmpty)
+        store.migrateLegacyTokens(from: FakeLegacy(tokens: ["github.com": "ghp_1"], failList: true))
+        #expect(!store.migratedLegacyTokens)
+        store.migrateLegacyTokens(from: FakeLegacy(tokens: ["github.com": "ghp_1"]))
+        #expect(store.migratedLegacyTokens)
+        #expect(store.accounts.count == 1)
+    }
+
+    @Test("Runs every launch: a token added or rotated in the old store later is synced, without duplicates")
+    func keepsSyncing() {
+        let secrets = InMemoryAccountSecretStore()
+        let store = Self.store(secrets)
+        store.migrateLegacyTokens(from: FakeLegacy(tokens: ["github.com": "ghp_1"]))
+        store.migrateLegacyTokens(from: FakeLegacy(tokens: ["github.com": "ghp_2", "gitlab.com": "glpat_9"]))
+        #expect(store.accounts.count == 2)
+        let gh = store.accounts(in: HostingInstance.gitHubDotCom.id)
+        #expect(gh.count == 1)
+        #expect(gh.first.flatMap { secrets.read($0.id) }?.accessToken == "ghp_2")
+        #expect(store.accounts(in: HostingInstance.gitLabDotCom.id).count == 1)
+    }
+
+    @Test("Accounts copied before the host map existed are adopted, not duplicated")
+    func adoptsEarlierCopies() throws {
+        let secrets = InMemoryAccountSecretStore()
+        let store = Self.store(secrets)
+        // A copy made by the first version: an unverified token account, no host map entry.
+        try store.addAccount(HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, method: .personalToken),
+                             secret: AccountSecret(accessToken: "glpat_1"))
+        store.migrateLegacyTokens(from: FakeLegacy(tokens: ["gitlab.com": "glpat_1"]))
+        #expect(store.accounts.count == 1)
+        #expect(store.legacyHostAccounts["gitlab.com"] == store.accounts.first?.id)
     }
 }
