@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Switch over the various PR list states (loading / error / no host /
-/// missing-token / empty / list). Its only state is the certificate trust
+/// The PR screen's full-width states: loading / error / no host /
+/// missing token. Its only state is the certificate trust
 /// flow offered on TLS errors; every other action flows back to the
 /// compositor via callbacks.
 struct PullsContentSection: View {
@@ -31,7 +31,7 @@ struct PullsContentSection: View {
                 icon: .pr,
                 title: "No supported remote detected",
                 subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them."
-            ) { EmptyView() }
+            )
         } else if store.requiresToken {
             PullsTokenMissingSection(
                 host: store.host,
@@ -39,33 +39,13 @@ struct PullsContentSection: View {
                 onAddToken: onAddToken,
                 onOpenSettings: onOpenSettings
             )
-        } else if store.items.isEmpty {
-            EmptyState(
-                icon: .pr,
-                title: "No open \(nounPlural)",
-                subtitle: "When somebody opens one against this repo, it'll show up here."
-            ) { EmptyView() }
-        } else {
-            list
         }
-    }
-
-    private var list: some View {
-        ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.md) {
-                ForEach(store.items) { pr in
-                    PullRequestRow(pullRequest: pr) {
-                        store.select(pr)
-                    }
-                }
-            }
-            .padding(DesignTokens.Spacing.xxxxl)
-        }
+        // Loaded with a host and token: `PullsView` shows the list instead.
     }
 
     private func errorState(message: String) -> some View {
         EmptyState(icon: .warn, title: "Couldn't load", subtitle: message) {
-            HStack(spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: Spacing.s8) {
                 if isTLSError(message), let host = store.host {
                     GFButton(title: "Trust \(host.host)…", style: .primary) {
                         trustHost = host.host
@@ -98,7 +78,7 @@ struct PullsContentSection: View {
         onAddToken: {}, onOpenSettings: {}
     )
     .frame(width: 1100, height: 600)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
 
@@ -115,7 +95,7 @@ struct PullsContentSection: View {
         onAddToken: {}, onOpenSettings: {}
     )
     .frame(width: 1100, height: 600)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
 

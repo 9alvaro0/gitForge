@@ -3,12 +3,24 @@ import Foundation
 /// GitLab REST v4 implementation of `PullRequestProvider`.
 /// API reference: https://docs.gitlab.com/ee/api/merge_requests.html
 struct GitLabPullRequestProvider: PullRequestProvider {
-    func fetchOpen(host: RemoteHost, token: String) async throws -> [PullRequest] {
+    func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
+        switch state {
+        case .open:
+            return try await fetchList(host: host, state: "opened", token: token)
+        case .closed:
+            // GitLab's `closed` excludes merged MRs: ask for both, newest first.
+            async let merged = fetchList(host: host, state: "merged", token: token)
+            async let closed = fetchList(host: host, state: "closed", token: token)
+            return try await (merged + closed).sorted { ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast) }
+        }
+    }
+
+    private func fetchList(host: RemoteHost, state: String, token: String) async throws -> [PullRequest] {
         guard var components = URLComponents(string: "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))/merge_requests") else {
             throw PullRequestFetchError.network("bad URL")
         }
         components.queryItems = [
-            URLQueryItem(name: "state", value: "opened"),
+            URLQueryItem(name: "state", value: state),
             URLQueryItem(name: "per_page", value: "50"),
             URLQueryItem(name: "order_by", value: "updated_at"),
             URLQueryItem(name: "sort", value: "desc"),
@@ -23,16 +35,42 @@ struct GitLabPullRequestProvider: PullRequestProvider {
         }
     }
 
-    func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
-        let url = URL(string: "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))/merge_requests/\(number)")
-        let request = Self.makeRequest(url: url, token: token)
-        let data = try await RemoteAPI.send(request)
+    func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String {
+        let data = try await RemoteAPI.send(Self.makeRequest(url: URL(string: "\(Self.base(for: host))/user"), token: token))
+        struct UserDTO: Decodable { let username: String }
         do {
-            let dto = try JSONDecoder().decode(GitLabMRDetailDTO.self, from: data)
-            return dto.toModel()
+            return try JSONDecoder().decode(UserDTO.self, from: data).username
         } catch {
             throw PullRequestFetchError.decoding(error.localizedDescription)
         }
+    }
+
+    /// Jobs of the MR's latest pipeline.
+    func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] {
+        let project = "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))"
+        let pipelines = try await RemoteAPI.send(Self.makeRequest(
+            url: URL(string: "\(project)/merge_requests/\(pull.number)/pipelines?per_page=1"), token: token))
+        guard let pipelineId = try Self.parseLatestPipelineId(pipelines) else { return [] }
+        let jobs = try await RemoteAPI.send(Self.makeRequest(
+            url: URL(string: "\(project)/pipelines/\(pipelineId)/jobs?per_page=100"), token: token))
+        return try Self.parseJobs(jobs)
+    }
+
+    func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
+        let url = URL(string: "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))/merge_requests/\(number)")
+        let request = Self.makeRequest(url: url, token: token)
+        async let approvals = try? RemoteAPI.send(Self.makeRequest(
+            url: URL(string: "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))/merge_requests/\(number)/approvals"),
+            token: token))
+        let data = try await RemoteAPI.send(request)
+        let dto: GitLabMRDetailDTO
+        do {
+            dto = try JSONDecoder().decode(GitLabMRDetailDTO.self, from: data)
+        } catch {
+            throw PullRequestFetchError.decoding(error.localizedDescription)
+        }
+        let approvedBy = (await approvals).flatMap { try? Self.parseApprovers($0) } ?? []
+        return dto.toModel(approvedBy: approvedBy)
     }
 
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] {
@@ -80,6 +118,61 @@ struct GitLabPullRequestProvider: PullRequestProvider {
     }
 }
 
+// MARK: - Parsers (static so the tests can feed them fixtures)
+
+extension GitLabPullRequestProvider {
+    static func parseLatestPipelineId(_ data: Data) throws -> Int? {
+        struct Pipeline: Decodable { let id: Int }
+        return try JSONDecoder().decode([Pipeline].self, from: data).first?.id
+    }
+
+    static func parseJobs(_ data: Data) throws -> [CICheck] {
+        struct Job: Decodable {
+            let name: String
+            let stage: String?
+            let status: String              // created, pending, running, failed, success, canceled, skipped, manual, scheduled, waiting_for_resource, preparing
+            let duration: Double?
+            let web_url: String?
+            let failure_reason: String?
+        }
+        let jobs: [Job]
+        do { jobs = try JSONDecoder().decode([Job].self, from: data) } catch {
+            throw PullRequestFetchError.decoding(error.localizedDescription)
+        }
+        return jobs.map { job in
+            let state = jobState(job.status)
+            return CICheck(
+                name: job.name,
+                context: job.stage,
+                state: state,
+                duration: job.duration,
+                failureMessage: state == .failed ? job.failure_reason?.replacingOccurrences(of: "_", with: " ") : nil,
+                webURL: job.web_url.flatMap(URL.init(string:))
+            )
+        }
+    }
+
+    static func jobState(_ status: String) -> CICheck.State {
+        switch status {
+        case "success": return .passed
+        case "failed": return .failed
+        case "running": return .running
+        case "canceled": return .canceled
+        case "skipped", "manual": return .skipped
+        default: return .queued
+        }
+    }
+
+    static func parseApprovers(_ data: Data) throws -> [String] {
+        struct Approvals: Decodable {
+            let approved_by: [Entry]?
+            struct Entry: Decodable { let user: User }
+            struct User: Decodable { let username: String }
+        }
+        return try JSONDecoder().decode(Approvals.self, from: data).approved_by?.map(\.user.username) ?? []
+    }
+}
+
 // MARK: - DTOs
 
 private struct GitLabMRDTO: Decodable {
@@ -95,6 +188,7 @@ private struct GitLabMRDTO: Decodable {
     let source_branch: String
     let target_branch: String
     let author: Author?
+    let sha: String?
 
     struct Author: Decodable {
         let username: String?
@@ -122,7 +216,8 @@ private struct GitLabMRDTO: Decodable {
             targetBranch: target_branch,
             webURL: web_url.flatMap(URL.init(string:)),
             createdAt: RemoteAPI.parseDate(created_at),
-            updatedAt: RemoteAPI.parseDate(updated_at)
+            updatedAt: RemoteAPI.parseDate(updated_at),
+            headSha: sha
         )
     }
 }
@@ -146,6 +241,7 @@ private struct GitLabMRDetailDTO: Decodable {
     let assignees: [User]?
     let merge_status: String?
     let head_pipeline: Pipeline?
+    let sha: String?
 
     struct User: Decodable {
         let username: String?
@@ -156,7 +252,7 @@ private struct GitLabMRDetailDTO: Decodable {
         let web_url: String?
     }
 
-    func toModel() -> PullRequestDetail {
+    func toModel(approvedBy: [String] = []) -> PullRequestDetail {
         let isDraft = (draft == true) || (work_in_progress == true)
         let mappedState: PullRequest.State = {
             switch state {
@@ -177,7 +273,8 @@ private struct GitLabMRDetailDTO: Decodable {
             targetBranch: target_branch,
             webURL: web_url.flatMap(URL.init(string:)),
             createdAt: RemoteAPI.parseDate(created_at),
-            updatedAt: RemoteAPI.parseDate(updated_at)
+            updatedAt: RemoteAPI.parseDate(updated_at),
+            headSha: sha
         )
         let mergeable: Bool? = {
             switch merge_status {
@@ -205,13 +302,23 @@ private struct GitLabMRDetailDTO: Decodable {
             pull: pr,
             descriptionMarkdown: description,
             labels: labels ?? [],
-            reviewers: (reviewers ?? []).compactMap {
-                $0.username.map { PullRequestDetail.Reviewer(login: $0, approved: false) }
-            },
+            reviewers: GitLabPullRequestProvider.reviewers(requested: (reviewers ?? []).compactMap(\.username), approvedBy: approvedBy),
             assignees: (assignees ?? []).compactMap(\.username),
             mergeable: mergeable,
             ciStatus: ci
         )
+    }
+}
+
+extension GitLabPullRequestProvider {
+    /// Assigned reviewers, approved when they're among the approvers; then
+    /// any other approver.
+    static func reviewers(requested: [String], approvedBy: [String]) -> [PullRequestDetail.Reviewer] {
+        var out = requested.map { PullRequestDetail.Reviewer(login: $0, state: approvedBy.contains($0) ? .approved : .pending) }
+        for login in approvedBy where !requested.contains(login) {
+            out.append(.init(login: login, state: .approved))
+        }
+        return out
     }
 }
 
