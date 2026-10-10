@@ -66,31 +66,25 @@ struct BranchesView: View {
         .navigationTitle("Branches & Tags")
         .searchable(text: $filter, placement: .toolbar, prompt: "Filter")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Picker("Scope", selection: $scope) {
-                    ForEach(BranchScope.allCases) { scope in
-                        Text("\(scope.title) \(refs(in: scope).count)").tag(scope)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .help("Local branches, remote branches or tags")
-            }
             if scope == .tags {
                 ToolbarItem(placement: .primaryAction) {
                     Button { Task { await runPushAllTags() } } label: {
                         Label("Push tags", systemImage: "arrow.up.to.line")
                     }
-                    .labelStyle(.titleAndIcon)
+                    .labelStyle(.iconOnly)
                     .help("Push all tags to origin")
                     .disabled(viewModel.tags.isEmpty)
                 }
             }
             ToolbarItem(placement: .primaryAction) {
+                // Icon only: with a title it falls into the toolbar's `»`
+                // overflow at the minimum window width.
                 Button { ui.newBranchSheetVisible = true } label: {
                     Label("New branch…", systemImage: "plus")
                 }
-                .labelStyle(.titleAndIcon)
+                .labelStyle(.iconOnly)
                 .buttonStyle(.glassProminent)
+                .help("New branch… (⌘B)")
             }
         }
         .sheet(isPresented: $ui.newBranchSheetVisible) {
@@ -152,13 +146,33 @@ struct BranchesView: View {
         GeometryReader { geo in
             let inspectorWidth: CGFloat = geo.size.width + Self.sidebarAllowance >= Self.wideWindow ? 480 : 360
             HStack(spacing: 0) {
-                table
+                VStack(spacing: 0) {
+                    scopeBar
+                    table
+                }
                 Rectangle().fill(theme.colors.separator).frame(width: 1)
                 inspector
                     .frame(width: inspectorWidth)
                     .background(theme.colors.bgElevated)
             }
         }
+    }
+
+    /// Lives above the table rather than in the toolbar: next to the shell's
+    /// Fetch / Pull / Push group a toolbar picker overflows into `»` below
+    /// ~1300 pt, and the scope is the screen's main switch.
+    private var scopeBar: some View {
+        HStack {
+            SegmentedControl<BranchScope>(
+                BranchScope.allCases.map { ($0, "\($0.title) \(refs(in: $0).count)") },
+                selection: $scope
+            )
+            .fixedSize()
+            .help("Local branches, remote branches or tags")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Spacing.s12)
+        .frame(height: 44)
     }
 
     @ViewBuilder

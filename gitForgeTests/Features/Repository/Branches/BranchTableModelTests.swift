@@ -39,9 +39,11 @@ struct BranchTableModelTests {
 
     @Test("The subject shrinks, then hides, as the table narrows")
     func narrow() {
-        let mid = BranchTableLayout(width: 560, scope: .local)
-        #expect(mid.subject > 120 && mid.subject < 250)
-        #expect(BranchTableLayout(width: 500, scope: .local).subject == 0)
+        let mid = BranchTableLayout(width: 640, scope: .local)
+        #expect(mid.subject > 160 && mid.subject < 250)
+        #expect(BranchTableLayout(width: 560, scope: .local).subject == 0)
+        // Remote has no upstream column, so the same width keeps a subject.
+        #expect(BranchTableLayout(width: 560, scope: .remote).subject == 200)
     }
 
     @Test("Only local shows the upstream column; only tags show the commit column")
