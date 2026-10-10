@@ -11,6 +11,8 @@ struct GFButton: View {
     var style: Style = .secondary
     var size: Size = .regular
     var disabled: Bool = false
+    /// Stretches the button (background included) to the available width.
+    var fullWidth: Bool = false
     let action: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -28,6 +30,7 @@ struct GFButton: View {
             }
             .lineLimit(1)
             .padding(.horizontal, horizontalPadding)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
             .frame(height: height)
             .foregroundStyle(foreground)
             .background(shape.fill(background))
