@@ -9,12 +9,12 @@ extension ResizableTableModel {
         ResizableTableModel(
             id: id,
             columns: [
-                (id: "graph",     defaultWidth: 110, minWidth: 80),
-                (id: "branchTag", defaultWidth: 220, minWidth: 80),
-                (id: "message",   defaultWidth: 480, minWidth: 240),
-                (id: "author",    defaultWidth: 130, minWidth: 80),
-                (id: "sha",       defaultWidth: 80,  minWidth: 60),
-                (id: "when",      defaultWidth: 70,  minWidth: 50),
+                // Description has no entry: it takes the rest of the row
+                // (`HistoryTableLayout`).
+                (id: "graph",  defaultWidth: 80,  minWidth: 60),
+                (id: "author", defaultWidth: 112, minWidth: 80),
+                (id: "when",   defaultWidth: 92,  minWidth: 50),
+                (id: "sha",    defaultWidth: 64,  minWidth: 56),
             ]
         )
     }

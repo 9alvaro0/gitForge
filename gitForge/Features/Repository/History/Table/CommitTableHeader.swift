@@ -1,53 +1,53 @@
 import SwiftUI
 
 struct CommitTableHeader: View {
-    let gutterWidth: CGFloat
+    let layout: HistoryTableLayout
     let graphHandle: Binding<CGFloat>
     let graphMinWidth: CGFloat
     let columns: ResizableTableModel
 
     @Environment(\.appTheme) private var theme
 
+    /// Handles sit in the gap after the column they resize (Excel-style).
+    /// Description is flexible, so it has none.
+    /// Room Description can give up before it hits its floor. Widening any
+    /// column past this would hide Author mid-drag, so handles stop there.
+    private var slack: CGFloat {
+        max(0, layout.description - HistoryTableLayout.minDescription)
+    }
+
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
-            Text("GRAPH").frame(width: gutterWidth, alignment: .leading)
+        HStack(spacing: 0) {
+            Text("Graph").frame(width: layout.graph, alignment: .leading)
             ColumnDragHandle(width: graphHandle,
-                             minWidth: graphMinWidth, maxWidth: 600,
+                             minWidth: graphMinWidth, maxWidth: min(600, max(graphMinWidth, layout.graph + slack)),
                              onCommit: { columns.commit() })
-            Text("BRANCH / TAG")
-                .frame(width: columns.width("branchTag"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "branchTag"),
-                             minWidth: columns.minWidth("branchTag"), maxWidth: 480,
-                             onCommit: { columns.commit() })
-            Text("MESSAGE")
-                .frame(width: columns.width("message"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "message"),
-                             minWidth: columns.minWidth("message"), maxWidth: 1200,
-                             onCommit: { columns.commit() })
-            Text("AUTHOR")
-                .frame(width: columns.width("author"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "author"),
-                             minWidth: columns.minWidth("author"), maxWidth: 280,
-                             onCommit: { columns.commit() })
-            Text("SHA")
-                .frame(width: columns.width("sha"), alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "sha"),
-                             minWidth: columns.minWidth("sha"), maxWidth: 200,
-                             onCommit: { columns.commit() })
-            Text("WHEN")
-                .frame(width: columns.width("when"), alignment: .trailing)
+            Text("Description").frame(width: layout.description, alignment: .leading)
+            Color.clear.frame(width: HistoryTableLayout.gap)
+            if layout.showsAuthor {
+                Text("Author").frame(width: layout.author, alignment: .leading)
+                ColumnDragHandle(width: columns.binding(for: "author"),
+                                 minWidth: columns.minWidth("author"),
+                                 maxWidth: min(280, max(columns.minWidth("author"), layout.author + slack)),
+                                 onCommit: { columns.commit() })
+            }
+            Text("Date").frame(width: layout.date, alignment: .leading)
             ColumnDragHandle(width: columns.binding(for: "when"),
-                             minWidth: columns.minWidth("when"), maxWidth: 160,
+                             minWidth: columns.minWidth("when"),
+                             maxWidth: min(200, max(columns.minWidth("when"), layout.date + slack)),
                              onCommit: { columns.commit() })
+            // Last column: no trailing handle, which would make the header
+            // wider than the rows and force a horizontal scroll bar.
+            Text("Commit").frame(width: layout.commit, alignment: .trailing)
             Spacer(minLength: 0)
         }
-        .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
-        .tracking(0.6)
-        .foregroundStyle(theme.palette.fg3)
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .frame(height: DesignTokens.Control.height)
-        .background(theme.palette.bg1)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
+        .textRole(.caption, weight: .semibold)
+        .foregroundStyle(theme.colors.textQuaternary)
+        .lineLimit(1)
+        .padding(.leading, HistoryTableLayout.rowInset + HistoryTableLayout.leadingPadding)
+        .frame(height: theme.density.metrics.rowHeader)
+        .background(theme.colors.bgContent)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.separator).frame(height: 1) }
         .contextMenu {
             Button("Reset column widths") { columns.reset() }
         }
@@ -58,12 +58,12 @@ struct CommitTableHeader: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.header.preview")
     CommitTableHeader(
-        gutterWidth: 110,
+        layout: HistoryTableLayout(viewport: 900, graph: 80, author: 112, date: 92, commit: 64),
         graphHandle: columns.binding(for: "graph"),
         graphMinWidth: 80,
         columns: columns
     )
     .frame(width: 1100)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

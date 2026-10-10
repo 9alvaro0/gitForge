@@ -21,6 +21,8 @@ struct CommitGraphTable: View {
     let maxLanes: Int
     let refsBySha: [String: [GitRef]]
     let currentBranch: String?
+    /// Commit HEAD points at (detached or not); marks HEAD in the graph.
+    var headSha: String? = nil
     let selectedSha: Commit.ID?
     let workingCopyDirty: Bool
     /// `true` when the pinned "Uncommitted changes" row is the active selection
@@ -55,20 +57,41 @@ struct CommitGraphTable: View {
     /// walk the history (a commit list a keyboard can't drive fails the HIG
     /// and leaves keyboard-only users stuck).
     @FocusState private var tableFocused: Bool
+    /// Last selection made from inside the table (click / ↑↓). Those rows
+    /// are already on screen, so only selections from elsewhere (sidebar,
+    /// palette, reveal) scroll.
+    @State private var localSelection: String?
 
-    private var rowHeight: CGFloat { theme.density.rowHeight }
+    private var rowHeight: CGFloat { theme.density.metrics.rowList }
+
+    /// With "Show scroll bars: Always" the vertical scroller takes width out
+    /// of the viewport; without subtracting it the rows overflow by that
+    /// much and a horizontal scroll bar appears for nothing.
+    private static var legacyScrollerWidth: CGFloat {
+        NSScroller.preferredScrollerStyle == .legacy
+            ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+            : 0
+    }
     /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
     /// Grows with the number of simultaneously alive lanes so a wide history
     /// (e.g. many parallel `release/*` branches) is never cramped, and floors
     /// at the column's static minimum so the user can still drag it tighter
     /// than 110 when the history is single-lane.
     private var dynamicGraphMin: CGFloat {
-        let lanes = max(maxLanes, 1)
-        let laneWidth: CGFloat = 14
-        let leadingSpacer: CGFloat = 18
-        let trailingPad: CGFloat = 8
-        let needed = leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad
-        return max(columns.minWidth("graph"), needed)
+        let metricsOnly = GraphStyle(metrics: theme.density.metrics.graph)
+        return max(columns.minWidth("graph"), metricsOnly.gutterWidth(lanes: maxLanes))
+    }
+
+    /// v2 graph look (spec §4.5). Built once per render in `body`.
+    private func makeGraphStyle() -> GraphStyle {
+        GraphStyle(
+            metrics: theme.density.metrics.graph,
+            accent: theme.accentSwatch,
+            accentColor: theme.colors.accent,
+            dark: theme.effectiveMode == .dark,
+            nodeFill: theme.colors.bgContent,
+            headBranchId: GraphHead.branchId(headSha: headSha, commits: commits, layouts: layouts)
+        )
     }
 
     /// Effective rendered width of the GRAPH gutter. Honors the user's stored
@@ -92,35 +115,26 @@ struct CommitGraphTable: View {
         )
     }
 
-    /// Sum of every fixed-width piece in a row (six resizable columns +
-    /// six 8pt handle gaps + 36pt horizontal padding). When the viewport is
-    /// wider, a trailing Spacer absorbs the slack; when it's narrower,
-    /// ScrollView's horizontal axis takes over.
-    private var totalContentWidth: CGFloat {
-        let columnsWidth: CGFloat = columns.width("branchTag")
-            + columns.width("message")
-            + columns.width("author")
-            + columns.width("sha")
-            + columns.width("when")
-        let handleGaps: CGFloat = 6 * 8
-        let horizontalPadding: CGFloat = 36
-        return graphGutterWidth + columnsWidth + handleGaps + horizontalPadding
-    }
-
     var body: some View {
         // Resolve the derived widths once per render, not once per row.
         let gutterWidth = graphGutterWidth
-        let contentWidth = totalContentWidth
+        let style = makeGraphStyle()
         return GeometryReader { geo in
+            let layout = HistoryTableLayout(
+                viewport: geo.size.width - Self.legacyScrollerWidth,
+                graph: gutterWidth,
+                author: columns.width("author"),
+                date: columns.width("when"),
+                commit: columns.width("sha")
+            )
             ScrollViewReader { proxy in
                 ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                    LazyVStack(spacing: DesignTokens.Spacing.none, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
                         Section {
                             if workingCopyDirty {
                                 UncommittedRow(
                                     rowHeight: rowHeight,
-                                    gutterWidth: gutterWidth,
-                                    columns: columns,
+                                    layout: layout,
                                     isSelected: uncommittedSelected,
                                     onSelect: { onUncommittedSelect?() }
                                 )
@@ -131,14 +145,16 @@ struct CommitGraphTable: View {
                                     layout: layouts[safe: idx] ?? .empty,
                                     maxLanes: maxLanes,
                                     rowHeight: rowHeight,
-                                    gutterWidth: gutterWidth,
+                                    tableLayout: layout,
                                     refs: refsBySha[commit.sha] ?? [],
                                     currentBranch: currentBranch,
                                     isSelected: commit.sha == selectedSha,
+                                    graphStyle: style,
+                                    isHeadCommit: commit.sha == headSha,
                                     dimmed: isMatch.map { !$0(commit) } ?? false,
-                                    columns: columns,
                                     onSelect: {
                                         tableFocused = true
+                                        localSelection = commit.sha
                                         onSelect(commit.sha)
                                     },
                                     onDoubleClick: { onDoubleClick?(commit.sha) },
@@ -148,14 +164,14 @@ struct CommitGraphTable: View {
                             }
                         } header: {
                             CommitTableHeader(
-                                gutterWidth: gutterWidth,
+                                layout: layout,
                                 graphHandle: graphHandleBinding,
                                 graphMinWidth: dynamicGraphMin,
                                 columns: columns
                             )
                         }
                     }
-                    .frame(width: max(contentWidth, geo.size.width), alignment: .leading)
+                    .frame(width: max(layout.totalWidth, geo.size.width - Self.legacyScrollerWidth), alignment: .leading)
                     .frame(minHeight: geo.size.height, alignment: .topLeading)
                 }
                 .focusable()
@@ -163,15 +179,15 @@ struct CommitGraphTable: View {
                 .focused($tableFocused)
                 .onKeyPress(.downArrow) { moveSelection(by: 1, proxy: proxy) }
                 .onKeyPress(.upArrow) { moveSelection(by: -1, proxy: proxy) }
-                // A selection made elsewhere (sidebar branch tree, palette)
-                // must bring its row into view. `initial: true` covers the
-                // reveal that switches to History: the table mounts with the
-                // selection already set, so a plain onChange never fires.
-                // The hop to the next run-loop turn lets the lazy stack lay
-                // out first. A click on a visible row is a no-op scroll.
                 .onChange(of: selectedSha, initial: true) { _, sha in
-                    guard let sha else { return }
-                    Task { @MainActor in proxy.scrollTo(sha) }
+                    guard let sha, sha != localSelection else { return }
+                    // A selection made elsewhere (sidebar branch tree, palette,
+                    // reveal) brings its row into view. `initial: true` covers
+                    // the reveal that switches to History, where the table
+                    // mounts with the selection already set; the hop to the
+                    // next run-loop turn lets the lazy stack lay out first.
+                    // x: 0 keeps the graph in view.
+                    Task { @MainActor in proxy.scrollTo(sha, anchor: UnitPoint(x: 0, y: 0.5)) }
                 }
             }
         }
@@ -185,6 +201,7 @@ struct CommitGraphTable: View {
         let target = current.map { min(max($0 + offset, 0), commits.count - 1) } ?? 0
         let sha = commits[target].sha
         guard sha != selectedSha else { return .handled }
+        localSelection = sha
         onSelect(sha)
         proxy.scrollTo(sha)
         return .handled
@@ -207,6 +224,6 @@ struct CommitGraphTable: View {
         onSelect: { _ in }
     )
     .frame(width: 920, height: 480)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
