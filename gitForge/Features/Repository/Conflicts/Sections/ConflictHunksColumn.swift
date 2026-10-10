@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The selected file's hunks, open ones side by side and picked ones folded.
-/// Keyboard: ↑↓ move between hunks, 1 / 2 / 3 pick ours / theirs / both.
+/// Keyboard: ↑↓ move between hunks, 1 / 2 / 3 / 4 pick ours / theirs /
+/// both / both with theirs first.
 struct ConflictHunksColumn: View {
     @Bindable var viewModel: RepositoryViewModel
 
@@ -54,6 +55,7 @@ struct ConflictHunksColumn: View {
             .onKeyPress("1") { pick(.ours) }
             .onKeyPress("2") { pick(.theirs) }
             .onKeyPress("3") { pick(.both) }
+            .onKeyPress("4") { pick(.bothTheirsFirst) }
             .onChange(of: viewModel.conflicts.selectedPath) { _, _ in
                 focusedHunkIndex = 0
             }
@@ -70,6 +72,8 @@ struct ConflictHunksColumn: View {
             Text("theirs")
             Kbd(text: "3")
             Text("both")
+            Kbd(text: "4")
+            Text("both, theirs first")
             Spacer(minLength: 0)
         }
         .textRole(.caption)

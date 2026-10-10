@@ -55,6 +55,9 @@ nonisolated enum ConflictResultBuilder {
                 case .both:
                     hunk.ours.forEach { append($0, .ours) }
                     hunk.theirs.forEach { append($0, .theirs) }
+                case .bothTheirsFirst:
+                    hunk.theirs.forEach { append($0, .theirs) }
+                    hunk.ours.forEach { append($0, .ours) }
                 }
             }
         }
