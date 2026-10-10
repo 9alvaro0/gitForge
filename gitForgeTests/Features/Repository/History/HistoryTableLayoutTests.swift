@@ -12,7 +12,18 @@ struct HistoryTableLayoutTests {
         #expect(layout.description == 900 - layout.fixedWidth)
     }
 
-    @Test("A narrow viewport keeps Description at its minimum and the table scrolls")
+    @Test("When Description would drop below its floor, Author goes first")
+    func hidesAuthor() {
+        let wide = HistoryTableLayout(viewport: 900, graph: 80, author: 112, date: 92, commit: 64)
+        #expect(wide.showsAuthor)
+        let narrow = HistoryTableLayout(viewport: 520, graph: 80, author: 112, date: 92, commit: 64)
+        #expect(!narrow.showsAuthor)
+        #expect(narrow.author == 0)
+        #expect(narrow.totalWidth == 520)
+        #expect(narrow.description >= HistoryTableLayout.minDescription)
+    }
+
+    @Test("Below even that, Description holds its floor and the table scrolls")
     func floor() {
         let layout = HistoryTableLayout(viewport: 300, graph: 80, author: 112, date: 92, commit: 64)
         #expect(layout.description == HistoryTableLayout.minDescription)

@@ -18,10 +18,12 @@ struct CommitTableHeader: View {
                              onCommit: { columns.commit() })
             Text("Description").frame(width: layout.description, alignment: .leading)
             Color.clear.frame(width: HistoryTableLayout.gap)
-            Text("Author").frame(width: layout.author, alignment: .leading)
-            ColumnDragHandle(width: columns.binding(for: "author"),
-                             minWidth: columns.minWidth("author"), maxWidth: 280,
-                             onCommit: { columns.commit() })
+            if layout.showsAuthor {
+                Text("Author").frame(width: layout.author, alignment: .leading)
+                ColumnDragHandle(width: columns.binding(for: "author"),
+                                 minWidth: columns.minWidth("author"), maxWidth: 280,
+                                 onCommit: { columns.commit() })
+            }
             Text("Date").frame(width: layout.date, alignment: .leading)
             ColumnDragHandle(width: columns.binding(for: "when"),
                              minWidth: columns.minWidth("when"), maxWidth: 200,

@@ -29,7 +29,7 @@ struct UncommittedRow: View {
                 .italic()
                 .foregroundStyle(theme.colors.mod)
                 .frame(width: layout.description, alignment: .leading)
-            Color.clear.frame(width: HistoryTableLayout.gap + layout.author + HistoryTableLayout.gap)
+            Color.clear.frame(width: HistoryTableLayout.gap + (layout.showsAuthor ? layout.author + HistoryTableLayout.gap : 0))
             Text("now")
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textTertiary)

@@ -10,6 +10,8 @@ struct CommitRow: View {
     let refs: [GitRef]
     let currentBranch: String?
     let isSelected: Bool
+    var graphStyle = GraphStyle()
+    var isHeadCommit = false
     let dimmed: Bool
     let onSelect: () -> Void
     let onDoubleClick: () -> Void
@@ -43,9 +45,11 @@ struct CommitRow: View {
             }
             .frame(width: tableLayout.description, alignment: .leading)
             gap
-            authorCell
-                .frame(width: tableLayout.author, alignment: .leading)
-            gap
+            if tableLayout.showsAuthor {
+                authorCell
+                    .frame(width: tableLayout.author, alignment: .leading)
+                gap
+            }
             Text(preferences.dateDisplayMode.format(commit.authorDate))
                 .textRole(.callout)
                 .monospacedDigit()
@@ -144,7 +148,14 @@ struct CommitRow: View {
     /// Re-uses the existing `GraphColumnView` so lane drawing matches the
     /// rest of the app.
     private var graphGutter: some View {
-        GraphColumnView(row: layout, maxLanes: max(maxLanes, 1))
+        GraphColumnView(
+            row: layout,
+            maxLanes: max(maxLanes, 1),
+            style: graphStyle,
+            isHeadCommit: isHeadCommit,
+            isSelected: isSelected,
+            isHovered: hovering
+        )
     }
 
     private var gap: some View {

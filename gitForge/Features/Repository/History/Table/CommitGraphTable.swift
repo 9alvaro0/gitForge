@@ -63,12 +63,22 @@ struct CommitGraphTable: View {
     /// at the column's static minimum so the user can still drag it tighter
     /// than 110 when the history is single-lane.
     private var dynamicGraphMin: CGFloat {
-        let lanes = max(maxLanes, 1)
-        let laneWidth: CGFloat = 14
-        let leadingSpacer: CGFloat = 18
-        let trailingPad: CGFloat = 8
-        let needed = leadingSpacer + CGFloat(lanes) * laneWidth + trailingPad
-        return max(columns.minWidth("graph"), needed)
+        max(columns.minWidth("graph"), graphStyle.gutterWidth(lanes: maxLanes))
+    }
+
+    /// v2 graph look (spec §4.5), resolved once per render.
+    private var graphStyle: GraphStyle {
+        let headSha = refsBySha.first { _, refs in
+            refs.contains { $0.isLocalBranch && $0.name == currentBranch }
+        }?.key
+        return GraphStyle(
+            metrics: theme.density.metrics.graph,
+            accent: theme.accentSwatch,
+            accentColor: theme.colors.accent,
+            dark: theme.effectiveMode == .dark,
+            nodeFill: theme.colors.bgContent,
+            headBranchId: GraphHead.branchId(headSha: headSha, commits: commits, layouts: layouts)
+        )
     }
 
     /// Effective rendered width of the GRAPH gutter. Honors the user's stored
@@ -95,6 +105,10 @@ struct CommitGraphTable: View {
     var body: some View {
         // Resolve the derived widths once per render, not once per row.
         let gutterWidth = graphGutterWidth
+        let style = graphStyle
+        let headSha = commits.first { commit in
+            (refsBySha[commit.sha] ?? []).contains { $0.isLocalBranch && $0.name == currentBranch }
+        }?.sha
         return GeometryReader { geo in
             let layout = HistoryTableLayout(
                 viewport: geo.size.width,
@@ -125,6 +139,8 @@ struct CommitGraphTable: View {
                                     refs: refsBySha[commit.sha] ?? [],
                                     currentBranch: currentBranch,
                                     isSelected: commit.sha == selectedSha,
+                                    graphStyle: style,
+                                    isHeadCommit: commit.sha == headSha,
                                     dimmed: isMatch.map { !$0(commit) } ?? false,
                                     onSelect: {
                                         tableFocused = true
@@ -160,7 +176,9 @@ struct CommitGraphTable: View {
                 // out first. A click on a visible row is a no-op scroll.
                 .onChange(of: selectedSha, initial: true) { _, sha in
                     guard let sha else { return }
-                    Task { @MainActor in proxy.scrollTo(sha) }
+                    // x: 0 pins the leading edge, so a reveal never scrolls
+                    // the table sideways and hides the graph.
+                    Task { @MainActor in proxy.scrollTo(sha, anchor: UnitPoint(x: 0, y: 0.5)) }
                 }
             }
         }
