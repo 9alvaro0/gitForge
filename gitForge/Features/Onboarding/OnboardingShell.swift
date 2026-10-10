@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Chrome around an onboarding step: top progress strip + bottom navigation
 /// row. Steps render their own content in the middle. Mirrors the layout of
-/// `ContentHeader` + a `ScrollView` body found across the rest of the app,
+/// the toolbar title + a `ScrollView` body found across the rest of the app,
 /// but tuned for a single centered column instead of a sidebar+detail split.
 struct OnboardingShell<Content: View>: View {
     let currentStep: OnboardingState.Step

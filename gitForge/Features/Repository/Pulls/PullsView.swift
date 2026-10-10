@@ -25,6 +25,7 @@ struct PullsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle(headerTitle)
         .task { await store.load() }
         .sheet(item: $tokenSheetHost) { host in
             PullsTokenSheet(
@@ -39,13 +40,6 @@ struct PullsView: View {
 
     private var listLayout: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: headerTitle) {
-                subtitle
-            } right: {
-                ToolButton(.fetch, label: "Refresh", disabled: store.isLoading) {
-                    Task { await store.load(force: true) }
-                }
-            }
             PullsContentSection(
                 store: store,
                 nounPlural: headerTitle.lowercased(),
@@ -53,19 +47,24 @@ struct PullsView: View {
                 onOpenSettings: { appState.ui.workspaceSection = .settings }
             )
         }
+        .navigationSubtitle(pullsSubtitle)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                ToolButton(.fetch, label: "Refresh", disabled: store.isLoading) {
+                    Task { await store.load(force: true) }
+                }
+            }
+        }
     }
 
     private var headerTitle: String {
         store.host?.provider.pullNoun.appending("s") ?? "Pull requests"
     }
 
-    @ViewBuilder
-    private var subtitle: some View {
-        if let host = store.host {
-            MonoText("\(host.slug) · \(host.provider.label.lowercased())", dim: true)
-        } else {
-            MonoText("not connected", dim: true)
-        }
+    /// The host replaces the shell's branch subtitle on this screen.
+    private var pullsSubtitle: String {
+        guard let host = store.host else { return "not connected" }
+        return "\(host.slug) · \(host.provider.label.lowercased())"
     }
 
     private func presentTokenSheet() {

@@ -25,6 +25,7 @@ struct StashesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle("Stashes")
         .sheet(isPresented: $stashSheet) {
             StashCreateSheet(
                 message: $stashMessage,
@@ -49,15 +50,6 @@ struct StashesView: View {
 
     private var listLayout: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Stashes") {
-                MonoText("\(viewModel.stashes.count) stashed", dim: true)
-            } right: {
-                ToolButton(.stash, label: "Stash changes…", primary: true,
-                           disabled: !hasDirtyChanges) {
-                    stashMessage = ""
-                    stashSheet = true
-                }
-            }
             StashList(
                 stashes: viewModel.stashes,
                 hasDirtyChanges: hasDirtyChanges,
@@ -66,6 +58,15 @@ struct StashesView: View {
                 onPop:    { stash in Task { await runApply(stash, drop: true)  } },
                 onDrop:   { stash in dropTarget = stash }
             )
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                ToolButton(.stash, label: "Stash changes…", primary: true,
+                           disabled: !hasDirtyChanges) {
+                    stashMessage = ""
+                    stashSheet = true
+                }
+            }
         }
     }
 
