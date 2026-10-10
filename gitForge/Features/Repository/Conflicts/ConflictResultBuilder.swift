@@ -64,3 +64,31 @@ nonisolated enum ConflictResultBuilder {
         return out
     }
 }
+
+/// Where "Next conflict" goes: the next unpicked hunk after the focused one
+/// in this file, else the next unresolved file (wrapping), else nowhere.
+nonisolated enum ConflictNavigator {
+    enum Target: Equatable, Sendable {
+        case hunk(Int)
+        case file(String)
+    }
+
+    static func next(after focused: Int,
+                     hunkIsPicked: [Bool],
+                     files: [ConflictFile],
+                     selectedPath: String?) -> Target? {
+        if let hunk = hunkIsPicked.indices.first(where: { $0 > focused && !hunkIsPicked[$0] }) {
+            return .hunk(hunk)
+        }
+        let start = files.firstIndex { $0.path == selectedPath } ?? -1
+        let ordered = files.indices.map { (start + 1 + $0) % max(files.count, 1) }
+        if let file = ordered.lazy.map({ files[$0] }).first(where: { !$0.resolved && $0.path != selectedPath }) {
+            return .file(file.path)
+        }
+        // Only this file is left: wrap to its first unpicked hunk.
+        if let hunk = hunkIsPicked.firstIndex(of: false), hunk != focused {
+            return .hunk(hunk)
+        }
+        return nil
+    }
+}

@@ -10,6 +10,8 @@ struct ConflictHunksColumn: View {
     /// Index of the keyboard-focused hunk. Reset when the selected file
     /// changes (`.onChange` on `conflicts.selectedPath`).
     @State private var focusedHunkIndex: Int = 0
+    /// Set by "Next conflict" so the scroll view can follow it.
+    @State private var scrollTarget: Int?
 
     private var hunks: [ConflictHunk] { viewModel.conflicts.hunks }
     private var picks: [UUID: ConflictHunk.Pick] { viewModel.conflicts.picks }
@@ -59,6 +61,13 @@ struct ConflictHunksColumn: View {
             .onChange(of: viewModel.conflicts.selectedPath) { _, _ in
                 focusedHunkIndex = 0
             }
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(DesignTokens.Motion.standard) {
+                    proxy.scrollTo("hunk-\(target)", anchor: .top)
+                }
+                scrollTarget = nil
+            }
         }
     }
 
@@ -75,11 +84,38 @@ struct ConflictHunksColumn: View {
             Kbd(text: "4")
             Text("both, theirs first")
             Spacer(minLength: 0)
+            Button(action: goToNextConflict) {
+                HStack(spacing: Spacing.s6) {
+                    Text("Next conflict")
+                    Kbd(text: "⌥⌘↓")
+                }
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.downArrow, modifiers: [.option, .command])
+            .help("Next unpicked hunk, or the next file with conflicts")
         }
         .textRole(.caption)
         .foregroundStyle(theme.colors.textTertiary)
         .padding(Spacing.s12)
         .accessibilityElement(children: .combine)
+    }
+
+    private func goToNextConflict() {
+        let target = ConflictNavigator.next(
+            after: focusedHunkIndex,
+            hunkIsPicked: hunks.map { picks[$0.id] != nil },
+            files: viewModel.conflicts.files,
+            selectedPath: viewModel.conflicts.selectedPath
+        )
+        switch target {
+        case .hunk(let index):
+            focusedHunkIndex = index
+            scrollTarget = index
+        case .file(let path):
+            Task { await viewModel.conflicts.loadHunks(for: path) }
+        case nil:
+            break
+        }
     }
 
     private func pick(_ pick: ConflictHunk.Pick) -> KeyPress.Result {
