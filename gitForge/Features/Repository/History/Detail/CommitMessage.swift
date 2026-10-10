@@ -36,7 +36,9 @@ nonisolated enum CommitMessage {
     }
 
     private static func isTrailer(_ trimmed: String) -> Bool {
-        trimmed.wholeMatch(of: /[A-Za-z][A-Za-z-]*:\s.*/) != nil
+        // Git trailer keys are capitalised tokens (`Co-authored-by:`,
+        // `Signed-off-by:`); "artboard: title" mid-paragraph is prose.
+        trimmed.wholeMatch(of: /[A-Z][A-Za-z-]*:\s.*/) != nil
             || trimmed.wholeMatch(of: /(Refs|Fixes|Closes|Resolves|See)\s+#?\w.*/) != nil
     }
 }
