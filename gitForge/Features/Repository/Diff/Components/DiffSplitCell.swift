@@ -15,7 +15,6 @@ struct DiffSplitCell: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             DiffLineNumber(number: number, width: DiffGutter.splitNumber)
-                .background(gutterTint)
             DiffSign(kind: signKind, width: DiffGutter.splitSign)
             if let line {
                 // Long lines wrap so both halves stay readable without
@@ -30,7 +29,11 @@ struct DiffSplitCell: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: theme.density.metrics.diffLine, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: theme.density.metrics.diffLine, maxHeight: .infinity, alignment: .topLeading)
+        .background(alignment: .leading) {
+            gutterTint
+                .frame(width: DiffGutter.splitNumber + DiffGutter.numberTrailing)
+        }
         .background {
             if let line {
                 DiffTint.row(line.kind, colors: theme.colors)
