@@ -42,6 +42,16 @@ final class AppTheme {
 
     private(set) var palette: ThemePalette = .dark
 
+    /// v2 colour tokens (redesign spec §4.1). Replaces `palette` once every
+    /// screen has migrated (phase F9).
+    private(set) var colors: GFColors = .make(.dark, accent: .violet)
+
+    /// The v2 swatch the stored accent maps to.
+    var accentSwatch: AccentSwatch {
+        let hex = UInt32(accent.hexString.dropFirst(), radix: 16) ?? AccentSwatch.violet.swatch
+        return AccentSwatch.nearest(toHex: hex)
+    }
+
     static let accentSwatches: [Color] = [
         Color(hex: 0x7c5cff),
         Color(hex: 0x56b497),
@@ -51,7 +61,7 @@ final class AppTheme {
 
     init() {
         let savedMode = UserDefaults.standard.string(forKey: Keys.mode).flatMap(ThemeMode.init(rawValue:)) ?? .system
-        let savedDensity = UserDefaults.standard.string(forKey: Keys.density).flatMap(Density.init(rawValue:)) ?? .regular
+        let savedDensity = Density.resolve(UserDefaults.standard.string(forKey: Keys.density))
         let savedMonoRaw = UserDefaults.standard.string(forKey: Keys.monoFont) ?? MonoFontFamily.systemMono.rawValue
         let savedMono = (MonoFontFamily(rawValue: savedMonoRaw)?.resolved()) ?? .systemMono
         let savedAccent = UserDefaults.standard.string(forKey: Keys.accent).flatMap(Color.init(stringHex:)) ?? Color(hex: 0x7c5cff)
@@ -65,6 +75,7 @@ final class AppTheme {
 
     private func refreshPalette() {
         palette = ThemePalette.palette(for: effectiveMode, accent: accent, highContrast: increasedContrast)
+        colors = .make(ThemeVariant(isDark: effectiveMode == .dark, highContrast: increasedContrast), accent: accentSwatch)
     }
 
     private func persist() {
