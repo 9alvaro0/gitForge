@@ -36,19 +36,25 @@ struct ConflictFileHeader: View {
                             Text("\(pickedCount) of \(hunkCount) hunks picked")
                                 .textRole(.caption)
                                 .foregroundStyle(theme.colors.textTertiary)
+                                .lineLimit(1)
+                                .fixedSize()
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                ConflictSideButton(side: .ours, title: "Take ours", action: onTakeOurs)
-                    .help("Resolve the whole file with ours and mark it resolved")
-                ConflictSideButton(side: .theirs, title: "Take theirs", action: onTakeTheirs)
-                    .help("Resolve the whole file with theirs and mark it resolved")
-                IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
-                    .help("Open in editor")
-                GFButton(title: "Mark resolved", style: .primary,
-                         disabled: !canMarkResolved, action: onMarkResolved)
-                    .help(isManual ? "Write your result to the file and stage it" : "Write the picks to the file and stage it")
+                // The buttons keep their size; the path truncates instead.
+                Group {
+                    ConflictSideButton(side: .ours, title: "Take ours", action: onTakeOurs)
+                        .help("Resolve the whole file with ours and mark it resolved")
+                    ConflictSideButton(side: .theirs, title: "Take theirs", action: onTakeTheirs)
+                        .help("Resolve the whole file with theirs and mark it resolved")
+                    IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
+                        .help("Open in editor")
+                    GFButton(title: "Mark resolved", style: .primary,
+                             disabled: !canMarkResolved, action: onMarkResolved)
+                        .help(isManual ? "Write your result to the file and stage it" : "Write the picks to the file and stage it")
+                }
+                .fixedSize()
             }
             .padding(.horizontal, Spacing.s16)
             .frame(height: 52)

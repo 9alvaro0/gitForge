@@ -50,12 +50,14 @@ struct ConflictCodeLine: View {
                 .font(AppFont.font(.caption, weight: .bold))
                 .foregroundStyle(markColor)
                 .frame(width: markWidth, alignment: .leading)
+            // Long lines wrap: the hunk sides are half the width, and a cut
+            // line could hide exactly the part that differs.
             Text(text.isEmpty ? " " : text)
                 .font(AppFont.font(.mono, monoFamily: theme.monoFont))
                 .foregroundStyle(theme.colors.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, Spacing.s8)
         }
         .frame(minHeight: theme.density.metrics.diffLine)
         .background(tint)

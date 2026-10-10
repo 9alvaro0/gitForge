@@ -39,7 +39,6 @@ struct ConflictFilesColumn: View {
                 }
             }
         }
-        .frame(width: Self.width)
     }
 
     private var header: some View {
