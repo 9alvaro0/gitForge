@@ -51,19 +51,17 @@ struct PullRequestChecksTab: View {
         return HStack(spacing: Spacing.s12) {
             glyph
             VStack(alignment: .leading, spacing: Spacing.s2) {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.s8) {
-                    // The name wins the space; the context truncates first.
-                    Text(check.name)
-                        .textRole(.body, weight: .semibold)
-                        .foregroundStyle(theme.colors.textPrimary)
-                        .lineLimit(2)
-                        .layoutPriority(1)
-                    if let context = check.context {
-                        Text(context)
-                            .textRole(.callout)
-                            .foregroundStyle(theme.colors.textTertiary)
-                            .lineLimit(1)
-                    }
+                Text(check.name)
+                    .textRole(.body, weight: .semibold)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .lineLimit(2)
+                // Where it runs, on its own line so a long job name can't
+                // squeeze it down to a letter.
+                if let context = check.context {
+                    Text(context)
+                        .textRole(.caption)
+                        .foregroundStyle(theme.colors.textTertiary)
+                        .lineLimit(1)
                 }
                 if let message = check.failureMessage, !message.isEmpty {
                     Text(message)
