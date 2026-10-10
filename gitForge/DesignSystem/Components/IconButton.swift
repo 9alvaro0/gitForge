@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// `.gf-icon-btn` — 26×26 borderless icon-only button.
+/// 26×26 borderless icon-only button (redesign spec §5).
 struct IconButton<Content: View>: View {
     let action: () -> Void
     let accessibilityLabel: String
@@ -12,10 +12,10 @@ struct IconButton<Content: View>: View {
     var body: some View {
         Button(action: action) {
             content()
-                .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm).fill(hovering ? theme.palette.bg3 : .clear))
-                .foregroundStyle(hovering ? theme.palette.fg1 : theme.palette.fg3)
-                .contentShape(.rect(cornerRadius: DesignTokens.Radius.sm))
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: Radius.control).fill(hovering ? theme.colors.fillHover : .clear))
+                .foregroundStyle(hovering ? theme.colors.textPrimary : theme.colors.textTertiary)
+                .contentShape(.rect(cornerRadius: Radius.control))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
