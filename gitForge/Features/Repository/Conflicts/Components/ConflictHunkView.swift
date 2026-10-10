@@ -56,6 +56,7 @@ struct ConflictHunkView: View {
         case .ours: "Ours"
         case .theirs: "Theirs"
         case .both: "Both · ours first"
+        case .bothTheirsFirst: "Both · theirs first"
         }
     }
 
@@ -90,6 +91,7 @@ struct ConflictHunkView: View {
                 ConflictSideButton(side: .ours, title: "Use ours") { onPick(.ours) }
                 ConflictSideButton(side: .theirs, title: "Use theirs") { onPick(.theirs) }
                 GFButton(title: "Both · ours first") { onPick(.both) }
+                GFButton(title: "Both · theirs first") { onPick(.bothTheirsFirst) }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, Spacing.s12)

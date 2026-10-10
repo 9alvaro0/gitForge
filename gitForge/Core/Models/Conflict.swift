@@ -8,7 +8,7 @@ nonisolated struct ConflictFile: Identifiable, Hashable, Sendable {
 }
 
 nonisolated struct ConflictHunk: Identifiable, Hashable, Sendable {
-    enum Pick: String, Hashable, Sendable { case ours, theirs, both }
+    enum Pick: String, Hashable, Sendable { case ours, theirs, both, bothTheirsFirst }
     let id = UUID()
     var ours: [String]
     var base: [String]
@@ -18,13 +18,15 @@ nonisolated struct ConflictHunk: Identifiable, Hashable, Sendable {
     var markers = ConflictMarkers()
 
     /// Lines that would be written to disk for the given pick. `.both`
-    /// concatenates ours then theirs — there is no native git equivalent so
-    /// this is a deliberate UI affordance, not a 3-way merge.
+    /// concatenates ours then theirs, `.bothTheirsFirst` the other way
+    /// round — there is no native git equivalent so these are deliberate UI
+    /// affordances, not a 3-way merge.
     func lines(for pick: Pick) -> [String] {
         switch pick {
         case .ours:   return ours
         case .theirs: return theirs
         case .both:   return ours + theirs
+        case .bothTheirsFirst: return theirs + ours
         }
     }
 }
