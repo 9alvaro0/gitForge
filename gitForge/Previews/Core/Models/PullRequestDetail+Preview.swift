@@ -45,8 +45,8 @@ extension PullRequestDetail {
             "Adds the **PR/MR** integration with `Phase 2` detail view.\n\n- Description\n- Commits\n- Files",
         labels: ["feature", "phase-2"],
         reviewers: [
-            .init(login: "reviewer1", approved: true),
-            .init(login: "reviewer2", approved: false),
+            .init(login: "reviewer1", state: .approved),
+            .init(login: "reviewer2", state: .pending),
         ],
         assignees: ["9alvaro0"],
         mergeable: true,

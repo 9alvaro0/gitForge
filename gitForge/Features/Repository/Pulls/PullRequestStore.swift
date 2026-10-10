@@ -85,7 +85,7 @@ final class PullRequestStore {
 
         let provider = PullRequestProviderFactory.make(for: resolvedHost)
         do {
-            items = try await provider.fetchOpen(host: resolvedHost, token: token)
+            items = try await provider.fetchPulls(host: resolvedHost, state: .open, token: token)
             lastLoadedAt = .now
         } catch {
             self.error = Self.message(for: error)
