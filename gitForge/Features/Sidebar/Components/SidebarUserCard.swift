@@ -58,49 +58,43 @@ struct SidebarUserCard: View {
     }
 
     private var cardContent: some View {
-        HStack(spacing: DesignTokens.Spacing.lg) {
-            Circle()
-                .fill(LinearGradient(colors: [theme.palette.accent, gradientTail],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay {
-                    Text(identity.initials)
-                        .font(.system(size: FontSize.sm, weight: .bold))
-                        .foregroundStyle(theme.palette.accentFg)
-                }
-                .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
+        HStack(spacing: Spacing.s8) {
+            Text(identity.initials)
+                .textRole(.caption, weight: .bold)
+                .foregroundStyle(theme.colors.accentOnFill)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(theme.colors.accentFill))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: Spacing.s6) {
                     Text(identity.displayName)
-                        .font(AppFont.sans(FontSize.md, weight: .medium))
-                        .foregroundStyle(theme.palette.fg1)
+                        .textRole(.body, weight: .semibold)
+                        .foregroundStyle(theme.colors.textPrimary)
                         .lineLimit(1)
+                        .layoutPriority(1)
                     if let label = scopeTag.label {
                         scopeBadge(label)
                     }
                 }
                 if let email = identity.email {
                     Text(email)
-                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg3)
+                        .textRole(.monoSmall)
+                        .foregroundStyle(theme.colors.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Circle().fill(online ? theme.palette.ok : theme.palette.fg4)
-                .frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
-                .overlay(Circle().stroke(theme.palette.bg3, lineWidth: DesignTokens.Stroke.thick))
+            Circle().fill(online ? theme.colors.ok : theme.colors.textQuaternary)
+                .frame(width: 8, height: 8)
                 // Colour alone doesn't reach VoiceOver (or colour-blind users).
                 .accessibilityLabel(online ? "Online" : "Offline")
                 .help(online ? "Online" : "Offline")
         }
-        .padding(.horizontal, DesignTokens.Spacing.lg)
-        .padding(.vertical, DesignTokens.Spacing.md)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.bottom, DesignTokens.Spacing.xs)
-        .padding(.top, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
+        .overlay(alignment: .top) {
+            Rectangle().fill(theme.colors.separator).frame(height: 1)
+        }
         .contentShape(.rect)
     }
 
@@ -141,18 +135,15 @@ struct SidebarUserCard: View {
         Button("Manage profiles…") { onManageProfiles() }
     }
 
+    /// One line, never wraps: the name truncates first.
     private func scopeBadge(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: FontSize.xxs, weight: .semibold))
-            .foregroundStyle(theme.palette.fg2)
-            .padding(.horizontal, DesignTokens.Spacing.xs)
-            .padding(.vertical, DesignTokens.Spacing.hairline)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
-    }
-
-    private var gradientTail: Color {
-        ThemePalette.lanePalette.last ?? theme.palette.accent
+            .textRole(.caption, weight: .semibold)
+            .foregroundStyle(theme.colors.textSecondary)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, Spacing.s4)
+            .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.fillControl))
     }
 }
 
