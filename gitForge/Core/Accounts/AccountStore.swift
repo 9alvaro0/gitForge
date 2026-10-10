@@ -168,3 +168,50 @@ final class AccountStore {
         try? FileManager.default.moveItem(at: fileURL, to: dest)
     }
 }
+
+/// The pre-accounts token store, one token per host.
+protocol LegacyTokenSource {
+    func knownHosts() -> [String]
+    func token(for host: String) -> String?
+}
+
+extension AccountStore {
+    /// Copies each old per-host token into a token account (spec §4.4).
+    /// Non-destructive in phase 1: the old entries stay until phase 5 moves
+    /// PRs and clone onto accounts. Marked done only when every copy landed,
+    /// so a Keychain failure is retried next launch.
+    func migrateLegacyTokens(from legacy: LegacyTokenSource) {
+        guard !migratedLegacyTokens else { return }
+        var allCopied = true
+        for host in legacy.knownHosts() {
+            guard let token = legacy.token(for: host),
+                  let normalized = HostingInstance.normalizedHost(host),
+                  let kind = Self.legacyKind(forHost: normalized) else { continue }
+            let target: HostingInstance
+            if let existing = instance(forHost: normalized) {
+                target = existing
+            } else {
+                target = HostingInstance(kind: kind, host: normalized)
+                do { try addInstance(target) } catch { continue }
+            }
+            // Already copied on an earlier, partly failed run.
+            if accounts(in: target.id).contains(where: { $0.method == .personalToken && secret(for: $0.id)?.accessToken == token }) {
+                continue
+            }
+            do {
+                try addAccount(HostingAccount(instanceId: target.id, method: .personalToken, status: .unverified),
+                               secret: AccountSecret(accessToken: token))
+            } catch {
+                allCopied = false
+            }
+        }
+        if allCopied { migratedLegacyTokens = true }
+    }
+
+    /// The old host-name heuristic, used only to type migrated hosts.
+    static func legacyKind(forHost host: String) -> HostingInstance.Kind? {
+        if host == "github.com" || host.hasSuffix(".github.com") { return .github }
+        if host.contains("gitlab") { return .gitlab }
+        return nil
+    }
+}

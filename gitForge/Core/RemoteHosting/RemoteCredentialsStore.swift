@@ -137,3 +137,5 @@ struct RemoteCredentialsStore: Sendable {
         return "Keychain error \(status): \(detail)"
     }
 }
+
+extension RemoteCredentialsStore: LegacyTokenSource {}
