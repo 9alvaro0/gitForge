@@ -70,7 +70,7 @@ struct GFColors: Equatable, Sendable {
             accent: Color(hex: accentForeground),
             accentSoft: pick(
                 Color(hex: accent.swatch, alpha: 0.24), Color(hex: accent.swatch, alpha: 0.14),
-                Color(hex: accent.swatch, alpha: 0.40), Color(hex: accentForeground, alpha: 0.22)
+                Color(hex: accent.swatch, alpha: 0.40), Color(hex: accent.foreground(for: .light), alpha: 0.22)
             ),
             accentFill: Color(hex: accent.fill),
             accentOnFill: Color(hex: accent.onFill),

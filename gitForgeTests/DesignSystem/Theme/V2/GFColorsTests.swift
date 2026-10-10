@@ -49,6 +49,13 @@ struct GFColorsTests {
         #expect(Self.hex(light.accentOnFill) == 0x101014)
     }
 
+    @Test("High-contrast light accent.soft is the light foreground at 22 %, as in the sheet")
+    func highContrastLightAccentSoft() {
+        let c = NSColor(GFColors.make(.highContrastLight, accent: .violet).accentSoft).usingColorSpace(.sRGB)!
+        #expect(ColorMath.hex(r: Double(c.redComponent), g: Double(c.greenComponent), b: Double(c.blueComponent)) == 0x5B3DF5)
+        #expect(abs(Double(c.alphaComponent) - 0.22) < 0.005)
+    }
+
     @Test("Glass turns opaque only with Increase Contrast")
     func opaqueGlass() {
         #expect(!GFColors.make(.dark, accent: .violet).opaqueGlass)
