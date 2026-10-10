@@ -43,7 +43,4 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
     static let workspaceItems: [WorkspaceSection] = [
         .history, .changes, .branches, .stashes, .pulls, .conflict,
     ]
-
-    /// Sections shown in the bottom group of the sidebar.
-    static let bottomItems: [WorkspaceSection] = [.clone, .settings]
 }

@@ -29,7 +29,6 @@ struct CloneView: View {
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Add a repository")
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxxxl) {
                     sourceTabs
@@ -42,6 +41,7 @@ struct CloneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle("Add a repository")
     }
 
     private var sourceTabs: some View {

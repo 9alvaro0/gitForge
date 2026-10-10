@@ -19,6 +19,7 @@ struct SidebarHost: View {
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
             pullsBadge: appState.catalog.activeViewModel?.pullRequests.items.count ?? 0,
             conflictsBadge: appState.catalog.activeViewModel?.conflicts.files.filter { !$0.resolved }.count ?? 0,
+            refs: appState.catalog.activeViewModel?.refs ?? [],
             identity: identitySnapshot.identity,
             scopeTag: identitySnapshot.scopeTag,
             online: appState.network.isOnline,
@@ -31,8 +32,31 @@ struct SidebarHost: View {
             onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
             onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
             onCloneNew: { appState.ui.workspaceSection = .clone },
+            onOpenSettings: { appState.ui.workspaceSection = .settings },
             onSelectSection: { appState.ui.workspaceSection = $0 },
-            onOpenCommandPalette: { appState.ui.commandPaletteOpen = true },
+            onRevealBranch: { ref in
+                guard let vm = appState.catalog.activeViewModel else { return }
+                appState.ui.workspaceSection = .history
+                if !vm.revealInHistory(ref) {
+                    appState.ui.activeToast = ToastMessage(
+                        message: "“\(ref.name)” isn’t in the loaded history",
+                        kind: .warn
+                    )
+                }
+            },
+            onCheckoutBranch: { ref in
+                guard let vm = appState.catalog.activeViewModel else { return }
+                Task {
+                    switch await vm.checkoutBranch(ref) {
+                    case .success:
+                        appState.ui.activeToast = ToastMessage(message: "Checked out \(ref.displayName)", kind: .ok)
+                    case .failure(let err):
+                        appState.ui.activeToast = ToastMessage(
+                            message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
+                            kind: .error)
+                    }
+                }
+            },
             onApplyProfile: { profile in
                 guard let vm = appState.catalog.activeViewModel else { return }
                 if let diff = Self.identityDiff(from: vm.repoIdentity, to: profile) {

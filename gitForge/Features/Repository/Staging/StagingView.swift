@@ -34,12 +34,6 @@ struct StagingView: View {
     var body: some View {
         @Bindable var ui = ui
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Changes") {
-                MonoText("\(staged.count) staged · \(unstaged.count) unstaged", dim: true)
-            } right: {
-                ToolButton(.stash, label: "Stash") { Task { _ = await viewModel.stashAll() } }
-                ToolButton(.x, label: "Discard all") { ui.discardAllConfirmVisible = true }
-            }
             HStack(spacing: DesignTokens.Spacing.none) {
                 filesPane
                 StagingDiffColumn(
@@ -52,6 +46,21 @@ struct StagingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle("Changes")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { Task { _ = await viewModel.stashAll() } } label: {
+                    Label("Stash", systemImage: "tray.and.arrow.down")
+                }
+                .labelStyle(.iconOnly)
+                .help("Stash all changes")
+                Button { ui.discardAllConfirmVisible = true } label: {
+                    Label("Discard all", systemImage: "arrow.uturn.backward")
+                }
+                .labelStyle(.iconOnly)
+                .help("Discard all changes…")
+            }
+        }
         // Driven by WorkspaceUI.discardAllConfirmVisible so the Repository ▸
         // Discard All Changes menu and the local "Discard all" tool button
         // share one presentation path.

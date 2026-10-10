@@ -37,7 +37,7 @@ struct GitForgeApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    private static let minWindowSize = CGSize(width: 820, height: 560)
+    private static let minWindowSize = CGSize(width: 1100, height: 700)
 
     var body: some Scene {
         WindowGroup {
@@ -91,6 +91,7 @@ struct GitForgeApp: App {
                     appState.catalog.activeViewModel?.pokeReactivity(force: true)
                 }
         }
+        .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             FileCommands(appState: appState)
             ViewCommands(appState: appState)

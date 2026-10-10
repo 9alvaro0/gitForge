@@ -1,19 +1,20 @@
 import SwiftUI
 
-/// `.gf-sidebar` — redesigned left rail. Owned only via Environment to keep it
-/// pluggable from any host shell (App, previews).
+/// v2 sidebar (redesign spec §6.1): repository switcher, workspace
+/// navigation, local branch tree, remotes and tags, identity card.
+/// Presentation only; `SidebarHost` wires the stores.
 struct Sidebar: View {
     let repositories: [Repository]
     let activeRepository: Repository?
-    /// Returns the live status for any repo. Parent decides whether to pull
-    /// from the active VM (instant) or from `AppState.repositoryStatuses`
-    /// (background-polled snapshot).
+    /// Live status for any repo: the active VM (instant) or the catalog's
+    /// background-polled snapshot.
     let statusFor: (Repository) -> RepoStatusSnapshot
     let activeSection: WorkspaceSection
     let unstagedBadge: Int
     let stashesBadge: Int
     let pullsBadge: Int
     let conflictsBadge: Int
+    let refs: [GitRef]
     let identity: GitIdentity
     let scopeTag: SidebarUserCard.ScopeTag
     /// Network reachability for the user card's status dot.
@@ -27,89 +28,67 @@ struct Sidebar: View {
     let onRevealRepo: (Repository) -> Void
     let onOpenExisting: () -> Void
     let onCloneNew: () -> Void
+    let onOpenSettings: () -> Void
     let onSelectSection: (WorkspaceSection) -> Void
-    let onOpenCommandPalette: () -> Void
+    let onRevealBranch: (GitRef) -> Void
+    let onCheckoutBranch: (GitRef) -> Void
     let onApplyProfile: (GitProfile) -> Void
     let onResetToGlobal: () -> Void
     let onManageProfiles: () -> Void
 
-    @Environment(\.appTheme) private var theme
+    @State private var collapsedFolders: Set<String> = []
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
-                    SidebarSearchTrigger(action: onOpenCommandPalette)
-                        .padding(.horizontal, DesignTokens.Spacing.lg)
-                        .padding(.top, DesignTokens.Spacing.xs)
-                        .padding(.bottom, DesignTokens.Spacing.md)
-
-                    SidebarSectionHeader(title: "Repositories") {
-                        Menu {
-                            addRepositoryMenuItems()
-                        } label: {
-                            GFIcon(kind: .plus, size: DesignTokens.IconSize.sm, stroke: theme.palette.fg3)
-                                .frame(width: DesignTokens.IconSize.lg, height: DesignTokens.IconSize.lg)
-                                .contentShape(.rect)
-                        }
-                        .menuStyle(.button)
-                        .menuIndicator(.hidden)
-                        .buttonStyle(.plain)
-                        .fixedSize()
-                        .help("Add repository")
-                        // `.help` is only a tooltip; VoiceOver needs a label.
-                        .accessibilityLabel("Add repository")
-                    }
-                    VStack(spacing: DesignTokens.Spacing.hairline) {
-                        ForEach(repositories) { repo in
-                            let status = statusFor(repo)
-                            SidebarRepoRow(
-                                repository: repo,
-                                org: orgName(for: repo),
-                                branch: status.branch,
-                                ahead: status.ahead,
-                                behind: status.behind,
-                                dirty: status.dirty,
-                                loaded: status.loaded,
-                                isCurrent: activeRepository?.id == repo.id,
-                                onSelect: { onSelectRepo(repo) },
-                                onRemove: { onRemoveRepo(repo) },
-                                onRevealInFinder: { onRevealRepo(repo) }
-                            )
-                        }
-                        AddRepositoryRow {
-                            addRepositoryMenuItems()
-                        }
-                    }
-
-                    if activeRepository != nil {
-                        SidebarSectionHeader(title: "Workspace")
-                        VStack(spacing: DesignTokens.Spacing.hairline) {
-                            ForEach(WorkspaceSection.workspaceItems) { section in
-                                SidebarNavItem(
-                                    section: section,
-                                    badge: badge(for: section),
-                                    isActive: section == activeSection,
-                                    onSelect: { onSelectSection(section) }
-                                )
-                            }
-                        }
+        List {
+            if activeRepository != nil {
+                Section {
+                    ForEach(WorkspaceSection.workspaceItems) { section in
+                        SidebarNavItem(
+                            section: section,
+                            badge: badge(for: section),
+                            isActive: section == activeSection,
+                            onSelect: { onSelectSection(section) }
+                        )
                     }
                 }
-                .padding(.bottom, DesignTokens.Spacing.xl)
-            }
-
-            VStack(spacing: DesignTokens.Spacing.hairline) {
-                ForEach(WorkspaceSection.bottomItems) { section in
-                    SidebarNavItem(
-                        section: section,
-                        badge: nil,
-                        isActive: section == activeSection,
-                        onSelect: { onSelectSection(section) }
-                    )
+                Section("Branches") {
+                    ForEach(BranchTree.rows(for: refs, collapsed: collapsedFolders)) { row in
+                        SidebarBranchRow(
+                            row: row,
+                            onToggleFolder: toggleFolder,
+                            onReveal: onRevealBranch,
+                            onCheckout: onCheckoutBranch,
+                            onShowInBranches: { onSelectSection(.branches) }
+                        )
+                    }
+                }
+                Section {
+                    SidebarRefSummaryRow(systemImage: "cloud", title: "Remotes", detail: remotesDetail) {
+                        onSelectSection(.branches)
+                    }
+                    SidebarRefSummaryRow(systemImage: "tag", title: "Tags", detail: "\(refs.filter(\.isTag).count)") {
+                        onSelectSection(.branches)
+                    }
                 }
             }
-
+        }
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SidebarRepoSwitcher(
+                repositories: repositories,
+                activeRepository: activeRepository,
+                statusFor: statusFor,
+                onSelectRepo: onSelectRepo,
+                onRemoveRepo: onRemoveRepo,
+                onRevealRepo: onRevealRepo,
+                onOpenExisting: onOpenExisting,
+                onCloneNew: onCloneNew,
+                onOpenSettings: onOpenSettings
+            )
+            .padding(.horizontal, Spacing.s8)
+            .padding(.bottom, Spacing.s8)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             SidebarUserCard(
                 identity: identity,
                 scopeTag: scopeTag,
@@ -123,19 +102,19 @@ struct Sidebar: View {
                 onManageProfiles: onManageProfiles
             )
         }
-        .frame(width: DesignTokens.Sidebar.width)
-        .background(theme.palette.bg1)
-        .overlay(alignment: .trailing) {
-            Rectangle().fill(theme.palette.lineStrong).frame(width: DesignTokens.Stroke.regular)
-        }
     }
 
-    /// Single source of truth for the repository-add menu so the header `+`
-    /// and the labelled `AddRepositoryRow` always offer the same actions.
-    @ViewBuilder
-    private func addRepositoryMenuItems() -> some View {
-        Button("Open existing folder…") { onOpenExisting() }
-        Button("Clone new…") { onCloneNew() }
+    private var remotesDetail: String {
+        let names = BranchTree.remoteNames(in: refs)
+        return names.isEmpty ? "none" : names.joined(separator: ", ")
+    }
+
+    private func toggleFolder(_ path: String) {
+        if collapsedFolders.contains(path) {
+            collapsedFolders.remove(path)
+        } else {
+            collapsedFolders.insert(path)
+        }
     }
 
     private func badge(for section: WorkspaceSection) -> Int? {
@@ -146,55 +125,6 @@ struct Sidebar: View {
         case .conflict: return conflictsBadge > 0 ? conflictsBadge : nil
         default:        return nil
         }
-    }
-
-    private func orgName(for repo: Repository) -> String {
-        let parent = repo.url.deletingLastPathComponent().lastPathComponent
-        return parent.isEmpty ? repo.name : parent
-    }
-}
-
-/// Explicit "add another repo" affordance under the repos list. The header `+`
-/// menu hides this — a labelled row is unmistakable, especially right after
-/// the existing repos finish. Menu items are injected so both entry points
-/// stay in sync.
-private struct AddRepositoryRow<Items: View>: View {
-    @ViewBuilder var items: () -> Items
-
-    @Environment(\.appTheme) private var theme
-    @State private var hovering = false
-
-    var body: some View {
-        Menu {
-            items()
-        } label: {
-            HStack(spacing: DesignTokens.Spacing.lg) {
-                GFIcon(kind: .plus, size: DesignTokens.IconSize.md,
-                       stroke: foreground.opacity(DesignTokens.Opacity.prominent))
-                    .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)
-                Text("Add repository…")
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(foreground)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, DesignTokens.Spacing.lg)
-            .frame(height: DesignTokens.Sidebar.navRow)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-            .padding(.horizontal, DesignTokens.Spacing.sm)
-        }
-        .menuStyle(.button)
-        .menuIndicator(.hidden)
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help("Add a repository — open a local folder or clone a remote URL")
-    }
-
-    private var foreground: Color {
-        hovering ? theme.palette.fg1 : theme.palette.fg3
-    }
-    private var rowBackground: Color {
-        hovering ? theme.palette.bg3 : .clear
     }
 }
 
@@ -208,6 +138,12 @@ private struct AddRepositoryRow<Items: View>: View {
         statusFor: RepoStatusSnapshot.previewStatusFor(active: active),
         activeSection: section,
         unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
+        refs: [
+            GitRef(name: "main", kind: .localBranch, targetSha: "a", isHead: true),
+            GitRef(name: "feature/lane-legend", kind: .localBranch, targetSha: "b", isHead: false),
+            GitRef(name: "origin/main", kind: .remoteBranch(remote: "origin"), targetSha: "a", isHead: false),
+            GitRef(name: "v1.0", kind: .tag, targetSha: "a", isHead: false),
+        ],
         identity: .preview,
         scopeTag: .profile("Personal"),
         profiles: GitProfile.previewSamples,
@@ -219,12 +155,14 @@ private struct AddRepositoryRow<Items: View>: View {
         onRevealRepo: { _ in },
         onOpenExisting: {},
         onCloneNew: {},
+        onOpenSettings: {},
         onSelectSection: { section = $0 },
-        onOpenCommandPalette: {},
+        onRevealBranch: { _ in },
+        onCheckoutBranch: { _ in },
         onApplyProfile: { _ in },
         onResetToGlobal: {},
         onManageProfiles: {}
     )
-    .frame(width: 256, height: 600)
+    .frame(width: 240, height: 640)
     .appTheme(theme)
 }
