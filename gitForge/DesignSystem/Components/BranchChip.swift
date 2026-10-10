@@ -22,6 +22,9 @@ struct BranchChip: View {
                 .textRole(tag ? .monoSmall : .caption, weight: .semibold)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                // Inline in the History description: long names truncate so
+                // the commit message keeps room.
+                .frame(maxWidth: 160, alignment: .leading)
             if hasRemoteCounterpart {
                 Rectangle()
                     .fill(foreground.opacity(0.35))

@@ -7,54 +7,46 @@ import SwiftUI
 /// list + diff pane), and a double tap can be routed elsewhere if needed.
 struct UncommittedRow: View {
     let rowHeight: CGFloat
-    let gutterWidth: CGFloat
-    let columns: ResizableTableModel
+    let layout: HistoryTableLayout
     let isSelected: Bool
     let onSelect: () -> Void
     var onDoubleClick: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
+    @State private var hovering = false
+
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
-            HStack(spacing: DesignTokens.Spacing.none) {
-                Spacer().frame(width: DesignTokens.IconSize.xl)
-                Rectangle().fill(theme.palette.mod).frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
-                    .overlay(Rectangle().stroke(theme.palette.mod, lineWidth: DesignTokens.Stroke.regular))
-            }
-            .frame(width: gutterWidth, alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            Color.clear.frame(width: columns.width("branchTag"))
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            HStack(spacing: DesignTokens.Spacing.md) {
-                Circle().fill(theme.palette.mod).frame(width: DesignTokens.Spacing.md, height: DesignTokens.Spacing.md)
-                Text("Uncommitted changes")
-                    .font(AppFont.sans(FontSize.mdPlus))
-                    .italic()
-                    .foregroundStyle(theme.palette.mod)
-            }
-            .frame(width: columns.width("message"), alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            Color.clear.frame(width: columns.width("author"))
-            Color.clear.frame(width: DesignTokens.Spacing.md)
-            Text("–")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-                .frame(width: columns.width("sha"), alignment: .leading)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2)
+                .strokeBorder(theme.colors.mod, style: StrokeStyle(lineWidth: 1.5, dash: [2.5, 2]))
+                .frame(width: 9, height: 9)
+                .padding(.leading, theme.density.metrics.graph.firstLaneX - 4.5)
+                .frame(width: layout.graph, alignment: .leading)
+            Color.clear.frame(width: HistoryTableLayout.gap)
+            Text("Uncommitted changes")
+                .textRole(.body)
+                .italic()
+                .foregroundStyle(theme.colors.mod)
+                .frame(width: layout.description, alignment: .leading)
+            Color.clear.frame(width: HistoryTableLayout.gap + layout.author + HistoryTableLayout.gap)
             Text("now")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-                .frame(width: columns.width("when"), alignment: .trailing)
-            Color.clear.frame(width: DesignTokens.Spacing.md)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
+                .frame(width: layout.date, alignment: .leading)
+            Color.clear.frame(width: HistoryTableLayout.gap)
+            Text("–")
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.textTertiary)
+                .frame(width: layout.commit, alignment: .trailing)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+        .padding(.leading, HistoryTableLayout.leadingPadding)
+        .padding(.trailing, HistoryTableLayout.trailingPadding)
         .frame(height: rowHeight)
-        .background(rowBackground)
-        .overlay(alignment: .leading) {
-            if isSelected { Rectangle().fill(theme.palette.accent).frame(width: 2) }
-        }
+        .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowBackground))
+        .padding(.horizontal, HistoryTableLayout.rowInset)
+        .onHover { hovering = $0 }
         .contentShape(.rect)
         .onTapGesture(count: 2) { onDoubleClick?() }
         .onTapGesture(perform: onSelect)
@@ -64,17 +56,9 @@ struct UncommittedRow: View {
         .accessibilityAction { onSelect() }
     }
 
-    private var rowBackground: AnyShapeStyle {
-        if isSelected {
-            return AnyShapeStyle(theme.palette.accentSoft)
-        }
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [theme.palette.mod.opacity(DesignTokens.Opacity.faint), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
+    private var rowBackground: Color {
+        if isSelected { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : theme.colors.modSoft.opacity(0.5)
     }
 }
 
@@ -82,8 +66,8 @@ struct UncommittedRow: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.uncommitted.preview")
     VStack(spacing: 0) {
-        UncommittedRow(rowHeight: 36, gutterWidth: 110, columns: columns, isSelected: false, onSelect: {})
-        UncommittedRow(rowHeight: 36, gutterWidth: 110, columns: columns, isSelected: true, onSelect: {})
+        UncommittedRow(rowHeight: 28, layout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64), isSelected: false, onSelect: {})
+        UncommittedRow(rowHeight: 28, layout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64), isSelected: true, onSelect: {})
     }
     .frame(width: 1100)
     .background(theme.palette.bg2)
