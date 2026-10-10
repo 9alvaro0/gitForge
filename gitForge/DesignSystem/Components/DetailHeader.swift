@@ -12,20 +12,20 @@ struct DetailHeader<Actions: View, Content: View>: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                GFButton(title: "← Back", size: .small, action: onBack)
+        VStack(alignment: .leading, spacing: Spacing.s8) {
+            HStack(spacing: Spacing.s8) {
+                GFButton(title: "Back", systemImage: "chevron.left", size: .small, action: onBack)
                 Spacer()
                 actions
             }
             content
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .padding(.vertical, DesignTokens.Spacing.xxl)
+        .padding(.horizontal, Spacing.s20)
+        .padding(.vertical, Spacing.s16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
+            Rectangle().fill(theme.colors.separator).frame(height: 1)
         }
     }
 }
