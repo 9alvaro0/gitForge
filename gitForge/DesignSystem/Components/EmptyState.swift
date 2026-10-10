@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// `.gf-empty` — centered placeholder with icon, title, subtitle.
+/// Centered placeholder: icon tile, title, subtitle, one secondary action
+/// (redesign spec §5).
 struct EmptyState<Action: View>: View {
     let icon: GFIconKind
     let title: String
@@ -20,20 +21,26 @@ struct EmptyState<Action: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            GFIcon(kind: icon, size: 32, stroke: theme.palette.fg4)
+        VStack(spacing: Spacing.s8) {
+            GFIcon(kind: icon, size: 24, stroke: theme.colors.textTertiary)
+                .frame(width: 48, height: 48)
+                .background(RoundedRectangle(cornerRadius: 14).fill(theme.colors.fillControl))
+                .padding(.bottom, Spacing.s4)
             Text(title)
-                .font(AppFont.sans(FontSize.xl))
-                .foregroundStyle(theme.palette.fg1)
+                .textRole(.headline)
+                .foregroundStyle(theme.colors.textPrimary)
             if let subtitle {
                 Text(subtitle)
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .multilineTextAlignment(.center)
             }
             action()
+                .padding(.top, Spacing.s4)
         }
+        .frame(maxWidth: 280)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s32)
     }
 }
 

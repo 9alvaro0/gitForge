@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// `.gf-input` — themed `TextField`.
+/// Themed `TextField` (redesign spec §5).
 struct GFTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -11,16 +11,24 @@ struct GFTextField: View {
     var body: some View {
         TextField(placeholder, text: $text)
             .textFieldStyle(.plain)
-            .font(AppFont.sans(FontSize.md))
-            .foregroundStyle(theme.palette.fg1)
-            .padding(.horizontal, DesignTokens.Spacing.lg)
-            .frame(height: DesignTokens.Control.height)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.md)
-                    .stroke(focused ? theme.palette.accent : theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
+            .textRole(.body)
+            .foregroundStyle(theme.colors.textPrimary)
+            .padding(.horizontal, 10)
+            .frame(height: theme.density.metrics.fieldHeight)
+            .background(shape.fill(fieldBackground))
+            .overlay(shape.strokeBorder(focused ? theme.colors.accent : theme.colors.strokeControl, lineWidth: 1))
+            // Redesign spec §5: focus adds a 3 pt accent ring at 30 %.
+            .background(
+                shape.stroke(theme.colors.accent.opacity(focused ? 0.3 : 0), lineWidth: 3)
+                    .padding(-1.5)
             )
             .focused($focused)
+    }
+
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Radius.control) }
+
+    private var fieldBackground: Color {
+        theme.effectiveMode == .dark ? .black.opacity(0.3) : .white
     }
 }
 

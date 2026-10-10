@@ -23,14 +23,13 @@ struct SegmentedControl<Value: Hashable>: View {
     }
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.none) {
+        HStack(spacing: 0) {
             ForEach(options) { opt in
                 segmentButton(opt)
             }
         }
-        .padding(DesignTokens.Spacing.xxs)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg3))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .padding(Spacing.s2)
+        .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.fillControl))
     }
 
     @ViewBuilder
@@ -38,17 +37,29 @@ struct SegmentedControl<Value: Hashable>: View {
         let isActive = opt.value == selection
         Button(action: { selection = opt.value }) {
             Text(opt.label)
-                .font(AppFont.sans(FontSize.sm))
-                .padding(.horizontal, DesignTokens.Spacing.lg)
+                .textRole(.callout, weight: isActive ? .semibold : .regular)
+                .padding(.horizontal, Spacing.s12)
                 .frame(height: 22)
-                .foregroundStyle(isActive ? theme.palette.fg1 : theme.palette.fg3)
-                .background(
-                    RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                        .fill(isActive ? theme.palette.bg5 : .clear)
-                )
-                .contentShape(.rect(cornerRadius: DesignTokens.Radius.xs))
+                .foregroundStyle(isActive ? theme.colors.textPrimary : theme.colors.textSecondary)
+                .background {
+                    if isActive {
+                        RoundedRectangle(cornerRadius: Radius.controlSmall)
+                            .fill(selectedFill)
+                            .shadow(color: .black.opacity(selectedShadow), radius: 1, y: 1)
+                    }
+                }
+                .contentShape(.rect(cornerRadius: Radius.controlSmall))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    /// Redesign spec §5: white 14 % in dark, white with a soft shadow in light.
+    private var selectedFill: Color {
+        theme.effectiveMode == .dark ? .white.opacity(0.14) : .white
+    }
+    private var selectedShadow: Double {
+        theme.effectiveMode == .dark ? 0 : 0.12
     }
 }
 

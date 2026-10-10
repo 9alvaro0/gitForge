@@ -23,11 +23,11 @@ struct DetailTabBar<Tab: DetailTab>: View {
                 ProgressView().controlSize(.small)
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .padding(.vertical, DesignTokens.Spacing.md)
-        .background(theme.palette.bg1)
+        .padding(.horizontal, Spacing.s20)
+        .padding(.vertical, Spacing.s8)
+        .background(theme.colors.bgContent)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular)
+            Rectangle().fill(theme.colors.separator).frame(height: 1)
         }
     }
 }
