@@ -8,8 +8,8 @@ struct StatusBadge: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: DesignTokens.Radius.xl)
-                .fill(tint.opacity(DesignTokens.Opacity.tint))
+            RoundedRectangle(cornerRadius: Radius.card)
+                .fill(tint.opacity(0.16))
                 .frame(width: DesignTokens.IconSize.badge, height: DesignTokens.IconSize.badge)
             GFIcon(kind: icon, size: DesignTokens.IconSize.badgeGlyph, stroke: tint)
         }

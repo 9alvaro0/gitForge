@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// `.gf-nav-item` — single workspace nav row with icon, label, optional badge.
+/// Workspace navigation row with icon, label and optional count
+/// (redesign spec §5, list row).
 struct SidebarNavItem: View {
     let section: WorkspaceSection
     let badge: Int?
@@ -12,60 +13,49 @@ struct SidebarNavItem: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: DesignTokens.Spacing.lg) {
-                GFIcon(kind: section.icon, size: 14, stroke: foreground.opacity(isActive ? 1 : 0.85))
+            HStack(spacing: Spacing.s8) {
+                GFIcon(kind: section.icon, size: 16, stroke: isActive ? theme.colors.accent : theme.colors.textTertiary)
                 Text(section.label)
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(foreground)
+                    .textRole(.body, weight: isActive ? .semibold : .regular)
+                    .foregroundStyle(isActive ? theme.colors.accent : theme.colors.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if let badge, badge > 0 {
                     Text("\(badge)")
-                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
-                        .foregroundStyle(badgeForeground)
-                        .padding(.horizontal, DesignTokens.Spacing.sm)
-                        .padding(.vertical, DesignTokens.Spacing.hairline)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(badgeBackground))
+                        .textRole(.caption)
+                        .foregroundStyle(isActive ? theme.colors.accent : theme.colors.textTertiary)
+                        .monospacedDigit()
                 }
             }
-            .padding(.horizontal, DesignTokens.Spacing.lg)
-            .frame(height: DesignTokens.Sidebar.navRow)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.horizontal, Spacing.s8)
+            .frame(height: theme.density.metrics.rowSidebar)
+            .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowBackground))
+            .contentShape(.rect(cornerRadius: Radius.row))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
-    private var foreground: Color {
-        if isActive { return theme.palette.accent }
-        return hovering ? theme.palette.fg1 : theme.palette.fg2
-    }
+    /// Redesign spec §5 list row: accent-soft when active, hover fill otherwise.
     private var rowBackground: Color {
-        if isActive { return theme.palette.accentSoft }
-        return hovering ? theme.palette.bg3 : .clear
-    }
-    private var badgeBackground: Color {
-        isActive ? theme.palette.accent : theme.palette.bg4
-    }
-    private var badgeForeground: Color {
-        isActive ? theme.palette.accentFg : theme.palette.fg2
+        if isActive { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : .clear
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var active: WorkspaceSection = .history
-    VStack(spacing: DesignTokens.Spacing.hairline) {
-        ForEach(WorkspaceSection.allCases) { s in
+    VStack(spacing: 1) {
+        ForEach(WorkspaceSection.workspaceItems) { s in
             SidebarNavItem(section: s,
                            badge: s == .changes ? 3 : (s == .pulls ? 2 : nil),
                            isActive: s == active,
                            onSelect: { active = s })
         }
     }
-    .frame(width: 256)
-    .padding(.vertical, DesignTokens.Spacing.sm)
-    .background(theme.palette.bg1)
+    .frame(width: 240)
+    .padding(.vertical, Spacing.s6)
+    .background(theme.colors.bgWindow)
     .appTheme(theme)
 }

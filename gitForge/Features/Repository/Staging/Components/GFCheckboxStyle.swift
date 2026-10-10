@@ -8,13 +8,13 @@ struct GFCheckboxStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                    .fill(configuration.isOn ? theme.palette.accent : theme.palette.bg2)
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                    .stroke(configuration.isOn ? theme.palette.accent : theme.palette.lineStrong,
-                            lineWidth: DesignTokens.Stroke.regular)
+                RoundedRectangle(cornerRadius: Radius.badge)
+                    .fill(configuration.isOn ? theme.colors.accentFill : theme.colors.bgContent)
+                RoundedRectangle(cornerRadius: Radius.badge)
+                    .strokeBorder(configuration.isOn ? theme.colors.accentFill : theme.colors.strokeControl,
+                                  lineWidth: 1)
                 if configuration.isOn {
-                    GFIcon(kind: .check, size: DesignTokens.IconSize.xs, stroke: theme.palette.accentFg)
+                    GFIcon(kind: .check, size: DesignTokens.IconSize.xs, stroke: theme.colors.accentOnFill)
                 }
             }
             .frame(width: DesignTokens.IconSize.md, height: DesignTokens.IconSize.md)

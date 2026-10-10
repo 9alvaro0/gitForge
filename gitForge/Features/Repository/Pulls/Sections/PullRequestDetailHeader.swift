@@ -10,7 +10,7 @@ struct PullRequestDetailHeader: View {
     var body: some View {
         DetailHeader(onBack: onBack) {
             if let url = pullRequest.webURL {
-                ToolButton(.ext, label: "Open in browser") {
+                GFButton(title: "Open in browser", systemImage: "arrow.up.right.square") {
                     ExternalURL.open(url)
                 }
             }

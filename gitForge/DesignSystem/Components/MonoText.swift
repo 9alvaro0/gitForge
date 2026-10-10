@@ -21,7 +21,7 @@ struct MonoText: View {
     var body: some View {
         Text(text)
             .font(AppFont.mono(size ?? theme.density.monoFontSize, weight: weight, family: theme.monoFont))
-            .foregroundStyle(color ?? (dim ? theme.palette.fg3 : theme.palette.fg2))
+            .foregroundStyle(color ?? (dim ? theme.colors.textTertiary : theme.colors.textSecondary))
     }
 }
 

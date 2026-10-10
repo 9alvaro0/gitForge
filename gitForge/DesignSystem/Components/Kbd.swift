@@ -7,18 +7,11 @@ struct Kbd: View {
 
     var body: some View {
         Text(text)
-            .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg3)
-            .padding(.horizontal, DesignTokens.Spacing.sm)
-            .padding(.vertical, DesignTokens.Spacing.hairline)
-            .background(
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                    .fill(theme.palette.bg3)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.xs)
-                    .stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
-            )
+            .textRole(.monoSmall)
+            .foregroundStyle(theme.colors.textTertiary)
+            .padding(.horizontal, Spacing.s4)
+            .padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: Radius.badge).strokeBorder(theme.colors.strokeControl, lineWidth: 1))
     }
 }
 

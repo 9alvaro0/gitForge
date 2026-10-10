@@ -8,9 +8,6 @@ struct ShellView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
-    /// How long a toast stays on screen before auto-dismissing.
-    private static let toastLifetime: Duration = .milliseconds(2_400)
-
     var body: some View {
         NavigationSplitView {
             SidebarHost()
@@ -43,7 +40,8 @@ struct ShellView: View {
                     .padding(.bottom, Spacing.s16)
                     .transition(.opacity)
                     .task(id: toast.id) {
-                        try? await Task.sleep(for: Self.toastLifetime)
+                        guard let lifetime = toast.autoDismissAfter else { return }
+                        try? await Task.sleep(for: lifetime)
                         // A newer toast may have replaced this one while we slept.
                         guard appState.ui.activeToast?.id == toast.id else { return }
                         withAnimation { appState.ui.activeToast = nil }

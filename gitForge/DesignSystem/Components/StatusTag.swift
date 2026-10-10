@@ -10,10 +10,10 @@ struct StatusTag: View {
 
     var body: some View {
         Text(letter)
-            .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
-            .frame(width: DesignTokens.IconSize.xl, height: DesignTokens.IconSize.xl)
-            .foregroundStyle(color)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(color.opacity(DesignTokens.Opacity.muted)))
+            .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
+            .frame(width: 18, height: 18)
+            .foregroundStyle(colors.fg)
+            .background(RoundedRectangle(cornerRadius: Radius.badge).fill(colors.soft))
     }
 
     private var letter: String {
@@ -29,17 +29,14 @@ struct StatusTag: View {
         case .ignored:      return "!"
         }
     }
-    private var color: Color {
+    private var colors: (fg: Color, soft: Color) {
+        let c = theme.colors
         switch kind {
-        case .added:        return theme.palette.add
-        case .modified:     return theme.palette.mod
-        case .deleted:      return theme.palette.del
-        case .untracked:    return theme.palette.add
-        case .renamed:      return theme.palette.info
-        case .copied:       return theme.palette.info
-        case .typeChanged:  return theme.palette.mod
-        case .unmerged:     return theme.palette.del
-        case .ignored:      return theme.palette.fg4
+        case .added, .untracked:    return (c.add, c.addSoft)
+        case .modified, .typeChanged: return (c.mod, c.modSoft)
+        case .deleted, .unmerged:   return (c.del, c.delSoft)
+        case .renamed, .copied:     return (c.info, c.infoSoft)
+        case .ignored:              return (c.textQuaternary, c.fillControl)
         }
     }
 }
