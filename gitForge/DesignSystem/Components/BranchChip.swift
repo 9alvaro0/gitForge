@@ -12,6 +12,8 @@ struct BranchChip: View {
     /// "this branch exists locally AND on the remote, both at this commit",
     /// instead of duplicating the chip side-by-side. Mirrors GitKraken.
     var hasRemoteCounterpart: Bool = false
+    /// Caps the name so long branches truncate; `nil` leaves it unbounded.
+    var maxNameWidth: CGFloat? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -22,9 +24,7 @@ struct BranchChip: View {
                 .textRole(tag ? .monoSmall : .caption, weight: .semibold)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                // Inline in the History description: long names truncate so
-                // the commit message keeps room.
-                .frame(maxWidth: 160, alignment: .leading)
+                .frame(maxWidth: maxNameWidth, alignment: .leading)
             if hasRemoteCounterpart {
                 Rectangle()
                     .fill(foreground.opacity(0.35))

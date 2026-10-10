@@ -93,7 +93,7 @@ private struct FileMiniRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .accessibilityLabel(file.path)
+        .accessibilityLabel("\(file.path), \(statusName)")
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .contextMenu {
             // The file may have been deleted after the commit; the OS handles
@@ -117,6 +117,17 @@ private struct FileMiniRow: View {
         return dir.isEmpty ? "" : dir + "/"
     }
     private var fileName: String { (file.path as NSString).lastPathComponent }
+
+    private var statusName: String {
+        switch tagKind {
+        case .added, .untracked: "added"
+        case .deleted:           "deleted"
+        case .renamed:           "renamed"
+        case .copied:            "copied"
+        case .unmerged:          "conflicted"
+        default:                 "modified"
+        }
+    }
 
     private var rowFill: Color {
         if isActive { return theme.colors.accentSoft }

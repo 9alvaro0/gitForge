@@ -20,6 +20,13 @@ extension GitCLI {
         }
     }
 
+    /// The commit HEAD points at, branch or detached; `nil` in an empty repo.
+    func headSha() async -> String? {
+        guard let result = try? await run(["rev-parse", "--verify", "--quiet", "HEAD"]) else { return nil }
+        let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     static func parseRefs(_ stdout: String) -> [GitRef] {
         stdout.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
             let parts = line.split(separator: "\t", omittingEmptySubsequences: false)

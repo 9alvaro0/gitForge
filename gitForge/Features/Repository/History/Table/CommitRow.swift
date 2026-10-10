@@ -34,7 +34,11 @@ struct CommitRow: View {
                     commitSha: commit.sha,
                     refs: refs,
                     currentBranch: currentBranch,
-                    onBranchDrop: onBranchDrop
+                    onBranchDrop: onBranchDrop,
+                    // Chips may take up to ~40 % of Description; tight rows
+                    // show one chip and "+N".
+                    maxNameWidth: min(160, tableLayout.description * 0.3),
+                    maxVisible: tableLayout.description < 360 ? 1 : 2
                 )
                 .fixedSize()
                 Text(commit.subject)
@@ -44,6 +48,7 @@ struct CommitRow: View {
                     .truncationMode(.tail)
             }
             .frame(width: tableLayout.description, alignment: .leading)
+            .clipped()
             gap
             if tableLayout.showsAuthor {
                 authorCell

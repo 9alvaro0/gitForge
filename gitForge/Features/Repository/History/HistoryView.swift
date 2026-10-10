@@ -86,15 +86,21 @@ struct HistoryView: View {
                     if detailColumnCollapsed {
                         CollapsedPaneStrip(kind: .detail) { setDetailColumnCollapsed(false) }
                     } else {
+                        let cap = inspectorCap(available: geo.size.width)
                         ColumnDragHandle(
-                            width: $detailColumnWidth,
+                            // Reads and writes the width actually shown, so a
+                            // drag past the cap can't bank invisible width.
+                            width: Binding(
+                                get: { min(detailColumnWidth, cap) },
+                                set: { detailColumnWidth = min($0, cap) }
+                            ),
                             minWidth: Self.minDetailWidth,
-                            maxWidth: Self.maxDetailWidth,
+                            maxWidth: cap,
                             inverted: true,
                             dividerColor: theme.colors.separator,
                             onCommit: { persistDetailWidth() }
                         )
-                        detailColumn(width: inspectorWidth(available: geo.size.width))
+                        detailColumn(width: min(detailColumnWidth, cap))
                     }
                 }
             }
@@ -144,6 +150,7 @@ struct HistoryView: View {
                     maxLanes: viewModel.graphMaxLanes,
                     refsBySha: viewModel.refsBySha,
                     currentBranch: viewModel.currentBranchName,
+                    headSha: viewModel.headSha,
                     selectedSha: viewModel.selectedCommitId,
                     workingCopyDirty: !viewModel.status.isClean,
                     uncommittedSelected: isUncommittedSelected,
@@ -167,10 +174,11 @@ struct HistoryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// The stored inspector width, capped so the table keeps `minTableWidth`.
-    private func inspectorWidth(available: CGFloat) -> CGFloat {
-        let cap = max(Self.minDetailWidth, available - Self.minTableWidth)
-        return min(detailColumnWidth, cap)
+    /// Widest the inspector may be so the table keeps `minTableWidth`
+    /// (the handle's own width included).
+    private func inspectorCap(available: CGFloat) -> CGFloat {
+        let handle = DesignTokens.Spacing.md
+        return min(Self.maxDetailWidth, max(Self.minDetailWidth, available - Self.minTableWidth - handle))
     }
 
     /// Routes the bottom pane between commit-mode and uncommitted-mode so a

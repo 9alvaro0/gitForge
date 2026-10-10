@@ -12,6 +12,10 @@ struct CommitRowChips: View {
     /// Receives drops landing on a local-branch chip (merge / rebase).
     /// `nil` disables the drag/drop hooks entirely on this row.
     let onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)?
+    /// Caps each chip's name; `nil` leaves it unbounded.
+    var maxNameWidth: CGFloat? = nil
+    /// Chips shown before the rest fold into "+N" (at least 1).
+    var maxVisible: Int = 2
 
     @Environment(\.appTheme) private var theme
     @State private var showHiddenRefs = false
@@ -36,7 +40,8 @@ struct CommitRowChips: View {
             current: isCurrent,
             remote: ref.isRemoteBranch,
             tag: ref.isTag,
-            hasRemoteCounterpart: hasRemoteCounterpart(for: ref)
+            hasRemoteCounterpart: hasRemoteCounterpart(for: ref),
+            maxNameWidth: maxNameWidth
         )
         if ref.isLocalBranch, let onBranchDrop {
             chip
@@ -98,7 +103,8 @@ struct CommitRowChips: View {
     }
 
     private var visibleRefs: [GitRef] {
-        sortedRefs.count <= 2 ? sortedRefs : Array(sortedRefs.prefix(1))
+        let limit = max(1, maxVisible)
+        return sortedRefs.count <= limit ? sortedRefs : Array(sortedRefs.prefix(max(1, limit - 1)))
     }
 
     private var hiddenRefs: [GitRef] {

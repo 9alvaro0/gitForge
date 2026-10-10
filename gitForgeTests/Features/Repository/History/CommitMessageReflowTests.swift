@@ -33,4 +33,9 @@ struct CommitMessageReflowTests {
         #expect(CommitMessage.reflow("The header follows the\nartboard: title, author and date.")
                 == "The header follows the artboard: title, author and date.")
     }
+
+    @Test("CRLF messages reflow like LF ones")
+    func crlf() {
+        #expect(CommitMessage.reflow("One\r\ntwo.\r\n\r\nThree.") == "One two.\n\nThree.")
+    }
 }

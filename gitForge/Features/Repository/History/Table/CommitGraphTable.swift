@@ -21,6 +21,8 @@ struct CommitGraphTable: View {
     let maxLanes: Int
     let refsBySha: [String: [GitRef]]
     let currentBranch: String?
+    /// Commit HEAD points at (detached or not); marks HEAD in the graph.
+    var headSha: String? = nil
     let selectedSha: Commit.ID?
     let workingCopyDirty: Bool
     /// `true` when the pinned "Uncommitted changes" row is the active selection
@@ -55,6 +57,10 @@ struct CommitGraphTable: View {
     /// walk the history (a commit list a keyboard can't drive fails the HIG
     /// and leaves keyboard-only users stuck).
     @FocusState private var tableFocused: Bool
+    /// Last selection made from inside the table (click / ↑↓). Those rows
+    /// are already on screen, so only selections from elsewhere (sidebar,
+    /// palette, reveal) scroll.
+    @State private var localSelection: String?
 
     private var rowHeight: CGFloat { theme.density.metrics.rowList }
 
@@ -72,15 +78,13 @@ struct CommitGraphTable: View {
     /// at the column's static minimum so the user can still drag it tighter
     /// than 110 when the history is single-lane.
     private var dynamicGraphMin: CGFloat {
-        max(columns.minWidth("graph"), graphStyle.gutterWidth(lanes: maxLanes))
+        let metricsOnly = GraphStyle(metrics: theme.density.metrics.graph)
+        return max(columns.minWidth("graph"), metricsOnly.gutterWidth(lanes: maxLanes))
     }
 
-    /// v2 graph look (spec §4.5), resolved once per render.
-    private var graphStyle: GraphStyle {
-        let headSha = refsBySha.first { _, refs in
-            refs.contains { $0.isLocalBranch && $0.name == currentBranch }
-        }?.key
-        return GraphStyle(
+    /// v2 graph look (spec §4.5). Built once per render in `body`.
+    private func makeGraphStyle() -> GraphStyle {
+        GraphStyle(
             metrics: theme.density.metrics.graph,
             accent: theme.accentSwatch,
             accentColor: theme.colors.accent,
@@ -114,10 +118,7 @@ struct CommitGraphTable: View {
     var body: some View {
         // Resolve the derived widths once per render, not once per row.
         let gutterWidth = graphGutterWidth
-        let style = graphStyle
-        let headSha = commits.first { commit in
-            (refsBySha[commit.sha] ?? []).contains { $0.isLocalBranch && $0.name == currentBranch }
-        }?.sha
+        let style = makeGraphStyle()
         return GeometryReader { geo in
             let layout = HistoryTableLayout(
                 viewport: geo.size.width - Self.legacyScrollerWidth,
@@ -153,6 +154,7 @@ struct CommitGraphTable: View {
                                     dimmed: isMatch.map { !$0(commit) } ?? false,
                                     onSelect: {
                                         tableFocused = true
+                                        localSelection = commit.sha
                                         onSelect(commit.sha)
                                     },
                                     onDoubleClick: { onDoubleClick?(commit.sha) },
@@ -177,16 +179,14 @@ struct CommitGraphTable: View {
                 .focused($tableFocused)
                 .onKeyPress(.downArrow) { moveSelection(by: 1, proxy: proxy) }
                 .onKeyPress(.upArrow) { moveSelection(by: -1, proxy: proxy) }
-                // A selection made elsewhere (sidebar branch tree, palette)
-                // must bring its row into view. `initial: true` covers the
-                // reveal that switches to History: the table mounts with the
-                // selection already set, so a plain onChange never fires.
-                // The hop to the next run-loop turn lets the lazy stack lay
-                // out first. A click on a visible row is a no-op scroll.
                 .onChange(of: selectedSha, initial: true) { _, sha in
-                    guard let sha else { return }
-                    // x: 0 pins the leading edge, so a reveal never scrolls
-                    // the table sideways and hides the graph.
+                    guard let sha, sha != localSelection else { return }
+                    // A selection made elsewhere (sidebar branch tree, palette,
+                    // reveal) brings its row into view. `initial: true` covers
+                    // the reveal that switches to History, where the table
+                    // mounts with the selection already set; the hop to the
+                    // next run-loop turn lets the lazy stack lay out first.
+                    // x: 0 keeps the graph in view.
                     Task { @MainActor in proxy.scrollTo(sha, anchor: UnitPoint(x: 0, y: 0.5)) }
                 }
             }
@@ -201,6 +201,7 @@ struct CommitGraphTable: View {
         let target = current.map { min(max($0 + offset, 0), commits.count - 1) } ?? 0
         let sha = commits[target].sha
         guard sha != selectedSha else { return .handled }
+        localSelection = sha
         onSelect(sha)
         proxy.scrollTo(sha)
         return .handled

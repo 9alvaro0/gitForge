@@ -10,23 +10,31 @@ struct CommitTableHeader: View {
 
     /// Handles sit in the gap after the column they resize (Excel-style).
     /// Description is flexible, so it has none.
+    /// Room Description can give up before it hits its floor. Widening any
+    /// column past this would hide Author mid-drag, so handles stop there.
+    private var slack: CGFloat {
+        max(0, layout.description - HistoryTableLayout.minDescription)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             Text("Graph").frame(width: layout.graph, alignment: .leading)
             ColumnDragHandle(width: graphHandle,
-                             minWidth: graphMinWidth, maxWidth: 600,
+                             minWidth: graphMinWidth, maxWidth: min(600, max(graphMinWidth, layout.graph + slack)),
                              onCommit: { columns.commit() })
             Text("Description").frame(width: layout.description, alignment: .leading)
             Color.clear.frame(width: HistoryTableLayout.gap)
             if layout.showsAuthor {
                 Text("Author").frame(width: layout.author, alignment: .leading)
                 ColumnDragHandle(width: columns.binding(for: "author"),
-                                 minWidth: columns.minWidth("author"), maxWidth: 280,
+                                 minWidth: columns.minWidth("author"),
+                                 maxWidth: min(280, max(columns.minWidth("author"), layout.author + slack)),
                                  onCommit: { columns.commit() })
             }
             Text("Date").frame(width: layout.date, alignment: .leading)
             ColumnDragHandle(width: columns.binding(for: "when"),
-                             minWidth: columns.minWidth("when"), maxWidth: 200,
+                             minWidth: columns.minWidth("when"),
+                             maxWidth: min(200, max(columns.minWidth("when"), layout.date + slack)),
                              onCommit: { columns.commit() })
             // Last column: no trailing handle, which would make the header
             // wider than the rows and force a horizontal scroll bar.

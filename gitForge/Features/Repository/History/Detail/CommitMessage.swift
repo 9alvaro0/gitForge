@@ -8,7 +8,8 @@ nonisolated enum CommitMessage {
     /// trailers (`Co-authored-by: …`, `Refs #187`) on their own lines.
     static func reflow(_ message: String) -> String {
         var lines: [String] = []
-        for line in message.components(separatedBy: "\n") {
+        let normalized = message.replacingOccurrences(of: "\r\n", with: "\n")
+        for line in normalized.components(separatedBy: "\n") {
             if let previous = lines.last, joinable(line, after: previous) {
                 lines[lines.count - 1] = previous + " " + line.trimmingCharacters(in: .whitespaces)
             } else {
