@@ -7,9 +7,18 @@ struct StagingView: View {
     @Environment(WorkspaceUI.self) private var ui
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
-    @State private var commitMessage: String = ""
-    @State private var commitDescription: String = ""
     @State private var diffModeOverride: DiffPane.ViewMode?
+    @State private var filesWidth: CGFloat = {
+        let stored = UserDefaults.standard.double(forKey: StagingView.filesWidthKey)
+        let resolved = stored > 0 ? CGFloat(stored) : StagingView.defaultFilesWidth
+        return min(max(StagingView.minFilesWidth, resolved), StagingView.maxFilesWidth)
+    }()
+
+    private static let filesWidthKey = "gitForge.changes.filesPanelWidth"
+    private static let defaultFilesWidth: CGFloat = 440
+    private static let minFilesWidth: CGFloat = 340
+    private static let maxFilesWidth: CGFloat = 600
+    private static let minDiffWidth: CGFloat = 420
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
@@ -33,9 +42,25 @@ struct StagingView: View {
 
     var body: some View {
         @Bindable var ui = ui
-        VStack(spacing: DesignTokens.Spacing.none) {
-            HStack(spacing: DesignTokens.Spacing.none) {
+        GeometryReader { geo in
+            let cap = filesCap(available: geo.size.width)
+            HStack(spacing: 0) {
                 filesPane
+                    .frame(width: min(filesWidth, cap))
+                ColumnDragHandle(
+                    // Reads and writes the width actually shown, so a drag
+                    // past the cap can't bank invisible width.
+                    width: Binding(
+                        get: { min(filesWidth, cap) },
+                        set: { filesWidth = min($0, cap) }
+                    ),
+                    minWidth: Self.minFilesWidth,
+                    maxWidth: cap,
+                    dividerColor: theme.colors.separator,
+                    onCommit: {
+                        UserDefaults.standard.set(Double(filesWidth), forKey: Self.filesWidthKey)
+                    }
+                )
                 StagingDiffColumn(
                     viewModel: viewModel,
                     hasFiles: !staged.isEmpty || !unstaged.isEmpty,
@@ -45,19 +70,20 @@ struct StagingView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .navigationTitle("Changes")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { Task { _ = await viewModel.stashAll() } } label: {
-                    Label("Stash", systemImage: "tray.and.arrow.down")
+                    Label("Stash all", systemImage: "tray.and.arrow.down")
                 }
-                .labelStyle(.iconOnly)
+                .labelStyle(.titleAndIcon)
                 .help("Stash all changes")
                 Button { ui.discardAllConfirmVisible = true } label: {
-                    Label("Discard all", systemImage: "arrow.uturn.backward")
+                    Label("Discard all…", systemImage: "trash")
+                        .foregroundStyle(theme.colors.del)
                 }
-                .labelStyle(.iconOnly)
+                .labelStyle(.titleAndIcon)
                 .help("Discard all changes…")
             }
         }
@@ -81,23 +107,21 @@ struct StagingView: View {
     }
 
     private var filesPane: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
+        VStack(spacing: 0) {
             StagingFilesColumn(
                 viewModel: viewModel,
                 staged: staged,
                 unstaged: unstaged,
                 statusLoading: statusLoading
             )
-            StagingCommitBox(
-                viewModel: viewModel,
-                stagedCount: staged.count,
-                commitMessage: $commitMessage,
-                commitDescription: $commitDescription
-            )
+            StagingCommitBox(viewModel: viewModel, stagedCount: staged.count)
         }
-        .frame(width: DesignTokens.Staging.filesWidth)
-        .background(theme.palette.bg1)
-        .overlay(alignment: .trailing) { Rectangle().fill(theme.palette.lineStrong).frame(width: DesignTokens.Stroke.regular) }
+    }
+
+    /// Widest the file list may be so the diff keeps `minDiffWidth`.
+    private func filesCap(available: CGFloat) -> CGFloat {
+        let handle = Spacing.s8
+        return min(Self.maxFilesWidth, max(Self.minFilesWidth, available - Self.minDiffWidth - handle))
     }
 }
 
