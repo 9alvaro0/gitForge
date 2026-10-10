@@ -24,7 +24,11 @@
    - Las líneas que vienen de un hunk llevan etiqueta y tinte de su lado.
    - Los hunks sin elegir son un bloque discontinuo `warn` con "Unresolved · pick a side above".
    - Lo construye un `ConflictResultBuilder` puro a partir de los segmentos que ya da `ConflictParser`, con test. El store guarda los segmentos al cargar el fichero.
-5. **Se omite:** "Both · theirs first" (no existe), el resultado editable a mano (spec §2), "Next conflict ⌥⌘↓" (el teclado ya usa ↑↓) y el tinte `warn` de la entrada Conflicts del sidebar (es del shell).
+5. **Funciones que se añaden** (decidido con Alvaro el 2026-10-11, aunque la spec §2 las dejaba fuera):
+   - **"Both · theirs first":** una elección nueva (`bothTheirsFirst`) que escribe theirs y luego ours. Tecla 4.
+   - **"Next conflict ⌥⌘↓":** va al siguiente hunk sin elegir y, si no quedan, al siguiente fichero sin resolver, dando la vuelta a la lista (`ConflictNavigator`).
+   - **Resultado editable:** "Edit" convierte el panel en un editor que parte de lo que escribirían las elecciones. Mientras hay texto propio, las elecciones se pausan y "Mark resolved" escribe ese texto tal cual, solo si no quedan marcadores y si el fichero no ha cambiado en disco desde que se cargó. "Discard edits" vuelve a las elecciones.
+   - Se sigue omitiendo el tinte `warn` de la entrada Conflicts del sidebar, que es del shell.
 6. **Toolbar:** "Abort" y "Continue" como hoy. Se revisa en pantalla que no caigan en `»` a 1100.
 
 ## Tareas

@@ -503,6 +503,3 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | Arrastre entre filas de la tabla de Branches | `Branches` | F5 | Hoy el arrastre de ramas solo existe en History. |
 | Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
 | Push de una rama que no es la actual desde el inspector | `Branches` | F5 | Hoy solo se hace push de la rama actual. |
-| "Both · theirs first" | `Conflicts` | F6 | Hoy "both" escribe siempre ours y luego theirs. |
-| Resultado del conflicto editable a mano | `Conflicts` | F6 | Ya estaba fuera por la spec (§2); el panel es de solo lectura. |
-| "Next conflict ⌥⌘↓" entre ficheros | `Conflicts` | F6 | El teclado mueve entre hunks (↑↓) dentro del fichero. |
