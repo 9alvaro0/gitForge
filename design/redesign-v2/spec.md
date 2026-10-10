@@ -124,7 +124,7 @@ El usuario elige entre 4 swatches. Para cada uno, la paleta deriva estos valores
 | `mono` | 12 / 19 | Regular | 0 | Diffs, código, cuerpo del commit |
 | `monoSmall` | 11 / 14 | Regular | 0 | Hashes, rutas, refs |
 
-API: `AppFont.font(.body, weight:)` y `AppFont.mono(.monoSmall, family:)`, más un modificador `.textRole(_:)` que aplica la fuente, la interlínea (`lineSpacing` = interlínea − tamaño) y el tracking.
+API: `AppFont.font(_ role:, weight:, monoFamily:)` para cualquier rol (los mono usan la fuente de código del usuario), más un modificador `.textRole(_:)` que aplica la fuente, el tracking y la interlínea. El `lineSpacing` de SwiftUI se suma a la altura de línea natural de la fuente, no a su tamaño en puntos. Por eso el extra se calcula como interlínea − altura natural (`NSLayoutManager.defaultLineHeight`), nunca por debajo de 0.
 
 **Redondeo de los tamaños fuera de escala** (§2): 9.5 y 10 → `caption` 11. 10.5 → `caption` 11. 11.5 → `callout` 12, o `monoSmall` 11 si es mono. 12.5 → `callout` 12, o `mono` 12 si es mono. 13.5 y 14 → `body` 13. 17 → `headline` 15. 18, 21 y 22 → `title` 20. 30, 34 y 44 → `largeTitle` 28. La única excepción es el número grande de ahead/behind del inspector de Branches (20 en el mock), que usa `title` en mono.
 

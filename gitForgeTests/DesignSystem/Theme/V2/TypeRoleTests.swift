@@ -31,6 +31,20 @@ struct TypeRoleTests {
         }
     }
 
+    @Test("Extra leading tops the font's natural line height up to the role's, never below zero")
+    func lineSpacingOverNaturalHeight() {
+        #expect(TypeRole.body.lineSpacing(over: 15.5) == 2.5)
+        #expect(TypeRole.caption.lineSpacing(over: 20) == 0)
+    }
+
+    @Test("A rendered line measures the role's line height", arguments: TypeRole.allCases)
+    @MainActor
+    func renderedLineHeight(role: TypeRole) {
+        let natural = role.naturalLineHeight(monoFamily: .systemMono)
+        #expect(natural <= role.lineHeight, "\(role) natural \(natural)")
+        #expect(abs(natural + role.lineSpacing(over: natural) - role.lineHeight) < 0.01, "\(role)")
+    }
+
     @Test("Only the two code roles are monospaced")
     func mono() {
         #expect(TypeRole.allCases.filter(\.isMono) == [.mono, .monoSmall])
