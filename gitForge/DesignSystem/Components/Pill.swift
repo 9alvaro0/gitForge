@@ -10,28 +10,24 @@ struct Pill: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        let p = theme.palette
-        let (fg, bg, border): (Color, Color, Color) = {
+        let c = theme.colors
+        let (fg, bg): (Color, Color) = {
             switch kind {
-            case .up:
-                return (p.ok, p.ok.opacity(DesignTokens.Opacity.subtle), p.ok.opacity(DesignTokens.Opacity.dim))
-            case .down:
-                return (p.info, p.info.opacity(DesignTokens.Opacity.subtle), p.info.opacity(DesignTokens.Opacity.dim))
-            case .dirty:
-                return (p.mod, p.mod.opacity(DesignTokens.Opacity.subtle), p.mod.opacity(DesignTokens.Opacity.dim))
-            case .neutral:
-                return (p.fg3, p.bg3, p.line)
+            case .up:      return (c.ok, c.okSoft)
+            case .down:    return (c.info, c.infoSoft)
+            case .dirty:   return (c.mod, c.modSoft)
+            case .neutral: return (c.textTertiary, c.fillControl)
             }
         }()
         return Text(text)
-            .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
+            .textRole(.monoSmall)
             .foregroundStyle(fg)
-            .padding(.horizontal, DesignTokens.Spacing.sm)
-            .padding(.vertical, DesignTokens.Spacing.hairline)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(bg))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(border, lineWidth: DesignTokens.Stroke.regular))
+            .padding(.horizontal, Spacing.s6)
+            .frame(height: 18)
+            .background(Capsule().fill(bg))
     }
 }
+
 
 /// Combo of ahead/behind/dirty pills as in the sidebar repo row.
 struct StatusPills: View {
@@ -49,7 +45,7 @@ struct StatusPills: View {
         } else if ahead == 0 && behind == 0 && dirty == 0 {
             Pill(text: "clean", kind: .neutral)
         } else {
-            HStack(spacing: DesignTokens.Spacing.xxs) {
+            HStack(spacing: Spacing.s2) {
                 if ahead > 0  { Pill(text: "↑\(ahead)",  kind: .up) }
                 if behind > 0 { Pill(text: "↓\(behind)", kind: .down) }
                 if dirty > 0  { Pill(text: "●\(dirty)",  kind: .dirty) }
