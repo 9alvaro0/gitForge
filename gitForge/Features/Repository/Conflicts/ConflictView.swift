@@ -12,8 +12,8 @@ struct ConflictView: View {
                 resolverShell
             } else {
                 EmptyState(icon: .check, title: "No merge in progress",
-                           subtitle: "Conflicts will show up here when a merge or rebase pauses.") { EmptyView() }
-                    .background(theme.palette.bg2)
+                           subtitle: "Conflicts will show up here when a merge or rebase pauses.")
+                    .background(theme.colors.bgContent)
                     .navigationTitle("Conflicts")
             }
         }
@@ -29,50 +29,113 @@ struct ConflictView: View {
     }
 
     private var resolverShell: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            HStack(spacing: DesignTokens.Spacing.none) {
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
                 ConflictFilesColumn(viewModel: viewModel)
-                ConflictHunksColumn(viewModel: viewModel)
+                    .frame(maxHeight: .infinity)
+                operationFooter
             }
+            .frame(width: ConflictFilesColumn.width)
+            Rectangle().fill(theme.colors.separator).frame(width: 1)
+            selectedFile
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .navigationTitle("Resolve conflicts")
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                switch viewModel.mergeState {
-                case .unmerged:
-                    // Stash apply has no `--abort` in git; the VM reverts the
-                    // paths the stash touched. Confirm because it discards
-                    // the half-applied stash content from the worktree.
-                    Button { confirmAbortStash = true } label: {
-                        Label("Abort stash apply", systemImage: "xmark")
+    }
+
+    /// Header, then the hunks over the result (60 / 40, or 30 / 70 while the
+/// result is edited by hand).
+    @ViewBuilder
+    private var selectedFile: some View {
+        let conflicts = viewModel.conflicts
+        if let path = conflicts.selectedPath, !conflicts.hunks.isEmpty {
+            VStack(spacing: 0) {
+                ConflictFileHeader(
+                    path: path,
+                    hunkCount: conflicts.hunks.count,
+                    pickedCount: conflicts.hunks.filter { conflicts.picks[$0.id] != nil }.count,
+                    isManual: conflicts.manualText != nil,
+                    canMarkResolved: conflicts.canMarkResolved,
+                    currentBranchName: viewModel.currentBranchName,
+                    onTakeOurs: { Task { await viewModel.resolveFile(at: path, using: .ours) } },
+                    onTakeTheirs: { Task { await viewModel.resolveFile(at: path, using: .theirs) } },
+                    onOpenInEditor: { ExternalURL.openFile(viewModel.repository.url.appendingPathComponent(path)) },
+                    onMarkResolved: { Task { await viewModel.resolveSelectedFile() } }
+                )
+                GeometryReader { geo in
+                    let manual = conflicts.manualText != nil
+                    VStack(spacing: 0) {
+                        // While the result is edited by hand the picks are
+                        // paused, and the editor gets most of the height.
+                        ConflictHunksColumn(viewModel: viewModel)
+                            .disabled(manual)
+                            .opacity(manual ? 0.45 : 1)
+                            .frame(height: geo.size.height * (manual ? 0.3 : 0.6))
+                        Rectangle().fill(theme.colors.separator).frame(height: 1)
+                        ConflictResultPanel(
+                            lines: conflicts.resultLines,
+                            manualText: Bindable(conflicts).manualText,
+                            manualTextHasMarkers: conflicts.manualTextHasMarkers,
+                            onEdit: { conflicts.beginManualEdit() },
+                            onDiscardEdits: { conflicts.discardManualEdit() }
+                        )
                     }
-                    .labelStyle(.iconOnly)
-                    .help("Abort stash apply…")
-                case .bisecting:
-                    // No native conflict resolution loop for bisect; the user
-                    // marks good/bad from terminal. Surface the situation so
-                    // they're not blindly hitting Continue.
-                    Text("Bisect in progress — finish from terminal with `git bisect reset`.")
-                        .textRole(.callout)
-                        .foregroundStyle(theme.colors.textTertiary)
-                case .clean:
-                    EmptyView()
-                case .merging, .rebasing, .cherryPicking, .reverting:
-                    Button { Task { await viewModel.abortMerge() } } label: {
-                        Label("Abort \(operationLabel)", systemImage: "xmark")
-                    }
-                    .labelStyle(.iconOnly)
-                    .help("Abort \(operationLabel)")
-                    Button { Task { await viewModel.continueMerge() } } label: {
-                        Label("Continue \(operationLabel)", systemImage: "checkmark")
-                    }
-                    .labelStyle(.titleAndIcon)
-                    .buttonStyle(.glassProminent)
-                    .disabled(!viewModel.conflicts.files.allSatisfy(\.resolved))
+                    .animation(DesignTokens.Motion.standard, value: manual)
                 }
             }
+        } else if conflicts.selectedPath != nil {
+            EmptyState(icon: .check, title: "No conflicts left in this file",
+                       subtitle: "Pick another file on the left, or continue when every file is resolved.")
+        } else {
+            EmptyState(icon: .conflict, title: "Pick a conflicted file")
+        }
+    }
+
+    /// Abort / Continue under the file list rather than in the toolbar:
+    /// next to the shell's Fetch / Pull / Push group they fell into the `»`
+    /// overflow at the minimum window width, and Continue is the screen's
+    /// main way out.
+    @ViewBuilder
+    private var operationFooter: some View {
+        Group {
+            switch viewModel.mergeState {
+            case .unmerged:
+                // Stash apply has no `--abort` in git; the VM reverts the
+                // paths the stash touched. Confirm because it discards the
+                // half-applied stash content from the worktree.
+                GFButton(title: "Abort stash apply…", style: .destructive, fullWidth: true) {
+                    confirmAbortStash = true
+                }
+            case .bisecting:
+                // No native conflict resolution loop for bisect; the user
+                // marks good/bad from terminal. Surface the situation so
+                // they're not blindly hitting Continue.
+                Text("Bisect in progress — finish from terminal with `git bisect reset`.")
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
+            case .clean:
+                EmptyView()
+            case .merging, .rebasing, .cherryPicking, .reverting:
+                VStack(spacing: Spacing.s6) {
+                    GFButton(title: "Continue \(operationLabel)", systemImage: "checkmark", style: .primary,
+                             size: .large,
+                             disabled: !viewModel.conflicts.files.allSatisfy(\.resolved) || viewModel.isMutating,
+                             fullWidth: true) {
+                        Task { await viewModel.continueMerge() }
+                    }
+                    .help("Available once every file is resolved")
+                    GFButton(title: "Abort \(operationLabel)", style: .destructive,
+                             disabled: viewModel.isMutating, fullWidth: true) {
+                        Task { await viewModel.abortMerge() }
+                    }
+                }
+            }
+        }
+        .padding(Spacing.s12)
+        .overlay(alignment: .top) {
+            Rectangle().fill(theme.colors.separator).frame(height: 1)
         }
     }
 
