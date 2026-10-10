@@ -1,100 +1,126 @@
 import SwiftUI
 
-/// Wrapping vs. horizontal-overflow is driven by the user's
-/// `diffWrapLongLines` setting.
+/// One unified-diff line: old and new numbers, sign, code. Wrapping vs.
+/// horizontal overflow is driven by the user's `diffWrapLongLines` setting.
 struct DiffRow: View {
     let line: DiffLine
-    /// Pre-tokenised attributed string for this line. When present, the row
-    /// trusts its embedded foreground colours and skips the kind-based
-    /// `textColor` tint — the +/− sign column and `rowBackground` already
-    /// signal added/removed without overpainting the syntax tokens.
+    /// Pre-tokenised attributed string for this line. When present its
+    /// embedded colours win; plain runs fall back to the syntax `plain`.
     let attributed: AttributedString?
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
 
     var body: some View {
-        HStack(alignment: preferences.diffWrapLongLines ? .top : .center, spacing: DesignTokens.Spacing.none) {
-            lineNumber(line.oldLineNumber)
-            lineNumber(line.newLineNumber)
-            Text(sign)
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .frame(width: DesignTokens.IconSize.xl)
-                .foregroundStyle(signColor)
-            wrappedContent
-            if !preferences.diffWrapLongLines { Spacer(minLength: 0) }
+        let wrap = preferences.diffWrapLongLines
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            DiffLineNumber(number: line.oldLineNumber, width: DiffGutter.unifiedNumber)
+            DiffLineNumber(number: line.newLineNumber, width: DiffGutter.unifiedNumber)
+            DiffSign(kind: line.kind, width: DiffGutter.unifiedSign)
+            DiffCode(line: line, attributed: attributed)
+                .lineLimit(wrap ? nil : 1)
+                .fixedSize(horizontal: !wrap, vertical: wrap)
+                .padding(.trailing, Spacing.s12)
+                .frame(maxWidth: wrap ? .infinity : nil, alignment: .leading)
+            if !wrap { Spacer(minLength: 0) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground)
+        .frame(maxWidth: .infinity, minHeight: theme.density.metrics.diffLine, alignment: .leading)
+        .background(DiffTint.row(line.kind, colors: theme.colors))
+    }
+}
+
+/// Gutter widths shared by unified rows, split cells and the skeleton.
+enum DiffGutter {
+    static let unifiedNumber: CGFloat = 34
+    static let unifiedSign: CGFloat = 16
+    static let splitNumber: CGFloat = 36
+    static let splitSign: CGFloat = 18
+    static let numberTrailing: CGFloat = Spacing.s6
+}
+
+enum DiffTint {
+    static func row(_ kind: DiffLine.Kind, colors: GFColors) -> Color {
+        switch kind {
+        case .added: colors.addSoft
+        case .removed: colors.delSoft
+        case .context, .noNewline: .clear
+        }
     }
 
-    /// Toggle between horizontal-overflow (default, matches Tower/GitHub) and
-    /// soft-wrap when the user opts in via Settings → Appearance.
-    @ViewBuilder
-    private var wrappedContent: some View {
-        if preferences.diffWrapLongLines {
-            content
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, DesignTokens.Spacing.xxl)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            content
-                .font(AppFont.mono(theme.density.monoFontSize, family: theme.monoFont))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.trailing, DesignTokens.Spacing.xxl)
+    static func sign(_ kind: DiffLine.Kind, colors: GFColors) -> Color {
+        switch kind {
+        case .added: colors.add
+        case .removed: colors.del
+        case .context, .noNewline: colors.textQuaternary
         }
     }
+}
 
-    @ViewBuilder
-    private var content: some View {
+struct DiffLineNumber: View {
+    let number: Int?
+    let width: CGFloat
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        Text(number.map(String.init) ?? "")
+            .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+            .foregroundStyle(theme.colors.textQuaternary)
+            .lineLimit(1)
+            .frame(width: width, alignment: .trailing)
+            .padding(.trailing, DiffGutter.numberTrailing)
+    }
+}
+
+struct DiffSign: View {
+    let kind: DiffLine.Kind
+    let width: CGFloat
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        Text(symbol)
+            .font(AppFont.font(.mono, weight: .bold, monoFamily: theme.monoFont))
+            .foregroundStyle(DiffTint.sign(kind, colors: theme.colors))
+            .frame(width: width)
+    }
+
+    private var symbol: String {
+        switch kind {
+        case .added: "+"
+        case .removed: "−"
+        case .context: " "
+        case .noNewline: "\\"
+        }
+    }
+}
+
+/// The code itself: highlighted runs when tokenised, otherwise the line in
+/// the syntax `plain` colour (the row tint and sign already carry +/−, so
+/// nothing flashes green or red while highlighting settles).
+struct DiffCode: View {
+    let line: DiffLine
+    let attributed: AttributedString?
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
         if let attributed {
+            // Highlighted runs carry their own colours; a foregroundStyle here
+            // would paint over them.
             Text(attributed)
+                .font(AppFont.font(.mono, monoFamily: theme.monoFont))
         } else {
             Text(line.content.isEmpty ? " " : line.content)
-                .foregroundStyle(textColor)
+                .font(AppFont.font(.mono, monoFamily: theme.monoFont))
+                .foregroundStyle(plainColor)
         }
     }
 
-    @ViewBuilder
-    private func lineNumber(_ n: Int?) -> some View {
-        Text(n.map(String.init) ?? "")
-            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg4)
-            .frame(width: 44, alignment: .trailing)
-            .padding(.horizontal, DesignTokens.Spacing.md)
-    }
-
-    private var sign: String {
-        switch line.kind {
-        case .added:    return "+"
-        case .removed:  return "−"
-        case .context:  return " "
-        case .noNewline: return "\\"
-        }
-    }
-    private var signColor: Color {
-        switch line.kind {
-        case .added:    return theme.palette.add
-        case .removed:  return theme.palette.del
-        case .context:  return theme.palette.fg3
-        case .noNewline: return theme.palette.fg3
-        }
-    }
-    private var textColor: Color {
-        switch line.kind {
-        case .added:   return theme.palette.add
-        case .removed: return theme.palette.del
-        default:       return theme.palette.fg2
-        }
-    }
-    private var rowBackground: Color {
-        switch line.kind {
-        case .added:   return theme.palette.addSoft
-        case .removed: return theme.palette.delSoft
-        default:       return .clear
-        }
+    private var plainColor: Color {
+        line.kind == .noNewline
+            ? theme.colors.textQuaternary
+            : Color(hex: SyntaxPalette.make(theme.variant).plain)
     }
 }
 
@@ -106,6 +132,6 @@ struct DiffRow: View {
         }
     }
     .frame(width: 640)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgCode)
     .appTheme(theme)
 }

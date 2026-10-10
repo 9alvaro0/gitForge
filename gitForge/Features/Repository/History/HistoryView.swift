@@ -189,6 +189,7 @@ struct HistoryView: View {
         if isUncommittedSelected {
             DiffPane(
                 file: viewModel.selectedWorkingCopyFile?.path,
+                status: viewModel.selectedWorkingCopyFile.map { StatusTag.Kind(workingFile: $0.displayStatus) },
                 hunks: viewModel.workingCopyDiff,
                 loading: viewModel.loadingWorkingCopyDiff,
                 emptyState: viewModel.workingCopyDiffEmptyState,
@@ -198,6 +199,7 @@ struct HistoryView: View {
         } else {
             DiffPane(
                 file: viewModel.selectedCommitFile,
+                status: selectedCommitFileStatus,
                 hunks: viewModel.commitFileDiff,
                 loading: viewModel.loadingCommitFileDiff,
                 emptyState: viewModel.commitFileDiffEmptyState,
@@ -205,6 +207,14 @@ struct HistoryView: View {
                 viewMode: diffMode
             )
         }
+    }
+
+    /// Badge for the commit file in the diff header, once the detail is loaded.
+    private var selectedCommitFileStatus: StatusTag.Kind? {
+        guard let sha = viewModel.selectedCommit?.sha,
+              let path = viewModel.selectedCommitFile,
+              let file = viewModel.detailCache[sha]?.files.first(where: { $0.path == path }) else { return nil }
+        return StatusTag.Kind(commitFile: file.status)
     }
 
     /// Inspector: commit (or working-copy) detail over the selected file's

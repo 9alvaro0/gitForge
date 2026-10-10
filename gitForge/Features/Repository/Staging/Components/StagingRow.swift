@@ -27,7 +27,7 @@ struct StagingRow: View {
                 .toggleStyle(GFCheckboxStyle())
                 .accessibilityLabel("Select \(file.path)")
                 .accessibilityValue(isTicked ? "selected" : "not selected")
-                StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
+                StatusTag(kind: StatusTag.Kind(workingFile: file.displayStatus))
                 pathView
                 Spacer()
             }
@@ -182,25 +182,6 @@ struct StagingRow: View {
                     .lineLimit(1)
                     .truncationMode(.head)
             }
-        }
-    }
-}
-
-extension StatusTag.Kind {
-    /// Maps a working-copy status to the visual badge. `.unmodified` collapses
-    /// to `.modified` so partially-staged files (where one side is unmodified)
-    /// still render a badge instead of disappearing.
-    init(workingFile: WorkingCopyFile.Status) {
-        switch workingFile {
-        case .modified, .typeChanged: self = .modified
-        case .added:                  self = .added
-        case .deleted:                self = .deleted
-        case .renamed:                self = .renamed
-        case .copied:                 self = .copied
-        case .untracked:              self = .untracked
-        case .unmerged:               self = .unmerged
-        case .ignored:                self = .ignored
-        case .unmodified:             self = .modified
         }
     }
 }

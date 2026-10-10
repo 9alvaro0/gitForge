@@ -12,6 +12,7 @@ struct StagingDiffColumn: View {
             if let file = viewModel.selectedWorkingCopyFile {
                 DiffPane(
                     file: file.path,
+                    status: StatusTag.Kind(workingFile: file.displayStatus),
                     hunks: viewModel.workingCopyDiff,
                     loading: viewModel.loadingWorkingCopyDiff,
                     emptyState: viewModel.workingCopyDiffEmptyState,

@@ -10,8 +10,8 @@ struct StatusTag: View {
 
     var body: some View {
         Text(letter)
-            .font(AppFont.mono(10, weight: .bold, family: theme.monoFont))
-            .frame(width: 18, height: 18)
+            .font(AppFont.font(.monoSmall, weight: .bold, monoFamily: theme.monoFont))
+            .frame(width: 16, height: 16)
             .foregroundStyle(colors.fg)
             .background(RoundedRectangle(cornerRadius: Radius.badge).fill(colors.soft))
     }

@@ -24,19 +24,19 @@ struct DiffSplitContent: View {
                 // Row offsets reset to 0 inside each hunk; compose with hunk
                 // id so the LazyVStack sees globally-unique IDs (otherwise
                 // SwiftUI logs "the ID … is used by multiple child views").
-                LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(hunks) { hunk in
                         DiffHunkHeader(hunk: hunk)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
                         ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { idx, row in
-                            HStack(alignment: .top, spacing: DesignTokens.Spacing.none) {
+                            HStack(alignment: .top, spacing: 0) {
                                 DiffSplitCell(line: row.left,  side: .left,  attributed: row.left.flatMap  { table?[$0.id] })
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Rectangle()
-                                    .fill(theme.palette.line)
-                                    .frame(width: DesignTokens.Stroke.regular)
+                                    .fill(theme.colors.separator)
+                                    .frame(width: 1)
                                 DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -95,6 +95,6 @@ private struct SplitRow {
     @Previewable @State var theme = AppTheme()
     DiffSplitContent(hunks: DiffHunk.previewSamples, highlighted: [:])
         .frame(width: 720, height: 320)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgCode)
         .appTheme(theme)
 }
