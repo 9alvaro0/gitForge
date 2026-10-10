@@ -83,14 +83,13 @@ struct RepositoryCatalogOpenTests {
         let second = try await GitTestRepo.make()
         let storeDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("gitForge-catalog-\(UUID().uuidString)")
-        let suiteName = "gitForge-tests-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let suite = TestDefaults()
         defer {
             first.remove(); second.remove()
             try? FileManager.default.removeItem(at: storeDir)
-            defaults.removePersistentDomain(forName: suiteName)
+            suite.remove()
         }
-        let catalog = RepositoryCatalog(store: RepositoryStore(directory: storeDir), defaults: defaults)
+        let catalog = RepositoryCatalog(store: RepositoryStore(directory: storeDir), defaults: suite.defaults)
 
         // Start the first open and let it run to its first suspension (it
         // has bumped the generation by then), *then* open the second — the
