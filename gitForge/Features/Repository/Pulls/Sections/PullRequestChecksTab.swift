@@ -52,10 +52,12 @@ struct PullRequestChecksTab: View {
             glyph
             VStack(alignment: .leading, spacing: Spacing.s2) {
                 HStack(alignment: .firstTextBaseline, spacing: Spacing.s8) {
+                    // The name wins the space; the context truncates first.
                     Text(check.name)
                         .textRole(.body, weight: .semibold)
                         .foregroundStyle(theme.colors.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .layoutPriority(1)
                     if let context = check.context {
                         Text(context)
                             .textRole(.callout)
