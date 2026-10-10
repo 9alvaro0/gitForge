@@ -11,6 +11,11 @@ extension RepositoryViewModel {
             return "\(host.slug) · \(host.provider.label.lowercased())"
         case .conflict where mergeState.isInProgress:
             return mergeStateSubtitle
+        case .changes:
+            // The staged / unstaged counts the old status bar showed.
+            let branch = currentBranchName ?? "Detached HEAD"
+            guard !status.isClean else { return "\(branch) · no changes" }
+            return "\(branch) · \(status.stagedFiles.count) staged, \(status.unstagedFiles.count) unstaged"
         default:
             return ShellStatus.subtitle(branch: currentBranchName, ahead: aheadCount, behind: behindCount)
         }
