@@ -50,11 +50,29 @@ struct BranchesView: View {
     var body: some View {
         @Bindable var ui = ui
         VStack(spacing: DesignTokens.Spacing.none) {
-            header
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle("Branches")
+        .searchable(text: $filter, placement: .toolbar, prompt: "Filter branches")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { Task { await runPushAllTags() } } label: {
+                    Label("Push tags", systemImage: "tag")
+                }
+                .labelStyle(.iconOnly)
+                .help("Push all tags")
+                .disabled(viewModel.tags.isEmpty)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button { ui.newBranchSheetVisible = true } label: {
+                    Label("New branch", systemImage: "plus")
+                }
+                .labelStyle(.titleAndIcon)
+                .buttonStyle(.glassProminent)
+            }
+        }
         .sheet(isPresented: $ui.newBranchSheetVisible) {
             BranchInputSheet(
                 title: "New branch",
@@ -105,20 +123,6 @@ struct BranchesView: View {
     }
 
     // MARK: Layout
-
-    private var header: some View {
-        ContentHeader(title: "Branches") {
-            EmptyView()
-        } right: {
-            GFTextField(placeholder: "Filter branches…", text: $filter).frame(width: 220)
-            ToolButton(.push, label: "Push tags", disabled: viewModel.tags.isEmpty) {
-                Task { await runPushAllTags() }
-            }
-            ToolButton(.plus, label: "New branch", primary: true) {
-                ui.newBranchSheetVisible = true
-            }
-        }
-    }
 
     private var content: some View {
         ScrollView {

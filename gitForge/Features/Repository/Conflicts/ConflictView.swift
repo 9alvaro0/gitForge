@@ -14,6 +14,7 @@ struct ConflictView: View {
                 EmptyState(icon: .check, title: "No merge in progress",
                            subtitle: "Conflicts will show up here when a merge or rebase pauses.") { EmptyView() }
                     .background(theme.palette.bg2)
+                    .navigationTitle("Conflicts")
             }
         }
         .task { await viewModel.loadConflictState() }
@@ -29,38 +30,6 @@ struct ConflictView: View {
 
     private var resolverShell: some View {
         VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "Resolve conflicts") {
-                MonoText(headerSubtitle, dim: true)
-            } right: {
-                switch viewModel.mergeState {
-                case .unmerged:
-                    // Stash apply has no `--abort` in git; the VM reverts the
-                    // paths the stash touched. Confirm because it discards
-                    // the half-applied stash content from the worktree.
-                    ToolButton(.x, label: "Abort stash apply") {
-                        confirmAbortStash = true
-                    }
-                case .bisecting:
-                    // No native conflict resolution loop for bisect; the user
-                    // marks good/bad from terminal. Surface the situation so
-                    // they're not blindly hitting Continue.
-                    Text("Bisect in progress — finish from terminal with `git bisect reset`.")
-                        .font(.system(size: FontSize.sm))
-                        .foregroundStyle(theme.palette.fg3)
-                case .clean:
-                    EmptyView()
-                case .merging, .rebasing, .cherryPicking, .reverting:
-                    ToolButton(.x, label: "Abort \(operationLabel)") {
-                        Task { await viewModel.abortMerge() }
-                    }
-                    ToolButton(.check,
-                               label: "Continue \(operationLabel)",
-                               primary: true,
-                               disabled: !viewModel.conflicts.files.allSatisfy(\.resolved)) {
-                        Task { await viewModel.continueMerge() }
-                    }
-                }
-            }
             HStack(spacing: DesignTokens.Spacing.none) {
                 ConflictFilesColumn(viewModel: viewModel)
                 ConflictHunksColumn(viewModel: viewModel)
@@ -68,17 +37,42 @@ struct ConflictView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
-    }
-
-    private var headerSubtitle: String {
-        switch viewModel.mergeState {
-        case .merging:       return "merging into \(viewModel.currentBranchName ?? "HEAD")"
-        case .rebasing:      return "rebasing \(viewModel.currentBranchName ?? "HEAD")"
-        case .cherryPicking: return "cherry-picking onto \(viewModel.currentBranchName ?? "HEAD")"
-        case .reverting:     return "reverting on \(viewModel.currentBranchName ?? "HEAD")"
-        case .bisecting:     return "bisecting"
-        case .unmerged:      return "applying stash on \(viewModel.currentBranchName ?? "HEAD")"
-        case .clean:         return ""
+        .navigationTitle("Resolve conflicts")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                switch viewModel.mergeState {
+                case .unmerged:
+                    // Stash apply has no `--abort` in git; the VM reverts the
+                    // paths the stash touched. Confirm because it discards
+                    // the half-applied stash content from the worktree.
+                    Button { confirmAbortStash = true } label: {
+                        Label("Abort stash apply", systemImage: "xmark")
+                    }
+                    .labelStyle(.iconOnly)
+                    .help("Abort stash apply…")
+                case .bisecting:
+                    // No native conflict resolution loop for bisect; the user
+                    // marks good/bad from terminal. Surface the situation so
+                    // they're not blindly hitting Continue.
+                    Text("Bisect in progress — finish from terminal with `git bisect reset`.")
+                        .textRole(.callout)
+                        .foregroundStyle(theme.colors.textTertiary)
+                case .clean:
+                    EmptyView()
+                case .merging, .rebasing, .cherryPicking, .reverting:
+                    Button { Task { await viewModel.abortMerge() } } label: {
+                        Label("Abort \(operationLabel)", systemImage: "xmark")
+                    }
+                    .labelStyle(.iconOnly)
+                    .help("Abort \(operationLabel)")
+                    Button { Task { await viewModel.continueMerge() } } label: {
+                        Label("Continue \(operationLabel)", systemImage: "checkmark")
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .buttonStyle(.glassProminent)
+                    .disabled(!viewModel.conflicts.files.allSatisfy(\.resolved))
+                }
+            }
         }
     }
 
