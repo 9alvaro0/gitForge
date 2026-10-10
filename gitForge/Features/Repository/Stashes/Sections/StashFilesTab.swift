@@ -8,22 +8,21 @@ struct StashFilesTab: View {
 
     private var files: [StashFileChange] { store.detail?.files ?? [] }
 
+    static let fileListWidth: CGFloat = 300
+
     var body: some View {
         if files.isEmpty {
             if store.isLoading {
                 placeholderList
             } else {
-                EmptyState(icon: .diff, title: "No files changed", subtitle: nil) { EmptyView() }
+                EmptyState(icon: .diff, title: "No files changed")
             }
         } else {
-            HStack(spacing: DesignTokens.Spacing.none) {
+            HStack(spacing: 0) {
                 fileList
-                    .frame(width: DesignTokens.Pulls.listWidth)
+                    .frame(width: Self.fileListWidth)
                     .frame(maxHeight: .infinity)
-                    .background(theme.palette.bg1)
-                    .overlay(alignment: .trailing) {
-                        Rectangle().fill(theme.palette.line).frame(width: DesignTokens.Stroke.regular)
-                    }
+                Rectangle().fill(theme.colors.separator).frame(width: 1)
                 DiffPane(
                     file: store.selectedFile,
                     status: files.first { $0.path == store.selectedFile }.map { StatusTag.Kind(stashFile: $0.status) },
@@ -40,7 +39,7 @@ struct StashFilesTab: View {
 
     private var fileList: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.none) {
+            LazyVStack(spacing: 0) {
                 ForEach(files) { file in
                     StashFileRow(
                         file: file,
@@ -49,19 +48,20 @@ struct StashFilesTab: View {
                     )
                 }
             }
+            .padding(Spacing.s6)
         }
     }
 
     private var placeholderList: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.none) {
+            LazyVStack(spacing: 0) {
                 ForEach(StashFileChange.previewSamples) { file in
                     StashFileRow(file: file, isSelected: false, onSelect: {})
                 }
             }
+            .padding(Spacing.s6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.palette.bg1)
         .skeleton(true)
     }
 }
@@ -71,7 +71,7 @@ struct StashFilesTab: View {
     @Previewable @State var mode: DiffPane.ViewMode = .unified
     StashFilesTab(store: RepositoryViewModel.previewWithStashDetail.stashDetail, diffMode: $mode)
         .frame(width: 1200, height: 720)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
 
@@ -86,6 +86,6 @@ struct StashFilesTab: View {
     }()
     StashFilesTab(store: vm.stashDetail, diffMode: $mode)
         .frame(width: 1200, height: 720)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
