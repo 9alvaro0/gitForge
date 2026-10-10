@@ -16,6 +16,8 @@ final class ConflictStore {
 
     var files: [ConflictFile] = []
     var hunks: [ConflictHunk] = []
+    /// The selected file split into text and conflicts, for the result panel.
+    var segments: [ConflictParser.Segment] = []
     var selectedPath: String?
     var picks: [UUID: ConflictHunk.Pick] = [:]
     /// Bumped by `loadHunks`; a slow read for an older path drops its write
@@ -50,11 +52,14 @@ final class ConflictStore {
         do {
             let contents = try await Self.read(url)
             guard gen == hunksGen else { return }
-            hunks = ConflictParser.parse(contents.text).hunks
+            let parsed = ConflictParser.parse(contents.text)
+            segments = parsed.segments
+            hunks = parsed.hunks
             picks = [:]
         } catch {
             guard gen == hunksGen else { return }
             Self.logger.error("Failed to read \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            segments = []
             hunks = []
             picks = [:]
         }
@@ -64,9 +69,20 @@ final class ConflictStore {
         picks[hunkId] = pick
     }
 
+    /// Takes a hunk back to unpicked ("Change" on a folded hunk).
+    func clearPick(hunkId: UUID) {
+        picks[hunkId] = nil
+    }
+
+    /// The file as it would be written with the current picks.
+    var resultLines: [ConflictResultLine] {
+        ConflictResultBuilder.build(segments: segments, hunks: hunks, picks: picks)
+    }
+
     /// Clean tree: nothing to resolve.
     func clear() {
         files = []
+        segments = []
         hunks = []
         picks = [:]
         selectedPath = nil
