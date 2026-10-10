@@ -37,7 +37,8 @@ struct PullRequestDetailHeader: View {
                 .textSelection(.enabled)
             mergeLine
             if !reviewers.isEmpty || !labels.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.s20) {
+                // Wraps instead of truncating in a narrow detail.
+                FlowLayout(spacing: Spacing.s20) {
                     if !reviewers.isEmpty { reviewersView }
                     if !labels.isEmpty { labelsView }
                 }
@@ -45,9 +46,10 @@ struct PullRequestDetailHeader: View {
         }
     }
 
-    /// "author wants to merge N commits into target from source".
+    /// "author wants to merge N commits into target from source", wrapping
+    /// onto a second line rather than cutting the branch names.
     private var mergeLine: some View {
-        HStack(spacing: Spacing.s6) {
+        FlowLayout(spacing: Spacing.s6) {
             if let author = pullRequest.authorLogin {
                 Avatar(name: author, size: 18, colorSeed: author)
                 Text(author)
@@ -57,13 +59,13 @@ struct PullRequestDetailHeader: View {
             Text(verb)
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
+                .fixedSize()
             branchChip(pullRequest.targetBranch)
             Text("from")
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
             branchChip(pullRequest.sourceBranch)
         }
-        .lineLimit(1)
     }
 
     private var verb: String {
@@ -88,7 +90,7 @@ struct PullRequestDetailHeader: View {
     }
 
     private var reviewersView: some View {
-        HStack(spacing: Spacing.s8) {
+        FlowLayout(spacing: Spacing.s8) {
             Text("Reviewers")
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textTertiary)
@@ -103,6 +105,7 @@ struct PullRequestDetailHeader: View {
                 }
                 .textRole(.callout, weight: reviewer.state == .pending ? .regular : .semibold)
                 .foregroundStyle(color(for: reviewer.state))
+                .fixedSize()
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(reviewer.login), \(spoken(reviewer.state))")
             }
@@ -110,7 +113,7 @@ struct PullRequestDetailHeader: View {
     }
 
     private var labelsView: some View {
-        HStack(spacing: Spacing.s6) {
+        FlowLayout(spacing: Spacing.s6) {
             Text("Labels")
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textTertiary)

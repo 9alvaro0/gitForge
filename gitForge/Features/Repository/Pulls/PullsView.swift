@@ -101,9 +101,6 @@ struct PullsView: View {
             )
             .fixedSize()
             Spacer(minLength: 0)
-            if store.isLoadingClosed {
-                ProgressView().controlSize(.small)
-            }
         }
         .padding(.horizontal, Spacing.s12)
         .frame(height: 44)
