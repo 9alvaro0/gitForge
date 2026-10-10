@@ -50,7 +50,10 @@ struct CommitRowChips: View {
                     isCurrent: isCurrent,
                     isLocal: true,
                     sourceSha: commitSha
-                ))
+                )) {
+                    BranchDragGhost(name: ref.displayName, isCurrent: isCurrent)
+                        .appTheme(theme)
+                }
                 .modifier(ChipDropModifier(
                     targetBranchName: ref.name,
                     targetSha: commitSha,

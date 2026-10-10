@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// Local + remote + tags grouped by folder (`feature/`, `release/`, …) so
-/// big repos don't drown the list.
+/// Branches & Tags: one scope (Local / Remote / Tags) at a time in a table
+/// grouped by folder (`feature/`, `release/`…), with the selected ref's
+/// inspector on the right.
 struct BranchesView: View {
     @Bindable var viewModel: RepositoryViewModel
 
     @State private var filter: String = ""
+    @State private var scope: BranchScope = .local
+    @State private var selectedID: String?
     /// Driven by `WorkspaceUI.newBranchSheetVisible` so the File ▸ New Branch (⌘B)
     /// menu and the local "+" button share one presentation path.
     @State private var newBranchName: String = ""
@@ -29,48 +32,59 @@ struct BranchesView: View {
 
     // MARK: Filtered slices
 
-    private var localBranches: [GitRef]  { viewModel.localBranches.filter(matchesFilter) }
-    private var remoteBranches: [GitRef] { viewModel.remoteBranches.filter(matchesFilter) }
-    private var tags: [GitRef]           { viewModel.tags.filter(matchesFilter) }
+    private func refs(in scope: BranchScope) -> [GitRef] {
+        switch scope {
+        case .local: viewModel.localBranches
+        case .remote: viewModel.remoteBranches
+        case .tags: viewModel.tags
+        }
+    }
+
+    private var scopedRefs: [GitRef] { refs(in: scope).filter(matchesFilter) }
     private var currentBranchName: String? { viewModel.currentBranchName }
+
+    /// The selection when it belongs to this scope; otherwise, in Local, the
+    /// current branch, so the inspector is never blank on first open.
+    private var inspectedRef: GitRef? {
+        let pool = refs(in: scope)
+        if let selectedID, let ref = pool.first(where: { $0.id == selectedID }) { return ref }
+        guard scope == .local else { return nil }
+        return pool.first { $0.name == currentBranchName }
+    }
 
     private func matchesFilter(_ ref: GitRef) -> Bool {
         filter.isEmpty || ref.name.localizedCaseInsensitiveContains(filter)
-    }
-
-    /// Maintained by the ViewModel as a side-effect of every log mutation;
-    /// reading it here is a single property fetch rather than the previous
-    /// per-body Dictionary rebuild over `viewModel.commits`.
-    private var commitDateBySha: [String: Date] {
-        viewModel.commitDateBySha
     }
 
     // MARK: Body
 
     var body: some View {
         @Bindable var ui = ui
-        VStack(spacing: DesignTokens.Spacing.none) {
-            content
-        }
+        content
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
-        .navigationTitle("Branches")
-        .searchable(text: $filter, placement: .toolbar, prompt: "Filter branches")
+        .background(theme.colors.bgContent)
+        .navigationTitle("Branches & Tags")
+        .searchable(text: $filter, placement: .toolbar, prompt: "Filter")
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button { Task { await runPushAllTags() } } label: {
-                    Label("Push tags", systemImage: "tag")
+            if scope == .tags {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { Task { await runPushAllTags() } } label: {
+                        Label("Push tags", systemImage: "arrow.up.to.line")
+                    }
+                    .labelStyle(.iconOnly)
+                    .help("Push all tags to origin")
+                    .disabled(viewModel.tags.isEmpty)
                 }
-                .labelStyle(.iconOnly)
-                .help("Push all tags")
-                .disabled(viewModel.tags.isEmpty)
             }
             ToolbarItem(placement: .primaryAction) {
+                // Icon only: with a title it falls into the toolbar's `»`
+                // overflow at the minimum window width.
                 Button { ui.newBranchSheetVisible = true } label: {
-                    Label("New branch", systemImage: "plus")
+                    Label("New branch…", systemImage: "plus")
                 }
-                .labelStyle(.titleAndIcon)
+                .labelStyle(.iconOnly)
                 .buttonStyle(.glassProminent)
+                .help("New branch… (⌘B)")
             }
         }
         .sheet(isPresented: $ui.newBranchSheetVisible) {
@@ -124,46 +138,69 @@ struct BranchesView: View {
 
     // MARK: Layout
 
+    /// Spec §4.6: the inspector is 480 wide, 360 below a 1280 window.
+    private static let wideWindow: CGFloat = 1280
+    private static let sidebarAllowance: CGFloat = 240
+
     private var content: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
-                if hasActiveFilter && filteredEverything.isEmpty {
-                    filterEmptyState
-                } else {
-                    BranchListSection(
-                        title: "Local",
-                        refs: localBranches,
-                        availableTargets: viewModel.localBranches,
-                        currentBranchName: currentBranchName,
-                        commitDateBySha: commitDateBySha,
-                        onCheckout: handleCheckout,
-                        onRename: { renameTarget = $0; renameDraft = $0.name },
-                        onDelete: { deleteTarget = $0 },
-                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
-                        onRebase: { rebaseTarget = $0 }
-                    )
-                    BranchListSection(
-                        title: "Remote",
-                        refs: remoteBranches,
-                        availableTargets: viewModel.localBranches,
-                        currentBranchName: nil,
-                        commitDateBySha: commitDateBySha,
-                        onCheckout: handleCheckout,
-                        onRename: nil,
-                        onDelete: nil,
-                        onMerge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
-                        onRebase: { rebaseTarget = $0 }
-                    )
-                    if !tags.isEmpty {
-                        BranchTagsSection(
-                            tags: tags,
-                            onPush:   { ref in Task { await runPushTag(ref) } },
-                            onDelete: { ref in deleteTargetTag = ref }
-                        )
-                    }
+        GeometryReader { geo in
+            let inspectorWidth: CGFloat = geo.size.width + Self.sidebarAllowance >= Self.wideWindow ? 480 : 360
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    scopeBar
+                    table
                 }
+                Rectangle().fill(theme.colors.separator).frame(width: 1)
+                inspector
+                    .frame(width: inspectorWidth)
+                    .background(theme.colors.bgElevated)
             }
-            .padding(DesignTokens.Spacing.xxxxl)
+        }
+    }
+
+    /// Lives above the table rather than in the toolbar: next to the shell's
+    /// Fetch / Pull / Push group a toolbar picker overflows into `»` below
+    /// ~1300 pt, and the scope is the screen's main switch.
+    private var scopeBar: some View {
+        HStack {
+            SegmentedControl<BranchScope>(
+                BranchScope.allCases.map { ($0, "\($0.title) \(refs(in: $0).count)") },
+                selection: $scope
+            )
+            .fixedSize()
+            .help("Local branches, remote branches or tags")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Spacing.s12)
+        .frame(height: 44)
+    }
+
+    @ViewBuilder
+    private var table: some View {
+        if hasActiveFilter && scopedRefs.isEmpty {
+            EmptyState(icon: .search, title: "Nothing matches “\(filter)”") {
+                GFButton(title: "Clear filter", size: .small) { filter = "" }
+            }
+        } else {
+            BranchTable(
+                scope: scope,
+                refs: scopedRefs,
+                currentBranchName: currentBranchName,
+                availableTargets: viewModel.localBranches,
+                selectedID: $selectedID,
+                actions: actions
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var inspector: some View {
+        if let ref = inspectedRef {
+            BranchInspector(ref: ref, currentBranchName: currentBranchName, actions: actions)
+        } else {
+            EmptyState(icon: scope == .tags ? .tag : .branch,
+                       title: scope == .tags ? "Select a tag" : "Select a branch",
+                       subtitle: "Its upstream, last commit and actions show here.")
         }
     }
 
@@ -171,22 +208,16 @@ struct BranchesView: View {
         !filter.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// Total count across all sections after filtering. Lets the empty-state
-    /// fire when the filter matches nothing instead of rendering three
-    /// "No branches." stubs side by side.
-    private var filteredEverything: [GitRef] {
-        localBranches + remoteBranches + tags
-    }
-
-    private var filterEmptyState: some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            Text("No branches or tags match “\(filter)”.")
-                .font(AppFont.sans(FontSize.md))
-                .foregroundStyle(theme.palette.fg2)
-            GFButton(title: "Clear filter", size: .small) { filter = "" }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, DesignTokens.Spacing.xxxxl)
+    private var actions: BranchActions {
+        BranchActions(
+            checkout: handleCheckout,
+            merge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
+            rebase: { rebaseTarget = $0 },
+            rename: { renameTarget = $0; renameDraft = $0.name },
+            delete: { deleteTarget = $0 },
+            pushTag: { ref in Task { await runPushTag(ref) } },
+            deleteTag: { deleteTargetTag = $0 }
+        )
     }
 
     // MARK: Handlers

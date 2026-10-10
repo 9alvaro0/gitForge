@@ -59,7 +59,6 @@ extension RepositoryViewModel {
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
-            rebuildCommitDateIndex()
             hasMore = page.count == pageSize
             selectedCommitId = commits.first?.id
             await recomputeGraph()
@@ -96,7 +95,6 @@ extension RepositoryViewModel {
             commits = page
             loadedRawCount = page.count
             dropStashInternals()
-            rebuildCommitDateIndex()
             hasMore = page.count == pageSize
             if let prev = previousSelection, commitsById[prev] == nil {
                 selectedCommitId = commits.first?.id
@@ -134,22 +132,9 @@ extension RepositoryViewModel {
         loadedRawCount += next.count
         commits.append(contentsOf: next)
         dropStashInternals()
-        mergeCommitDateIndex(with: next)
         hasMore = next.count == pageSize
         await recomputeGraph()
         return next
-    }
-
-    /// Rebuild the date index from scratch — used when `commits` is replaced
-    /// wholesale (loadInitial / reloadLog).
-    func rebuildCommitDateIndex() {
-        commitDateBySha = Dictionary(commits.map { ($0.sha, $0.authorDate) },
-                                     uniquingKeysWith: { first, _ in first })
-    }
-
-    /// Add the freshly-paginated commits to the index without rebuilding.
-    func mergeCommitDateIndex(with added: [Commit]) {
-        for c in added { commitDateBySha[c.sha] = c.authorDate }
     }
 
     /// Moves the (O(n)) layout computation off the main actor so a paginate

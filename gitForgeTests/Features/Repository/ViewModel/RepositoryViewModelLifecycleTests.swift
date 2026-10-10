@@ -37,14 +37,12 @@ struct RepositoryViewModelLifecycleTests {
         vm.commits = [
             Commit(sha: "a", parentShas: [], authorName: "x", authorEmail: "x@x", authorDate: .now, subject: "one")
         ]
-        vm.commitDateBySha = ["a": .now]
         vm.upstream = "origin/main"
         vm.aheadCount = 5
 
         vm.stopReactivity()
 
         #expect(vm.commits.isEmpty)
-        #expect(vm.commitDateBySha.isEmpty)
         #expect(vm.upstream == nil)
         #expect(vm.aheadCount == 0)
     }

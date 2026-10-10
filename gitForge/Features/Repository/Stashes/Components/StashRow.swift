@@ -1,40 +1,47 @@
 import SwiftUI
 import AppKit
 
+/// One stash in the list: reference and message. Click opens it in the
+/// inspector; the context menu keeps Apply / Pop / Drop at hand.
 struct StashRow: View {
     let stash: Stash
+    let isSelected: Bool
     let onSelect: () -> Void
     let onApply: () -> Void
     let onPop: () -> Void
     let onDrop: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var hovering = false
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: DesignTokens.Spacing.xl) {
-                metadata
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    GFButton(title: "Apply", size: .small, action: onApply)
-                    GFButton(title: "Pop", style: .primary, size: .small, action: onPop)
-                    OverflowMenu {
-                        Button("Apply (keep)",       action: onApply)
-                        Button("Pop (apply + drop)", action: onPop)
-                        Divider()
-                        Button("Drop…", role: .destructive, action: onDrop)
-                    }
-                }
+            HStack(spacing: Spacing.s8) {
+                Image(systemName: "tray")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: 16)
+                Text(stash.subject)
+                    .textRole(.body, weight: isSelected ? .semibold : .regular)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(stash.reference)
+                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                    .foregroundStyle(theme.colors.textTertiary)
             }
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
-            .padding(.vertical, DesignTokens.Spacing.lg)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
+            .padding(.leading, Spacing.s8)
+            .padding(.trailing, Spacing.s12)
+            .frame(height: theme.density.metrics.rowList)
+            .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowFill))
+            .contentShape(.rect(cornerRadius: Radius.row))
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel("\(stash.subject), \(stash.reference)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .contextMenu {
-            Button("Show details",       action: onSelect)
-            Divider()
             Button("Apply (keep)",       action: onApply)
             Button("Pop (apply + drop)", action: onPop)
             Divider()
@@ -45,23 +52,9 @@ struct StashRow: View {
         }
     }
 
-    private var metadata: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                Text(stash.reference)
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg3)
-                Text(String(stash.sha.prefix(7)))
-                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg3)
-            }
-            Text(stash.subject)
-                .font(AppFont.sans(FontSize.mdPlus))
-                .foregroundStyle(theme.palette.fg1)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var rowFill: Color {
+        if isSelected { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : .clear
     }
 
     private func copyToPasteboard(_ string: String) {
@@ -72,13 +65,14 @@ struct StashRow: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: 8) {
+    VStack(spacing: 0) {
         ForEach(Stash.previewSamples) { stash in
-            StashRow(stash: stash, onSelect: {}, onApply: {}, onPop: {}, onDrop: {})
+            StashRow(stash: stash, isSelected: stash.index == 0,
+                     onSelect: {}, onApply: {}, onPop: {}, onDrop: {})
         }
     }
-    .padding()
-    .frame(width: 760)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s6)
+    .frame(width: 360)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

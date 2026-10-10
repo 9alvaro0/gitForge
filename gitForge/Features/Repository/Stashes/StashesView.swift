@@ -9,6 +9,18 @@ struct StashesView: View {
     @State private var stashSheet = false
     @State private var stashMessage: String = ""
     @State private var dropTarget: Stash?
+    @State private var diffModeOverride: DiffPane.ViewMode?
+
+    @Environment(\.appPreferences) private var preferences
+
+    private var diffMode: Binding<DiffPane.ViewMode> {
+        Binding(
+            get: { diffModeOverride ?? preferences.defaultDiffMode },
+            set: { diffModeOverride = $0 }
+        )
+    }
+
+    static let listWidth: CGFloat = 300
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -17,15 +29,63 @@ struct StashesView: View {
 
     var body: some View {
         Group {
-            if viewModel.stashDetail.selected != nil {
-                StashDetailView(viewModel: viewModel)
+            if viewModel.stashes.isEmpty {
+                EmptyState(
+                    icon: .stash,
+                    title: "No stashes",
+                    subtitle: hasDirtyChanges
+                        ? "Use \u{201C}Stash changes…\u{201D} to park your work in progress."
+                        : "When you stash work in progress it'll show up here."
+                )
             } else {
-                listLayout
+                HStack(spacing: 0) {
+                    StashList(
+                        stashes: viewModel.stashes,
+                        selectedIndex: viewModel.stashDetail.selected?.index,
+                        onSelect: { viewModel.stashDetail.select($0) },
+                        onApply:  { stash in Task { await runApply(stash, drop: false) } },
+                        onPop:    { stash in Task { await runApply(stash, drop: true)  } },
+                        onDrop:   { stash in dropTarget = stash }
+                    )
+                    .frame(width: Self.listWidth)
+                    Rectangle().fill(theme.colors.separator).frame(width: 1)
+                    inspector
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(theme.colors.bgElevated)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .navigationTitle("Stashes")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    stashMessage = ""
+                    stashSheet = true
+                } label: {
+                    Label("Stash changes…", systemImage: "tray.and.arrow.down")
+                }
+                // Icon only: with a title it falls into the toolbar's `»`
+                // overflow at the minimum window width.
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glassProminent)
+                .help("Stash changes…")
+                .disabled(!hasDirtyChanges)
+            }
+        }
+        // Open the newest stash so the inspector isn't blank on arrival, and
+        // move on when the selected one is popped or dropped.
+        .task(id: viewModel.stashes.map(\.sha)) {
+            let selected = viewModel.stashDetail.selected
+            if selected == nil || !viewModel.stashes.contains(where: { $0.sha == selected?.sha }) {
+                if let first = viewModel.stashes.first {
+                    viewModel.stashDetail.select(first)
+                } else {
+                    viewModel.stashDetail.close()
+                }
+            }
+        }
         .sheet(isPresented: $stashSheet) {
             StashCreateSheet(
                 message: $stashMessage,
@@ -48,29 +108,19 @@ struct StashesView: View {
         }
     }
 
-    private var listLayout: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            StashList(
-                stashes: viewModel.stashes,
-                hasDirtyChanges: hasDirtyChanges,
-                onSelect: { viewModel.stashDetail.select($0) },
-                onApply:  { stash in Task { await runApply(stash, drop: false) } },
-                onPop:    { stash in Task { await runApply(stash, drop: true)  } },
-                onDrop:   { stash in dropTarget = stash }
+    @ViewBuilder
+    private var inspector: some View {
+        if let stash = viewModel.stashDetail.selected {
+            StashInspector(
+                stash: stash,
+                store: viewModel.stashDetail,
+                diffMode: diffMode,
+                onApply: { Task { await runApply(stash, drop: false) } },
+                onPop: { Task { await runApply(stash, drop: true) } },
+                onDrop: { dropTarget = stash }
             )
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    stashMessage = ""
-                    stashSheet = true
-                } label: {
-                    Label("Stash changes…", systemImage: "tray.and.arrow.down")
-                }
-                .labelStyle(.titleAndIcon)
-                .buttonStyle(.glassProminent)
-                .disabled(!hasDirtyChanges)
-            }
+        } else {
+            EmptyState(icon: .stash, title: "Select a stash")
         }
     }
 
