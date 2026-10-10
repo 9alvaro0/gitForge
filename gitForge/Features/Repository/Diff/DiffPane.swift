@@ -67,10 +67,11 @@ struct DiffPane: View {
         }
     }
 
-    /// Re-tokenises when file, hunks, theme mode, or accent change —
-    /// everything the cached attributed strings depend on.
+    /// Re-tokenises when the file, its hunks or the light/dark syntax
+    /// palette change — everything the cached attributed strings depend on.
+    /// Uses the effective mode so following the system appearance re-colours.
     private var tokenizeKey: String {
-        "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.mode.rawValue)|\(theme.accent.cssHex)"
+        "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.effectiveMode.rawValue)"
     }
 
     /// Above this many lines the diff renders as plain text: tokenising runs
@@ -89,8 +90,8 @@ struct DiffPane: View {
               hunks.reduce(0, { $0 + $1.lines.count }) <= Self.highlightLineLimit else {
             return
         }
-        let css = DiffSyntaxHighlighter.css(for: theme.palette)
-        let themeId = "\(theme.mode.rawValue)-\(theme.accent.cssHex)"
+        let css = DiffSyntaxHighlighter.css(for: SyntaxPalette.make(theme.variant))
+        let themeId = theme.effectiveMode.rawValue
         var output: [Int: [Int: AttributedString]] = [:]
         var unpublishedLines = 0
         for hunk in hunks {
