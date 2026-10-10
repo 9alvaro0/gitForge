@@ -71,11 +71,6 @@ struct HistoryView: View {
             ?? viewModel.commits.count
 
         return VStack(spacing: DesignTokens.Spacing.none) {
-            ContentHeader(title: "History") {
-                MonoText("\(viewModel.currentBranchName ?? "—") · \(viewModel.commits.count) commits", dim: true)
-            } right: {
-                HistoryToolbar(viewModel: viewModel)
-            }
             HistoryFiltersBar(
                 search: $search,
                 totalCount: viewModel.commits.count,
@@ -100,6 +95,7 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.palette.bg2)
+        .navigationTitle("History")
         .confirmationDialog(detachedCheckoutTitle,
                             isPresented: detachedCheckoutBinding,
                             titleVisibility: .visible) {

@@ -1,64 +1,73 @@
 import SwiftUI
 
-/// Top-level chrome of the redesigned UI: sidebar + main column + status bar,
-/// plus the floating command palette and toast overlays. Renders only when
-/// `gitStatus == .available`; the install gate lives in `RootView`.
+/// Top-level chrome: native split view (sidebar + main column) with the
+/// shared toolbar, plus the floating command palette and toast overlays.
+/// Renders only when `gitStatus == .available`; the install gate lives in
+/// `RootView`.
 struct ShellView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.appTheme) private var theme
 
     /// How long a toast stays on screen before auto-dismissing.
     private static let toastLifetime: Duration = .milliseconds(2_400)
 
     var body: some View {
-        let title = activeTitle()
-        WindowChrome(title: title) {
-            shellLayout
-                .overlay {
-                    if appState.ui.commandPaletteOpen {
-                        paletteOverlay.transition(.opacity)
+        NavigationSplitView {
+            SidebarHost()
+                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+        } detail: {
+            mainColumn
+                .navigationSubtitle(subtitle)
+                .toolbar {
+                    ShellToolbar(
+                        viewModel: appState.catalog.activeViewModel,
+                        online: appState.network.isOnline,
+                        onOpenPalette: { appState.ui.commandPaletteOpen = true }
+                    )
+                }
+        }
+        .preferredColorScheme(preferredScheme)
+        .overlay {
+            if appState.ui.commandPaletteOpen {
+                paletteOverlay.transition(.opacity)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let toast = appState.ui.activeToast {
+                ToastView(toast: toast) { appState.ui.activeToast = nil }
+                    .padding(.bottom, Spacing.s16)
+                    .transition(.opacity)
+                    .task(id: toast.id) {
+                        try? await Task.sleep(for: Self.toastLifetime)
+                        // A newer toast may have replaced this one while we slept.
+                        guard appState.ui.activeToast?.id == toast.id else { return }
+                        withAnimation { appState.ui.activeToast = nil }
                     }
-                }
-                .overlay(alignment: .bottom) {
-                    if let toast = appState.ui.activeToast {
-                        ToastView(toast: toast) { appState.ui.activeToast = nil }
-                            .padding(.bottom, DesignTokens.Spacing.xxxhuge)
-                            .transition(.opacity)
-                            .task(id: toast.id) {
-                                try? await Task.sleep(for: Self.toastLifetime)
-                                // Re-check that we're still the same toast —
-                                // a newer one may have replaced us while we
-                                // slept.
-                                guard appState.ui.activeToast?.id == toast.id else { return }
-                                withAnimation { appState.ui.activeToast = nil }
-                            }
-                    }
-                }
-                // Centralised error reporting for fetch/pull/push/tag pushes —
-                // covers every entry point (Repository menu, History toolbar,
-                // command palette) so silent failures stop happening.
-                .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
-                    guard let failure else { return }
-                    appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error)
-                    appState.catalog.activeViewModel?.remoteFailure = nil
-                }
+            }
+        }
+        // Centralised error reporting for fetch/pull/push/tag pushes —
+        // covers every entry point (menu, toolbar, command palette).
+        .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
+            guard let failure else { return }
+            appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error)
+            appState.catalog.activeViewModel?.remoteFailure = nil
         }
     }
 
-    private var shellLayout: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            HStack(spacing: DesignTokens.Spacing.none) {
-                SidebarHost()
-                mainColumn
-            }
-            AppStatusBar(
-                branch: appState.catalog.activeViewModel?.currentBranchName,
-                ahead: appState.catalog.activeViewModel?.aheadCount ?? 0,
-                behind: appState.catalog.activeViewModel?.behindCount ?? 0,
-                staged: appState.catalog.activeViewModel?.status.stagedFiles.count ?? 0,
-                unstaged: appState.catalog.activeViewModel?.status.unstagedFiles.count ?? 0,
-                lastFetch: appState.catalog.activeViewModel?.lastFetchedAt,
-                online: appState.network.isOnline
-            )
+    /// Branch and ahead/behind (the old status bar's left half). Empty
+    /// without an active repository.
+    private var subtitle: String {
+        guard let vm = appState.catalog.activeViewModel else { return "" }
+        return ShellStatus.subtitle(branch: vm.currentBranchName, ahead: vm.aheadCount, behind: vm.behindCount)
+    }
+
+    /// `.system` returns `nil` so SwiftUI keeps the OS scheme; explicit modes
+    /// force the window to follow the user's pick.
+    private var preferredScheme: ColorScheme? {
+        switch theme.mode {
+        case .system: nil
+        case .dark: .dark
+        case .light: .light
         }
     }
 
@@ -89,14 +98,6 @@ struct ShellView: View {
             },
             onClose: { appState.ui.commandPaletteOpen = false }
         )
-    }
-
-    private func activeTitle() -> String {
-        if let repo = appState.catalog.activeRepository {
-            let parent = repo.url.deletingLastPathComponent().lastPathComponent
-            return "\(parent)/\(repo.name) — GitForge"
-        }
-        return "GitForge"
     }
 }
 
