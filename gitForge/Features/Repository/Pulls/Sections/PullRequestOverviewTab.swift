@@ -1,7 +1,10 @@
 import SwiftUI
 
+/// Banner, mergeability (with "Resolve locally" when it conflicts) and the
+/// description. Reviewers and labels live in the header.
 struct PullRequestOverviewTab: View {
     let detail: PullRequestDetail?
+    var banner: AnyView = AnyView(EmptyView())
     var localMergeRunning: Bool = false
     var onTryLocalMerge: () -> Void = {}
 
@@ -9,159 +12,76 @@ struct PullRequestOverviewTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxxl) {
+            VStack(alignment: .leading, spacing: Spacing.s16) {
+                banner
                 if let detail {
-                    metaRow(detail)
-                    descriptionBlock(detail)
-                    if !detail.reviewers.isEmpty { reviewersBlock(detail) }
-                    if !detail.labels.isEmpty { labelsBlock(detail) }
+                    if detail.mergeable == false {
+                        conflictsCard
+                    }
+                    descriptionCard(detail)
                 } else {
-                    placeholderContent
-                        .skeleton(true)
+                    descriptionPlaceholder.skeleton(true)
                 }
             }
-            .padding(DesignTokens.Spacing.xxxxl)
+            .padding(Spacing.s24)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
-    @ViewBuilder
-    private var placeholderContent: some View {
-        FlowLayout(spacing: DesignTokens.Spacing.md) {
-            Text("CI: All checks passed")
-                .font(AppFont.sans(FontSize.sm))
-                .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
-            Text("Mergeable")
-                .font(AppFont.sans(FontSize.sm))
-                .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
+    private var conflictsCard: some View {
+        HStack(spacing: Spacing.s12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(theme.colors.warn)
+            Text("This branch conflicts with its target. Merge the target into it locally and resolve the conflicts here.")
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            GFButton(title: localMergeRunning ? "Resolving…" : "Resolve locally", disabled: localMergeRunning,
+                     action: onTryLocalMerge)
         }
-
-        block {
-            OverviewSectionLabel("Description")
-            Text("Adds the PR/MR integration with the new detail view, including overview, commits, and files tabs.")
-                .font(AppFont.sans(FontSize.md))
-                .foregroundStyle(theme.palette.fg2)
-            Text("Each tab shares state with the parent so navigating between them is instantaneous.")
-                .font(AppFont.sans(FontSize.md))
-                .foregroundStyle(theme.palette.fg2)
-        }
-
-        block {
-            OverviewSectionLabel("Reviewers")
-            FlowLayout(spacing: DesignTokens.Spacing.sm) {
-                ForEach(["@reviewer-one", "@reviewer-two", "@reviewer-three"], id: \.self) { name in
-                    MonoText(name)
-                        .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-                }
-            }
-        }
-
-        block {
-            OverviewSectionLabel("Labels")
-            FlowLayout(spacing: DesignTokens.Spacing.sm) {
-                ForEach(["feature", "phase-2", "needs-review"], id: \.self) { name in
-                    Text(name)
-                        .font(AppFont.sans(FontSize.sm))
-                        .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                        .foregroundStyle(theme.palette.fg2)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-                }
-            }
-        }
+        .padding(Spacing.s12)
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgContent))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(theme.colors.separator, lineWidth: 1))
     }
 
-    @ViewBuilder
-    private func metaRow(_ detail: PullRequestDetail) -> some View {
-        FlowLayout(spacing: DesignTokens.Spacing.md) {
-            if let ci = detail.ciStatus {
-                CIPill(ci: ci)
-            }
-            MergeabilityPill(mergeable: detail.mergeable)
-            if detail.mergeable == false {
-                GFButton(
-                    title: localMergeRunning ? "Resolving…" : "Resolve locally",
-                    size: .small,
-                    disabled: localMergeRunning
-                ) {
-                    onTryLocalMerge()
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func descriptionBlock(_ detail: PullRequestDetail) -> some View {
-        block {
+    private func descriptionCard(_ detail: PullRequestDetail) -> some View {
+        card {
             OverviewSectionLabel("Description")
             if let body = detail.descriptionMarkdown, !body.isEmpty {
                 MarkdownView(source: body)
             } else {
                 Text("No description provided.")
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.body)
+                    .foregroundStyle(theme.colors.textTertiary)
             }
         }
     }
 
-    @ViewBuilder
-    private func reviewersBlock(_ detail: PullRequestDetail) -> some View {
-        block(spacing: DesignTokens.Spacing.sm) {
-            OverviewSectionLabel("Reviewers")
-            FlowLayout(spacing: DesignTokens.Spacing.sm) {
-                ForEach(detail.reviewers) { r in
-                    HStack(spacing: DesignTokens.Spacing.xs) {
-                        if r.approved {
-                            Text("✓")
-                                .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
-                                .foregroundStyle(theme.palette.ok)
-                        }
-                        MonoText("@\(r.login)")
-                    }
-                    .padding(.horizontal, DesignTokens.Spacing.sm)
-                    .padding(.vertical, DesignTokens.Spacing.xxs)
-                    .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-                }
-            }
+    private var descriptionPlaceholder: some View {
+        card {
+            OverviewSectionLabel("Description")
+            Text("Adds the PR/MR integration with the new detail view, including overview, commits, and files tabs.")
+                .textRole(.body)
+            Text("Each tab shares state with the parent so navigating between them is instantaneous.")
+                .textRole(.body)
         }
     }
 
-    @ViewBuilder
-    private func labelsBlock(_ detail: PullRequestDetail) -> some View {
-        block(spacing: DesignTokens.Spacing.sm) {
-            OverviewSectionLabel("Labels")
-            FlowLayout(spacing: DesignTokens.Spacing.sm) {
-                ForEach(detail.labels, id: \.self) { name in
-                    Text(name)
-                        .font(AppFont.sans(FontSize.sm))
-                        .padding(.horizontal, DesignTokens.Spacing.sm)
-                        .padding(.vertical, DesignTokens.Spacing.xxs)
-                        .foregroundStyle(theme.palette.fg2)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func block<Content: View>(spacing: CGFloat = DesignTokens.Spacing.md,
-                                      @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: spacing) {
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
             content()
         }
-        .padding(DesignTokens.Spacing.xxl)
+        .padding(Spacing.s16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgContent))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(theme.colors.separator, lineWidth: 1))
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     PullRequestOverviewTab(detail: .previewSample)
-        .frame(width: 1100, height: 700)
-        .background(theme.palette.bg2)
+        .frame(width: 800, height: 600)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

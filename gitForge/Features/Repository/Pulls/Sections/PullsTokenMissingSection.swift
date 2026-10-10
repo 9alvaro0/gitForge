@@ -13,8 +13,8 @@ struct PullsTokenMissingSection: View {
                 title: "\(host.provider.label) token required",
                 subtitle: "No token stored for \(host.host). Add a Personal Access Token to list \(nounPlural)."
             ) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    GFButton(title: "Add token…", style: .primary, action: onAddToken)
+                HStack(spacing: Spacing.s8) {
+                    GFButton(title: "Add token…", action: onAddToken)
                     GFButton(title: "Open Settings", action: onOpenSettings)
                 }
             }
@@ -23,7 +23,7 @@ struct PullsTokenMissingSection: View {
                 icon: .pr,
                 title: "Token required",
                 subtitle: "Add a Personal Access Token in Settings → Remote hosts."
-            ) { EmptyView() }
+            )
         }
     }
 }
@@ -37,6 +37,6 @@ struct PullsTokenMissingSection: View {
     )
     .padding()
     .frame(width: 800, height: 400)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

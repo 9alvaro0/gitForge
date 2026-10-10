@@ -26,46 +26,21 @@ struct PullsLoadingPlaceholder: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.md) {
+            LazyVStack(spacing: Spacing.s2) {
                 ForEach(0..<6, id: \.self) { index in
-                    row(index: index)
+                    PullRequestRow(
+                        pullRequest: PullRequest(
+                            id: "\(index)", number: 200 + index, title: Self.titles[index % Self.titles.count],
+                            state: .open, authorLogin: "author", authorAvatarURL: nil,
+                            sourceBranch: Self.branches[index % Self.branches.count], targetBranch: "main",
+                            webURL: nil, createdAt: nil, updatedAt: nil),
+                        hostLabel: "GitHub", ci: nil, isSelected: false, onSelect: {})
                 }
             }
-            .padding(DesignTokens.Spacing.xxxxl)
+            .padding(Spacing.s8)
         }
         .skeleton(true)
-    }
-
-    private func row(index: Int) -> some View {
-        let title = Self.titles[index % Self.titles.count]
-        let branch = Self.branches[index % Self.branches.count]
-
-        return HStack(spacing: DesignTokens.Spacing.xl) {
-            PullRequestStatePill(state: .open)
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                HStack(spacing: DesignTokens.Spacing.md) {
-                    Text(title)
-                        .font(AppFont.sans(FontSize.lg, weight: .medium))
-                        .foregroundStyle(theme.palette.fg1)
-                        .lineLimit(1)
-                    MonoText("#000", dim: true)
-                }
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    MonoText("@author", dim: true)
-                    Text("·").foregroundStyle(theme.palette.fg4)
-                    MonoText(branch, dim: true)
-                    Text("→").foregroundStyle(theme.palette.fg4)
-                    MonoText("main", dim: true)
-                    Text("·").foregroundStyle(theme.palette.fg4)
-                    MonoText("2h ago", dim: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xxl)
-        .padding(.vertical, DesignTokens.Spacing.lg)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .allowsHitTesting(false)
     }
 }
 
@@ -73,6 +48,6 @@ struct PullsLoadingPlaceholder: View {
     @Previewable @State var theme = AppTheme()
     PullsLoadingPlaceholder()
         .frame(width: 1100, height: 600)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

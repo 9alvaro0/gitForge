@@ -6,30 +6,34 @@ struct PullRequestCommitRow: View {
     @Environment(\.appPreferences) private var preferences
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.xl) {
-            MonoText(commit.shortSha, color: theme.palette.accent)
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.s12) {
+            Text(commit.shortSha)
+                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                .foregroundStyle(theme.colors.accent)
+                .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: Spacing.s2) {
                 Text(commit.subject)
-                    .font(AppFont.sans(FontSize.mdPlus))
-                    .foregroundStyle(theme.palette.fg1)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                HStack(spacing: DesignTokens.Spacing.sm) {
+                    .textRole(.body)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .lineLimit(2)
+                HStack(spacing: Spacing.s6) {
                     if let author = commit.authorName {
-                        MonoText(author, dim: true)
+                        Text(author)
                     }
                     if let date = commit.authorDate {
-                        Text("·").foregroundStyle(theme.palette.fg4)
-                        MonoText(preferences.dateDisplayMode.format(date), dim: true)
+                        Text("·")
+                        Text(preferences.dateDisplayMode.format(date))
                     }
                 }
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
+        .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.bgContent))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -42,6 +46,6 @@ struct PullRequestCommitRow: View {
     }
     .padding()
     .frame(width: 720)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }
