@@ -71,3 +71,32 @@ struct ConflictResultBuilderTests {
         #expect(store.picks[id] == nil)
     }
 }
+
+@Suite("Conflict resolver — next conflict")
+struct ConflictNavigatorTests {
+
+    private static func files(_ specs: [(String, Bool)]) -> [ConflictFile] {
+        specs.map { ConflictFile(path: $0.0, resolved: $0.1, conflicts: $0.1 ? 0 : 1) }
+    }
+
+    @Test("Goes to the next unpicked hunk after the focused one")
+    func nextHunk() {
+        let target = ConflictNavigator.next(after: 0, hunkIsPicked: [false, true, false],
+                                            files: Self.files([("a", false)]), selectedPath: "a")
+        #expect(target == .hunk(2))
+    }
+
+    @Test("With no unpicked hunk below, moves to the next unresolved file, wrapping around")
+    func nextFile() {
+        let files = Self.files([("a", false), ("b", true), ("c", false)])
+        #expect(ConflictNavigator.next(after: 1, hunkIsPicked: [true, false], files: files, selectedPath: "a") == .file("c"))
+        #expect(ConflictNavigator.next(after: 0, hunkIsPicked: [false], files: files, selectedPath: "c") == .file("a"))
+    }
+
+    @Test("Last file left: wraps to its first unpicked hunk; nothing left: no target")
+    func lastFile() {
+        let files = Self.files([("a", false), ("b", true)])
+        #expect(ConflictNavigator.next(after: 2, hunkIsPicked: [false, true, true], files: files, selectedPath: "a") == .hunk(0))
+        #expect(ConflictNavigator.next(after: 0, hunkIsPicked: [true], files: files, selectedPath: "a") == nil)
+    }
+}
