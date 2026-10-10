@@ -22,8 +22,8 @@ struct BranchDropHUD: View {
                     .textRole(.callout)
                     .foregroundStyle(theme.colors.textSecondary)
                     .lineLimit(1)
-                    .truncationMode(.middle)
-                Text("Esc cancels")
+                    .truncationMode(.tail)
+                Text("Confirm after dropping")
                     .textRole(.caption)
                     .foregroundStyle(theme.colors.textTertiary)
             }

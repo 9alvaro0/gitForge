@@ -20,7 +20,7 @@ struct StashesView: View {
         )
     }
 
-    static let listWidth: CGFloat = 360
+    static let listWidth: CGFloat = 300
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
