@@ -39,6 +39,27 @@ struct Sidebar: View {
     @State private var collapsedFolders: Set<String> = []
 
     var body: some View {
+        // The profile card sits under the list rather than in a bottom
+        // safe-area inset: the inset let the last rows (Tags) scroll behind
+        // the transparent card and show through it.
+        VStack(spacing: 0) {
+            list
+            SidebarUserCard(
+                identity: identity,
+                scopeTag: scopeTag,
+                online: online,
+                profiles: profiles,
+                activeProfileId: activeProfileId,
+                canResetToGlobal: canResetIdentityToGlobal,
+                menuEnabled: identityMenuEnabled,
+                onApplyProfile: onApplyProfile,
+                onResetToGlobal: onResetToGlobal,
+                onManageProfiles: onManageProfiles
+            )
+        }
+    }
+
+    private var list: some View {
         List {
             if activeRepository != nil {
                 Section {
@@ -87,20 +108,6 @@ struct Sidebar: View {
             )
             .padding(.horizontal, Spacing.s8)
             .padding(.bottom, Spacing.s8)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            SidebarUserCard(
-                identity: identity,
-                scopeTag: scopeTag,
-                online: online,
-                profiles: profiles,
-                activeProfileId: activeProfileId,
-                canResetToGlobal: canResetIdentityToGlobal,
-                menuEnabled: identityMenuEnabled,
-                onApplyProfile: onApplyProfile,
-                onResetToGlobal: onResetToGlobal,
-                onManageProfiles: onManageProfiles
-            )
         }
     }
 
