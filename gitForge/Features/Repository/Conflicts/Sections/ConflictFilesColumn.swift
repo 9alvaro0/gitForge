@@ -1,23 +1,28 @@
 import SwiftUI
 
+/// Left column of the resolver: overall progress, then every conflicted file.
 struct ConflictFilesColumn: View {
     @Bindable var viewModel: RepositoryViewModel
+
     @Environment(\.appTheme) private var theme
 
+    static let width: CGFloat = 280
+
     private var files: [ConflictFile] { viewModel.conflicts.files }
+    private var resolvedCount: Int { files.filter(\.resolved).count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+        VStack(alignment: .leading, spacing: 0) {
             header
             if files.isEmpty {
-                Text("No unresolved files.")
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg3)
-                    .padding(DesignTokens.Spacing.xxl)
-                Spacer()
+                Text("No conflicted files.")
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .padding(Spacing.s12)
+                Spacer(minLength: 0)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.none) {
+                    LazyVStack(alignment: .leading, spacing: Spacing.s2) {
                         ForEach(files) { file in
                             ConflictFileRow(
                                 file: file,
@@ -30,21 +35,29 @@ struct ConflictFilesColumn: View {
                             )
                         }
                     }
+                    .padding(Spacing.s6)
                 }
             }
         }
-        .frame(width: DesignTokens.Conflict.filesWidth)
-        .background(theme.palette.bg1)
-        .overlay(alignment: .trailing) { Rectangle().fill(theme.palette.lineStrong).frame(width: DesignTokens.Stroke.regular) }
     }
 
     private var header: some View {
-        Text("Files with conflicts".uppercased())
-            .font(.system(size: FontSize.sm, weight: .semibold))
-            .tracking(0.6)
-            .foregroundStyle(theme.palette.fg3)
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
-            .padding(.vertical, DesignTokens.Spacing.md)
+        VStack(alignment: .leading, spacing: Spacing.s6) {
+            HStack {
+                Text("Conflicted files")
+                    .textRole(.caption, weight: .semibold)
+                    .foregroundStyle(theme.colors.textQuaternary)
+                Spacer(minLength: 0)
+                Text("\(resolvedCount) of \(files.count) resolved")
+                    .textRole(.caption)
+                    .foregroundStyle(theme.colors.textTertiary)
+            }
+            ConflictProgressBar(done: resolvedCount, total: files.count)
+        }
+        .padding(.horizontal, Spacing.s12)
+        .padding(.top, Spacing.s12)
+        .padding(.bottom, Spacing.s6)
+        .accessibilityElement(children: .combine)
     }
 
     /// Bridges to `[WorkingCopyFile]` so the unmerged-aware discard path on
@@ -57,10 +70,32 @@ struct ConflictFilesColumn: View {
     }
 }
 
+/// Thin capsule bar in `ok`; the text next to it carries the numbers.
+struct ConflictProgressBar: View {
+    let done: Int
+    let total: Int
+    var width: CGFloat? = nil
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(theme.colors.fillControl)
+                Capsule()
+                    .fill(theme.colors.ok)
+                    .frame(width: total > 0 ? geo.size.width * CGFloat(done) / CGFloat(total) : 0)
+            }
+        }
+        .frame(width: width, height: 6)
+        .accessibilityHidden(true)
+    }
+}
+
 #Preview {
     @Previewable @State var theme = AppTheme()
     ConflictFilesColumn(viewModel: .previewWithConflicts)
         .frame(height: 480)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
-

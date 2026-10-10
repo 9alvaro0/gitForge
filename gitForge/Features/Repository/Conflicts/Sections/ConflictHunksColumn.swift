@@ -1,12 +1,17 @@
 import SwiftUI
 
+/// The selected file's hunks, open ones side by side and picked ones folded.
+/// Keyboard: ↑↓ move between hunks, 1 / 2 / 3 / 4 pick ours / theirs /
+/// both / both with theirs first.
 struct ConflictHunksColumn: View {
     @Bindable var viewModel: RepositoryViewModel
+
     @Environment(\.appTheme) private var theme
-    /// Index of the keyboard-focused hunk. Arrow keys move it, 1/2/3 pick a
-    /// side. Reset when the selected file changes (`.onChange` on
-    /// `conflicts.selectedPath`).
+    /// Index of the keyboard-focused hunk. Reset when the selected file
+    /// changes (`.onChange` on `conflicts.selectedPath`).
     @State private var focusedHunkIndex: Int = 0
+    /// Set by "Next conflict" so the scroll view can follow it.
+    @State private var scrollTarget: Int?
 
     private var hunks: [ConflictHunk] { viewModel.conflicts.hunks }
     private var picks: [UUID: ConflictHunk.Pick] { viewModel.conflicts.picks }
@@ -14,31 +19,22 @@ struct ConflictHunksColumn: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxxl) {
-                    if let path = viewModel.conflicts.selectedPath {
-                        pathHeader(path: path)
-                    }
-                    if hunks.isEmpty {
-                        Text("Pick a file with unresolved conflicts on the left.")
-                            .font(AppFont.sans(FontSize.md))
-                            .foregroundStyle(theme.palette.fg3)
-                            .padding(.top, DesignTokens.Spacing.md)
-                    } else {
-                        keyboardHint
-                    }
+                LazyVStack(spacing: 0) {
                     ForEach(Array(hunks.enumerated()), id: \.element.id) { index, hunk in
-                        ConflictHunkCard(
+                        ConflictHunkView(
                             hunk: hunk,
                             index: index,
                             pick: picks[hunk.id],
-                            currentBranchName: viewModel.currentBranchName,
-                            onPick: { viewModel.conflicts.setPick(hunkId: hunk.id, pick: $0) }
+                            isFocused: focusedHunkIndex == index && hunks.count > 1,
+                            onPick: { viewModel.conflicts.setPick(hunkId: hunk.id, pick: $0) },
+                            onClear: { viewModel.conflicts.clearPick(hunkId: hunk.id) }
                         )
-                        .overlay(focusedHunkIndex == index ? focusBorder : nil)
                         .id("hunk-\(index)")
                     }
+                    if !hunks.isEmpty {
+                        keyboardHint
+                    }
                 }
-                .padding(DesignTokens.Spacing.xxxxl)
             }
             .focusable()
             .focusEffectDisabled()
@@ -61,21 +57,65 @@ struct ConflictHunksColumn: View {
             .onKeyPress("1") { pick(.ours) }
             .onKeyPress("2") { pick(.theirs) }
             .onKeyPress("3") { pick(.both) }
+            .onKeyPress("4") { pick(.bothTheirsFirst) }
             .onChange(of: viewModel.conflicts.selectedPath) { _, _ in
                 focusedHunkIndex = 0
+            }
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(DesignTokens.Motion.standard) {
+                    proxy.scrollTo("hunk-\(target)", anchor: .top)
+                }
+                scrollTarget = nil
             }
         }
     }
 
-    private var focusBorder: some View {
-        RoundedRectangle(cornerRadius: DesignTokens.Radius.lg)
-            .stroke(theme.palette.accent, lineWidth: DesignTokens.Stroke.regular * 2)
+    private var keyboardHint: some View {
+        HStack(spacing: Spacing.s6) {
+            Kbd(text: "↑↓")
+            Text("move between hunks")
+            Kbd(text: "1")
+            Text("ours")
+            Kbd(text: "2")
+            Text("theirs")
+            Kbd(text: "3")
+            Text("both")
+            Kbd(text: "4")
+            Text("both, theirs first")
+            Spacer(minLength: 0)
+            Button(action: goToNextConflict) {
+                HStack(spacing: Spacing.s6) {
+                    Text("Next conflict")
+                    Kbd(text: "⌥⌘↓")
+                }
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.downArrow, modifiers: [.option, .command])
+            .help("Next unpicked hunk, or the next file with conflicts")
+        }
+        .textRole(.caption)
+        .foregroundStyle(theme.colors.textTertiary)
+        .padding(Spacing.s12)
+        .accessibilityElement(children: .combine)
     }
 
-    private var keyboardHint: some View {
-        Text("↑↓ to navigate hunks · 1 pick ours · 2 pick theirs · 3 pick both")
-            .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
-            .foregroundStyle(theme.palette.fg3)
+    private func goToNextConflict() {
+        let target = ConflictNavigator.next(
+            after: focusedHunkIndex,
+            hunkIsPicked: hunks.map { picks[$0.id] != nil },
+            files: viewModel.conflicts.files,
+            selectedPath: viewModel.conflicts.selectedPath
+        )
+        switch target {
+        case .hunk(let index):
+            focusedHunkIndex = index
+            scrollTarget = index
+        case .file(let path):
+            Task { await viewModel.conflicts.loadHunks(for: path) }
+        case nil:
+            break
+        }
     }
 
     private func pick(_ pick: ConflictHunk.Pick) -> KeyPress.Result {
@@ -94,34 +134,12 @@ struct ConflictHunksColumn: View {
         let target = current + delta
         return min(max(target, 0), count - 1)
     }
-
-    private func pathHeader(path: String) -> some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            GFIcon(kind: .diff, size: 14, stroke: theme.palette.fg1)
-            Text(path)
-                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg1)
-            Text("· \(picks.count)/\(hunks.count) picked")
-                .font(AppFont.mono(FontSize.md, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-            Spacer()
-            GFButton(title: "Mark resolved",
-                     style: .primary,
-                     size: .small,
-                     disabled: hunks.isEmpty || picks.count < hunks.count) {
-                Task { await viewModel.resolveSelectedFile() }
-            }
-        }
-        .padding(.bottom, DesignTokens.Spacing.md)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
-    }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     ConflictHunksColumn(viewModel: .previewWithConflicts)
-        .frame(width: 760, height: 720)
-        .background(theme.palette.bg2)
+        .frame(width: 760, height: 520)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
-

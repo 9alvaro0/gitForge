@@ -16,8 +16,16 @@ final class ConflictStore {
 
     var files: [ConflictFile] = []
     var hunks: [ConflictHunk] = []
+    /// The selected file split into text and conflicts, for the result panel.
+    var segments: [ConflictParser.Segment] = []
     var selectedPath: String?
     var picks: [UUID: ConflictHunk.Pick] = [:]
+    /// The result typed by hand. While set, it replaces the picks: "Mark
+    /// resolved" writes this text as is. `nil` = resolve with picks.
+    var manualText: String?
+    /// The selected file exactly as read, so a manual resolution can refuse
+    /// to overwrite a file that changed on disk since.
+    private(set) var loadedText: String = ""
     /// Bumped by `loadHunks`; a slow read for an older path drops its write
     /// so it can't stomp the freshly selected file.
     var hunksGen: UInt64 = 0
@@ -50,13 +58,20 @@ final class ConflictStore {
         do {
             let contents = try await Self.read(url)
             guard gen == hunksGen else { return }
-            hunks = ConflictParser.parse(contents.text).hunks
+            let parsed = ConflictParser.parse(contents.text)
+            loadedText = contents.text
+            segments = parsed.segments
+            hunks = parsed.hunks
             picks = [:]
+            manualText = nil
         } catch {
             guard gen == hunksGen else { return }
             Self.logger.error("Failed to read \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            loadedText = ""
+            segments = []
             hunks = []
             picks = [:]
+            manualText = nil
         }
     }
 
@@ -64,9 +79,47 @@ final class ConflictStore {
         picks[hunkId] = pick
     }
 
+    /// Takes a hunk back to unpicked ("Change" on a folded hunk).
+    func clearPick(hunkId: UUID) {
+        picks[hunkId] = nil
+    }
+
+    // MARK: Manual edit
+
+    /// Starts editing the result by hand from what the picks would write
+    /// (unpicked hunks keep their markers, to be resolved in the text).
+    func beginManualEdit() {
+        manualText = ConflictParser.apply(content: loadedText, picks: picks, hunks: hunks)
+    }
+
+    /// Drops the hand edits and goes back to the picks.
+    func discardManualEdit() {
+        manualText = nil
+    }
+
+    /// The hand-written result still contains a conflict.
+    var manualTextHasMarkers: Bool {
+        guard let manualText else { return false }
+        return !ConflictParser.parse(manualText).hunks.isEmpty
+    }
+
+    /// Every hunk picked, or a hand-written result without markers.
+    var canMarkResolved: Bool {
+        if manualText != nil { return !manualTextHasMarkers }
+        return !hunks.isEmpty && hunks.allSatisfy { picks[$0.id] != nil }
+    }
+
+    /// The file as it would be written with the current picks.
+    var resultLines: [ConflictResultLine] {
+        ConflictResultBuilder.build(segments: segments, hunks: hunks, picks: picks)
+    }
+
     /// Clean tree: nothing to resolve.
     func clear() {
         files = []
+        manualText = nil
+        loadedText = ""
+        segments = []
         hunks = []
         picks = [:]
         selectedPath = nil
@@ -83,7 +136,8 @@ final class ConflictStore {
         }
     }
 
-    /// Writes the picks into the selected file, preserving its encoding.
+    /// Writes the picks (or the hand-written result) into the selected file,
+    /// preserving its encoding.
     /// Refuses if the file's hunk count shifted under us: an external edit
     /// landed and the picks no longer line up with the on-disk content.
     /// Returns the path written; the caller stages it.
@@ -91,6 +145,13 @@ final class ConflictStore {
         guard let path = selectedPath else { return nil }
         let url = repositoryURL.appendingPathComponent(path)
         let original = try await Self.read(url)
+        if let manualText {
+            // A hand-written result replaces the whole file, so it needs the
+            // file to be byte for byte what the editor started from.
+            guard original.text == loadedText else { throw ResolveError.changedOnDisk(path: path) }
+            try TextFile.write(manualText, encoding: original.encoding, to: url)
+            return path
+        }
         guard ConflictParser.parse(original.text).hunks.count == hunks.count else {
             throw ResolveError.changedOnDisk(path: path)
         }
