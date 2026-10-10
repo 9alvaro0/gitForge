@@ -15,4 +15,10 @@ struct ToastPolicyTests {
     func errorsStay() {
         #expect(ToastMessage(message: "x", kind: .error).autoDismissAfter == nil)
     }
+
+    @Test("Errors wrap in full so the remedy at the end stays readable; the rest keep to two lines")
+    func lineLimit() {
+        #expect(ToastMessage(message: "x", kind: .error).lineLimit == nil)
+        #expect(ToastMessage(message: "x", kind: .ok).lineLimit == 2)
+    }
 }
