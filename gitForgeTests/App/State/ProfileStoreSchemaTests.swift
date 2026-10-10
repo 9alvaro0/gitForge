@@ -14,10 +14,7 @@ struct ProfileStoreSchemaTests {
     private static let corruptedKeyPrefix = ProfileStore.corruptedKeyPrefix
 
     private func withCleanKey(_ body: (UserDefaults) throws -> Void) rethrows {
-        let suiteName = "gitForge-profiles-tests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-        try body(defaults)
+        try TestDefaults.with(prefix: "gitForge-profiles-tests") { try body($0.defaults) }
     }
 
     private func writeRaw(_ defaults: UserDefaults, _ data: Data) {
