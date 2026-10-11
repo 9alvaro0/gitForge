@@ -148,8 +148,10 @@ actor GitCLI {
     /// credentials don't survive into Console logs or sysdiagnose. Leaves the
     /// SCP form (`user@host:path`) alone — SSH doesn't carry credentials in
     /// the URL and the username there is part of what the operator is
-    /// debugging.
+    /// debugging. Account tokens registered with `SecretRedactor` are
+    /// blanked too.
     static func redacted(_ text: String) -> String {
+        let text = SecretRedactor.shared.redact(text)
         guard text.contains("://") else { return text }
         let pattern = "://[^@/\\s]+@"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
