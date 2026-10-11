@@ -132,13 +132,15 @@ final class AppState {
     /// Clones `url` into `path` (with optional `~` expansion) and opens the
     /// resulting repository when it finishes. Fire-and-forget — observe
     /// `clone.cloneState` for progress; call `clone.cancel()` to abort.
-    func startClone(url: String, path: String, branch: String?) {
+    /// `accountId`: the account "My repos" listed the repo with; it signs
+    /// the clone and stays the repo's account.
+    func startClone(url: String, path: String, branch: String?, accountId: UUID? = nil) {
         clone.start { [weak self] in
-            await self?.runClone(url: url, path: path, branch: branch)
+            await self?.runClone(url: url, path: path, branch: branch, accountId: accountId)
         }
     }
 
-    private func runClone(url: String, path: String, branch: String?) async {
+    private func runClone(url: String, path: String, branch: String?, accountId: UUID?) async {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
@@ -152,6 +154,7 @@ final class AppState {
             return
         }
 
+        var pin = CloneAccountPin.pin(accountId, destination: destination, in: accounts)
         clone.cloneState = .running(stage: "Connecting…", percent: 0)
         defer { clone.cloneState = .idle }
 
@@ -172,10 +175,12 @@ final class AppState {
                 }
             )
         } catch is CancellationError {
+            pin?.undo()
             Self.cleanupPartialClone(at: destination)
             ui.activeToast = ToastMessage(message: "Clone cancelled", kind: .info)
             return
         } catch {
+            pin?.undo()
             Self.cleanupPartialClone(at: destination)
             ui.presentedError = PresentedError(error: error, title: "Clone failed")
             return
@@ -187,6 +192,9 @@ final class AppState {
         // during `openRepository`.
         do {
             try await openRepository(at: destination)
+            if let opened = catalog.activeRepository?.url.path(percentEncoded: false) {
+                pin?.move(to: opened)
+            }
             ui.workspaceSection = .history
             ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
         } catch {
