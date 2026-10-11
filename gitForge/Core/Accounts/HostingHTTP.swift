@@ -33,10 +33,10 @@ nonisolated struct HostingHTTP: Sendable {
         }
     }
 
-    /// GET with the token as a bearer; non-2xx statuses throw.
-    func get(_ url: URL, token: String) async throws -> (Data, HTTPURLResponse) {
+    /// GET, with the token as a bearer when there is one; non-2xx throw.
+    func get(_ url: URL, token: String?) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("gitForge", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await send(request)
