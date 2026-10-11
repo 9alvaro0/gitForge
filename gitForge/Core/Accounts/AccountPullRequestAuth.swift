@@ -14,30 +14,34 @@ nonisolated enum PullRequestAuthResult: Equatable, Sendable {
 
 /// The token Pull requests uses for a repo: its hosting account (the same
 /// rule as git signing: usable accounts only), refreshed when needed; else
-/// the old per-host token (until phase 5b retires it); else "connect".
+/// "connect".
 @MainActor
 final class AccountPullRequestAuth {
     private let store: AccountStore
     private let refresher: TokenRefresher
     private let activeProfileId: @Sendable (String) async -> UUID?
     private let chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)?
-    private let legacyToken: @MainActor (String) -> String?
 
     init(store: AccountStore, refresher: TokenRefresher,
          activeProfileId: @escaping @Sendable (String) async -> UUID? = { _ in nil },
-         chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil,
-         legacyToken: @escaping @MainActor (String) -> String? = { RemoteCredentialsStore.shared.token(for: $0) }) {
+         chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil) {
         self.store = store
         self.refresher = refresher
         self.activeProfileId = activeProfileId
         self.chooseAccount = chooseAccount
-        self.legacyToken = legacyToken
     }
 
-    /// The repo's `origin`, recognising declared instances first.
+    /// The repo's `origin`, recognised against the declared instances.
     func remoteHost(_ cli: GitCLI) async -> RemoteHost? {
         guard let url = await cli.remoteURL("origin") else { return nil }
         return RemoteHost.parse(url, instances: store.instances)
+    }
+
+    /// The repo's `origin` host when it isn't declared but looks like
+    /// GitHub or GitLab: offered as an instance to add (spec §4.1).
+    func suggestedInstance(_ cli: GitCLI) async -> InstanceSuggestion? {
+        guard let url = await cli.remoteURL("origin") else { return nil }
+        return RemoteHost.suggestedInstance(forRemoteURL: url, instances: store.instances)
     }
 
     /// `rejected`: the token that just got a 401, to refresh once.
@@ -45,21 +49,26 @@ final class AccountPullRequestAuth {
                 rejected: String? = nil) async -> PullRequestAuthResult {
         let instance = store.instance(forHost: host.host)
         let profile = await activeProfileId(repoPath)
+        // The API has no "system" credential: a remote set to the system's
+        // for git still uses the account the automatic rules pick here.
+        let manual = store.choice(repoPath: repoPath, remoteName: remoteName)
+        var assignments = store.assignments
+        if manual == .system { assignments[repoPath]?[remoteName] = nil }
         var resolution = AccountResolver.resolve(remoteHost: host.host, remoteOwner: host.owner, repoPath: repoPath,
                                                  remoteName: remoteName, activeProfileId: profile,
                                                  instances: store.instances,
                                                  accounts: store.accounts.filter(AccountGitCredentials.signs),
-                                                 assignments: store.assignments)
+                                                 assignments: assignments)
         if case .ambiguous(let candidates) = resolution {
-            guard let chooseAccount else { return fallback(host, instanceId: instance?.id, rejected: rejected) }
+            guard let chooseAccount else { return connect(instanceId: instance?.id) }
             let remote = AmbiguousRemote(repoPath: repoPath, remoteName: remoteName, host: host.host,
                                          ownerRepo: host.slug, candidates: candidates)
             guard let choice = await chooseAccount(remote) else { return .cancelled }
-            store.setChoice(choice, repoPath: repoPath, remoteName: remoteName)
+            if manual != .system { store.setChoice(choice, repoPath: repoPath, remoteName: remoteName) }
             resolution = choice.accountId.flatMap { id in candidates.first { $0.id == id } }.map(AccountResolution.account) ?? .none
         }
         guard case .account(let account) = resolution, let instance else {
-            return fallback(host, instanceId: instance?.id, rejected: rejected)
+            return connect(instanceId: instance?.id)
         }
         do {
             if let rejected {
@@ -76,15 +85,13 @@ final class AccountPullRequestAuth {
             // happened instead of asking to connect again.
             return .failed(error.localizedDescription)
         } catch {
-            return fallback(host, instanceId: instance.id, rejected: rejected)
+            return connect(instanceId: instance.id)
         }
     }
 
-    /// The old per-host token, unless it's the one just rejected. Without
-    /// one, connect — reconnecting the instance's only failing account (e.g.
-    /// a copied token that was rejected) rather than adding another.
-    private func fallback(_ host: RemoteHost, instanceId: UUID?, rejected: String?) -> PullRequestAuthResult {
-        if let legacy = legacyToken(host.host), legacy != rejected { return .token(legacy) }
+    /// Connect an account on the instance — reconnecting its only failing
+    /// account (e.g. a copied token that was rejected) rather than adding another.
+    private func connect(instanceId: UUID?) -> PullRequestAuthResult {
         let failing = instanceId.map { id in store.accounts(in: id).filter { !AccountGitCredentials.signs($0) } } ?? []
         return .connectAccount(instanceId: instanceId, replacing: failing.count == 1 ? failing[0].id : nil)
     }
