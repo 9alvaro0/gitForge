@@ -6,3 +6,4 @@
 | 1 | ver git log | error de compilación (`write` aislado al main actor) → verde | Excepción TDD: el log del JSON ilegible no es observable. Ruling: la extensión `RemoteCredentialsStore: LegacyTokenSource` también se marca `nonisolated` (sus miembros tomaban el aislamiento por defecto). |
 | 2 | ver git log | error de compilación (`OAuthResponse`, `HostingHTTP` no existen) → 19/19 | — |
 | 3 | ver git log | error de compilación (`OAuthClientIDs`) → verde | — |
+| 4 | ver git log | error de compilación (`DeviceFlowPoller`) → 6/6 | — |
