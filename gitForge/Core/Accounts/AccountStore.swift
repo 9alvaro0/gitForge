@@ -21,12 +21,12 @@ nonisolated enum AccountStoreError: LocalizedError, Equatable {
 @MainActor
 final class AccountStore {
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "accounts")
-    private static let schemaVersion = 1
+    private static let schemaVersion = 2
 
     private(set) var instances: [HostingInstance] = HostingInstance.builtIns
     private(set) var accounts: [HostingAccount] = []
     /// repo path → remote name → account id.
-    private(set) var assignments: [String: [String: UUID]] = [:]
+    private(set) var assignments: [String: [String: RepoAccountChoice]] = [:]
     /// Old store host → the account its token was copied into.
     var legacyHostAccounts: [String: UUID] = [:]
     /// Set once a sync read and copied every old host token without error.
@@ -48,11 +48,23 @@ final class AccountStore {
         let version: Int
         let instances: [HostingInstance]
         let accounts: [HostingAccount]
-        let assignments: [String: [String: UUID]]
+        let assignments: [String: [String: RepoAccountChoice]]
         let migratedLegacyTokens: Bool
         /// Optional: absent in files written before the sync existed.
         let legacyHostAccounts: [String: UUID]?
         /// Optional: absent in files written before phase 2.
+        let detachedLegacyHosts: [String]?
+    }
+
+    private struct VersionProbe: Decodable { let version: Int }
+
+    /// The file before phase 4: assignments were bare account ids.
+    private struct StoredV1: Decodable {
+        let instances: [HostingInstance]
+        let accounts: [HostingAccount]
+        let assignments: [String: [String: UUID]]
+        let migratedLegacyTokens: Bool
+        let legacyHostAccounts: [String: UUID]?
         let detachedLegacyHosts: [String]?
     }
 
@@ -118,7 +130,7 @@ final class AccountStore {
         detachedLegacyHosts.formUnion(legacyHostAccounts.filter { $0.value == id }.map(\.key))
         legacyHostAccounts = legacyHostAccounts.filter { $0.value != id }
         for (repo, remotes) in assignments {
-            let kept = remotes.filter { $0.value != id }
+            let kept = remotes.filter { $0.value != .account(id) }
             assignments[repo] = kept.isEmpty ? nil : kept
         }
         save()
@@ -139,16 +151,25 @@ final class AccountStore {
 
     // MARK: Repo assignments
 
-    func assignedAccountId(repoPath: String, remoteName: String) -> UUID? {
+    func choice(repoPath: String, remoteName: String) -> RepoAccountChoice? {
         assignments[repoPath]?[remoteName]
     }
 
-    /// `nil` clears the choice.
-    func assign(_ accountId: UUID?, repoPath: String, remoteName: String) {
+    func assignedAccountId(repoPath: String, remoteName: String) -> UUID? {
+        choice(repoPath: repoPath, remoteName: remoteName)?.accountId
+    }
+
+    /// `nil` clears the choice (back to automatic).
+    func setChoice(_ choice: RepoAccountChoice?, repoPath: String, remoteName: String) {
         var remotes = assignments[repoPath] ?? [:]
-        remotes[remoteName] = accountId
+        remotes[remoteName] = choice
         assignments[repoPath] = remotes.isEmpty ? nil : remotes
         save()
+    }
+
+    /// Shorthand for an account choice; `nil` clears it.
+    func assign(_ accountId: UUID?, repoPath: String, remoteName: String) {
+        setChoice(accountId.map(RepoAccountChoice.account), repoPath: repoPath, remoteName: remoteName)
     }
 
     // MARK: Persistence
@@ -156,11 +177,23 @@ final class AccountStore {
     private func load() {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
         do {
-            let stored = try JSONDecoder().decode(Stored.self, from: Data(contentsOf: fileURL))
-            guard stored.version <= Self.schemaVersion else {
-                Self.logger.error("accounts.json version \(stored.version, privacy: .public) is newer than supported")
+            let data = try Data(contentsOf: fileURL)
+            let version = try JSONDecoder().decode(VersionProbe.self, from: data).version
+            guard version <= Self.schemaVersion else {
+                Self.logger.error("accounts.json version \(version, privacy: .public) is newer than supported")
                 quarantine()
                 return
+            }
+            let stored: Stored
+            if version < 2 {
+                let old = try JSONDecoder().decode(StoredV1.self, from: data)
+                stored = Stored(version: Self.schemaVersion, instances: old.instances, accounts: old.accounts,
+                                assignments: old.assignments.mapValues { $0.mapValues(RepoAccountChoice.account) },
+                                migratedLegacyTokens: old.migratedLegacyTokens,
+                                legacyHostAccounts: old.legacyHostAccounts,
+                                detachedLegacyHosts: old.detachedLegacyHosts)
+            } else {
+                stored = try JSONDecoder().decode(Stored.self, from: data)
             }
             // Built-ins always come first and win over any stored copy.
             let builtInIds = Set(builtIns.map(\.id))
