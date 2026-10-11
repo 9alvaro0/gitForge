@@ -71,6 +71,28 @@ struct AccountValidatorTests {
         #expect(store.accounts[0].status == .needsAttention(.missingScopes))
     }
 
+    @Test("A read_api token keeps its login and scopes and needs attention for missing scopes")
+    func readOnlyToken() async throws {
+        let (store, _) = makeStore()
+        _ = try addCopied(store)
+        let client = FakeAuthClient(validate: { _ in TokenValidation(user: Self.user, scopes: ["read_api"], expiresAt: nil) })
+        await validator(store, client).validateDueAccounts()
+        #expect(store.accounts[0].login == "tanuki-test")
+        #expect(store.accounts[0].scopes == ["read_api"])
+        #expect(store.accounts[0].status == .needsAttention(.missingScopes))
+    }
+
+    @Test("A 403 that isn't about scopes, TLS or a 5xx leave the account as it was")
+    func untouchedByOtherFailures() async throws {
+        for failure in [HostingAuthError.server(403), .tls("bad"), .server(502)] {
+            let (store, _) = makeStore()
+            _ = try addCopied(store)
+            await validator(store, FakeAuthClient(validate: { _ in throw failure })).validateDueAccounts()
+            #expect(store.accounts[0].status == .unverified)
+            #expect(store.accounts[0].lastValidatedAt == nil)
+        }
+    }
+
     @Test("Offline: status and last check stay as they were")
     func offline() async throws {
         let (store, _) = makeStore()

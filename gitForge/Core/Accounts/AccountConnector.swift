@@ -30,22 +30,26 @@ final class AccountConnector {
     }
 
     /// A device flow ready to `start()`, or `nil` without a client id.
-    func deviceFlow(on instance: HostingInstance) -> DeviceFlowSession? {
+    /// `replacing`: the account being reconnected.
+    func deviceFlow(on instance: HostingInstance, replacing replacedId: UUID? = nil) -> DeviceFlowSession? {
         guard let clientId = instance.oauthClientId, !clientId.isEmpty else { return nil }
         return DeviceFlowSession(instance: instance, clientId: clientId, client: makeClient(instance),
-                                 store: store, clock: clock)
+                                 store: store, clock: clock, replacing: replacedId)
     }
 
     /// Validates `token` and saves it as a token account (or updates the
     /// account with the same login). Missing scopes throw `missingScopes`
     /// with the list, and nothing is saved.
-    func connect(token: String, on instance: HostingInstance) async throws -> TokenConnection {
+    func connect(token: String, on instance: HostingInstance, replacing replacedId: UUID? = nil) async throws -> TokenConnection {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw HostingAuthError.unauthorized }
         do {
             let validation = try await makeClient(instance).validate(token: trimmed, method: .personalToken)
+            let missing = validation.missingScopes(kind: instance.kind)
+            guard missing.isEmpty else { throw HostingAuthError.missingScopes(missing) }
             let account = try store.connectAccount(instanceId: instance.id, method: .personalToken, validation: validation,
-                                                   secret: AccountSecret(accessToken: trimmed), now: clock.now())
+                                                   secret: AccountSecret(accessToken: trimmed), now: clock.now(),
+                                                   replacing: replacedId)
             return TokenConnection(account: account, scopesVerified: validation.scopes != nil)
         } catch {
             throw HostingAuthError.wrapping(error)
@@ -78,10 +82,12 @@ final class DeviceFlowSession {
     @ObservationIgnored private let client: any HostingAuthClient
     @ObservationIgnored private let store: AccountStore
     @ObservationIgnored private let clock: DeviceFlowClock
+    @ObservationIgnored private let replacedId: UUID?
     @ObservationIgnored private var task: Task<Void, Never>?
 
     init(instance: HostingInstance, clientId: String, client: any HostingAuthClient,
-         store: AccountStore, clock: DeviceFlowClock) {
+         store: AccountStore, clock: DeviceFlowClock, replacing replacedId: UUID? = nil) {
+        self.replacedId = replacedId
         self.instance = instance
         self.clientId = clientId
         self.client = client
@@ -116,15 +122,16 @@ final class DeviceFlowSession {
             state = .finishing
             let validation = try await client.validate(token: grant.accessToken, method: .oauth)
             try Task.checkCancellation()
-            // GitLab doesn't report an OAuth token's scopes on /user: check
-            // what the grant says.
-            if validation.scopes == nil, let granted = grant.scopes {
-                let missing = HostingScopes.missing(granted, kind: instance.kind)
+            // GitLab doesn't report an OAuth token's scopes on /user: then
+            // check what the grant says.
+            if let scopes = validation.scopes ?? grant.scopes {
+                let missing = HostingScopes.missing(scopes, kind: instance.kind)
                 guard missing.isEmpty else { throw HostingAuthError.missingScopes(missing) }
             }
             let now = clock.now()
             let account = try store.connectAccount(instanceId: instance.id, method: .oauth, validation: validation,
-                                                   grantedScopes: grant.scopes, secret: grant.secret(now: now), now: now)
+                                                   grantedScopes: grant.scopes, secret: grant.secret(now: now), now: now,
+                                                   replacing: replacedId)
             state = .connected(account)
         } catch {
             // `cancel()` already set the state and released the task.

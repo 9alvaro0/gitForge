@@ -116,6 +116,12 @@ nonisolated struct TokenValidation: Equatable, Sendable {
     var scopes: [String]?
     /// When the token itself stops working (personal token expiry).
     var expiresAt: Date?
+
+    /// Required scopes the reported ones don't cover; empty when the server
+    /// doesn't report scopes.
+    func missingScopes(kind: HostingInstance.Kind) -> [String] {
+        scopes.map { HostingScopes.missing($0, kind: kind) } ?? []
+    }
 }
 
 /// Scopes gitForge needs (spec §5.1) and how to check a granted list.
@@ -212,8 +218,10 @@ nonisolated enum OAuthResponse {
     }
 
     /// A token refresh: any OAuth error, 400 or 401 means the refresh token
-    /// is no good; other failures (5xx) are worth retrying later.
+    /// is no good; a 5xx (even with an `error` body from a gateway) is worth
+    /// retrying later.
     static func refreshOutcome(_ data: Data, status: Int) throws -> TokenGrant {
+        if status >= 500 { throw HostingAuthError.server(status) }
         if errorCode(data) != nil || status == 400 || status == 401 { throw HostingAuthError.refreshRejected }
         try HostingHTTP.check(status)
         return try grant(data)
@@ -257,7 +265,9 @@ nonisolated protocol HostingAuthClient: Sendable {
     /// A new access token from a refresh token (GitLab OAuth).
     func refresh(clientId: String, refreshToken: String) async throws -> TokenGrant
     func fetchUser(token: String) async throws -> HostingUser
-    /// Checks a token: who it belongs to, its scopes and its expiry. Throws
-    /// `missingScopes` when it lacks a required scope.
+    /// Checks a token: who it belongs to, the scopes it reports and its
+    /// expiry. Missing scopes don't throw: callers decide with
+    /// `TokenValidation.missingScopes(kind:)`, so a token short of scopes
+    /// still records whose it is.
     func validate(token: String, method: HostingAccount.Method) async throws -> TokenValidation
 }

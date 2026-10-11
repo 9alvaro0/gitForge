@@ -2,16 +2,20 @@ import Foundation
 
 /// Writing sign-in and validation results back to the accounts.
 extension AccountStore {
-    /// Saves a connected account. If the instance already has one with the
-    /// same login (any case), that one is updated in place — its id, profile
-    /// link and repo assignments stay — and the old-token sync stops feeding
-    /// it. The secret is written first: if the Keychain refuses, nothing
-    /// changes.
+    /// Saves a connected account. The account updated in place — keeping its
+    /// id, profile link and repo assignments — is `replacedId` ("Reconnect",
+    /// which also covers copied accounts that never got a login) or else the
+    /// instance's account with the same login (any case); the old-token sync
+    /// stops feeding it. The secret is written first: if the Keychain
+    /// refuses, nothing changes. Callers check the scopes before saving.
     @discardableResult
     func connectAccount(instanceId: UUID, method: HostingAccount.Method, validation: TokenValidation,
-                        grantedScopes: [String]? = nil, secret: AccountSecret, now: Date) throws -> HostingAccount {
+                        grantedScopes: [String]? = nil, secret: AccountSecret, now: Date,
+                        replacing replacedId: UUID? = nil) throws -> HostingAccount {
         let login = validation.user.login
-        let existing = accounts.first { $0.instanceId == instanceId && $0.login?.lowercased() == login.lowercased() }
+        let replaced = replacedId.flatMap { id in accounts.first { $0.id == id && $0.instanceId == instanceId } }
+        let existing = replaced
+            ?? accounts.first { $0.instanceId == instanceId && $0.login?.lowercased() == login.lowercased() }
         var account = existing ?? HostingAccount(instanceId: instanceId, method: method)
         account.method = method
         account.login = login
@@ -31,9 +35,11 @@ extension AccountStore {
         return account
     }
 
-    /// Records a successful check. Scopes the server didn't report: an OAuth
+    /// Records a completed check. Scopes the server didn't report: an OAuth
     /// account keeps the ones it was granted; a token account has none
-    /// ("not verifiable").
+    /// ("not verifiable"). Reported scopes short of the required ones leave
+    /// the account `needsAttention(.missingScopes)`, with its identity and
+    /// scopes kept so the UI can say what's missing.
     func applyValidation(_ validation: TokenValidation, to accountId: UUID, now: Date) {
         guard var account = accounts.first(where: { $0.id == accountId }) else { return }
         account.login = validation.user.login
@@ -46,7 +52,12 @@ extension AccountStore {
         }
         account.expiresAt = validation.expiresAt
         account.lastValidatedAt = now
-        account.status = AccountStatusPolicy.status(expiresAt: validation.expiresAt, now: now)
+        let kind = instances.first { $0.id == account.instanceId }?.kind
+        if let kind, !validation.missingScopes(kind: kind).isEmpty {
+            account.status = .needsAttention(.missingScopes)
+        } else {
+            account.status = AccountStatusPolicy.status(expiresAt: validation.expiresAt, now: now)
+        }
         updateAccount(account)
     }
 

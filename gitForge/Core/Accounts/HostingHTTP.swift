@@ -40,6 +40,7 @@ nonisolated struct HostingHTTP: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("gitForge", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await send(request)
+        if response.statusCode == 403, Self.isInsufficientScope(data, response) { throw HostingAuthError.forbidden }
         try Self.check(response.statusCode)
         return (data, response)
     }
@@ -60,9 +61,17 @@ nonisolated struct HostingHTTP: Sendable {
         switch status {
         case 200..<300: return
         case 401: throw HostingAuthError.unauthorized
-        case 403: throw HostingAuthError.forbidden
+        // A bare 403 says nothing about the token: a WAF, a load balancer off
+        // VPN or GitHub's rate limit answer it too. Only GitLab's
+        // `insufficient_scope` (see `get`) becomes `.forbidden`.
         default: throw HostingAuthError.server(status)
         }
+    }
+
+    /// GitLab's answer for a token whose scopes don't allow the call.
+    static func isInsufficientScope(_ data: Data, _ response: HTTPURLResponse) -> Bool {
+        if response.value(forHTTPHeaderField: "WWW-Authenticate")?.contains("insufficient_scope") == true { return true }
+        return OAuthResponse.errorCode(data) == "insufficient_scope"
     }
 
     static func formEncode(_ fields: [(String, String)]) -> String {

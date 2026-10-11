@@ -57,12 +57,32 @@ struct AccountConnectorTests {
     func refusesMissingScopes() async {
         let store = makeStore()
         let connector = AccountConnector(store: store, makeClient: { _ in
-            FakeAuthClient(validate: { _ in throw HostingAuthError.missingScopes(["workflow"]) })
+            FakeAuthClient(instance: .gitHubDotCom,
+                           validate: { _ in TokenValidation(user: Self.user, scopes: ["repo", "read:org"], expiresAt: nil) })
         })
         await #expect(throws: HostingAuthError.missingScopes(["workflow"])) {
             try await connector.connect(token: "test-token", on: .gitHubDotCom)
         }
         #expect(store.accounts.isEmpty)
+    }
+
+    @Test("Reconnecting a copied account that has no login updates it instead of adding another")
+    func reconnectReplaces() async throws {
+        let secrets = InMemoryAccountSecretStore()
+        let store = makeStore(secrets)
+        let copied = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, method: .personalToken,
+                                    status: .needsAttention(.revoked))
+        try store.addAccount(copied, secret: AccountSecret(accessToken: "dead"))
+        let connector = AccountConnector(store: store, makeClient: { _ in
+            FakeAuthClient(instance: .gitHubDotCom,
+                           validate: { _ in TokenValidation(user: Self.user, scopes: ["repo", "read:org", "workflow"], expiresAt: nil) })
+        })
+        let result = try await connector.connect(token: "test-token", on: .gitHubDotCom, replacing: copied.id)
+        #expect(result.account.id == copied.id)
+        #expect(store.accounts.count == 1)
+        #expect(store.accounts[0].login == "octo-test")
+        #expect(store.accounts[0].status == .ok)
+        #expect(secrets.read(copied.id)?.accessToken == "test-token")
     }
 
     @Test("A fine-grained token is saved with scopes not verifiable")

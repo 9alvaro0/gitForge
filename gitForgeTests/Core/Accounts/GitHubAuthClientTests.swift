@@ -66,20 +66,21 @@ struct GitHubAuthClientTests {
         #expect(validation.user.login == "octo-test")
     }
 
-    @Test("A token without workflow is refused, naming the scope")
-    func missingWorkflow() async {
+    @Test("A token without workflow comes back with its user and the scopes it has")
+    func missingWorkflow() async throws {
         server.on("GET", "/api/v3/user", headers: ["X-OAuth-Scopes": "repo, read:org"], fixture: "github-user")
-        await #expect(throws: HostingAuthError.missingScopes(["workflow"])) {
-            try await client.validate(token: "test-token", method: .personalToken)
-        }
+        let validation = try await client.validate(token: "test-token", method: .personalToken)
+        #expect(validation.user.login == "octo-test")
+        #expect(validation.scopes == ["repo", "read:org"])
+        #expect(validation.missingScopes(kind: .github) == ["workflow"])
     }
 
     @Test("An empty scopes header is a token with no scopes, not a fine-grained one")
-    func emptyScopesHeader() async {
+    func emptyScopesHeader() async throws {
         server.on("GET", "/api/v3/user", headers: ["X-OAuth-Scopes": ""], fixture: "github-user")
-        await #expect(throws: HostingAuthError.missingScopes(["repo", "read:org", "workflow"])) {
-            try await client.validate(token: "test-token", method: .personalToken)
-        }
+        let validation = try await client.validate(token: "test-token", method: .personalToken)
+        #expect(validation.scopes == [])
+        #expect(validation.missingScopes(kind: .github) == ["repo", "read:org", "workflow"])
     }
 
     @Test("The token's expiry comes from github-authentication-token-expiration")

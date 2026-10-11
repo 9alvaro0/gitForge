@@ -15,3 +15,17 @@
 | 10 | ver git log | error de compilación (`AccountConnector`) → 10/10, ×3 iteraciones 30/30 | — |
 | 11 | ver git log | suite completa 750/750 | Integración en `AppState`; sin test propio (es cableado), cubierto por la suite y la comprobación manual. |
 | 11 (manual) | ver git log | — | Arranque real: gitlab.com → `needsAttention(revoked)` (401); gitlab.example.com → `needsAttention(missingScopes)`. Coherente con la UI antigua, que pedía tokens `read_api`. Mismo resultado en 3 arranques; `accounts.json` sin tokens. No hay acceso a `log show/stream` (exige admin). Ruling: el validador registra (notice) también los fallos que marcan la cuenta, para poder diagnosticarlos; sin test, solo es log. |
+
+## Revisión final (subagente Opus)
+
+Sin críticos. Arreglados en una pasada, cada uno con test en rojo primero; suite 758/758 y build limpio sin warnings:
+
+| Hallazgo | Tests rojo → verde |
+|---|---|
+| I1. `missingScopes` perdía el login y los scopes concedidos. `validate` ya no lanza por scopes: devuelve lo que informa el servidor y deciden el conector (rechaza) y el validador (guarda identidad y scopes, y marca `needsAttention(.missingScopes)`). | `GitHubAuthClientTests.missingWorkflow`, `.emptyScopesHeader`, `GitLabAuthClientTests.readOnly`, `AccountConnectionStoreTests.validationMissingScopes`, `AccountValidatorTests.readOnlyToken`, `AccountConnectorTests.refusesMissingScopes` |
+| I2. Reconectar una cuenta copiada sin login creaba un duplicado. Nuevo `replacing:` en `connectAccount`, `AccountConnector.connect` y `deviceFlow`. | `AccountConnectionStoreTests.reconnectByIdDetaches`, `AccountConnectorTests.reconnectReplaces` |
+| I3. Borrar una cuenta copiada la recreaba en el siguiente arranque. `removeAccount` desengancha su host. | `AccountConnectionStoreTests.removeDetachesLegacy` |
+| I4. Cualquier 403 contaba como falta de scopes. Solo el `insufficient_scope` de GitLab es `.forbidden`; el resto es `.server(403)` y no toca la cuenta. Corrige el Ruling 4 del plan. | `GitLabAuthClientTests.forbiddenKinds`, `HostingAuthModelTests.statuses` (+ `selfForbidden`, `AccountValidatorTests.untouchedByOtherFailures` de guarda) |
+| Menor 5, subido a importante: un 5xx con cuerpo `error` se tomaba como refresh rechazado y marcaba la cuenta `.expired`. | `HostingAuthModelTests.refreshBodies` |
+
+Menores pendientes: ver el resumen del PR.
