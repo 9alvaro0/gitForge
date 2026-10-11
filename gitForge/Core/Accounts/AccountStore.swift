@@ -103,6 +103,15 @@ final class AccountStore {
         save()
     }
 
+    /// "OAuth client ID…" of a self-hosted instance; blank clears it.
+    /// Built-ins keep the ids this build ships.
+    func setOAuthClientId(_ clientId: String?, forInstance instanceId: UUID) {
+        guard let index = instances.firstIndex(where: { $0.id == instanceId }), !instances[index].isBuiltIn else { return }
+        let trimmed = clientId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        instances[index].oauthClientId = trimmed.isEmpty ? nil : trimmed
+        save()
+    }
+
     // MARK: Accounts
 
     func accounts(in instanceId: UUID) -> [HostingAccount] {
