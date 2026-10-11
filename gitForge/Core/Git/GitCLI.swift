@@ -30,14 +30,18 @@ actor GitCLI {
 
     let workingDirectory: URL
     private let executablePath: String
+    /// Signs network commands with the repo's hosting account; `nil` = git
+    /// uses the system's credential helpers.
+    nonisolated let credentials: GitCredentialProvider?
 
-    init(workingDirectory: URL, executablePath: String = "/usr/bin/env") {
+    init(workingDirectory: URL, executablePath: String = "/usr/bin/env", credentials: GitCredentialProvider? = nil) {
         self.workingDirectory = workingDirectory
         self.executablePath = executablePath
+        self.credentials = credentials
     }
 
     @discardableResult
-    func run(_ args: [String]) async throws -> GitResult {
+    func run(_ args: [String], credential: GitCredential? = nil) async throws -> GitResult {
         let workingDirectoryPath = workingDirectory.path(percentEncoded: false)
         guard FileManager.default.fileExists(atPath: workingDirectoryPath) else {
             throw GitError.invalidWorkingDirectory(workingDirectory)
@@ -45,7 +49,9 @@ actor GitCLI {
 
         let process = GitProcess.make(arguments: args,
                                       workingDirectory: workingDirectory,
-                                      executablePath: executablePath)
+                                      executablePath: executablePath,
+                                      credential: credential)
+        if let credential { SecretRedactor.shared.register(credential.password) }
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
@@ -148,8 +154,10 @@ actor GitCLI {
     /// credentials don't survive into Console logs or sysdiagnose. Leaves the
     /// SCP form (`user@host:path`) alone — SSH doesn't carry credentials in
     /// the URL and the username there is part of what the operator is
-    /// debugging.
+    /// debugging. Account tokens registered with `SecretRedactor` are
+    /// blanked too.
     static func redacted(_ text: String) -> String {
+        let text = SecretRedactor.shared.redact(text)
         guard text.contains("://") else { return text }
         let pattern = "://[^@/\\s]+@"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }

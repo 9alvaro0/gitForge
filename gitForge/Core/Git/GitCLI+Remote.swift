@@ -1,22 +1,66 @@
 import Foundation
 
 extension GitCLI {
+    /// `fetch --all --prune`. With accounts, one run when a single account
+    /// signs and every other remote on its host resolves to it too. A run
+    /// carries one credential, scoped to a host (spec §6), so otherwise the
+    /// remotes are fetched one by one: a same-host remote without that
+    /// account keeps the system's helper.
     func fetchAll() async throws {
-        try await run(["fetch", "--all", "--prune"])
+        guard let credentials else {
+            try await run(["fetch", "--all", "--prune"])
+            return
+        }
+        let repoPath = workingDirectory.path(percentEncoded: false)
+        var signers: [(remote: String, url: String?, account: UUID?)] = []
+        for remote in await remoteNames() {
+            let url = await remoteURL(remote)
+            var account: UUID?
+            if let url {
+                account = await credentials.accountId(remoteURL: url, remoteName: remote, repoPath: repoPath)
+            }
+            signers.append((remote, url, account))
+        }
+        let accounts = Set(signers.compactMap(\.account))
+        if accounts.isEmpty {
+            try await run(["fetch", "--all", "--prune"])
+            return
+        }
+        if accounts.count == 1, let signed = signers.first(where: { $0.account != nil }) {
+            let host = GitCredentialInjection.urlContext(signed.url ?? "")
+            let sharesHost = signers.filter { GitCredentialInjection.urlContext($0.url ?? "") == host }
+            if sharesHost.allSatisfy({ $0.account == signed.account }) {
+                try await runNetwork(["fetch", "--all", "--prune"], remote: signed.remote)
+                return
+            }
+        }
+        // Like `fetch --all`: keep going after a failing remote and report
+        // the first failure at the end — but stop at once when cancelled.
+        var firstFailure: Error?
+        for signer in signers {
+            do {
+                try await runNetwork(["fetch", "--prune", Self.endOfOptions, signer.remote], remote: signer.remote)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if firstFailure == nil { firstFailure = error }
+            }
+        }
+        if let firstFailure { throw firstFailure }
     }
 
     /// Fetches a single remote — used as the implicit refresh before a
     /// `--force-with-lease` push so the lease compares against a fresh
     /// remote-tracking ref instead of a stale one.
     func fetch(remote: String) async throws {
-        try await run(["fetch", Self.endOfOptions, remote])
+        try await runNetwork(["fetch", Self.endOfOptions, remote], remote: remote)
     }
 
     func pull(rebase: Bool = false, ffOnly: Bool = false) async throws {
         var args: [String] = ["pull"]
         if rebase { args.append("--rebase") }
         if ffOnly { args.append("--ff-only") }
-        try await run(args)
+        try await runNetwork(args, remote: credentials == nil ? "origin" : await pullRemote())
     }
 
     func push(setUpstream: Bool,
@@ -37,7 +81,7 @@ extension GitCLI {
             args.append(remote)
             args.append(branch)
         }
-        try await run(args)
+        try await runNetwork(args, remote: remote)
     }
 
     func upstreamName() async -> String? {
@@ -74,6 +118,38 @@ extension GitCLI {
         }
         return (ahead, behind)
     }
+
+    // MARK: Signing network commands
+
+    func remoteNames() async -> [String] {
+        guard let result = try? await run(["remote"]) else { return [] }
+        return result.stdout.split(separator: "\n").map(String.init)
+    }
+
+    /// The URL git talks to for `remote`; `nil` when there's no such remote.
+    func remoteURL(_ remote: String) async -> String? {
+        guard let result = try? await run(["remote", "get-url", Self.endOfOptions, remote]) else { return nil }
+        let url = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return url.isEmpty ? nil : url
+    }
+
+    /// The remote a bare `git pull` talks to: the current branch's
+    /// `branch.<name>.remote`, else `origin`.
+    func pullRemote() async -> String {
+        guard let branch = await currentBranchName() else { return "origin" }
+        return await upstreamRemoteName(forBranch: branch) ?? "origin"
+    }
+
+    /// Runs a network command against `remote` with its account's credential
+    /// when there is one; otherwise exactly like `run`.
+    @discardableResult
+    func runNetwork(_ args: [String], remote: String) async throws -> GitResult {
+        guard let credentials, let url = await remoteURL(remote) else { return try await run(args) }
+        let repoPath = workingDirectory.path(percentEncoded: false)
+        return try await credentials.withCredential(remoteURL: url, remoteName: remote, repoPath: repoPath) { credential in
+            try await self.run(args, credential: credential)
+        }
+    }
 }
 
 nonisolated enum RemoteFailure: Sendable, Equatable {
@@ -81,6 +157,12 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
     case authenticationHTTPS
     /// SSH auth — key not in agent, locked, or wrong key for the host.
     case authenticationSSH
+    /// The server refused the credential of the repo's hosting account
+    /// (gitForge's own, not the system helper's).
+    case accountRejected(account: String, host: String)
+    /// The account's token lacks a scope the operation needs (GitHub wants
+    /// `workflow` to change files under `.github/workflows`).
+    case missingScope(String)
     case nonFastForward
     case divergentBranches
     case conflict
@@ -105,7 +187,9 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         let lower = stderr.lowercased()
         // SSL/TLS issues before generic auth — git phrases them as access
         // failures but the cause and remediation are very different.
-        if lower.contains("ssl certificate problem")
+        if let scope = Self.missingScope(in: lower) {
+            self = .missingScope(scope)
+        } else if lower.contains("ssl certificate problem")
             || lower.contains("server certificate verification failed")
             || lower.contains("ssl_error")
             || lower.contains("certificate verify failed") {
@@ -174,14 +258,26 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
                     || lower.contains("no tracking information") {
             self = .noUpstream
         } else {
-            self = .other(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            // Shown in a toast: blank any account token a hook or server echoed.
+            self = .other(GitCLI.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines)))
         }
+    }
+
+    /// GitHub's "… without `workflow` scope" (OAuth App or personal token).
+    private static func missingScope(in lower: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: "without [`'\"]?([a-z_:]+)[`'\"]? scope") else { return nil }
+        let range = NSRange(lower.startIndex..., in: lower)
+        guard let match = regex.firstMatch(in: lower, range: range),
+              let scope = Range(match.range(at: 1), in: lower) else { return nil }
+        return String(lower[scope])
     }
 
     var title: String {
         switch self {
         case .authenticationHTTPS: "HTTPS authentication failed"
         case .authenticationSSH:   "SSH authentication failed"
+        case .accountRejected:     "Account rejected"
+        case .missingScope:        "Missing permission"
         case .nonFastForward:      "Push rejected"
         case .divergentBranches:   "Pull rejected"
         case .conflict:            "Merge conflict"
@@ -199,6 +295,10 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         switch self {
         case .authenticationHTTPS:
             "Your token or credential helper rejected the request. Refresh the token (or sign in again) and retry. If a stale credential is cached, `git credential-osxkeychain erase` clears it."
+        case .accountRejected(let account, let host):
+            "\(host) rejected the \(account) account gitForge used for this remote. Reconnect it in Settings › Accounts."
+        case .missingScope(let scope):
+            "The account's token lacks the `\(scope)` scope this operation needs. Reconnect the account to grant it."
         case .authenticationSSH:
             "The host refused your SSH key. Run `ssh-add -l` to confirm it's loaded, or `ssh -T git@<host>` to test it. If the key has a passphrase, the agent needs it unlocked before the app can use it."
         case .nonFastForward:
@@ -228,10 +328,20 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
     var toastMessage: String { "\(title) — \(message)" }
 }
 
-extension RemoteFailure {
+nonisolated extension RemoteFailure {
     static func from(_ error: Error) -> RemoteFailure {
         if let gitError = error as? GitError, case .commandFailed(_, _, let stderr) = gitError {
             return RemoteFailure(stderr: stderr)
+        }
+        if case .rejected(let account, let host)? = error as? GitAccountError {
+            return .accountRejected(account: account, host: host)
+        }
+        if let authError = error as? HostingAuthError {
+            switch authError {
+            case .network: return .network
+            case .tls: return .sslCertificate
+            default: return .other(authError.localizedDescription)
+            }
         }
         return .other(error.localizedDescription)
     }

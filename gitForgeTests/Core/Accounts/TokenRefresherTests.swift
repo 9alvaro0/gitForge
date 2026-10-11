@@ -125,6 +125,33 @@ struct TokenRefresherTests {
         #expect(offline.values.isEmpty)
     }
 
+    @Test("A caller's own rejection (git's 401) refreshes once and retries")
+    func customRejection() async throws {
+        struct GitRefused: Error {}
+        let (refresher, _, client) = setup(expiresIn: 3600)
+        let used = LockedList<String>()
+        let result = try await refresher.perform(for: account, on: Self.instance, retryingWhen: { $0 is GitRefused }) { token in
+            used.append(token)
+            if token == "access-1" { throw GitRefused() }
+            return token
+        }
+        #expect(result == "access-2")
+        #expect(used.values == ["access-1", "access-2"])
+        #expect(client.refreshCalls == ["refresh-1"])
+    }
+
+    @Test("Without a refresh token the caller's own error comes back unchanged")
+    func rethrowsOriginal() async {
+        struct GitRefused: Error, Equatable {}
+        let (refresher, _, client) = setup(expiresIn: nil, refreshToken: nil)
+        await #expect(throws: GitRefused()) {
+            try await refresher.perform(for: self.account, on: Self.instance, retryingWhen: { $0 is GitRefused }) { _ -> String in
+                throw GitRefused()
+            }
+        }
+        #expect(client.refreshCalls.isEmpty)
+    }
+
     @Test("No secret in the Keychain: missingSecret")
     func missingSecret() async {
         let refresher = TokenRefresher(secrets: InMemoryAccountSecretStore(), makeClient: { _ in FakeAuthClient() }, now: { Self.now })
