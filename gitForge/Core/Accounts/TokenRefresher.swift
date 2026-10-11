@@ -41,15 +41,19 @@ actor TokenRefresher {
         return try await refresh(account.id, on: instance, replacing: secret.accessToken).accessToken
     }
 
-    /// Runs `operation` with the account's token. On a 401, an account that
-    /// can refresh does so once and retries; a second 401 is the caller's.
+    /// Runs `operation` with the account's token. When it fails with a
+    /// rejection (`isRejection`: a 401 from the API by default, git's own
+    /// for git), an account that can refresh does so once and retries; the
+    /// second failure, or the first one of an account that can't refresh,
+    /// goes back to the caller unchanged.
     func perform<T: Sendable>(for account: HostingAccount, on instance: HostingInstance,
+                              retryingWhen isRejection: @Sendable (any Error) -> Bool = { ($0 as? HostingAuthError) == .unauthorized },
                               _ operation: @Sendable (String) async throws -> T) async throws -> T {
         let token = try await accessToken(for: account, on: instance)
         do {
             return try await operation(token)
-        } catch HostingAuthError.unauthorized {
-            guard secrets.read(account.id)?.refreshToken != nil else { throw HostingAuthError.unauthorized }
+        } catch let error where isRejection(error) {
+            guard secrets.read(account.id)?.refreshToken != nil else { throw error }
             let fresh = try await refresh(account.id, on: instance, replacing: token)
             return try await operation(fresh.accessToken)
         }
