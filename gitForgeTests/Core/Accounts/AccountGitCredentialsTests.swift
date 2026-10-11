@@ -17,7 +17,8 @@ struct AccountGitCredentialsTests {
     }
 
     private func setup(refresh: @escaping @Sendable (String) async throws -> TokenGrant = { _ in throw HostingAuthError.refreshRejected },
-                       activeProfileId: @escaping @Sendable (String) async -> UUID? = { _ in nil }) -> Setup {
+                       activeProfileId: @escaping @Sendable (String) async -> UUID? = { _ in nil },
+                       chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil) -> Setup {
         let secrets = InMemoryAccountSecretStore()
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-gitcreds-\(UUID().uuidString)")
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: OAuthClientIDs(gitHub: nil, gitLab: "test-client"))
@@ -25,7 +26,8 @@ struct AccountGitCredentialsTests {
         let refresher = TokenRefresher(secrets: secrets, makeClient: { _ in client },
                                        onRefreshRejected: { id in await store.markNeedsAttention(id, .expired) })
         return Setup(store: store, secrets: secrets,
-                     provider: AccountGitCredentials(store: store, refresher: refresher, activeProfileId: activeProfileId))
+                     provider: AccountGitCredentials(store: store, refresher: refresher, activeProfileId: activeProfileId,
+                                                     chooseAccount: chooseAccount))
     }
 
     @discardableResult
@@ -49,7 +51,7 @@ struct AccountGitCredentialsTests {
         let account = try addAccount(s.store)
         #expect(try await credential(s.provider) == GitCredential(context: "https://gitlab.com", username: "oauth2",
                                                                   password: "test-pat-value", accountId: account.id))
-        #expect(await s.provider.accountId(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") == account.id)
+        #expect(await s.provider.signer(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") == .account(account.id))
     }
 
     @Test("GitHub signs as x-access-token")
@@ -65,7 +67,7 @@ struct AccountGitCredentialsTests {
         let s = setup()
         try addAccount(s.store)
         #expect(try await credential(s.provider, remote: remote) == nil)
-        #expect(await s.provider.accountId(remoteURL: remote, remoteName: "origin", repoPath: "/r/app") == nil)
+        #expect(await s.provider.signer(remoteURL: remote, remoteName: "origin", repoPath: "/r/app") == GitSigner.none)
     }
 
     @Test("Accounts that aren't ok sign nothing, so the system helper keeps working",
@@ -74,7 +76,7 @@ struct AccountGitCredentialsTests {
         let s = setup()
         try addAccount(s.store, status: status)
         #expect(try await credential(s.provider) == nil)
-        #expect(await s.provider.accountId(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") == nil)
+        #expect(await s.provider.signer(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") == GitSigner.none)
     }
 
     @Test("expiringSoon still signs")
@@ -175,6 +177,68 @@ struct AccountGitCredentialsTests {
             }
         }
         #expect(s.store.accounts[0].status == .ok)
+    }
+
+    @Test("Ambiguous, interactive: asks, uses the chosen account and remembers it")
+    func ambiguousAsks() async throws {
+        let asked = LockedList<AmbiguousRemote>()
+        let chosenBox = LockedList<UUID>()
+        let s = setup(chooseAccount: { remote in
+            asked.append(remote)
+            return chosenBox.values.first.map(RepoAccountChoice.account)
+        })
+        try addAccount(s.store, login: "first")
+        let second = try addAccount(s.store, login: "second", secret: AccountSecret(accessToken: "test-second-value"))
+        chosenBox.append(second.id)
+        #expect(await s.provider.signer(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") == .needsChoice)
+        let credential = try await credential(s.provider)
+        #expect(credential?.password == "test-second-value")
+        #expect(asked.values.map(\.ownerRepo) == ["group/app"])
+        #expect(asked.values.first?.candidates.count == 2)
+        #expect(s.store.choice(repoPath: "/r/app", remoteName: "origin") == .account(second.id))
+    }
+
+    @Test("Ambiguous in the background: never asks, system helper")
+    func ambiguousBackground() async throws {
+        let asked = LockedList<AmbiguousRemote>()
+        let s = setup(chooseAccount: { remote in asked.append(remote); return .system })
+        try addAccount(s.store, login: "first")
+        try addAccount(s.store, login: "second")
+        let provider = s.provider
+        let (signer, signed) = try await GitNetworkContext.$isBackground.withValue(true) {
+            (await provider.signer(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app"),
+             try await provider.withCredential(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") { $0 })
+        }
+        #expect(signer == GitSigner.none)
+        #expect(signed == nil)
+        #expect(asked.values.isEmpty)
+    }
+
+    @Test("Cancel in the sheet cancels the operation; system credentials run without a token")
+    func cancelAndSystem() async throws {
+        let cancelling = setup(chooseAccount: { _ in nil })
+        try addAccount(cancelling.store, login: "first")
+        try addAccount(cancelling.store, login: "second")
+        await #expect(throws: CancellationError.self) { try await credential(cancelling.provider) }
+
+        let system = setup(chooseAccount: { _ in .system })
+        try addAccount(system.store, login: "first")
+        try addAccount(system.store, login: "second")
+        #expect(try await credential(system.provider) == nil)
+        #expect(system.store.choice(repoPath: "/r/app", remoteName: "origin") == .system)
+    }
+
+    @Test("A failing copied account neither makes a good one ambiguous nor wins by profile link or choice")
+    func usableAccountsOnly() async throws {
+        let profile = UUID()
+        let asked = LockedList<AmbiguousRemote>()
+        let s = setup(activeProfileId: { _ in profile }, chooseAccount: { remote in asked.append(remote); return nil })
+        let old = try addAccount(s.store, login: "old-copy", status: .needsAttention(.revoked), linkedProfileId: profile)
+        try addAccount(s.store, login: "tanuki-ok", secret: AccountSecret(accessToken: "test-good-value"))
+        #expect(try await credential(s.provider)?.password == "test-good-value")
+        s.store.setChoice(.account(old.id), repoPath: "/r/app", remoteName: "origin")
+        #expect(try await credential(s.provider)?.password == "test-good-value")
+        #expect(asked.values.isEmpty)
     }
 
     @Test("The token missing from the Keychain: git falls back to the system")

@@ -36,7 +36,15 @@ struct ShellView: View {
         }
         .overlay(alignment: .bottom) {
             if let toast = appState.ui.activeToast {
-                ToastView(toast: toast) { appState.ui.activeToast = nil }
+                ToastView(toast: toast, onDismiss: { appState.ui.activeToast = nil }, onAction: { action in
+                    appState.ui.activeToast = nil
+                    switch action.route {
+                    case .reconnectAccount(let instanceId, let accountId):
+                        appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: accountId)
+                    case .openAccounts:
+                        appState.ui.workspaceSection = .settings
+                    }
+                })
                     .padding(.bottom, Spacing.s16)
                     .transition(.opacity)
                     .task(id: toast.id) {
@@ -48,11 +56,32 @@ struct ShellView: View {
                     }
             }
         }
+        .sheet(item: Bindable(appState.ui).connectAccountRequest) { request in
+            ConnectAccountSheet(request: request)
+        }
+        .sheet(isPresented: Bindable(appState.ui).addInstanceVisible) {
+            AddInstanceSheet()
+        }
+        .sheet(item: Binding(get: { appState.accountChooser.request }, set: { _ in })) { request in
+            ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {
+                appState.accountChooser.answer($0, for: request.id)
+            }
+            // The sheet went away some other way: that's a Cancel (ignored
+            // if it was already answered).
+            .onDisappear { appState.accountChooser.answer(nil, for: request.id) }
+        }
         // Centralised error reporting for fetch/pull/push/tag pushes —
         // covers every entry point (menu, toolbar, command palette).
         .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
             guard let failure else { return }
-            appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error)
+            guard failure != .cancelled else {
+                appState.catalog.activeViewModel?.remoteFailure = nil
+                return
+            }
+            appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error,
+                                                   action: AccountToastAction.action(for: failure,
+                                                                                     instances: appState.accounts.instances,
+                                                                                     accounts: appState.accounts.accounts))
             appState.catalog.activeViewModel?.remoteFailure = nil
         }
     }

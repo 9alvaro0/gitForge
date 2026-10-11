@@ -19,15 +19,19 @@ nonisolated enum AccountResolver {
                         activeProfileId: UUID?,
                         instances: [HostingInstance],
                         accounts: [HostingAccount],
-                        assignments: [String: [String: UUID]]) -> AccountResolution {
+                        assignments: [String: [String: RepoAccountChoice]]) -> AccountResolution {
         guard let host = HostingInstance.normalizedHost(remoteHost),
               let instance = instances.first(where: { $0.host == host }) else { return .none }
         let candidates = accounts.filter { $0.instanceId == instance.id }
         guard !candidates.isEmpty else { return .none }
 
-        if let chosen = assignments[repoPath]?[remoteName],
-           let account = candidates.first(where: { $0.id == chosen }) {
-            return .account(account)
+        switch assignments[repoPath]?[remoteName] {
+        case .system?:
+            return .none
+        case .account(let chosen)?:
+            if let account = candidates.first(where: { $0.id == chosen }) { return .account(account) }
+        case nil:
+            break
         }
         if candidates.count == 1 { return .account(candidates[0]) }
         if let activeProfileId,

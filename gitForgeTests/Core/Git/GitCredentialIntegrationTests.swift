@@ -6,8 +6,8 @@ import Testing
 private struct StaticCredentials: GitCredentialProvider {
     let credential: GitCredential?
 
-    func accountId(remoteURL: String, remoteName: String, repoPath: String) async -> UUID? {
-        credential?.accountId
+    func signer(remoteURL: String, remoteName: String, repoPath: String) async -> GitSigner {
+        credential?.accountId.map(GitSigner.account) ?? .none
     }
 
     func withCredential<T: Sendable>(remoteURL: String, remoteName: String, repoPath: String,

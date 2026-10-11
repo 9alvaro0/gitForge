@@ -7,6 +7,7 @@ import AppKit
 struct SidebarHost: View {
     @Environment(AppState.self) private var appState
     @State private var pendingProfile: PendingProfileApply?
+    @State private var remotes: [GitRemoteURL] = []
 
     var body: some View {
         let identitySnapshot = resolveIdentity()
@@ -74,8 +75,13 @@ struct SidebarHost: View {
             },
             onManageProfiles: {
                 appState.ui.workspaceSection = .settings
-            }
+            },
+            hostingSections: hostingSections(identitySnapshot.activeProfileId),
+            onHostingEntry: handleHostingEntry
         )
+        .task(id: appState.catalog.activeRepository?.url) {
+            remotes = await appState.catalog.activeViewModel?.cli.remotesWithURLs() ?? []
+        }
         .confirmationDialog(
             pendingProfile.map { "Apply profile “\($0.profile.name)”?" } ?? "",
             isPresented: Binding(
@@ -96,6 +102,25 @@ struct SidebarHost: View {
             Button("Cancel", role: .cancel) {}
         } message: { pending in
             Text(pending.diff.message)
+        }
+    }
+
+    private func hostingSections(_ activeProfileId: GitProfile.ID?) -> [RepoAccountSection] {
+        guard let repo = appState.catalog.activeRepository else { return [] }
+        return RepoAccountMenuModel.sections(remotes: remotes, repoPath: repo.url.path(percentEncoded: false),
+                                             activeProfileId: activeProfileId,
+                                             instances: appState.accounts.instances, accounts: appState.accounts.accounts,
+                                             assignments: appState.accounts.assignments)
+    }
+
+    private func handleHostingEntry(_ section: RepoAccountSection, _ entry: RepoAccountSection.Entry) {
+        guard let repo = appState.catalog.activeRepository else { return }
+        let path = repo.url.path(percentEncoded: false)
+        switch entry {
+        case .automatic: appState.accounts.setChoice(nil, repoPath: path, remoteName: section.remote)
+        case .account(let id, _, _): appState.accounts.setChoice(.account(id), repoPath: path, remoteName: section.remote)
+        case .system: appState.accounts.setChoice(.system, repoPath: path, remoteName: section.remote)
+        case .connect(let instanceId): appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId)
         }
     }
 
