@@ -3,14 +3,15 @@ import Security
 import os
 
 /// Where account secrets live. The app uses the Keychain; tests use an
-/// in-memory store.
-protocol AccountSecretStore: Sendable {
+/// in-memory store. Nonisolated: the token refresher reads and writes
+/// secrets off the main actor.
+nonisolated protocol AccountSecretStore: Sendable {
     func read(_ id: UUID) -> AccountSecret?
     func write(_ secret: AccountSecret, for id: UUID) throws
     func delete(_ id: UUID)
 }
 
-enum AccountSecretStoreError: LocalizedError, Equatable {
+nonisolated enum AccountSecretStoreError: LocalizedError, Equatable {
     case keychain(OSStatus)
 
     var errorDescription: String? {
@@ -53,7 +54,12 @@ nonisolated struct KeychainAccountSecretStore: AccountSecretStore {
             }
             return nil
         }
-        return try? JSONDecoder().decode(AccountSecret.self, from: data)
+        do {
+            return try JSONDecoder().decode(AccountSecret.self, from: data)
+        } catch {
+            Self.logger.error("Keychain item for account \(id.uuidString, privacy: .public) isn't a readable secret: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     func write(_ secret: AccountSecret, for id: UUID) throws {

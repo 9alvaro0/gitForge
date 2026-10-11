@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import os
 
-enum AccountStoreError: LocalizedError, Equatable {
+nonisolated enum AccountStoreError: LocalizedError, Equatable {
     case duplicateHost(String)
     case unknownInstance
 
@@ -33,9 +33,16 @@ final class AccountStore {
     var migratedLegacyTokens = false {
         didSet { if oldValue != migratedLegacyTokens { save() } }
     }
+    /// Hosts whose old token no longer feeds an account: the user reconnected
+    /// it in gitForge, so the sync must not overwrite or re-create it.
+    private(set) var detachedLegacyHosts: Set<String> = []
 
     private let fileURL: URL
-    private let secrets: AccountSecretStore
+    /// Also used by the token refresher, off the main actor.
+    let secrets: AccountSecretStore
+    /// github.com and gitlab.com with this build's OAuth client ids. Never
+    /// persisted, so a new build's ids always win.
+    private let builtIns: [HostingInstance]
 
     private struct Stored: Codable {
         let version: Int
@@ -45,14 +52,19 @@ final class AccountStore {
         let migratedLegacyTokens: Bool
         /// Optional: absent in files written before the sync existed.
         let legacyHostAccounts: [String: UUID]?
+        /// Optional: absent in files written before phase 2.
+        let detachedLegacyHosts: [String]?
     }
 
-    init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore()) {
+    init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore(),
+         clientIds: OAuthClientIDs = .bundled) {
         let dir = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first!.appendingPathComponent("gitForge", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.fileURL = dir.appendingPathComponent("accounts.json")
         self.secrets = secrets
+        self.builtIns = HostingInstance.builtIns(clientIds: clientIds)
+        self.instances = builtIns
         load()
     }
 
@@ -102,6 +114,8 @@ final class AccountStore {
     func removeAccount(_ id: UUID) {
         secrets.delete(id)
         accounts.removeAll { $0.id == id }
+        // The old token mustn't bring a removed account back on next launch.
+        detachedLegacyHosts.formUnion(legacyHostAccounts.filter { $0.value == id }.map(\.key))
         legacyHostAccounts = legacyHostAccounts.filter { $0.value != id }
         for (repo, remotes) in assignments {
             let kept = remotes.filter { $0.value != id }
@@ -112,6 +126,15 @@ final class AccountStore {
 
     func secret(for accountId: UUID) -> AccountSecret? {
         secrets.read(accountId)
+    }
+
+    /// Stops the old-token sync for the hosts that fed `accountId`.
+    func detachFromLegacy(_ accountId: UUID) {
+        let hosts = legacyHostAccounts.filter { $0.value == accountId }.map(\.key)
+        guard !hosts.isEmpty else { return }
+        detachedLegacyHosts.formUnion(hosts)
+        for host in hosts { legacyHostAccounts[host] = nil }
+        save()
     }
 
     // MARK: Repo assignments
@@ -140,14 +163,15 @@ final class AccountStore {
                 return
             }
             // Built-ins always come first and win over any stored copy.
-            let builtInIds = Set(HostingInstance.builtIns.map(\.id))
-            instances = HostingInstance.builtIns + stored.instances.filter { !builtInIds.contains($0.id) }
+            let builtInIds = Set(builtIns.map(\.id))
+            instances = builtIns + stored.instances.filter { !builtInIds.contains($0.id) }
             accounts = stored.accounts.filter { account in instances.contains { $0.id == account.instanceId } }
             assignments = stored.assignments
             migratedLegacyTokens = stored.migratedLegacyTokens
             legacyHostAccounts = (stored.legacyHostAccounts ?? [:]).filter { mapping in
                 accounts.contains { $0.id == mapping.value }
             }
+            detachedLegacyHosts = Set(stored.detachedLegacyHosts ?? [])
         } catch {
             Self.logger.error("Failed to load accounts.json: \(error.localizedDescription, privacy: .public)")
             quarantine()
@@ -160,7 +184,8 @@ final class AccountStore {
                             accounts: accounts,
                             assignments: assignments,
                             migratedLegacyTokens: migratedLegacyTokens,
-                            legacyHostAccounts: legacyHostAccounts)
+                            legacyHostAccounts: legacyHostAccounts,
+                            detachedLegacyHosts: detachedLegacyHosts.sorted())
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -178,11 +203,10 @@ final class AccountStore {
     }
 }
 
-/// The pre-accounts token store, one token per host.
 /// The pre-accounts token store, one token per host. Reads throw when the
 /// store can't be read (e.g. Keychain access denied), so that isn't taken
 /// for "no token".
-protocol LegacyTokenSource {
+nonisolated protocol LegacyTokenSource: Sendable {
     func legacyHosts() throws -> [String]
     /// `nil` = no token stored for `host`.
     func legacyToken(for host: String) throws -> String?
@@ -201,6 +225,7 @@ extension AccountStore {
         for host in hosts {
             guard let normalized = HostingInstance.normalizedHost(host),
                   let kind = Self.legacyKind(forHost: normalized) else { continue }
+            if detachedLegacyHosts.contains(normalized) { continue }
             let token: String
             do {
                 guard let stored = try legacy.legacyToken(for: host) else { continue }
@@ -217,11 +242,20 @@ extension AccountStore {
                 do { try addInstance(target) } catch { continue }
             }
             // Already synced: keep its secret current (only while it's still
-            // a token account; a reconnect via OAuth owns its own secret).
+            // a token account; a reconnect via OAuth owns its own secret). A
+            // changed token is checked again by the validator.
             if let mapped = legacyHostAccounts[normalized],
                let account = accounts.first(where: { $0.id == mapped }) {
                 if account.method == .personalToken, secret(for: mapped)?.accessToken != token {
-                    do { try secrets.write(AccountSecret(accessToken: token), for: mapped) } catch { complete = false }
+                    do {
+                        try secrets.write(AccountSecret(accessToken: token), for: mapped)
+                        var rotated = account
+                        rotated.status = .unverified
+                        rotated.lastValidatedAt = nil
+                        updateAccount(rotated)
+                    } catch {
+                        complete = false
+                    }
                 }
                 continue
             }
