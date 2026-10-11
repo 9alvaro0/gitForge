@@ -39,8 +39,8 @@ struct GitSection: View {
             }
             .frame(maxWidth: 240)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
     private var autoFetchRow: some View {
@@ -58,8 +58,8 @@ struct GitSection: View {
             }
             .frame(maxWidth: 240)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
     private var autoFetchLabel: String {
@@ -100,7 +100,7 @@ struct GitSection: View {
     GitSection()
         .previewAppState(.preview)
         .frame(width: 560)
-        .padding(DesignTokens.Spacing.huge)
-        .background(theme.palette.bg2)
+        .padding(Spacing.s20)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

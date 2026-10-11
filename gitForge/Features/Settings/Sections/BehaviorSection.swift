@@ -93,7 +93,7 @@ struct BehaviorSection: View {
                            onPick: @escaping (String) -> Void) -> some View {
         HStack(alignment: .top) {
             SettingsRowLabel(text: label)
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+            VStack(alignment: .leading, spacing: Spacing.s2) {
                 SettingsPicker(current: current) {
                     ForEach(options, id: \.0) { (raw, lbl) in
                         Button(lbl) { onPick(raw) }
@@ -101,34 +101,34 @@ struct BehaviorSection: View {
                 }
                 .frame(maxWidth: 240)
                 Text(description)
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
     @ViewBuilder
     private func toggleRow(label: String, description: String, isOn: Binding<Bool>) -> some View {
         HStack(alignment: .top) {
             SettingsRowLabel(text: label)
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+            VStack(alignment: .leading, spacing: Spacing.s2) {
                 Toggle("", isOn: isOn)
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .labelsHidden()
                 Text(description)
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 }
 
@@ -137,7 +137,7 @@ struct BehaviorSection: View {
     BehaviorSection()
         .previewAppState(.preview)
         .frame(width: 560)
-        .padding(DesignTokens.Spacing.huge)
-        .background(theme.palette.bg2)
+        .padding(Spacing.s20)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

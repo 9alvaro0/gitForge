@@ -57,24 +57,24 @@ struct ProfilesSection: View {
     }
 
     private func profileRow(_ profile: GitProfile) -> some View {
-        HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+        HStack(alignment: .top, spacing: Spacing.s12) {
+            VStack(alignment: .leading, spacing: Spacing.s2) {
                 Text(profile.name)
-                    .font(AppFont.sans(FontSize.lg, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.headline)
+                    .foregroundStyle(theme.colors.textPrimary)
                 Text("\(profile.userName) · \(profile.userEmail)")
-                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg2)
+                    .textRole(.monoSmall)
+                    .foregroundStyle(theme.colors.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let key = profile.signingKey, !key.isEmpty {
                     Text("Signing key: \(key)")
-                        .font(AppFont.mono(FontSize.xxs, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg3)
+                        .textRole(.monoSmall)
+                        .foregroundStyle(theme.colors.textTertiary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: Spacing.s6) {
                 GFButton(title: "Edit", size: .small) {
                     draft = ProfileDraft(profile)
                 }
@@ -83,8 +83,8 @@ struct ProfilesSection: View {
                 }
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
     private var addRow: some View {
@@ -94,8 +94,8 @@ struct ProfilesSection: View {
                 draft = ProfileDraft.new()
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
 }
@@ -170,7 +170,7 @@ private struct ProfileEditor: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
             field("Profile name", placeholder: "Personal", text: $draft.name)
             field("Git name", placeholder: "Ada Lovelace", text: $draft.userName)
             field("Git email", placeholder: "ada@example.com", text: $draft.userEmail)
@@ -185,17 +185,16 @@ private struct ProfileEditor: View {
                 .disabled(!draft.canSave)
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
     @ViewBuilder
     private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+        VStack(alignment: .leading, spacing: Spacing.s2) {
             Text(label)
-                .font(.system(size: FontSize.sm, weight: .medium))
-                .tracking(0.6)
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.callout, weight: .medium)
+                .foregroundStyle(theme.colors.textTertiary)
             GFTextField(placeholder: placeholder, text: text)
         }
     }
@@ -210,7 +209,7 @@ private extension String {
     ProfilesSection()
         .previewAppState(.preview)
         .frame(width: 640)
-        .padding(DesignTokens.Spacing.huge)
-        .background(theme.palette.bg2)
+        .padding(Spacing.s20)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

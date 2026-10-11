@@ -50,7 +50,7 @@ struct IdentitySection: View {
     IdentitySection()
         .previewAppState(.preview)
         .frame(width: 560)
-        .padding(DesignTokens.Spacing.huge)
-        .background(theme.palette.bg2)
+        .padding(Spacing.s20)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
