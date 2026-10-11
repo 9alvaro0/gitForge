@@ -85,7 +85,7 @@ enum RemoteAPI {
 
     /// Performs `request` and validates the HTTP status. Maps common failure
     /// codes to typed `PullRequestFetchError` cases. Returns body data on 2xx.
-    static func send(_ request: URLRequest) async throws -> Data {
+    static func send(_ request: URLRequest, session: URLSession = RemoteAPI.session) async throws -> Data {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
