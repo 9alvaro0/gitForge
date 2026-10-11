@@ -32,7 +32,7 @@ actor GitCLI {
     private let executablePath: String
     /// Signs network commands with the repo's hosting account; `nil` = git
     /// uses the system's credential helpers.
-    let credentials: GitCredentialProvider?
+    nonisolated let credentials: GitCredentialProvider?
 
     init(workingDirectory: URL, executablePath: String = "/usr/bin/env", credentials: GitCredentialProvider? = nil) {
         self.workingDirectory = workingDirectory
