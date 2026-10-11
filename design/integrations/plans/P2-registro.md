@@ -7,3 +7,4 @@
 | 2 | ver git log | error de compilación (`OAuthResponse`, `HostingHTTP` no existen) → 19/19 | — |
 | 3 | ver git log | error de compilación (`OAuthClientIDs`) → verde | — |
 | 4 | ver git log | error de compilación (`DeviceFlowPoller`) → 6/6 | — |
+| 5 | ver git log | error de compilación (`GitHubAuthClient`) → 10/10 | Los fixtures JSON los copia al bundle la carpeta sincronizada, sin tocar el proyecto. |
