@@ -84,4 +84,39 @@ nonisolated enum GitCredentialInjection {
         guard case GitError.commandFailed(_, _, let stderr)? = error as? GitError else { return false }
         return isRejection(stderr: stderr)
     }
+
+    /// A refusal of the credential scoped to `context`. When git names the
+    /// URL it was refused for ("Authentication failed for '<url>'", "unable
+    /// to access '<url>'"), its host must be the credential's: another
+    /// host's refusal in the same run (a submodule, another remote) isn't
+    /// this account's.
+    static func isRejection(stderr: String, context: String?) -> Bool {
+        guard isRejection(stderr: stderr) else { return false }
+        guard let context = context?.lowercased() else { return true }
+        let urls = refusedURLs(in: stderr)
+        return urls.isEmpty || urls.contains { urlContext($0) == context }
+    }
+
+    static func isRejection(_ error: any Error, context: String?) -> Bool {
+        guard case GitError.commandFailed(_, _, let stderr)? = error as? GitError else { return false }
+        return isRejection(stderr: stderr, context: context)
+    }
+
+    /// `scheme://host[:port]` of any URL, the form of `GitCredential.context`.
+    static func urlContext(_ url: String) -> String? {
+        guard let components = URLComponents(string: url.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host?.lowercased(), !host.isEmpty else { return nil }
+        return components.port.map { "\(scheme)://\(host):\($0)" } ?? "\(scheme)://\(host)"
+    }
+
+    /// URLs git names in "… failed for '<url>'" and "unable to access '<url>'".
+    private static func refusedURLs(in stderr: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: "(?:failed for|unable to access) '([^']+)'",
+                                                   options: [.caseInsensitive]) else { return [] }
+        let range = NSRange(stderr.startIndex..., in: stderr)
+        return regex.matches(in: stderr, range: range).compactMap { match in
+            Range(match.range(at: 1), in: stderr).map { String(stderr[$0]) }
+        }
+    }
 }

@@ -84,6 +84,15 @@ struct GitCredentialInjectionTests {
         #expect(!other.contains("test-secret-value-1"))
     }
 
+    @Test("A refusal counts only when it's for the credential's own host")
+    func rejectionForContext() {
+        let context = "https://gitlab.com"
+        #expect(GitCredentialInjection.isRejection(stderr: "fatal: Authentication failed for 'https://gitlab.com/group/app.git/'", context: context))
+        #expect(!GitCredentialInjection.isRejection(stderr: "fatal: Authentication failed for 'https://other.test/x.git/'", context: context))
+        #expect(!GitCredentialInjection.isRejection(stderr: "fatal: unable to access 'https://gitlab.com:8443/x.git/': The requested URL returned error: 401", context: context))
+        #expect(GitCredentialInjection.isRejection(stderr: "remote: HTTP Basic: Access denied", context: context))
+    }
+
     @Test("A refused credential (401) is told apart from a 403 or a network error")
     func rejection() {
         #expect(GitCredentialInjection.isRejection(stderr: "fatal: Authentication failed for 'https://github.com/octo/app.git/'"))

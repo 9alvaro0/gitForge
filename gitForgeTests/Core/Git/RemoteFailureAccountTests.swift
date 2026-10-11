@@ -26,6 +26,13 @@ struct RemoteFailureAccountTests {
         #expect(RemoteFailure.from(HostingAuthError.tls("untrusted")) == .sslCertificate)
     }
 
+    @Test("Raw stderr shown in a toast has account tokens blanked")
+    func redactsOther() {
+        SecretRedactor.shared.register("test-toast-token-1")
+        let failure = RemoteFailure(stderr: "hook said test-toast-token-1 and failed")
+        #expect(!failure.message.contains("test-toast-token-1"))
+    }
+
     @Test("A plain non-fast-forward rejection is still that")
     func plainRejection() {
         #expect(RemoteFailure(stderr: " ! [rejected] main -> main (non-fast-forward)") == .nonFastForward)
