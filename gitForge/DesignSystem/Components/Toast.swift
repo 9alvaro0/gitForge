@@ -5,6 +5,7 @@ struct ToastMessage: Equatable, Identifiable {
     let id = UUID()
     var message: String
     var kind: Kind = .ok
+    var action: ToastAction? = nil
 
     /// Redesign spec §5: toasts leave after 4 s, errors stay until dismissed.
     var autoDismissAfter: Duration? {
@@ -18,11 +19,22 @@ struct ToastMessage: Equatable, Identifiable {
     }
 }
 
+/// A button on a toast; the shell decides what `route` opens.
+nonisolated struct ToastAction: Equatable, Sendable {
+    enum Route: Equatable, Sendable {
+        case reconnectAccount(instanceId: UUID, accountId: UUID?)
+        case openAccounts
+    }
+    let title: String
+    let route: Route
+}
+
 /// Bottom-centre glass toast (redesign spec §5): shape-coded glyph plus
 /// message. Click dismisses it.
 struct ToastView: View {
     let toast: ToastMessage
     var onDismiss: () -> Void = {}
+    var onAction: (ToastAction) -> Void = { _ in }
 
     @Environment(\.appTheme) private var theme
 
@@ -38,6 +50,9 @@ struct ToastView: View {
                 .lineLimit(toast.lineLimit)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
+            if let action = toast.action {
+                GFButton(title: action.title, size: .small) { onAction(action) }
+            }
         }
         .padding(.horizontal, Spacing.s16)
         .padding(.vertical, Spacing.s8)
