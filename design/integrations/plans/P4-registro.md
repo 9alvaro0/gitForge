@@ -10,3 +10,4 @@
 | 6 | error de compilación (`ConnectAccountModel`) → 6/6, ×3 iteraciones 18/18 | — |
 | 7 | error de compilación (`AddInstanceModel`) → 5/5 | — |
 | 8 | vistas (sin test, por convención): la app compila sin warnings; modelos 11/11 | — |
+| 9 | error de compilación (`RepoAccountSection`) → 5/5; la app compila | Ruling: la sección "Hosting account" va antes de "Manage profiles…", fuera de la rama de perfiles, para que también salga en repos sin perfiles guardados. |

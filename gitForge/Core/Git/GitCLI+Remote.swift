@@ -133,6 +133,15 @@ extension GitCLI {
         return url.isEmpty ? nil : url
     }
 
+    /// Every remote with its fetch URL, in `git remote` order.
+    func remotesWithURLs() async -> [GitRemoteURL] {
+        var result: [GitRemoteURL] = []
+        for name in await remoteNames() {
+            if let url = await remoteURL(name) { result.append(GitRemoteURL(name: name, url: url)) }
+        }
+        return result
+    }
+
     /// The remote a bare `git pull` talks to: the current branch's
     /// `branch.<name>.remote`, else `origin`.
     func pullRemote() async -> String {
@@ -345,4 +354,9 @@ nonisolated extension RemoteFailure {
         }
         return .other(error.localizedDescription)
     }
+}
+
+nonisolated struct GitRemoteURL: Equatable, Sendable {
+    let name: String
+    let url: String
 }
