@@ -149,6 +149,12 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
     case authenticationHTTPS
     /// SSH auth — key not in agent, locked, or wrong key for the host.
     case authenticationSSH
+    /// The server refused the credential of the repo's hosting account
+    /// (gitForge's own, not the system helper's).
+    case accountRejected(account: String, host: String)
+    /// The account's token lacks a scope the operation needs (GitHub wants
+    /// `workflow` to change files under `.github/workflows`).
+    case missingScope(String)
     case nonFastForward
     case divergentBranches
     case conflict
@@ -173,7 +179,9 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         let lower = stderr.lowercased()
         // SSL/TLS issues before generic auth — git phrases them as access
         // failures but the cause and remediation are very different.
-        if lower.contains("ssl certificate problem")
+        if let scope = Self.missingScope(in: lower) {
+            self = .missingScope(scope)
+        } else if lower.contains("ssl certificate problem")
             || lower.contains("server certificate verification failed")
             || lower.contains("ssl_error")
             || lower.contains("certificate verify failed") {
@@ -246,10 +254,21 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         }
     }
 
+    /// GitHub's "… without `workflow` scope" (OAuth App or personal token).
+    private static func missingScope(in lower: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: "without [`'\"]?([a-z_:]+)[`'\"]? scope") else { return nil }
+        let range = NSRange(lower.startIndex..., in: lower)
+        guard let match = regex.firstMatch(in: lower, range: range),
+              let scope = Range(match.range(at: 1), in: lower) else { return nil }
+        return String(lower[scope])
+    }
+
     var title: String {
         switch self {
         case .authenticationHTTPS: "HTTPS authentication failed"
         case .authenticationSSH:   "SSH authentication failed"
+        case .accountRejected:     "Account rejected"
+        case .missingScope:        "Missing permission"
         case .nonFastForward:      "Push rejected"
         case .divergentBranches:   "Pull rejected"
         case .conflict:            "Merge conflict"
@@ -267,6 +286,10 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         switch self {
         case .authenticationHTTPS:
             "Your token or credential helper rejected the request. Refresh the token (or sign in again) and retry. If a stale credential is cached, `git credential-osxkeychain erase` clears it."
+        case .accountRejected(let account, let host):
+            "\(host) rejected the \(account) account gitForge used for this remote. Reconnect it in Settings › Accounts."
+        case .missingScope(let scope):
+            "The account's token lacks the `\(scope)` scope this operation needs. Reconnect the account to grant it."
         case .authenticationSSH:
             "The host refused your SSH key. Run `ssh-add -l` to confirm it's loaded, or `ssh -T git@<host>` to test it. If the key has a passphrase, the agent needs it unlocked before the app can use it."
         case .nonFastForward:
@@ -296,10 +319,20 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
     var toastMessage: String { "\(title) — \(message)" }
 }
 
-extension RemoteFailure {
+nonisolated extension RemoteFailure {
     static func from(_ error: Error) -> RemoteFailure {
         if let gitError = error as? GitError, case .commandFailed(_, _, let stderr) = gitError {
             return RemoteFailure(stderr: stderr)
+        }
+        if case .rejected(let account, let host)? = error as? GitAccountError {
+            return .accountRejected(account: account, host: host)
+        }
+        if let authError = error as? HostingAuthError {
+            switch authError {
+            case .network: return .network
+            case .tls: return .sslCertificate
+            default: return .other(authError.localizedDescription)
+            }
         }
         return .other(error.localizedDescription)
     }
