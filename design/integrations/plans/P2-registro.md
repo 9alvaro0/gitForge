@@ -29,3 +29,9 @@ Sin críticos. Arreglados en una pasada, cada uno con test en rojo primero; suit
 | Menor 5, subido a importante: un 5xx con cuerpo `error` se tomaba como refresh rechazado y marcaba la cuenta `.expired`. | `HostingAuthModelTests.refreshBodies` |
 
 Menores pendientes: ver el resumen del PR.
+
+## Comprobación manual final (tras los arreglos)
+
+- gitlab.com: `needsAttention(revoked)`. La API responde 401 con el token copiado; sin token también da 401, así que ese token ya no es válido. Hay que reconectar la cuenta en la fase 4 (con `replacing:` no se duplicará).
+- gitlab.example.com: `unverified`, sin `lastValidatedAt`. Desde esta red, sin VPN, la instancia responde 403 `REQUEST_BLOCKED` (WAF) a cualquier petición; tras I4 eso ya no marca la cuenta. Se validará en el primer arranque con VPN.
+- `accounts.json` sin tokens (`grep -c accessToken` = 0).
