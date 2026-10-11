@@ -35,3 +35,14 @@ Sin críticos. Arreglados en una pasada, cada uno con test en rojo primero; suit
 | I5. Cerrar la hoja podía cancelar la petición siguiente de la cola. Ahora las respuestas van por id y una tardía se ignora. | `AccountChooserTests.staleAnswer` |
 
 Menores pendientes: ver el resumen del PR.
+
+## Push real por HTTPS con la cuenta
+
+Con el OK de Alvaro:
+1. Rama temporal `gitforge-https-check` en el repo de gitForge.
+2. Push desde la app (botón Push, con upstream) a `https://github.com/9alvaro0/gitForge.git`. Llegó a GitHub (`357cbb8`) con el upstream configurado.
+3. Rama borrada después en el remoto y en local.
+
+Por qué fue con la cuenta: en github.com solo hay una cuenta usable (`9alvaro0`, OAuth, `ok`), así que el resolver la elige, y el helper de gitForge sustituye a los del sistema para ese host (comprobado en P3 con git real).
+
+`accounts.json` vuelve a la versión 1 tras relanzar la build arreglada, con la cuenta de GitHub intacta y sin tokens.
