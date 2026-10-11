@@ -59,6 +59,15 @@ actor TokenRefresher {
         }
     }
 
+    /// A fresh token after `rejected` got a 401 from an API the caller
+    /// drives itself: one refresh (shared with any running one). Accounts
+    /// that can't refresh throw `unauthorized`.
+    func refreshAfterRejection(for account: HostingAccount, on instance: HostingInstance,
+                               rejected: String) async throws -> String {
+        guard secrets.read(account.id)?.refreshToken != nil else { throw HostingAuthError.unauthorized }
+        return try await refresh(account.id, on: instance, replacing: rejected).accessToken
+    }
+
     /// One refresh per account at a time. A caller whose token was already
     /// replaced by another caller's refresh gets the current secret.
     private func refresh(_ id: UUID, on instance: HostingInstance, replacing stale: String) async throws -> AccountSecret {
