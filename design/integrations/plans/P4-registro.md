@@ -7,3 +7,4 @@
 | 3 | error de compilación (`InstanceVerifier`) → verde (37 con los clientes) | — |
 | 4 | error de compilación (`AccountRowModel`) → 9/9 | — |
 | 5 | error de compilación (`AvatarLoader`) → 2/2; la app compila | Ruling: la extensión `Binding.isPresent()` de `RootView.swift` deja de ser privada para usarla en `AccountsSection`. El toast de "Test" usa el tipo real de la instancia (ajuste anotado en el plan). |
+| 6 | error de compilación (`ConnectAccountModel`) → 6/6, ×3 iteraciones 18/18 | — |
