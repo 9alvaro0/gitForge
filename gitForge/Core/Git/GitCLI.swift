@@ -37,7 +37,7 @@ actor GitCLI {
     }
 
     @discardableResult
-    func run(_ args: [String]) async throws -> GitResult {
+    func run(_ args: [String], credential: GitCredential? = nil) async throws -> GitResult {
         let workingDirectoryPath = workingDirectory.path(percentEncoded: false)
         guard FileManager.default.fileExists(atPath: workingDirectoryPath) else {
             throw GitError.invalidWorkingDirectory(workingDirectory)
@@ -45,7 +45,9 @@ actor GitCLI {
 
         let process = GitProcess.make(arguments: args,
                                       workingDirectory: workingDirectory,
-                                      executablePath: executablePath)
+                                      executablePath: executablePath,
+                                      credential: credential)
+        if let credential { SecretRedactor.shared.register(credential.password) }
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe

@@ -23,18 +23,26 @@ nonisolated enum GitProcess {
     /// entries when an editor rewrites a file with the same content (mtime
     /// changes, content doesn't). Removed — the watcher's own serialisation
     /// (isMutating + suspend / debounce) already covers the collision case.
+    ///
+    /// When `credential` is set, its `-c` pairs (an inline helper scoped to
+    /// the remote's host) come before the subcommand.
     static func make(arguments: [String],
                      workingDirectory: URL,
-                     executablePath: String = "/usr/bin/env") -> Process {
+                     executablePath: String = "/usr/bin/env",
+                     credential: GitCredential? = nil) -> Process {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = [
             "git",
             "-c", "core.quotePath=false",
             "-c", "core.precomposeUnicode=true",
-        ] + arguments
+        ] + (credential?.configArguments ?? []) + arguments
         process.currentDirectoryURL = workingDirectory
-        process.environment = environment()
+        var environment = environment()
+        // The account's token: only in this child's environment, read by the
+        // inline helper (`GitCredential`). Never logged.
+        if let credential { environment.merge(credential.environment) { $1 } }
+        process.environment = environment
         return process
     }
 
@@ -66,6 +74,9 @@ nonisolated enum GitProcess {
         }
         environment["GIT_EDITOR"] = "/usr/bin/true"
         environment["LC_ALL"] = "C"
+        // Never inherit an account credential from the app's own environment.
+        environment.removeValue(forKey: GitCredential.userVariable)
+        environment.removeValue(forKey: GitCredential.passwordVariable)
         return environment
     }
 
