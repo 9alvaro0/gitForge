@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Captures the two `git config --global` knobs that hurt most when wrong:
 /// `init.defaultBranch` (so new repos don't start on `master`) and a default
-/// clone directory persisted into the same `AppStorage` key `CloneView`
+/// clone directory persisted into the same `AppStorage` key `CloneSheet`
 /// reads. Skippable — both have sensible defaults.
 struct DefaultsStep: View {
     @Bindable var state: OnboardingState

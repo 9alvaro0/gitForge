@@ -14,7 +14,7 @@ struct OnboardingFlow: View {
     @Environment(GitEnvironment.self) private var gitEnvironment
     @Environment(ProfileStore.self) private var profiles
 
-    /// Same key `CloneView` reads from — picking a default during onboarding
+    /// Same key `CloneSheet` reads from — picking a default during onboarding
     /// pre-fills the next clone session for free.
     @AppStorage("gitForge.clone.lastParentDir") private var lastParentDir: String = ""
 
@@ -137,9 +137,10 @@ struct OnboardingFlow: View {
         Task { await appState.presentOpenRepositoryPanel() }
     }
 
+    /// Closes the flow and opens the clone sheet in the main window.
     private func openClonePane() {
-        appState.ui.workspaceSection = .clone
         onComplete()
+        appState.ui.cloneRequest = CloneRequest()
     }
 
     private func pickCloneDirectory() {

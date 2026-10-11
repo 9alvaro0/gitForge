@@ -133,14 +133,27 @@ final class AppState {
     /// resulting repository when it finishes. Fire-and-forget — observe
     /// `clone.cloneState` for progress; call `clone.cancel()` to abort.
     /// `accountId`: the account "My repos" listed the repo with; it signs
-    /// the clone and stays the repo's account.
-    func startClone(url: String, path: String, branch: String?, accountId: UUID? = nil) {
+    /// the clone and stays the repo's account. `profileId`: the identity
+    /// profile pinned to the new repo (`nil` keeps the global identity).
+    func startClone(url: String, path: String, branch: String?, accountId: UUID? = nil, profileId: UUID? = nil) {
         clone.start { [weak self] in
-            await self?.runClone(url: url, path: path, branch: branch, accountId: accountId)
+            await self?.runClone(url: url, path: path, branch: branch, accountId: accountId, profileId: profileId)
         }
     }
 
-    private func runClone(url: String, path: String, branch: String?, accountId: UUID?) async {
+    /// Pins `profileId`'s identity to the active repo (the one just cloned).
+    /// A failure doesn't undo the clone; a toast says so.
+    func applyCloneProfile(_ profileId: UUID?) async {
+        guard let profileId, let profile = profiles.profiles.first(where: { $0.id == profileId }),
+              let viewModel = catalog.activeViewModel else { return }
+        do {
+            try await viewModel.applyProfile(profile)
+        } catch {
+            ui.activeToast = ToastMessage(message: "Cloned, but couldn't apply \(profile.name): \(error.userMessage)", kind: .warn)
+        }
+    }
+
+    private func runClone(url: String, path: String, branch: String?, accountId: UUID?, profileId: UUID?) async {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
@@ -196,6 +209,7 @@ final class AppState {
         await pin?.followRepositoryRoot()
         do {
             try await openRepository(at: destination)
+            await applyCloneProfile(profileId)
             ui.workspaceSection = .history
             ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
         } catch {

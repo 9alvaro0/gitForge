@@ -59,8 +59,8 @@ struct ShellView: View {
         .sheet(item: Bindable(appState.ui).connectAccountRequest) { request in
             ConnectAccountSheet(request: request)
         }
-        .sheet(item: Bindable(appState.ui).cloneRequest) { _ in
-            CloneView().frame(width: 640, height: 600)
+        .sheet(item: Bindable(appState.ui).cloneRequest) { request in
+            CloneSheet(request: request)
         }
         .sheet(item: Bindable(appState.ui).addInstanceRequest) { request in
             AddInstanceSheet(request: request)
@@ -112,7 +112,6 @@ struct ShellView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             switch appState.ui.workspaceSection {
-            case .clone:    CloneView()
             case .settings: SettingsView()
             default:        WelcomeView()
             }

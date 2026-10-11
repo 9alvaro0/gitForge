@@ -32,7 +32,7 @@ struct SidebarHost: View {
             onRemoveRepo: { repo in Task { await appState.catalog.remove(repo.url) } },
             onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
             onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
-            onCloneNew: { appState.ui.workspaceSection = .clone },
+            onCloneNew: { appState.ui.cloneRequest = CloneRequest() },
             onOpenSettings: { appState.ui.workspaceSection = .settings },
             onSelectSection: { appState.ui.workspaceSection = $0 },
             onRevealBranch: { ref in
