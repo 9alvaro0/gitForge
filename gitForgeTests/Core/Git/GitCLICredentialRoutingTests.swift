@@ -64,6 +64,15 @@ struct GitCLICredentialRoutingTests {
         #expect(hasRef(work, "refs/remotes/upstream/main"))
     }
 
+    @Test("fetch --all where a same-host remote has no account: split, so that remote keeps the system helper")
+    func fetchAllMixedSameHost() async throws {
+        let (work, origin, _) = try makeRepos()
+        let recorder = RecordingCredentials(accounts: [origin.url.path: UUID()])
+        try await GitCLI(workingDirectory: work.url, credentials: recorder).fetchAll()
+        #expect(recorder.signedRemotes == ["origin", "upstream"])
+        #expect(hasRef(work, "refs/remotes/upstream/main"))
+    }
+
     @Test("fetch --all with no accounts: nothing is signed")
     func fetchAllNoAccounts() async throws {
         let (work, _, _) = try makeRepos()

@@ -163,6 +163,20 @@ struct AccountGitCredentialsTests {
         #expect(s.store.accounts[0].status == .ok)
     }
 
+    @Test("Another host's refusal in the same run (submodule, other remote) isn't the account's")
+    func otherHostRefusal() async throws {
+        let s = setup()
+        try addAccount(s.store)
+        let otherHost = GitError.commandFailed(args: ["fetch", "--all"], exitCode: 128,
+                                               stderr: "fatal: Authentication failed for 'https://git.other.test/x.git/'")
+        await #expect(throws: otherHost) {
+            try await s.provider.withCredential(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") { _ -> Void in
+                throw otherHost
+            }
+        }
+        #expect(s.store.accounts[0].status == .ok)
+    }
+
     @Test("The token missing from the Keychain: git falls back to the system")
     func missingSecret() async throws {
         let s = setup()

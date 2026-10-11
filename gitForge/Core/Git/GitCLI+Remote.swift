@@ -1,30 +1,38 @@
 import Foundation
 
 extension GitCLI {
-    /// `fetch --all --prune`. With accounts, one run when at most one account
-    /// signs the remotes. A run carries one credential (spec §6), so
-    /// remotes signed by different accounts are fetched one by one.
+    /// `fetch --all --prune`. With accounts, one run when a single account
+    /// signs and every other remote on its host resolves to it too. A run
+    /// carries one credential, scoped to a host (spec §6), so otherwise the
+    /// remotes are fetched one by one: a same-host remote without that
+    /// account keeps the system's helper.
     func fetchAll() async throws {
         guard let credentials else {
             try await run(["fetch", "--all", "--prune"])
             return
         }
         let repoPath = workingDirectory.path(percentEncoded: false)
-        var signers: [(remote: String, account: UUID?)] = []
+        var signers: [(remote: String, url: String?, account: UUID?)] = []
         for remote in await remoteNames() {
+            let url = await remoteURL(remote)
             var account: UUID?
-            if let url = await remoteURL(remote) {
+            if let url {
                 account = await credentials.accountId(remoteURL: url, remoteName: remote, repoPath: repoPath)
             }
-            signers.append((remote, account))
+            signers.append((remote, url, account))
         }
-        guard Set(signers.compactMap(\.account)).count > 1 else {
-            if let signed = signers.first(where: { $0.account != nil }) {
-                try await runNetwork(["fetch", "--all", "--prune"], remote: signed.remote)
-            } else {
-                try await run(["fetch", "--all", "--prune"])
-            }
+        let accounts = Set(signers.compactMap(\.account))
+        if accounts.isEmpty {
+            try await run(["fetch", "--all", "--prune"])
             return
+        }
+        if accounts.count == 1, let signed = signers.first(where: { $0.account != nil }) {
+            let host = GitCredentialInjection.urlContext(signed.url ?? "")
+            let sharesHost = signers.filter { GitCredentialInjection.urlContext($0.url ?? "") == host }
+            if sharesHost.allSatisfy({ $0.account == signed.account }) {
+                try await runNetwork(["fetch", "--all", "--prune"], remote: signed.remote)
+                return
+            }
         }
         // Like `fetch --all`: keep going after a failing remote and report
         // the first failure at the end — but stop at once when cancelled.
@@ -250,7 +258,8 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
                     || lower.contains("no tracking information") {
             self = .noUpstream
         } else {
-            self = .other(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            // Shown in a toast: blank any account token a hook or server echoed.
+            self = .other(GitCLI.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines)))
         }
     }
 

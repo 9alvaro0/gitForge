@@ -42,7 +42,7 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
         let username = GitCredentialInjection.username(for: instance.kind)
         let rejected = GitAccountError.rejected(account: account.login ?? instance.host, host: instance.host)
         do {
-            return try await refresher.perform(for: account, on: instance, retryingWhen: GitCredentialInjection.isRejection) { token in
+            return try await refresher.perform(for: account, on: instance, retryingWhen: { GitCredentialInjection.isRejection($0, context: context) }) { token in
                 try await operation(GitCredential(context: context, username: username, password: token, accountId: account.id))
             }
         } catch HostingAuthError.missingSecret {
@@ -52,7 +52,7 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
         } catch HostingAuthError.refreshRejected {
             // `TokenRefresher` already marked the account expired.
             throw rejected
-        } catch let error where GitCredentialInjection.isRejection(error) {
+        } catch let error where GitCredentialInjection.isRejection(error, context: context) {
             await store.markNeedsAttention(account.id, .revoked)
             throw rejected
         }
