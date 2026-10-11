@@ -285,6 +285,7 @@ struct BranchesView: View {
     private func toast(_ result: Result<Void, Error>, success: String) {
         switch result {
         case .success:           toast(success, kind: .ok)
+        case .failure(let err) where err is CancellationError: break
         case .failure(let err):  toast(err.toastMessage, kind: .error)
         }
     }

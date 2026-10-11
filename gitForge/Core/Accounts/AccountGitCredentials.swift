@@ -12,13 +12,18 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
     private let store: AccountStore
     private let refresher: TokenRefresher
     private let activeProfileId: @Sendable (String) async -> UUID?
+    /// Asks the user which account an ambiguous remote uses (P4 spec §4.2);
+    /// `nil` = never ask (system helper).
+    private let chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)?
 
     /// `activeProfileId`: the identity profile active in the repo at a path.
     init(store: AccountStore, refresher: TokenRefresher,
-         activeProfileId: @escaping @Sendable (String) async -> UUID? = { _ in nil }) {
+         activeProfileId: @escaping @Sendable (String) async -> UUID? = { _ in nil },
+         chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil) {
         self.store = store
         self.refresher = refresher
         self.activeProfileId = activeProfileId
+        self.chooseAccount = chooseAccount
     }
 
     static func signs(_ account: HostingAccount) -> Bool {
@@ -28,29 +33,47 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
         }
     }
 
-    func accountId(remoteURL: String, remoteName: String, repoPath: String) async -> UUID? {
-        await resolve(remoteURL: remoteURL, remoteName: remoteName, repoPath: repoPath)?.account.id
+    private enum Resolution {
+        case sign(HostingAccount, HostingInstance)
+        case ask(AmbiguousRemote, HostingInstance)
+        case system
+    }
+
+    func signer(remoteURL: String, remoteName: String, repoPath: String) async -> GitSigner {
+        switch await resolve(remoteURL: remoteURL, remoteName: remoteName, repoPath: repoPath) {
+        case .sign(let account, _): .account(account.id)
+        case .ask: .needsChoice
+        case .system: .none
+        }
     }
 
     func withCredential<T: Sendable>(remoteURL: String, remoteName: String, repoPath: String,
                                      _ operation: @Sendable (GitCredential?) async throws -> T) async throws -> T {
-        guard let context = GitCredentialInjection.context(forRemoteURL: remoteURL),
-              let resolved = await resolve(remoteURL: remoteURL, remoteName: remoteName, repoPath: repoPath) else {
+        guard let context = GitCredentialInjection.context(forRemoteURL: remoteURL) else { return try await operation(nil) }
+        let (account, instance): (HostingAccount, HostingInstance)
+        switch await resolve(remoteURL: remoteURL, remoteName: remoteName, repoPath: repoPath) {
+        case .system:
             return try await operation(nil)
+        case .sign(let resolved, let resolvedInstance):
+            (account, instance) = (resolved, resolvedInstance)
+        case .ask(let ambiguous, let resolvedInstance):
+            guard let chooseAccount, let choice = await chooseAccount(ambiguous) else { throw CancellationError() }
+            await store.setChoice(choice, repoPath: repoPath, remoteName: remoteName)
+            guard case .account(let id) = choice, let chosen = ambiguous.candidates.first(where: { $0.id == id }) else {
+                return try await operation(nil)
+            }
+            (account, instance) = (chosen, resolvedInstance)
         }
-        let (account, instance) = resolved
         let username = GitCredentialInjection.username(for: instance.kind)
         let rejected = GitAccountError.rejected(account: account.login ?? instance.host, host: instance.host)
         do {
-            return try await refresher.perform(for: account, on: instance, retryingWhen: { GitCredentialInjection.isRejection($0, context: context) }) { token in
+            return try await refresher.perform(for: account, on: instance,
+                                               retryingWhen: { GitCredentialInjection.isRejection($0, context: context) }) { token in
                 try await operation(GitCredential(context: context, username: username, password: token, accountId: account.id))
             }
         } catch HostingAuthError.missingSecret {
-            // The Keychain didn't give the token: git falls back to the
-            // system, as before accounts.
             return try await operation(nil)
         } catch HostingAuthError.refreshRejected {
-            // `TokenRefresher` already marked the account expired.
             throw rejected
         } catch let error where GitCredentialInjection.isRejection(error, context: context) {
             await store.markNeedsAttention(account.id, .revoked)
@@ -58,19 +81,30 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
         }
     }
 
-    private func resolve(remoteURL: String, remoteName: String,
-                         repoPath: String) async -> (account: HostingAccount, instance: HostingInstance)? {
+    private func resolve(remoteURL: String, remoteName: String, repoPath: String) async -> Resolution {
         guard GitCredentialInjection.context(forRemoteURL: remoteURL) != nil,
-              let host = GitCredentialInjection.host(forRemoteURL: remoteURL) else { return nil }
+              let host = GitCredentialInjection.host(forRemoteURL: remoteURL) else { return .system }
         let owner = GitCredentialInjection.owner(forRemoteURL: remoteURL)
         let profile = await activeProfileId(repoPath)
+        let canAsk = chooseAccount != nil && !GitNetworkContext.isBackground
         let store = self.store
         return await MainActor.run {
-            guard case .account(let account) = store.resolveAccount(remoteHost: host, remoteOwner: owner, repoPath: repoPath,
-                                                                    remoteName: remoteName, activeProfileId: profile),
-                  Self.signs(account),
-                  let instance = store.instance(forHost: host) else { return nil }
-            return (account, instance)
+            guard let instance = store.instance(forHost: host) else { return .system }
+            switch store.resolveAccount(remoteHost: host, remoteOwner: owner, repoPath: repoPath,
+                                        remoteName: remoteName, activeProfileId: profile) {
+            case .account(let account):
+                return Self.signs(account) ? .sign(account, instance) : .system
+            case .ambiguous(let candidates):
+                let usable = candidates.filter(Self.signs)
+                guard canAsk, !usable.isEmpty else { return .system }
+                let path = URLComponents(string: remoteURL)?.path ?? ""
+                let ownerRepo = path.split(separator: "/").joined(separator: "/")
+                    .replacingOccurrences(of: ".git", with: "", options: [.anchored, .backwards])
+                return .ask(AmbiguousRemote(repoPath: repoPath, remoteName: remoteName, host: host,
+                                            ownerRepo: ownerRepo, candidates: usable), instance)
+            case .none:
+                return .system
+            }
         }
     }
 }

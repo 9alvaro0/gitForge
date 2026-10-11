@@ -11,3 +11,4 @@
 | 7 | error de compilación (`AddInstanceModel`) → 5/5 | — |
 | 8 | vistas (sin test, por convención): la app compila sin warnings; modelos 11/11 | — |
 | 9 | error de compilación (`RepoAccountSection`) → 5/5; la app compila | Ruling: la sección "Hosting account" va antes de "Manage profiles…", fuera de la rama de perfiles, para que también salga en repos sin perfiles guardados. |
+| 10 | error de compilación (`GitSigner`, `AccountChooser`) → 40/40; chooser ×3 iteraciones | Ruling: `RecordingCredentials` mantiene `init(accounts:)` y gana `needsChoice:` (no reescribir 6 usos). Ruling: el test de fondo calcula los valores dentro de `withValue` y los comprueba fuera (`#expect` dentro no se infería como throwing). |
