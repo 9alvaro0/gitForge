@@ -332,7 +332,8 @@ final class RepositoryViewModel {
                                                  auth: { host, rejected in
                                                      await pullRequestAuth.access(host: host, repoPath: repoPath, rejected: rejected)
                                                  },
-                                                 resolveHost: { await pullRequestAuth.remoteHost(cli) })
+                                                 resolveHost: { await pullRequestAuth.remoteHost(cli) },
+                                                 suggestInstance: { await pullRequestAuth.suggestedInstance(cli) })
         } else {
             self.pullRequests = PullRequestStore(cli: cli)
         }
