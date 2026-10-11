@@ -89,6 +89,20 @@ struct RemoteRepoListModelTests {
         #expect(auths == ["Bearer test-a", "Bearer test-b"])
     }
 
+    @Test("A load outlives a cancelled caller (the view's task restarting), so it doesn't fail as cancelled")
+    func outlivesCaller() async throws {
+        let s = setup()
+        let instance = try instance(s)
+        try account(s, instance, login: "octo", secret: AccountSecret(accessToken: "test-a"))
+        s.server.on("GET", "/api/v3/user/repos", fixture: "github-repos")
+        let m = model(s)
+        let caller = Task { await m.load() }
+        caller.cancel()
+        await caller.value
+        #expect(m.state == .loaded)
+        #expect(m.repos.map(\.fullName) == ["octo/app"])
+    }
+
     @Test("A full page offers more; Load more appends the next one")
     func pages() async throws {
         let s = setup()
