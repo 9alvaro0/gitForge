@@ -8,3 +8,4 @@
 | 4 | error de compilación (`GitCredentialProvider`) → verde (11 con remotos y tags) | — |
 | 5 | error de compilación (`retryingWhen`) → verde (22 con el validador) | — |
 | 6 | error de compilación (`GitAccountError`, `missingScope`) → verde (20 con la categorización) | Ruling: la extensión de `RemoteFailure.from` se marca `nonisolated` (tomaba `MainActor` y no se podía llamar desde código nonisolated; es pura). |
+| 7 | error de compilación (`AccountGitCredentials`) → 16/16 | — |
