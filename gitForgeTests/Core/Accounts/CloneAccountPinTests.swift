@@ -45,4 +45,22 @@ struct CloneAccountPinTests {
         #expect(await credentials.signer(remoteURL: Self.url, remoteName: "origin", repoPath: opened) == .account(octo.id))
         #expect(pin.repoPath == opened)
     }
+
+    @Test("After cloning, the choice follows the clone's own git root, not whichever repo is active")
+    func followsRoot() async throws {
+        let (store, _, octo, _) = try setup()
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-pin-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: destination) }
+        var pin = try #require(CloneAccountPin.pin(octo.id, destination: destination, in: store))
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        _ = try await GitCLI(workingDirectory: destination).run(["init", "-q"])
+        let root = try #require(await GitCLI.resolveRepositoryRoot(at: destination)).path(percentEncoded: false)
+
+        await pin.followRepositoryRoot()
+        #expect(pin.repoPath == root)
+        #expect(store.choice(repoPath: root, remoteName: "origin") == .account(octo.id))
+        if root != destination.path(percentEncoded: false) {
+            #expect(store.choice(repoPath: destination.path(percentEncoded: false), remoteName: "origin") == nil)
+        }
+    }
 }

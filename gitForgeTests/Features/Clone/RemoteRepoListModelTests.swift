@@ -134,6 +134,30 @@ struct RemoteRepoListModelTests {
         #expect(pat.store.accounts.first?.status == .needsAttention(.revoked))
     }
 
+    @Test("Reconnected in place after a rejection: the list asks to load again")
+    func reconnectReloads() async throws {
+        let s = setup()
+        let hub = try instance(s)
+        let token = try account(s, hub, login: "octo", method: .personalToken, secret: AccountSecret(accessToken: "test-pat"))
+        s.server.on("GET", "/api/v3/user/repos", status: 401, body: Data("{}".utf8))
+        s.server.on("GET", "/api/v3/user/repos", fixture: "github-repos")
+        let m = model(s)
+        await m.load()
+        let before = m.loadRequest
+        #expect(m.state == .needsAccount(instanceId: hub.id, replacing: token.id))
+
+        // "Reconnect" keeps the account id and gives it a working token.
+        try s.secrets.write(AccountSecret(accessToken: "test-new"), for: token.id)
+        var reconnected = try #require(s.store.accounts.first)
+        reconnected.status = .ok
+        s.store.updateAccount(reconnected)
+        m.refreshAccounts()
+        #expect(m.state == .idle)
+        #expect(m.loadRequest != before)
+        await m.load()
+        #expect(m.state == .loaded)
+    }
+
     @Test("Other failures are shown as errors, and the account stays as it was")
     func forbidden() async throws {
         let s = setup()

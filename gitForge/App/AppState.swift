@@ -190,11 +190,12 @@ final class AppState {
         // cancel) while opening it must never trash it — the previous single
         // do/catch sent a finished clone to the Trash when Cancel landed
         // during `openRepository`.
+        // Before opening, so the new repo is signed with the pinned account
+        // from its first fetch, and never re-keyed onto another repo that
+        // became active meanwhile.
+        await pin?.followRepositoryRoot()
         do {
             try await openRepository(at: destination)
-            if let opened = catalog.activeRepository?.url.path(percentEncoded: false) {
-                pin?.move(to: opened)
-            }
             ui.workspaceSection = .history
             ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
         } catch {
