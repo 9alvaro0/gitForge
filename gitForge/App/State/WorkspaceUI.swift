@@ -18,6 +18,10 @@ final class WorkspaceUI {
     /// the matching sheet/alert; menus only flip the bool.
     var newBranchSheetVisible: Bool = false
     var discardAllConfirmVisible: Bool = false
+    /// "Connect account" sheet (P4 spec §5.2); `ShellView` presents it.
+    var connectAccountRequest: ConnectAccountRequest?
+    /// "Add instance" sheet (P4 spec §5.3).
+    var addInstanceVisible: Bool = false
 
     /// Shared toast emission for git operations that return an
     /// `IntegrationOutcome` (merge / rebase / cherry-pick / revert / reset /
@@ -35,4 +39,11 @@ final class WorkspaceUI {
             activeToast = ToastMessage(message: message, kind: .error)
         }
     }
+}
+
+/// Opens "Connect account", optionally on an instance or reconnecting an account.
+struct ConnectAccountRequest: Identifiable, Equatable {
+    let id = UUID()
+    var instanceId: UUID?
+    var replacing: UUID?
 }

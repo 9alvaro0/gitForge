@@ -43,7 +43,8 @@ struct RemoteHostsSection: View {
     }
 
     var body: some View {
-        SettingsSection(title: "Remote hosts") {
+        SettingsSection(title: "Pull request tokens (legacy)",
+                        subtitle: "Still used by Pull requests and Clone until they move to accounts.") {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 if index > 0 { SettingsDivider() }
                 hostRow(entry)
