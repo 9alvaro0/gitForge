@@ -54,6 +54,14 @@ nonisolated struct HostingInstance: Codable, Identifiable, Hashable, Sendable {
         }
     }
 
+    /// `https://<host>`: where the OAuth endpoints live (not the API base).
+    var webBaseURL: URL {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = host
+        return components.url ?? apiBaseURL
+    }
+
     static let gitHubDotCom = HostingInstance(
         id: UUID(uuidString: "6E0C1B0C-0000-4000-8000-000000000001")!,
         kind: .github, host: "github.com", isBuiltIn: true)
