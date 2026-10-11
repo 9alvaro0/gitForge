@@ -152,6 +152,22 @@ struct TokenRefresherTests {
         #expect(client.refreshCalls.isEmpty)
     }
 
+    @Test("After a rejected token: one refresh, the new token comes back")
+    func refreshAfterRejection() async throws {
+        let (refresher, _, client) = setup(expiresIn: 3600)
+        #expect(try await refresher.refreshAfterRejection(for: account, on: Self.instance, rejected: "access-1") == "access-2")
+        #expect(client.refreshCalls == ["refresh-1"])
+    }
+
+    @Test("An account that can't refresh says unauthorized after a rejection")
+    func cannotRefreshAfterRejection() async {
+        let (refresher, _, client) = setup(expiresIn: nil, refreshToken: nil)
+        await #expect(throws: HostingAuthError.unauthorized) {
+            try await refresher.refreshAfterRejection(for: self.account, on: Self.instance, rejected: "access-1")
+        }
+        #expect(client.refreshCalls.isEmpty)
+    }
+
     @Test("No secret in the Keychain: missingSecret")
     func missingSecret() async {
         let refresher = TokenRefresher(secrets: InMemoryAccountSecretStore(), makeClient: { _ in FakeAuthClient() }, now: { Self.now })
