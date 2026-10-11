@@ -13,3 +13,17 @@ nonisolated protocol GitCredentialProvider: Sendable {
     func withCredential<T: Sendable>(remoteURL: String, remoteName: String, repoPath: String,
                                      _ operation: @Sendable (GitCredential?) async throws -> T) async throws -> T
 }
+
+/// A git command failed because the server refused the credential of the
+/// repo's hosting account.
+nonisolated enum GitAccountError: LocalizedError, Equatable, Sendable {
+    /// `account`: the login (or the host when it has none).
+    case rejected(account: String, host: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .rejected(let account, let host):
+            "\(host) rejected the \(account) account. Reconnect it in Settings › Accounts."
+        }
+    }
+}
