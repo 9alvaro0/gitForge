@@ -15,6 +15,7 @@ struct SettingsView: View {
                     ProfilesSection()
                     GitSection()
                     BehaviorSection()
+                    AccountsSection()
                     RemoteHostsSection()
                 }
                 .padding(DesignTokens.Spacing.xxxxl)
