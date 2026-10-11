@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import os
 
-enum AccountStoreError: LocalizedError, Equatable {
+nonisolated enum AccountStoreError: LocalizedError, Equatable {
     case duplicateHost(String)
     case unknownInstance
 
@@ -178,11 +178,10 @@ final class AccountStore {
     }
 }
 
-/// The pre-accounts token store, one token per host.
 /// The pre-accounts token store, one token per host. Reads throw when the
 /// store can't be read (e.g. Keychain access denied), so that isn't taken
 /// for "no token".
-protocol LegacyTokenSource {
+nonisolated protocol LegacyTokenSource: Sendable {
     func legacyHosts() throws -> [String]
     /// `nil` = no token stored for `host`.
     func legacyToken(for host: String) throws -> String?
