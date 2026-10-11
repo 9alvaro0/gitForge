@@ -252,7 +252,8 @@ struct RemoteRepoPicker: View {
 
     private func loadPage(_ pageNumber: Int, replacing: Bool) async {
         guard let token else { return }
-        let browser = RemoteRepoBrowserFactory.make(for: provider)
+        let kind: HostingInstance.Kind = provider == .github ? .github : .gitlab
+        let browser = RemoteRepoBrowserFactory.make(for: kind)
 
         if replacing { loading = true } else { loadingMore = true }
         defer {
@@ -260,7 +261,8 @@ struct RemoteRepoPicker: View {
         }
 
         do {
-            let chunk = try await browser.fetchUserRepos(host: host, token: token, page: pageNumber)
+            let chunk = try await browser.fetchUserRepos(apiBase: HostingInstance.defaultAPIBaseURL(kind: kind, host: host),
+                                                         token: token, page: pageNumber)
             if replacing {
                 repos = chunk
             } else {
