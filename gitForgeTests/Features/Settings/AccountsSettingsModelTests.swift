@@ -24,8 +24,16 @@ struct AccountsSettingsModelTests {
         #expect(blocks.map(\.tag) == ["token only", "token only", "self-hosted · token only"])
         #expect(blocks[0].accounts.isEmpty)
         #expect(blocks[1].accounts[0].title == "Copied token")
-        #expect(blocks[1].accounts[0].subtitle == "Personal token · copied from Remote hosts")
+        #expect(blocks[1].accounts[0].subtitle == "Personal token · copied from an old token")
         #expect(blocks[1].accounts[0].initials == "?")
+    }
+
+    @Test("Instances whose certificate is trusted say so, for Stop trusting")
+    func trusted() {
+        let blocks = AccountsSettingsModel.blocks(instances: HostingInstance.builtIns + [Self.work], accounts: [],
+                                                  copiedAccountIds: [], trustedHosts: ["gitlab.example.com"],
+                                                  now: Self.now)
+        #expect(blocks.map(\.isTrusted) == [false, false, true])
     }
 
     @Test("Status text, tone and main action", arguments: [
