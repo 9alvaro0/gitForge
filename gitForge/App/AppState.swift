@@ -20,6 +20,7 @@ final class AppState {
     let accountConnector: AccountConnector
     let gitCredentials: AccountGitCredentials
     let accountChooser: AccountChooser
+    let pullRequestAuth: AccountPullRequestAuth
     let network: NetworkMonitor
 
     init(
@@ -54,8 +55,13 @@ final class AppState {
             let identity = await GitCLI(workingDirectory: URL(fileURLWithPath: repoPath)).currentIdentity()
             return await profileStore.match(for: identity)?.id
         }, chooseAccount: { remote in await chooser.choose(remote) })
+        self.pullRequestAuth = AccountPullRequestAuth(store: accountStore, refresher: refresher, activeProfileId: { repoPath in
+            let identity = await GitCLI(workingDirectory: URL(fileURLWithPath: repoPath)).currentIdentity()
+            return await profileStore.match(for: identity)?.id
+        }, chooseAccount: { remote in await chooser.choose(remote) })
         self.network = network ?? NetworkMonitor()
         self.catalog.gitCredentials = gitCredentials
+        self.catalog.pullRequestAuth = pullRequestAuth
     }
 
     // MARK: - Bootstrap

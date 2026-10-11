@@ -321,11 +321,21 @@ final class RepositoryViewModel {
 
     /// `credentials`: signs network git commands with the repo's hosting
     /// account (`AppState` passes the account provider).
-    init(repository: Repository, credentials: GitCredentialProvider? = nil) {
+    init(repository: Repository, credentials: GitCredentialProvider? = nil,
+         pullRequestAuth: AccountPullRequestAuth? = nil) {
         self.repository = repository
         let cli = GitCLI(workingDirectory: repository.url, credentials: credentials)
         self.cli = cli
-        self.pullRequests = PullRequestStore(cli: cli)
+        let repoPath = repository.url.path(percentEncoded: false)
+        if let pullRequestAuth {
+            self.pullRequests = PullRequestStore(cli: cli,
+                                                 auth: { host, rejected in
+                                                     await pullRequestAuth.access(host: host, repoPath: repoPath, rejected: rejected)
+                                                 },
+                                                 resolveHost: { await pullRequestAuth.remoteHost(cli) })
+        } else {
+            self.pullRequests = PullRequestStore(cli: cli)
+        }
         self.stashDetail = StashDetailStore(cli: cli)
         self.conflicts = ConflictStore(repositoryURL: repository.url)
     }
