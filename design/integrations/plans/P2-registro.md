@@ -9,3 +9,4 @@
 | 4 | ver git log | error de compilación (`DeviceFlowPoller`) → 6/6 | — |
 | 5 | ver git log | error de compilación (`GitHubAuthClient`) → 10/10 | Los fixtures JSON los copia al bundle la carpeta sincronizada, sin tocar el proyecto. |
 | 6 | ver git log | error de compilación (`GitLabAuthClient`) → 14/14 | — |
+| 7 | ver git log | error de compilación (`connectAccount`) → verde (24 con las suites del almacén) | — |
