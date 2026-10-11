@@ -48,6 +48,12 @@ struct ShellView: View {
                     }
             }
         }
+        .sheet(item: Bindable(appState.ui).connectAccountRequest) { request in
+            ConnectAccountSheet(request: request)
+        }
+        .sheet(isPresented: Bindable(appState.ui).addInstanceVisible) {
+            AddInstanceSheet()
+        }
         // Centralised error reporting for fetch/pull/push/tag pushes —
         // covers every entry point (menu, toolbar, command palette).
         .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
