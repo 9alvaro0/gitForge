@@ -51,6 +51,7 @@ final class AccountValidator {
         } catch {
             let error = HostingAuthError.wrapping(error)
             if let reason = AccountStatusPolicy.reason(for: error) {
+                Self.logger.notice("Account \(account.id.uuidString, privacy: .public) on \(instance.host, privacy: .public) needs attention: \(error.localizedDescription, privacy: .public)")
                 store.markNeedsAttention(account.id, reason, validatedAt: now())
             } else {
                 Self.logger.error("Couldn't check account \(account.id.uuidString, privacy: .public) on \(instance.host, privacy: .public): \(error.localizedDescription, privacy: .public)")
