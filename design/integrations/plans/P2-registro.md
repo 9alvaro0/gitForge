@@ -14,3 +14,4 @@
 | 9 | ver git log | error de compilación (`AccountValidator`) → 8/8 | Ruling: `AccountValidator.interval` se marca `nonisolated` (lo usa `isDue`, que es nonisolated). |
 | 10 | ver git log | error de compilación (`AccountConnector`) → 10/10, ×3 iteraciones 30/30 | — |
 | 11 | ver git log | suite completa 750/750 | Integración en `AppState`; sin test propio (es cableado), cubierto por la suite y la comprobación manual. |
+| 11 (manual) | ver git log | — | Arranque real: gitlab.com → `needsAttention(revoked)` (401); gitlab.gcp.mercadona.com → `needsAttention(missingScopes)`. Coherente con la UI antigua, que pedía tokens `read_api`. Mismo resultado en 3 arranques; `accounts.json` sin tokens. No hay acceso a `log show/stream` (exige admin). Ruling: el validador registra (notice) también los fallos que marcan la cuenta, para poder diagnosticarlos; sin test, solo es log. |
