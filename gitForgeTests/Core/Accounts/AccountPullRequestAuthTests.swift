@@ -81,6 +81,25 @@ struct AccountPullRequestAuthTests {
         #expect(plain.store.accounts[0].status == .needsAttention(.revoked))
     }
 
+    @Test("Offline while refreshing: a failure to show, not Connect")
+    func refreshOffline() async throws {
+        let s = setup(refresh: { _ in throw HostingAuthError.network("offline") })
+        try add(s.store, .gitLabDotCom, login: "tanuki",
+                secret: AccountSecret(accessToken: "test-old", refreshToken: "r1", accessTokenExpiresAt: Date().addingTimeInterval(60)))
+        guard case .failed(let message) = await s.auth.access(host: Self.gitlab, repoPath: "/r/app") else {
+            Issue.record("expected failed"); return
+        }
+        #expect(message.contains("offline"))
+    }
+
+    @Test("Only a failing account on the instance: Connect offers to reconnect that one")
+    func reconnectFailingCopy() async throws {
+        let s = setup()
+        let copied = try add(s.store, .gitLabDotCom, login: "old", status: .needsAttention(.revoked), secret: AccountSecret(accessToken: "dead"))
+        #expect(await s.auth.access(host: Self.gitlab, repoPath: "/r/app")
+                == .connectAccount(instanceId: HostingInstance.gitLabDotCom.id, replacing: copied.id))
+    }
+
     @Test("Two accounts: asks; the choice is used and remembered; Cancel is cancelled")
     func ambiguous() async throws {
         let picked = LockedList<UUID>()
