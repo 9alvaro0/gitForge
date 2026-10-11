@@ -25,6 +25,9 @@ struct SidebarUserCard: View {
     let onApplyProfile: (GitProfile) -> Void
     let onResetToGlobal: () -> Void
     let onManageProfiles: () -> Void
+    /// "Hosting account" sections for the active repo (P4 spec §5.4).
+    var hostingSections: [RepoAccountSection] = []
+    var onHostingEntry: (RepoAccountSection, RepoAccountSection.Entry) -> Void = { _, _ in }
 
     @Environment(\.appTheme) private var theme
 
@@ -132,7 +135,34 @@ struct SidebarUserCard: View {
             }
             Divider()
         }
+        ForEach(hostingSections) { section in
+            Section(section.title) {
+                Menu(section.current) {
+                    ForEach(section.entries) { entry in
+                        hostingButton(section, entry)
+                    }
+                }
+            }
+            Divider()
+        }
         Button("Manage profiles…") { onManageProfiles() }
+    }
+
+    @ViewBuilder
+    private func hostingButton(_ section: RepoAccountSection, _ entry: RepoAccountSection.Entry) -> some View {
+        switch entry {
+        case .automatic(let label, let checked), .account(_, let label, let checked):
+            Button { onHostingEntry(section, entry) } label: {
+                if checked { Label(label, systemImage: "checkmark") } else { Text(label) }
+            }
+        case .system(let checked):
+            Divider()
+            Button { onHostingEntry(section, entry) } label: {
+                if checked { Label("Use system credentials", systemImage: "checkmark") } else { Text("Use system credentials") }
+            }
+        case .connect:
+            Button("Connect account…") { onHostingEntry(section, entry) }
+        }
     }
 
     /// One line, never wraps: the name truncates first.

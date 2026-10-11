@@ -35,6 +35,9 @@ struct Sidebar: View {
     let onApplyProfile: (GitProfile) -> Void
     let onResetToGlobal: () -> Void
     let onManageProfiles: () -> Void
+    /// "Hosting account" sections for the active repo (P4 spec §5.4).
+    var hostingSections: [RepoAccountSection] = []
+    var onHostingEntry: (RepoAccountSection, RepoAccountSection.Entry) -> Void = { _, _ in }
 
     @State private var collapsedFolders: Set<String> = []
 
@@ -54,7 +57,9 @@ struct Sidebar: View {
                 menuEnabled: identityMenuEnabled,
                 onApplyProfile: onApplyProfile,
                 onResetToGlobal: onResetToGlobal,
-                onManageProfiles: onManageProfiles
+                onManageProfiles: onManageProfiles,
+                hostingSections: hostingSections,
+                onHostingEntry: onHostingEntry
             )
         }
     }
