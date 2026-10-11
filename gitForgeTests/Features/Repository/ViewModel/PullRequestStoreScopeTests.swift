@@ -43,7 +43,7 @@ struct PullRequestStoreScopeTests {
         let host = RemoteHost(provider: .github, host: "github.com", owner: "o", repo: "r")
         return PullRequestStore(
             cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
-            token: { _ in "token" },
+            auth: { _, _ in .token("token") },
             resolveHost: { host },
             makeProvider: { _ in provider }
         )

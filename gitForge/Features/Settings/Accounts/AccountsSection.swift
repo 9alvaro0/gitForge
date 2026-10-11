@@ -7,6 +7,7 @@ struct AccountsSection: View {
     @Environment(AppState.self) private var appState
 
     @State private var trustHost: String?
+    @State private var trustedHosts: Set<String> = []
     @State private var clientIdInstance: HostingInstance?
     @State private var clientIdDraft = ""
     @State private var disconnecting: AccountRowModel?
@@ -16,7 +17,8 @@ struct AccountsSection: View {
 
     private var blocks: [InstanceBlockModel] {
         AccountsSettingsModel.blocks(instances: store.instances, accounts: store.accounts,
-                                     copiedAccountIds: Set(store.legacyHostAccounts.values), now: .now)
+                                     copiedAccountIds: Set(store.legacyHostAccounts.values),
+                                     trustedHosts: trustedHosts, now: .now)
     }
 
     var body: some View {
@@ -30,12 +32,13 @@ struct AccountsSection: View {
                 GFButton(title: "Connect account…", style: .primary, size: .small) {
                     appState.ui.connectAccountRequest = ConnectAccountRequest()
                 }
-                GFButton(title: "Add instance…", size: .small) { appState.ui.addInstanceVisible = true }
+                GFButton(title: "Add instance…", size: .small) { appState.ui.addInstanceRequest = AddInstanceRequest() }
                 Spacer()
             }
             .padding(Spacing.s12)
         }
-        .trustCertificatePrompt(host: $trustHost) {}
+        .onAppear { trustedHosts = Set(RemoteHostTrust.shared.trustedHosts()) }
+        .trustCertificatePrompt(host: $trustHost) { trustedHosts = Set(RemoteHostTrust.shared.trustedHosts()) }
         .sheet(item: $clientIdInstance) { instance in clientIdSheet(instance) }
         .confirmationDialog("Disconnect \(disconnecting?.title ?? "")?", isPresented: $disconnecting.isPresent(),
                             presenting: disconnecting) { row in
@@ -61,7 +64,14 @@ struct AccountsSection: View {
                 tag(block.tag)
                 Spacer()
                 Menu {
-                    Button("Trust certificate…") { trustHost = block.host }
+                    if block.isTrusted {
+                        Button("Stop trusting certificate") {
+                            RemoteHostTrust.shared.revoke(block.host)
+                            trustedHosts = Set(RemoteHostTrust.shared.trustedHosts())
+                        }
+                    } else {
+                        Button("Trust certificate…") { trustHost = block.host }
+                    }
                     if !block.isBuiltIn {
                         Button("OAuth client ID…") {
                             clientIdInstance = store.instances.first { $0.id == block.id }

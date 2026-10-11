@@ -59,8 +59,8 @@ struct ShellView: View {
         .sheet(item: Bindable(appState.ui).connectAccountRequest) { request in
             ConnectAccountSheet(request: request)
         }
-        .sheet(isPresented: Bindable(appState.ui).addInstanceVisible) {
-            AddInstanceSheet()
+        .sheet(item: Bindable(appState.ui).addInstanceRequest) { request in
+            AddInstanceSheet(request: request)
         }
         .sheet(item: Binding(get: { appState.accountChooser.request }, set: { _ in })) { request in
             ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {

@@ -48,6 +48,20 @@ struct PullRequestStoreAuthTests {
                          auth: auth, resolveHost: { Self.host }, makeProvider: { _ in provider })
     }
 
+    @Test("An undeclared GitHub/GitLab-looking origin offers to add it as an instance")
+    func suggestsInstance() async {
+        let suggestion = InstanceSuggestion(host: "gitlab.example.org", kind: .gitlab)
+        let s = PullRequestStore(cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
+                                 auth: { _, _ in .token("test-token") },
+                                 resolveHost: { nil },
+                                 suggestInstance: { suggestion },
+                                 makeProvider: { _ in AuthFakeProvider() })
+        await s.load(force: true)
+        #expect(s.host == nil)
+        #expect(s.suggestedInstance == suggestion)
+        #expect(!s.requiresToken)
+    }
+
     @Test("No credential: the store asks to connect on that instance")
     func connect() async {
         let instanceId = UUID()

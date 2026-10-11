@@ -1,0 +1,4 @@
+[
+  {"id": 1, "name": "app", "full_name": "octo/app", "description": "The app", "private": true,
+   "ssh_url": "git@github.com:octo/app.git", "clone_url": "https://github.com/octo/app.git", "default_branch": "main"}
+]

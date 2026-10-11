@@ -87,11 +87,11 @@ final class AppState {
         }
         catalog.startStatusPolling()
 
-        // Hosting accounts: sync the old per-host tokens into accounts
-        // (non-destructive until phase 5), then check each account against
+        // Hosting accounts: a last sync of the old per-host tokens into
+        // accounts, then their old Keychain entries go; then check each account against
         // its API at most once a day, in the background. Last, so any
         // Keychain prompt comes after the window is restored.
-        accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
+        accounts.retireLegacyTokens(from: LegacyTokenKeychain())
         Task { await accountValidator.validateDueAccounts() }
     }
 
@@ -132,13 +132,15 @@ final class AppState {
     /// Clones `url` into `path` (with optional `~` expansion) and opens the
     /// resulting repository when it finishes. Fire-and-forget — observe
     /// `clone.cloneState` for progress; call `clone.cancel()` to abort.
-    func startClone(url: String, path: String, branch: String?) {
+    /// `accountId`: the account "My repos" listed the repo with; it signs
+    /// the clone and stays the repo's account.
+    func startClone(url: String, path: String, branch: String?, accountId: UUID? = nil) {
         clone.start { [weak self] in
-            await self?.runClone(url: url, path: path, branch: branch)
+            await self?.runClone(url: url, path: path, branch: branch, accountId: accountId)
         }
     }
 
-    private func runClone(url: String, path: String, branch: String?) async {
+    private func runClone(url: String, path: String, branch: String?, accountId: UUID?) async {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
@@ -152,6 +154,7 @@ final class AppState {
             return
         }
 
+        var pin = CloneAccountPin.pin(accountId, destination: destination, in: accounts)
         clone.cloneState = .running(stage: "Connecting…", percent: 0)
         defer { clone.cloneState = .idle }
 
@@ -172,10 +175,12 @@ final class AppState {
                 }
             )
         } catch is CancellationError {
+            pin?.undo()
             Self.cleanupPartialClone(at: destination)
             ui.activeToast = ToastMessage(message: "Clone cancelled", kind: .info)
             return
         } catch {
+            pin?.undo()
             Self.cleanupPartialClone(at: destination)
             ui.presentedError = PresentedError(error: error, title: "Clone failed")
             return
@@ -185,6 +190,10 @@ final class AppState {
         // cancel) while opening it must never trash it — the previous single
         // do/catch sent a finished clone to the Trash when Cancel landed
         // during `openRepository`.
+        // Before opening, so the new repo is signed with the pinned account
+        // from its first fetch, and never re-keyed onto another repo that
+        // became active meanwhile.
+        await pin?.followRepositoryRoot()
         do {
             try await openRepository(at: destination)
             ui.workspaceSection = .history

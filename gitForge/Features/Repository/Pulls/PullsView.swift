@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Pull/merge request list. Reads from GitHub or GitLab based on the active
 /// repository's `origin` remote, authenticated with the repo's hosting
-/// account (or an old per-host token until phase 5b).
+/// account.
 struct PullsView: View {
     let store: PullRequestStore
     /// Integrates the selected PR locally ("Resolve locally"); session-wide
@@ -26,6 +26,9 @@ struct PullsView: View {
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: store.connectInstanceId,
                                                                                 replacing: store.reconnectAccountId)
                     },
+                    onAddInstance: { suggestion in
+                        appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind, url: "https://\(suggestion.host)")
+                    },
                     onOpenSettings: { appState.ui.workspaceSection = .settings }
                 )
             }
@@ -46,6 +49,9 @@ struct PullsView: View {
         .task { await store.load() }
         .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
             if closed, store.requiresToken { Task { await store.load(force: true) } }
+        }
+        .onChange(of: appState.ui.addInstanceRequest == nil) { _, closed in
+            if closed, store.host == nil { Task { await store.load(force: true) } }
         }
     }
 

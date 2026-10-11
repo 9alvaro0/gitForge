@@ -5,7 +5,7 @@ import os
 /// Pull / merge requests of the active repository: the open list and the
 /// detail pane (overview, commits, files). Owned by `RepositoryViewModel`
 /// (`viewModel.pullRequests`) but self-contained — it only needs the repo's
-/// `GitCLI` to resolve the remote host, and the Keychain for the token.
+/// `GitCLI` to resolve the remote host, and `auth` for the token.
 ///
 /// Integrating a PR locally ("Resolve locally") stays on the view model: it
 /// checks out, merges and refreshes conflicts, which is session-wide work.
@@ -29,6 +29,9 @@ final class PullRequestStore {
     /// CI summary per PR id, filled in after the list loads.
     var ciByPull: [String: CIStatus] = [:]
     var host: RemoteHost?
+    /// The `origin` host isn't an instance but looks like GitHub or GitLab:
+    /// `PullsView` offers to add it.
+    var suggestedInstance: InstanceSuggestion?
     var isLoading = false
     var error: String?
     /// Host detected but no token configured — drives the "Connect a host"
@@ -56,12 +59,13 @@ final class PullRequestStore {
     /// Drives the spinner on "Resolve locally" while a try-merge runs.
     var localMergeRunning = false
 
-    /// Where the token comes from (the repo's account, the old store…).
+    /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
     private let auth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
     /// The token of the last successful list load, reused by Closed, CI and the detail.
     private var currentToken: String?
     private let resolveHost: @MainActor () async -> RemoteHost?
+    private let suggestInstance: @MainActor () async -> InstanceSuggestion?
     private let makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
     private var detailTask: Task<Void, Never>?
     private var ciTask: Task<Void, Never>?
@@ -72,19 +76,18 @@ final class PullRequestStore {
     static let ciConcurrency = 6
 
     /// - Parameters:
-    ///   - token: Keychain lookup by host; injectable for tests.
-    ///   - resolveHost / makeProvider: default to the repo's `origin` and the
-    ///     real GitHub / GitLab clients; tests pass fakes.
+    ///   - auth: the token for a host (the repo's account); defaults to "connect".
+    ///   - resolveHost / suggestInstance / makeProvider: default to the repo's
+    ///     `origin` against the built-in instances and the real GitHub /
+    ///     GitLab clients; tests pass fakes.
     init(cli: GitCLI,
-         token: @escaping @MainActor (String) -> String? = { RemoteCredentialsStore.shared.token(for: $0) },
          auth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
+         suggestInstance: (@MainActor () async -> InstanceSuggestion?)? = nil,
          makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) }) {
-        self.auth = auth ?? { host, rejected in
-            guard rejected == nil, let value = token(host.host) else { return .connectAccount(instanceId: nil, replacing: nil) }
-            return .token(value)
-        }
-        self.resolveHost = resolveHost ?? { await cli.remoteHost() }
+        self.auth = auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
+        self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
+        self.suggestInstance = suggestInstance ?? { nil }
         self.makeProvider = makeProvider
     }
 
@@ -226,8 +229,10 @@ final class PullRequestStore {
             host = nil
             items = []
             requiresToken = false
+            suggestedInstance = await suggestInstance()
             return
         }
+        suggestedInstance = nil
         host = resolvedHost
         Self.logger.info("Pulls: detected host \(resolvedHost.host, privacy: .public) (\(resolvedHost.provider.rawValue, privacy: .public))")
 

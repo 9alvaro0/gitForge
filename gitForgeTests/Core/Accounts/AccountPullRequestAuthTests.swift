@@ -13,8 +13,7 @@ struct AccountPullRequestAuthTests {
         let auth: AccountPullRequestAuth
     }
 
-    private func setup(legacy: [String: String] = [:],
-                       refresh: @escaping @Sendable (String) async throws -> TokenGrant = { _ in throw HostingAuthError.refreshRejected },
+    private func setup(refresh: @escaping @Sendable (String) async throws -> TokenGrant = { _ in throw HostingAuthError.refreshRejected },
                        chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil) -> Setup {
         let secrets = InMemoryAccountSecretStore()
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-prauth-\(UUID().uuidString)")
@@ -22,8 +21,7 @@ struct AccountPullRequestAuthTests {
         let client = FakeAuthClient(refresh: refresh)
         let refresher = TokenRefresher(secrets: secrets, makeClient: { _ in client },
                                        onRefreshRejected: { id in await store.markNeedsAttention(id, .expired) })
-        let auth = AccountPullRequestAuth(store: store, refresher: refresher, chooseAccount: chooseAccount,
-                                          legacyToken: { legacy[$0] })
+        let auth = AccountPullRequestAuth(store: store, refresher: refresher, chooseAccount: chooseAccount)
         return Setup(store: store, auth: auth)
     }
 
@@ -37,34 +35,42 @@ struct AccountPullRequestAuthTests {
 
     @Test("The repo's account gives the token")
     func accountToken() async throws {
-        let s = setup(legacy: ["github.com": "test-legacy"])
+        let s = setup()
         try add(s.store, login: "octo", secret: AccountSecret(accessToken: "test-oauth"))
         #expect(await s.auth.access(host: Self.github, repoPath: "/r/app") == .token("test-oauth"))
     }
 
-    @Test("No usable account: the old token; none at all: connect on that instance")
+    @Test("No usable account: connect on that instance, reconnecting its only failing account")
     func fallbacks() async throws {
-        let withLegacy = setup(legacy: ["gitlab.com": "test-legacy"])
-        try add(withLegacy.store, .gitLabDotCom, login: "old", status: .needsAttention(.revoked), secret: AccountSecret(accessToken: "dead"))
-        #expect(await withLegacy.auth.access(host: Self.gitlab, repoPath: "/r/app") == .token("test-legacy"))
+        let failing = setup()
+        let dead = try add(failing.store, .gitLabDotCom, login: "old", status: .needsAttention(.revoked),
+                           secret: AccountSecret(accessToken: "test-dead"))
+        #expect(await failing.auth.access(host: Self.gitlab, repoPath: "/r/app")
+                == .connectAccount(instanceId: HostingInstance.gitLabDotCom.id, replacing: dead.id))
         let none = setup()
         #expect(await none.auth.access(host: Self.github, repoPath: "/r/app")
                 == .connectAccount(instanceId: HostingInstance.gitHubDotCom.id, replacing: nil))
     }
 
-    @Test("System credentials chosen for the repo: the old token, never the account")
+    @Test("System credentials chosen for git: Pull requests uses the automatic account, and the choice stays")
     func systemChoice() async throws {
-        let s = setup(legacy: ["github.com": "test-legacy"])
+        let s = setup()
         try add(s.store, login: "octo", secret: AccountSecret(accessToken: "test-oauth"))
         s.store.setChoice(.system, repoPath: "/r/app", remoteName: "origin")
-        #expect(await s.auth.access(host: Self.github, repoPath: "/r/app") == .token("test-legacy"))
+        #expect(await s.auth.access(host: Self.github, repoPath: "/r/app") == .token("test-oauth"))
+        #expect(s.store.choice(repoPath: "/r/app", remoteName: "origin") == .system)
     }
 
-    @Test("A rejected old token offers to connect an account")
-    func rejectedLegacy() async {
-        let s = setup(legacy: ["gitlab.com": "test-legacy"])
-        #expect(await s.auth.access(host: Self.gitlab, repoPath: "/r/app", rejected: "test-legacy")
-                == .connectAccount(instanceId: HostingInstance.gitLabDotCom.id, replacing: nil))
+    @Test("System chosen and two accounts: asks, uses the answer, and doesn't store it")
+    func systemChoiceAmbiguous() async throws {
+        let s = setup(chooseAccount: { remote in .account(remote.candidates[1].id) })
+        try add(s.store, login: "octo", secret: AccountSecret(accessToken: "test-a"))
+        try add(s.store, login: "work", secret: AccountSecret(accessToken: "test-b"))
+        s.store.setChoice(.system, repoPath: "/r/app", remoteName: "origin")
+        let host = RemoteHost(provider: .github, host: "github.com", owner: "acme", repo: "app")
+        let result = await s.auth.access(host: host, repoPath: "/r/app")
+        #expect(result == .token("test-a") || result == .token("test-b"))
+        #expect(s.store.choice(repoPath: "/r/app", remoteName: "origin") == .system)
     }
 
     @Test("A rejected account token: GitLab OAuth refreshes; a token that can't is revoked and offered for reconnect")

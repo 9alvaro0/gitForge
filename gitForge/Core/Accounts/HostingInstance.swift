@@ -37,6 +37,16 @@ nonisolated struct HostingInstance: Codable, Identifiable, Hashable, Sendable {
 
     /// `https://GitLab.Empresa.com:443/x` → `gitlab.empresa.com`. `nil` when
     /// there's no host in the input.
+    /// The old host-name guess: `github.com` / `*.github.com` are GitHub,
+    /// anything containing "gitlab" is GitLab. Since phase 5b it only types
+    /// migrated hosts and proposes undeclared ones (spec §4.1).
+    static func guessedKind(forHost host: String) -> Kind? {
+        let normalized = host.lowercased()
+        if normalized == "github.com" || normalized.hasSuffix(".github.com") { return .github }
+        if normalized.contains("gitlab") { return .gitlab }
+        return nil
+    }
+
     static func normalizedHost(_ input: String) -> String? {
         var text = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !text.isEmpty else { return nil }
