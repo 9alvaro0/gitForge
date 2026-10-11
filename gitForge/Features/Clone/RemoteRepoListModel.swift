@@ -96,7 +96,18 @@ final class RemoteRepoListModel {
         reset(selecting: accountId)
     }
 
+    /// Loads the first page. The request runs in the model's own task, so a
+    /// cancelled caller (SwiftUI restarting the view's `.task`) doesn't turn
+    /// it into a "cancelled" failure; `generation` drops stale answers.
     func load() async {
+        await Task { await loadFirstPage() }.value
+    }
+
+    func loadMore() async {
+        await Task { await loadNextPage() }.value
+    }
+
+    private func loadFirstPage() async {
         guard let account = selectedAccount, let instance = instance(of: account) else { return }
         generation &+= 1
         let gen = generation
@@ -114,7 +125,7 @@ final class RemoteRepoListModel {
         }
     }
 
-    func loadMore() async {
+    private func loadNextPage() async {
         guard hasMore, !isLoadingMore, state == .loaded,
               let account = selectedAccount, let instance = instance(of: account) else { return }
         let gen = generation
