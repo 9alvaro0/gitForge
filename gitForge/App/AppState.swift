@@ -14,6 +14,7 @@ final class AppState {
     let clone: CloneController
     let ui: WorkspaceUI
     let profiles: ProfileStore
+    let accounts: AccountStore
     let network: NetworkMonitor
 
     init(
@@ -22,6 +23,7 @@ final class AppState {
         clone: CloneController? = nil,
         ui: WorkspaceUI? = nil,
         profiles: ProfileStore? = nil,
+        accounts: AccountStore? = nil,
         network: NetworkMonitor? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
@@ -32,6 +34,7 @@ final class AppState {
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
         self.profiles = profiles ?? ProfileStore()
+        self.accounts = accounts ?? AccountStore()
         self.network = network ?? NetworkMonitor()
     }
 
@@ -57,6 +60,11 @@ final class AppState {
             ui.workspaceSection = .history
         }
         catalog.startStatusPolling()
+
+        // Hosting accounts, phase 1: sync the old per-host tokens into
+        // accounts (non-destructive; PRs and clone still read the old store).
+        // Last, so any Keychain prompt comes after the window is restored.
+        accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
     }
 
     // MARK: - Repository open / activate (cross-cutting: catalog + ui)
