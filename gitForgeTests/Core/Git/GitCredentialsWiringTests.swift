@@ -3,7 +3,7 @@ import Testing
 @testable import gitForge
 
 private final class NoCredentials: GitCredentialProvider, @unchecked Sendable {
-    func accountId(remoteURL: String, remoteName: String, repoPath: String) async -> UUID? { nil }
+    func signer(remoteURL: String, remoteName: String, repoPath: String) async -> GitSigner { .none }
     func withCredential<T: Sendable>(remoteURL: String, remoteName: String, repoPath: String,
                                      _ operation: @Sendable (GitCredential?) async throws -> T) async throws -> T {
         try await operation(nil)

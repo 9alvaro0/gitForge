@@ -17,7 +17,13 @@ extension GitCLI {
             let url = await remoteURL(remote)
             var account: UUID?
             if let url {
-                account = await credentials.accountId(remoteURL: url, remoteName: remote, repoPath: repoPath)
+                switch await credentials.signer(remoteURL: url, remoteName: remote, repoPath: repoPath) {
+                case .none: account = nil
+                case .account(let id): account = id
+                // A key no other remote shares: forces the split, so this
+                // remote's own run can stop and ask.
+                case .needsChoice: account = UUID()
+                }
             }
             signers.append((remote, url, account))
         }
@@ -190,6 +196,8 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
     /// Remote returned 429.
     case rateLimited
     case noUpstream
+    /// The user cancelled (e.g. "Choose an account" → Cancel): no toast.
+    case cancelled
     case other(String)
 
     init(stderr: String) {
@@ -296,6 +304,7 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         case .serverUnavailable:   "Remote is unavailable"
         case .rateLimited:         "Rate limit reached"
         case .noUpstream:          "No upstream branch"
+        case .cancelled:           "Cancelled"
         case .other:               "Operation failed"
         }
     }
@@ -326,6 +335,8 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
             "The remote service is down or overloaded. Retry in a few minutes."
         case .rateLimited:
             "Too many requests in a short window. Wait a few minutes before retrying."
+        case .cancelled:
+            "The operation was cancelled."
         case .noUpstream:
             "This branch isn't tracking a remote. The first push will set the upstream automatically."
         case .other(let raw):
@@ -339,6 +350,7 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
 
 nonisolated extension RemoteFailure {
     static func from(_ error: Error) -> RemoteFailure {
+        if error is CancellationError { return .cancelled }
         if let gitError = error as? GitError, case .commandFailed(_, _, let stderr) = gitError {
             return RemoteFailure(stderr: stderr)
         }

@@ -19,6 +19,7 @@ final class AppState {
     let accountValidator: AccountValidator
     let accountConnector: AccountConnector
     let gitCredentials: AccountGitCredentials
+    let accountChooser: AccountChooser
     let network: NetworkMonitor
 
     init(
@@ -47,10 +48,12 @@ final class AppState {
         self.tokenRefresher = refresher
         self.accountValidator = AccountValidator(store: accountStore, refresher: refresher)
         self.accountConnector = AccountConnector(store: accountStore)
+        let chooser = AccountChooser()
+        self.accountChooser = chooser
         self.gitCredentials = AccountGitCredentials(store: accountStore, refresher: refresher, activeProfileId: { repoPath in
             let identity = await GitCLI(workingDirectory: URL(fileURLWithPath: repoPath)).currentIdentity()
             return await profileStore.match(for: identity)?.id
-        })
+        }, chooseAccount: { remote in await chooser.choose(remote) })
         self.network = network ?? NetworkMonitor()
         self.catalog.gitCredentials = gitCredentials
     }

@@ -33,6 +33,11 @@ struct RemoteFailureAccountTests {
         #expect(!failure.message.contains("test-toast-token-1"))
     }
 
+    @Test("Cancelling is its own category, so no error toast is shown")
+    func cancelled() {
+        #expect(RemoteFailure.from(CancellationError()) == .cancelled)
+    }
+
     @Test("A plain non-fast-forward rejection is still that")
     func plainRejection() {
         #expect(RemoteFailure(stderr: " ! [rejected] main -> main (non-fast-forward)") == .nonFastForward)

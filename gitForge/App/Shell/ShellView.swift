@@ -54,10 +54,20 @@ struct ShellView: View {
         .sheet(isPresented: Bindable(appState.ui).addInstanceVisible) {
             AddInstanceSheet()
         }
+        .sheet(item: Binding(get: { appState.accountChooser.request },
+                             set: { if $0 == nil { appState.accountChooser.answer(nil) } })) { request in
+            ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {
+                appState.accountChooser.answer($0)
+            }
+        }
         // Centralised error reporting for fetch/pull/push/tag pushes —
         // covers every entry point (menu, toolbar, command palette).
         .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
             guard let failure else { return }
+            guard failure != .cancelled else {
+                appState.catalog.activeViewModel?.remoteFailure = nil
+                return
+            }
             appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error)
             appState.catalog.activeViewModel?.remoteFailure = nil
         }
