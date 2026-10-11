@@ -27,7 +27,7 @@ struct RemoteRepoPicker: View {
         .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
             if closed { model?.refreshAccounts() }
         }
-        .task(id: model?.selectedAccountId) {
+        .task(id: model?.loadRequest) {
             if let model, model.state == .idle { await model.load() }
         }
     }

@@ -3,8 +3,8 @@ import Foundation
 /// Clone › "My repos" clones with the account the list was browsed with
 /// (spec §7.4). The choice is recorded for the destination's `origin`
 /// before git runs, so the resolver's manual step signs the clone with it;
-/// it's dropped if the clone fails, and follows the repo if it opens under
-/// another path (symlinks resolved by git).
+/// it's dropped if the clone fails, and follows the clone to its git root
+/// (symlinks resolved), the path the repo is opened and signed under.
 @MainActor
 struct CloneAccountPin {
     private let store: AccountStore
@@ -24,6 +24,13 @@ struct CloneAccountPin {
     func undo() {
         guard store.choice(repoPath: repoPath, remoteName: "origin") == .account(accountId) else { return }
         store.setChoice(nil, repoPath: repoPath, remoteName: "origin")
+    }
+
+    /// The clone finished: re-key the choice to its git root as the catalog
+    /// will open it (symlinks resolved), whichever repo is active meanwhile.
+    mutating func followRepositoryRoot() async {
+        guard let root = await GitCLI.resolveRepositoryRoot(at: URL(fileURLWithPath: repoPath)) else { return }
+        move(to: root.path(percentEncoded: false))
     }
 
     /// The clone opened as `openedPath`.

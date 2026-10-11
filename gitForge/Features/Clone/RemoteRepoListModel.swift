@@ -26,6 +26,9 @@ final class RemoteRepoListModel {
     private(set) var state: State = .idle
     private(set) var hasMore = false
     private(set) var isLoadingMore = false
+    /// Bumped whenever the list should load from scratch (another account
+    /// picked, or the selected one reconnected); the view keys its load on it.
+    private(set) var loadRequest: UInt64 = 0
     var search = ""
 
     @ObservationIgnored private let store: AccountStore
@@ -82,7 +85,9 @@ final class RemoteRepoListModel {
         if selectedAccount == nil {
             reset(selecting: first.id)
         } else if case .needsAccount = state {
+            // Reconnected in place (same id): load it again.
             state = .idle
+            loadRequest &+= 1
         }
     }
 
@@ -135,6 +140,7 @@ final class RemoteRepoListModel {
 
     private func reset(selecting accountId: UUID?) {
         generation &+= 1
+        loadRequest &+= 1
         selectedAccountId = accountId
         repos = []
         page = 0
