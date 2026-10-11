@@ -19,7 +19,7 @@ import os
 /// `keychain-access-groups`: that entitlement is only needed when sharing
 /// items with sibling apps / extensions, and it requires a Developer ID
 /// provisioning profile we don't ship.
-struct RemoteCredentialsStore: Sendable {
+nonisolated struct RemoteCredentialsStore: Sendable {
     static let shared = RemoteCredentialsStore()
     static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "credentials")
 
@@ -140,7 +140,7 @@ struct RemoteCredentialsStore: Sendable {
 
 /// Throwing reads for the account sync, which must tell "no token" apart
 /// from "couldn't read" (e.g. the user denied Keychain access).
-extension RemoteCredentialsStore: LegacyTokenSource {
+nonisolated extension RemoteCredentialsStore: LegacyTokenSource {
     struct ReadError: Error { let status: OSStatus }
 
     func legacyHosts() throws -> [String] {
