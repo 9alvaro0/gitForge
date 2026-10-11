@@ -13,3 +13,4 @@
 | 8 | ver git log | error de compilación (`TokenRefresher`) → 10/10, ×3 iteraciones 30/30 | — |
 | 9 | ver git log | error de compilación (`AccountValidator`) → 8/8 | Ruling: `AccountValidator.interval` se marca `nonisolated` (lo usa `isDue`, que es nonisolated). |
 | 10 | ver git log | error de compilación (`AccountConnector`) → 10/10, ×3 iteraciones 30/30 | — |
+| 11 | ver git log | suite completa 750/750 | Integración en `AppState`; sin test propio (es cableado), cubierto por la suite y la comprobación manual. |
