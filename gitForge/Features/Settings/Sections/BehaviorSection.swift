@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sits between Git and Remote hosts on purpose: the user reads top-down
+/// Sits between Git and Accounts on purpose: the user reads top-down
 /// as "what git does → what the app guards on top → who you are to git
 /// servers". Anything that's neither pure git config nor visuals lives
 /// here — destructive-action guards, default flags, signing.

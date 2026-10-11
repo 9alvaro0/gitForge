@@ -24,6 +24,8 @@ nonisolated struct InstanceBlockModel: Identifiable, Equatable, Sendable {
     /// "OAuth", "token only", "self-hosted · token only"…
     let tag: String
     let isBuiltIn: Bool
+    /// Its certificate is pinned in `RemoteHostTrust`.
+    let isTrusted: Bool
     let accounts: [AccountRowModel]
 }
 
@@ -31,7 +33,8 @@ nonisolated struct InstanceBlockModel: Identifiable, Equatable, Sendable {
 nonisolated enum AccountsSettingsModel {
     /// Built-ins first (as stored), then self-hosted ones by host.
     static func blocks(instances: [HostingInstance], accounts: [HostingAccount],
-                       copiedAccountIds: Set<UUID>, now: Date) -> [InstanceBlockModel] {
+                       copiedAccountIds: Set<UUID>, trustedHosts: Set<String> = [],
+                       now: Date) -> [InstanceBlockModel] {
         let ordered = instances.filter(\.isBuiltIn) + instances.filter { !$0.isBuiltIn }.sorted { $0.host < $1.host }
         return ordered.map { instance in
             let rows = accounts
@@ -41,7 +44,8 @@ nonisolated enum AccountsSettingsModel {
             let method = (instance.oauthClientId ?? "").isEmpty ? "token only" : "OAuth"
             return InstanceBlockModel(id: instance.id, providerLabel: instance.kind.label, host: instance.host,
                                       tag: instance.isBuiltIn ? method : "self-hosted · \(method)",
-                                      isBuiltIn: instance.isBuiltIn, accounts: rows)
+                                      isBuiltIn: instance.isBuiltIn, isTrusted: trustedHosts.contains(instance.host),
+                                      accounts: rows)
         }
     }
 
@@ -95,7 +99,7 @@ nonisolated enum AccountsSettingsModel {
         } else if account.status == .ok || account.status == .expiringSoon {
             parts.append("scopes not verifiable")
         }
-        if copied, account.login == nil { parts.append("copied from Remote hosts") }
+        if copied, account.login == nil { parts.append("copied from an old token") }
         if let expiresAt = account.expiresAt {
             parts.append("expires \(expiresAt.formatted(date: .abbreviated, time: .omitted))")
         }

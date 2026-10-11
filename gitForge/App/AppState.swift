@@ -87,11 +87,11 @@ final class AppState {
         }
         catalog.startStatusPolling()
 
-        // Hosting accounts: sync the old per-host tokens into accounts
-        // (non-destructive until phase 5), then check each account against
+        // Hosting accounts: a last sync of the old per-host tokens into
+        // accounts, then their old Keychain entries go; then check each account against
         // its API at most once a day, in the background. Last, so any
         // Keychain prompt comes after the window is restored.
-        accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
+        accounts.retireLegacyTokens(from: LegacyTokenKeychain())
         Task { await accountValidator.validateDueAccounts() }
     }
 

@@ -16,7 +16,6 @@ struct SettingsView: View {
                     GitSection()
                     BehaviorSection()
                     AccountsSection()
-                    RemoteHostsSection()
                 }
                 .padding(DesignTokens.Spacing.xxxxl)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
