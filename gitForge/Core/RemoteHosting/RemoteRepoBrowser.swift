@@ -13,7 +13,7 @@ struct RemoteRepoSummary: Sendable, Identifiable, Equatable {
     let defaultBranch: String?
 }
 
-/// Browses the repos an account can see. Drives "My repos" in `CloneView`.
+/// Browses the repos an account can see. Drives "My repos" in `CloneSheet`.
 protocol RemoteRepoBrowsing: Sendable {
     /// One page of repos from the instance API at `apiBase`. `page` is
     /// 1-based; 50 results per page. An empty array means no more pages.

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Live state of the clone operation. Drives the progress bar and the
-/// "Clone vs Cancel" button label in `CloneView`.
+/// "Clone vs Cancel" button label in `CloneSheet`.
 enum CloneState: Sendable, Equatable {
     case idle
     case running(stage: String, percent: Double)

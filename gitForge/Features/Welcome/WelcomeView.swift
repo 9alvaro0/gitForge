@@ -21,7 +21,7 @@ struct WelcomeView: View {
                     Task { await appState.presentOpenRepositoryPanel() }
                 }
                 GFButton(title: "Clone…") {
-                    appState.ui.workspaceSection = .clone
+                    appState.ui.cloneRequest = CloneRequest()
                 }
             }
             .padding(.top, DesignTokens.Spacing.md)
