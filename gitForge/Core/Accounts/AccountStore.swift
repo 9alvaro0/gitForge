@@ -36,6 +36,9 @@ final class AccountStore {
 
     private let fileURL: URL
     private let secrets: AccountSecretStore
+    /// github.com and gitlab.com with this build's OAuth client ids. Never
+    /// persisted, so a new build's ids always win.
+    private let builtIns: [HostingInstance]
 
     private struct Stored: Codable {
         let version: Int
@@ -47,12 +50,15 @@ final class AccountStore {
         let legacyHostAccounts: [String: UUID]?
     }
 
-    init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore()) {
+    init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore(),
+         clientIds: OAuthClientIDs = .bundled) {
         let dir = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first!.appendingPathComponent("gitForge", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.fileURL = dir.appendingPathComponent("accounts.json")
         self.secrets = secrets
+        self.builtIns = HostingInstance.builtIns(clientIds: clientIds)
+        self.instances = builtIns
         load()
     }
 
@@ -140,8 +146,8 @@ final class AccountStore {
                 return
             }
             // Built-ins always come first and win over any stored copy.
-            let builtInIds = Set(HostingInstance.builtIns.map(\.id))
-            instances = HostingInstance.builtIns + stored.instances.filter { !builtInIds.contains($0.id) }
+            let builtInIds = Set(builtIns.map(\.id))
+            instances = builtIns + stored.instances.filter { !builtInIds.contains($0.id) }
             accounts = stored.accounts.filter { account in instances.contains { $0.id == account.instanceId } }
             assignments = stored.assignments
             migratedLegacyTokens = stored.migratedLegacyTokens
