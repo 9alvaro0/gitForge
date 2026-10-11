@@ -6,3 +6,4 @@
 | 2 | error de compilación (`refreshAfterRejection`) → 14/14 | — |
 | 3 | error de compilación (`AccountPullRequestAuth`) → 6/6 | — |
 | 4 | error de compilación (`auth:`, `connectInstanceId`) → 20/20 con las suites de Pull requests existentes | — |
+| 5 | error de compilación (`pullRequestAuth:`) → 2/2; la app compila | — |

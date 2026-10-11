@@ -7,7 +7,7 @@ import SwiftUI
 struct PullsContentSection: View {
     let store: PullRequestStore
     let nounPlural: String
-    let onAddToken: () -> Void
+    let onConnect: () -> Void
     let onOpenSettings: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -36,7 +36,8 @@ struct PullsContentSection: View {
             PullsTokenMissingSection(
                 host: store.host,
                 nounPlural: nounPlural,
-                onAddToken: onAddToken,
+                reconnect: store.reconnectAccountId != nil,
+                onConnect: onConnect,
                 onOpenSettings: onOpenSettings
             )
         }
@@ -75,7 +76,7 @@ struct PullsContentSection: View {
     PullsContentSection(
         store: .previewWithPullRequests,
         nounPlural: "pull requests",
-        onAddToken: {}, onOpenSettings: {}
+        onConnect: {}, onOpenSettings: {}
     )
     .frame(width: 1100, height: 600)
     .background(theme.colors.bgContent)
@@ -92,7 +93,7 @@ struct PullsContentSection: View {
     PullsContentSection(
         store: store,
         nounPlural: "pull requests",
-        onAddToken: {}, onOpenSettings: {}
+        onConnect: {}, onOpenSettings: {}
     )
     .frame(width: 1100, height: 600)
     .background(theme.colors.bgContent)

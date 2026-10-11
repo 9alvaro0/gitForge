@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Pull/merge request list. Reads from GitHub or GitLab based on the active
-/// repository's `origin` remote, authenticated with a PAT stored in Keychain.
+/// repository's `origin` remote, authenticated with the repo's hosting
+/// account (or an old per-host token until phase 5b).
 struct PullsView: View {
     let store: PullRequestStore
     /// Integrates the selected PR locally ("Resolve locally"); session-wide
@@ -13,10 +14,6 @@ struct PullsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
-    @State private var tokenSheetHost: RemoteHost?
-    @State private var tokenDraft: String = ""
-    @State private var tokenError: String?
-
     var body: some View {
         Group {
             if listReady {
@@ -25,7 +22,10 @@ struct PullsView: View {
                 PullsContentSection(
                     store: store,
                     nounPlural: headerTitle.lowercased(),
-                    onAddToken: presentTokenSheet,
+                    onConnect: {
+                        appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: store.connectInstanceId,
+                                                                                replacing: store.reconnectAccountId)
+                    },
                     onOpenSettings: { appState.ui.workspaceSection = .settings }
                 )
             }
@@ -44,14 +44,8 @@ struct PullsView: View {
         }
         .navigationTitle(headerTitle)
         .task { await store.load() }
-        .sheet(item: $tokenSheetHost) { host in
-            PullsTokenSheet(
-                host: host,
-                draft: $tokenDraft,
-                error: $tokenError,
-                onCancel: { tokenSheetHost = nil },
-                onSave: { saveToken(for: host) }
-            )
+        .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
+            if closed, store.requiresToken { Task { await store.load(force: true) } }
         }
     }
 
@@ -148,23 +142,6 @@ struct PullsView: View {
 
     private var headerTitle: String {
         store.host?.provider.pullNoun.appending("s") ?? "Pull requests"
-    }
-
-
-    private func presentTokenSheet() {
-        tokenDraft = ""
-        tokenError = nil
-        tokenSheetHost = store.host
-    }
-
-    private func saveToken(for host: RemoteHost) {
-        let value = tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let error = RemoteCredentialsStore.shared.setToken(value, for: host.host) {
-            tokenError = error
-        } else {
-            tokenSheetHost = nil
-            Task { await store.load(force: true) }
-        }
     }
 }
 
