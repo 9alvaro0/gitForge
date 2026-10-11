@@ -85,7 +85,7 @@ struct ConnectAccountSheet: View {
     private func browser(_ model: ConnectAccountModel) -> some View {
         switch model.deviceFlow?.state {
         case nil, .idle?, .cancelled?:
-            GFButton(title: "Sign in with browser", style: .primary) { model.startBrowser() }
+            GFButton(title: "Get sign-in code", style: .primary) { model.startBrowser() }
         case .requestingCode?, .finishing?:
             ProgressView().controlSize(.small)
         case .waitingForUser(let code, let expiresAt)?:
