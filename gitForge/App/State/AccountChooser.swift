@@ -17,17 +17,34 @@ final class AccountChooser {
     @ObservationIgnored private var queue: [Request] = []
     @ObservationIgnored private var waiters: [String: [CheckedContinuation<RepoAccountChoice?, Never>]] = [:]
 
+    /// `nil` = Cancel. A cancelled caller stops waiting (and its sheet goes
+    /// away), so a clone or fetch can be cancelled while it asks.
     func choose(_ remote: AmbiguousRemote) async -> RepoAccountChoice? {
         let request = Request(remote: remote)
-        return await withCheckedContinuation { continuation in
-            if waiters[request.key] != nil {
-                waiters[request.key, default: []].append(continuation)
-                return
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if waiters[request.key] != nil {
+                    waiters[request.key, default: []].append(continuation)
+                } else {
+                    waiters[request.key] = [continuation]
+                    queue.append(request)
+                    showNext()
+                }
+                if Task.isCancelled { cancel(key: request.key) }
             }
-            waiters[request.key] = [continuation]
-            queue.append(request)
-            showNext()
+        } onCancel: {
+            Task { @MainActor in self.cancel(key: request.key) }
         }
+    }
+
+    /// Answers `nil` to everyone waiting on `key`, shown or still queued.
+    private func cancel(key: String) {
+        if let current = request, current.key == key {
+            answer(nil, for: current.id)
+            return
+        }
+        queue.removeAll { $0.key == key }
+        for continuation in waiters.removeValue(forKey: key) ?? [] { continuation.resume(returning: nil) }
     }
 
     /// The answer for the sheet showing `id`; `nil` = Cancel (or the sheet

@@ -89,4 +89,26 @@ struct CloneSheetModelTests {
         m.destination = NSTemporaryDirectory()
         #expect(!m.canClone)
     }
+
+    @Test("Choose… before the URL picks the parent; the folder name still follows the URL")
+    func chooseParentFirst() {
+        let m = model(store())
+        m.chooseParent("/tmp/parent")
+        #expect(m.destination == "/tmp/parent/repo")
+        m.url = "https://github.com/octo/gitForge.git"
+        #expect(m.destination == "/tmp/parent/gitForge")
+        m.url = "https://github.com/octo/other.git"
+        #expect(m.destination == "/tmp/parent/other")
+    }
+
+    @Test("The destination says why Clone is off, or that its parent will be created")
+    func destinationHint() {
+        let m = model(store())
+        m.url = "https://github.com/octo/app.git"
+        #expect(m.destinationHint == "Parent folder will be created")
+        m.destination = NSTemporaryDirectory()
+        #expect(m.destinationHint == "Already exists — choose another folder")
+        m.destination = NSTemporaryDirectory() + "gitforge-new-\(UUID().uuidString)"
+        #expect(m.destinationHint == nil)
+    }
 }

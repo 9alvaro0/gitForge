@@ -142,14 +142,18 @@ final class AppState {
     }
 
     /// Pins `profileId`'s identity to the active repo (the one just cloned).
-    /// A failure doesn't undo the clone; a toast says so.
-    func applyCloneProfile(_ profileId: UUID?) async {
+    /// A failure doesn't undo the clone; a warning toast says so and the
+    /// result is `false`, so the caller doesn't cover it with "Cloned".
+    @discardableResult
+    func applyCloneProfile(_ profileId: UUID?) async -> Bool {
         guard let profileId, let profile = profiles.profiles.first(where: { $0.id == profileId }),
-              let viewModel = catalog.activeViewModel else { return }
+              let viewModel = catalog.activeViewModel else { return true }
         do {
             try await viewModel.applyProfile(profile)
+            return true
         } catch {
             ui.activeToast = ToastMessage(message: "Cloned, but couldn't apply \(profile.name): \(error.userMessage)", kind: .warn)
+            return false
         }
     }
 
@@ -209,9 +213,11 @@ final class AppState {
         await pin?.followRepositoryRoot()
         do {
             try await openRepository(at: destination)
-            await applyCloneProfile(profileId)
+            let profileApplied = await applyCloneProfile(profileId)
             ui.workspaceSection = .history
-            ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
+            if profileApplied {
+                ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
+            }
         } catch {
             ui.presentedError = PresentedError(
                 title: "Cloned, but couldn't open it",

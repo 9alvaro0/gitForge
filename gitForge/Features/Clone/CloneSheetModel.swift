@@ -27,7 +27,7 @@ final class CloneSheetModel {
     private(set) var probe: ProbeState = .idle
 
     @ObservationIgnored private let store: AccountStore
-    @ObservationIgnored private let parentDirectory: String
+    @ObservationIgnored private var parentDirectory: String
     @ObservationIgnored private let debounce: Duration
     @ObservationIgnored private let runProbe: @Sendable (String) async -> RemoteProbeResult
     @ObservationIgnored private var generation: UInt64 = 0
@@ -68,6 +68,24 @@ final class CloneSheetModel {
         let result = await runProbe(target)
         guard gen == generation, !Task.isCancelled else { return }
         probe = .done(result)
+    }
+
+    /// "Choose…": a new parent folder. The folder name keeps following the
+    /// URL, as when the destination was proposed.
+    func chooseParent(_ parent: String) {
+        parentDirectory = parent
+        destinationEdited = false
+        proposeDestination()
+    }
+
+    /// Why Clone is off because of the destination, or that its parent
+    /// will be created; `nil` when it's fine.
+    var destinationHint: String? {
+        let path = (destination.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
+        guard !path.isEmpty else { return nil }
+        if FileManager.default.fileExists(atPath: path) { return "Already exists — choose another folder" }
+        let parent = (path as NSString).deletingLastPathComponent
+        return FileManager.default.fileExists(atPath: parent) ? nil : "Parent folder will be created"
     }
 
     /// Fills the form from a "My repos" row: HTTPS, signed by `accountId`.
@@ -124,12 +142,15 @@ final class CloneSheetModel {
     }
 
     private func urlDidChange() {
-        if !destinationEdited, let leaf = Self.repoName(from: trimmedURL) {
-            let proposed = "\(parentDirectory)/\(leaf)"
-            lastAutoDestination = proposed
-            destination = proposed
-        }
+        if !destinationEdited, !trimmedURL.isEmpty { proposeDestination() }
         if !profileEdited { profileId = suggestedProfileId }
+    }
+
+    /// `parent/leaf`, the leaf from the URL ("repo" until there is one).
+    private func proposeDestination() {
+        let proposed = "\(parentDirectory)/\(Self.repoName(from: trimmedURL) ?? "repo")"
+        lastAutoDestination = proposed
+        destination = proposed
     }
 
     /// The last path segment without `.git`.

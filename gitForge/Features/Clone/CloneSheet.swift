@@ -3,7 +3,7 @@ import SwiftUI
 /// "Clone a repository" (artboard `Welcome`): URL with its reachability,
 /// GitHub / GitLab repos of the connected accounts, destination and the
 /// identity profile for the new repo. Shows progress while cloning and
-/// closes when the clone ends (a failure is reported by the app's alert).
+/// closes once the clone opens; a failure is shown here and keeps the form.
 struct CloneSheet: View {
     let request: CloneRequest
 
@@ -49,9 +49,17 @@ struct CloneSheet: View {
         .padding(.bottom, Spacing.s20)
         .frame(width: 560)
         .onAppear(perform: makeModel)
-        .onChange(of: appState.clone.isCloning) { _, cloning in
-            if started, !cloning { dismiss() }
+        // The cloned repo opened: done.
+        .onChange(of: appState.catalog.activeRepository?.url) { _, _ in
+            if started { dismiss() }
         }
+        .onChange(of: appState.clone.isCloning) { _, cloning in
+            if !cloning { started = false }
+        }
+        // One sheet per window: while this one is up it presents the
+        // account / instance sheets and the error alert itself.
+        .requestSheets()
+        .errorAlert()
     }
 
     private var isCloning: Bool { appState.clone.isCloning }
@@ -86,6 +94,11 @@ struct CloneSheet: View {
                         .textFieldStyle(.roundedBorder)
                         .textRole(.mono)
                     Button("Choose…") { Task { await choose(model) } }
+                }
+                if let hint = model.destinationHint {
+                    Text(hint)
+                        .textRole(.caption)
+                        .foregroundStyle(model.canClone ? theme.colors.textSecondary : theme.colors.del)
                 }
             }
             HStack(spacing: Spacing.s24) {
@@ -184,7 +197,8 @@ struct CloneSheet: View {
 
     private func choose(_ model: CloneSheetModel) async {
         guard let parent = await appState.pickDirectoryPath(prompt: "Choose parent directory") else { return }
-        model.destination = "\(parent)/\(CloneSheetModel.repoName(from: model.url) ?? "repo")"
+        lastParentDir = parent
+        model.chooseParent(parent)
     }
 
     private func clone(_ model: CloneSheetModel) {

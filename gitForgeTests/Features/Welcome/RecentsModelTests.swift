@@ -44,4 +44,19 @@ struct RecentsModelTests {
         #expect(await gauge.peak == 4)
         #expect(model.states.count == 6)
     }
+
+    @Test("A load cancelled half-way leaves the unread repos unknown, not Missing, so the next load reads them")
+    func cancelled() async {
+        let model = RecentsModel(read: { _ in
+            try? await Task.sleep(for: .seconds(5))
+            if Task.isCancelled { return nil }
+            return .ready(RecentRepoSummary(branch: "main", changed: 0, ahead: 0, behind: 0))
+        })
+        let repos = (0..<6).map { Repository(url: URL(fileURLWithPath: "/tmp/c\($0)")) }
+        let loading = Task { await model.load(repos) }
+        try? await Task.sleep(for: .milliseconds(50))
+        loading.cancel()
+        await loading.value
+        #expect(model.states.isEmpty)
+    }
 }

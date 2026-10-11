@@ -55,4 +55,14 @@ struct AccountChooserTests {
         #expect(results.contains(nil))
         #expect(results.contains(.system))
     }
+
+    @Test("A cancelled operation stops waiting: it gets nil and its sheet goes away")
+    func cancelled() async {
+        let chooser = AccountChooser()
+        let waiting = Task { await chooser.choose(remote("/r/app")) }
+        while chooser.request == nil { await Task.yield() }
+        waiting.cancel()
+        #expect(await waiting.value == nil)
+        #expect(chooser.request == nil)
+    }
 }
