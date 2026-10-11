@@ -321,7 +321,7 @@ struct CloneView: View {
 
     private func inferRepoName(from url: String) -> String? {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let host = RemoteHost.parse(trimmed) { return host.repo }
+        if let host = RemoteHost.parse(trimmed, instances: HostingInstance.builtIns) { return host.repo }
         guard let last = trimmed.split(separator: "/").last else { return nil }
         var name = String(last)
         if name.hasSuffix(".git") { name.removeLast(4) }
@@ -350,7 +350,7 @@ struct CloneView: View {
     private var urlHint: FieldHint? {
         let trimmed = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return nil }
-        if RemoteHost.parse(trimmed) != nil { return FieldHint(kind: .ok, message: "Recognized") }
+        if RemoteHost.parse(trimmed, instances: HostingInstance.builtIns) != nil { return FieldHint(kind: .ok, message: "Recognized") }
         // Looks like a git URL (ends in .git or contains :) but unknown host.
         if trimmed.hasSuffix(".git") || trimmed.contains(":") || trimmed.hasPrefix("http") {
             return FieldHint(kind: .warn, message: "Unknown host — clone may still work")

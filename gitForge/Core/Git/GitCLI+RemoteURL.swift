@@ -1,16 +1,11 @@
 import Foundation
 
 extension GitCLI {
-    /// Resolve a `RemoteHost` for the given remote name (default `origin`).
-    /// Returns nil when the remote doesn't exist or doesn't belong to a
-    /// supported provider.
-    func remoteHost(named remoteName: String = "origin") async -> RemoteHost? {
-        do {
-            let result = try await run(["remote", "get-url", Self.endOfOptions, remoteName])
-            let url = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            return RemoteHost.parse(url)
-        } catch {
-            return nil
-        }
+    /// The `RemoteHost` of `remoteName` (default `origin`), recognised
+    /// against the declared instances. `nil` when the remote doesn't exist
+    /// or its host isn't an instance.
+    func remoteHost(named remoteName: String = "origin", instances: [HostingInstance]) async -> RemoteHost? {
+        guard let url = await remoteURL(remoteName) else { return nil }
+        return RemoteHost.parse(url, instances: instances)
     }
 }
