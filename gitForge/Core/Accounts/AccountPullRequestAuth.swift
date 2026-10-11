@@ -8,6 +8,8 @@ nonisolated enum PullRequestAuthResult: Equatable, Sendable {
     case connectAccount(instanceId: UUID?, replacing: UUID?)
     /// The user cancelled "Choose an account".
     case cancelled
+    /// The token couldn't be obtained (offline, TLS, server down): show it.
+    case failed(String)
 }
 
 /// The token Pull requests uses for a repo: its hosting account (the same
@@ -69,14 +71,28 @@ final class AccountPullRequestAuth {
             return .connectAccount(instanceId: instance.id, replacing: account.id)
         } catch HostingAuthError.refreshRejected {
             return .connectAccount(instanceId: instance.id, replacing: account.id)
+        } catch let error as HostingAuthError where Self.isTransient(error) {
+            // Offline, TLS, server down: the account may be fine — say what
+            // happened instead of asking to connect again.
+            return .failed(error.localizedDescription)
         } catch {
             return fallback(host, instanceId: instance.id, rejected: rejected)
         }
     }
 
-    /// The old per-host token, unless it's the one just rejected.
+    /// The old per-host token, unless it's the one just rejected. Without
+    /// one, connect — reconnecting the instance's only failing account (e.g.
+    /// a copied token that was rejected) rather than adding another.
     private func fallback(_ host: RemoteHost, instanceId: UUID?, rejected: String?) -> PullRequestAuthResult {
         if let legacy = legacyToken(host.host), legacy != rejected { return .token(legacy) }
-        return .connectAccount(instanceId: instanceId, replacing: nil)
+        let failing = instanceId.map { id in store.accounts(in: id).filter { !AccountGitCredentials.signs($0) } } ?? []
+        return .connectAccount(instanceId: instanceId, replacing: failing.count == 1 ? failing[0].id : nil)
+    }
+
+    private static func isTransient(_ error: HostingAuthError) -> Bool {
+        switch error {
+        case .network, .tls, .server: true
+        default: false
+        }
     }
 }

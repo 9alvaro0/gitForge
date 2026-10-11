@@ -6,8 +6,17 @@ import Testing
 private final class AuthFakeProvider: PullRequestProvider, @unchecked Sendable {
     var rejectFirst = 0
     var failWith: PullRequestFetchError?
+    var closedRejections = 0
+    var detailRejections = 0
     private(set) var tokens: [String] = []
+    private(set) var closedTokens: [String] = []
+    private(set) var detailTokens: [String] = []
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
+        if state == .closed {
+            closedTokens.append(token)
+            if closedRejections > 0 { closedRejections -= 1; throw PullRequestFetchError.unauthorized }
+            return []
+        }
         tokens.append(token)
         if let failWith { throw failWith }
         if rejectFirst > 0 { rejectFirst -= 1; throw PullRequestFetchError.unauthorized }
@@ -16,7 +25,14 @@ private final class AuthFakeProvider: PullRequestProvider, @unchecked Sendable {
     }
     func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String { "octo" }
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] { [] }
-    func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail { throw PullRequestFetchError.notFound }
+    func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
+        detailTokens.append(token)
+        if detailRejections > 0 { detailRejections -= 1; throw PullRequestFetchError.unauthorized }
+        return PullRequestDetail(pull: PullRequest(id: "1", number: 1, title: "PR", state: .open, authorLogin: "octo",
+                                                   authorAvatarURL: nil, sourceBranch: "f", targetBranch: "main",
+                                                   webURL: nil, createdAt: nil, updatedAt: nil),
+                                 descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [], mergeable: true, ciStatus: nil)
+    }
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] { [] }
     func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] { [] }
 }
@@ -76,6 +92,31 @@ struct PullRequestStoreAuthTests {
         await s.load(force: true)
         #expect(!s.requiresToken)
         #expect(s.error == PullRequestFetchError.notFound.errorDescription)
+    }
+
+    @Test("A token that goes bad after the list loads: Closed and the detail get one fresh token and retry")
+    func laterRetries() async {
+        let provider = AuthFakeProvider()
+        let s = store(provider) { _, rejected in rejected == nil ? .token("test-old") : .token("test-new") }
+        await s.load(force: true)
+        provider.closedRejections = 1
+        await s.setScope(.closed)
+        #expect(provider.closedTokens == ["test-old", "test-new"])
+        #expect(s.error == nil)
+        provider.detailRejections = 1
+        s.selected = s.items.first
+        await s.loadDetail()
+        #expect(provider.detailTokens == ["test-new", "test-new"] || provider.detailTokens.last == "test-new")
+        #expect(s.detail != nil)
+        #expect(s.detailError == nil)
+    }
+
+    @Test("A failure getting the token (offline) shows as an error, not as Connect")
+    func authFailure() async {
+        let s = store(AuthFakeProvider()) { _, _ in .failed("Couldn't reach the server: offline") }
+        await s.load(force: true)
+        #expect(!s.requiresToken)
+        #expect(s.error == "Couldn't reach the server: offline")
     }
 
     @Test("Cancelling the account sheet leaves an empty list, no spinner, no error")

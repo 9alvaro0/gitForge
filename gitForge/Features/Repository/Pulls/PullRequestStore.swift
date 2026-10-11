@@ -104,6 +104,24 @@ final class PullRequestStore {
         case .cancelled:
             requiresToken = false
             return nil
+        case .failed(let message):
+            requiresToken = false
+            error = message
+            return nil
+        }
+    }
+
+    /// Runs `call` with the token of the last load; after a 401, one fresh
+    /// token and one retry (a GitLab OAuth token lasts 2 h, longer than a
+    /// screen may stay open). `nil` = no token to retry with.
+    private func withToken<T>(_ host: RemoteHost, _ call: (String) async throws -> T) async throws -> T? {
+        guard let token = currentToken else { return nil }
+        do {
+            return try await call(token)
+        } catch PullRequestFetchError.unauthorized {
+            guard let fresh = await authorize(host, rejected: token) else { return nil }
+            currentToken = fresh
+            return try await call(fresh)
         }
     }
 
@@ -137,12 +155,15 @@ final class PullRequestStore {
     }
 
     func loadClosed() async {
-        guard let host, let token = currentToken, !isLoadingClosed else { return }
+        guard let host, currentToken != nil, !isLoadingClosed else { return }
         isLoadingClosed = true
         defer { isLoadingClosed = false }
         let gen = listGen
+        let provider = makeProvider(host)
         do {
-            let closed = try await makeProvider(host).fetchPulls(host: host, state: .closed, token: token)
+            guard let closed = try await withToken(host, { token in
+                try await provider.fetchPulls(host: host, state: .closed, token: token)
+            }), let token = currentToken else { return }
             guard gen == listGen else { return }
             closedItems = closed
             closedLoaded = true
@@ -292,11 +313,21 @@ final class PullRequestStore {
 
         let provider = makeProvider(host)
         let number = pr.number
-        async let detailResult = Self.capture { try await provider.fetchDetail(host: host, number: number, token: token) }
-        async let commitsResult = Self.capture { try await provider.fetchCommits(host: host, number: number, token: token) }
-        async let filesResult = Self.capture { try await provider.fetchFiles(host: host, number: number, token: token) }
-        async let checksResult = Self.capture { try await provider.fetchChecks(host: host, pull: pr, token: token) }
-        let (detail, commits, files, checks) = await (detailResult, commitsResult, filesResult, checksResult)
+        func fetchAll(_ token: String) async -> (Result<PullRequestDetail, Error>, Result<[PullRequestCommit], Error>,
+                                                 Result<[PullRequestFileChange], Error>, Result<[CICheck], Error>) {
+            async let detailResult = Self.capture { try await provider.fetchDetail(host: host, number: number, token: token) }
+            async let commitsResult = Self.capture { try await provider.fetchCommits(host: host, number: number, token: token) }
+            async let filesResult = Self.capture { try await provider.fetchFiles(host: host, number: number, token: token) }
+            async let checksResult = Self.capture { try await provider.fetchChecks(host: host, pull: pr, token: token) }
+            return await (detailResult, commitsResult, filesResult, checksResult)
+        }
+        var (detail, commits, files, checks) = await fetchAll(token)
+        // The token went bad since the list loaded: one fresh one, one retry.
+        if case .failure(PullRequestFetchError.unauthorized) = detail,
+           let fresh = await authorize(host, rejected: token) {
+            currentToken = fresh
+            (detail, commits, files, checks) = await fetchAll(fresh)
+        }
 
         guard gen == detailGen else { return }
         switch detail {
