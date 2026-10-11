@@ -24,9 +24,12 @@ final class AddInstanceModel {
     @ObservationIgnored private let store: AccountStore
     @ObservationIgnored private let verifier: InstanceVerifier
 
-    init(store: AccountStore, verifier: InstanceVerifier = InstanceVerifier()) {
+    init(store: AccountStore, verifier: InstanceVerifier = InstanceVerifier(),
+         kind: HostingInstance.Kind = .gitlab, url: String = "") {
         self.store = store
         self.verifier = verifier
+        self.kind = kind
+        self.url = url
     }
 
     /// The API address used when "API URL" is empty.

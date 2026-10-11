@@ -30,7 +30,7 @@ struct AccountsSection: View {
                 GFButton(title: "Connect account…", style: .primary, size: .small) {
                     appState.ui.connectAccountRequest = ConnectAccountRequest()
                 }
-                GFButton(title: "Add instance…", size: .small) { appState.ui.addInstanceVisible = true }
+                GFButton(title: "Add instance…", size: .small) { appState.ui.addInstanceRequest = AddInstanceRequest() }
                 Spacer()
             }
             .padding(Spacing.s12)

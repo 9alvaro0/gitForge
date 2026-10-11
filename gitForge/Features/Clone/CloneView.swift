@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// `.gf-view-clone` — Clone repository form, "My repos" picker for GitHub/
-/// GitLab, and recent repos list. Talks to `AppState.startClone` /
+/// `.gf-view-clone` — Clone repository form, "My repos" (the repos of a
+/// connected GitHub/GitLab account), and recent repos list. Talks to `AppState.startClone` /
 /// `cancelClone` and observes `cloneState` for live progress.
 struct CloneView: View {
     @Environment(AppState.self) private var appState
@@ -16,6 +16,10 @@ struct CloneView: View {
     @State private var lastAutoDerived: String = ""
 
     @State private var sourceTab: SourceTab = .url
+    /// The repo picked in "My repos" and the account it was listed with;
+    /// the clone uses that account while the URL field still holds its URL.
+    @State private var browsedURL: String?
+    @State private var browsedAccountId: UUID?
 
     enum SourceTab: Hashable { case local, url, github, gitlab }
 
@@ -61,8 +65,8 @@ struct CloneView: View {
             cloneCard
         case .github:
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
-                RemoteRepoPicker(provider: .github, availableHosts: hostsFor(.github)) { repo in
-                    selectRemoteRepo(repo)
+                RemoteRepoPicker(kind: .github) { repo, accountId in
+                    selectRemoteRepo(repo, accountId: accountId)
                 }
                 if isCloning {
                     cloningPanel
@@ -71,8 +75,8 @@ struct CloneView: View {
             .frame(maxWidth: 560, alignment: .leading)
         case .gitlab:
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
-                RemoteRepoPicker(provider: .gitlab, availableHosts: hostsFor(.gitlab)) { repo in
-                    selectRemoteRepo(repo)
+                RemoteRepoPicker(kind: .gitlab) { repo, accountId in
+                    selectRemoteRepo(repo, accountId: accountId)
                 }
                 if isCloning {
                     cloningPanel
@@ -82,39 +86,13 @@ struct CloneView: View {
         }
     }
 
-    /// Hosts in the Keychain that match `provider`'s naming heuristic, plus
-    /// the canonical default. Filters by substring (`github` / `gitlab`) so
-    /// self-hosted instances like `gitlab.example.com` show up automatically.
-    /// The default is appended so the user can still browse the public host
-    /// even when they only have tokens for self-hosted ones.
-    private func hostsFor(_ provider: RemoteProvider) -> [String] {
-        let needle: String = {
-            switch provider {
-            case .github: return "github"
-            case .gitlab: return "gitlab"
-            }
-        }()
-        let canonical: String = {
-            switch provider {
-            case .github: return "github.com"
-            case .gitlab: return "gitlab.com"
-            }
-        }()
-        let stored = RemoteCredentialsStore.shared.knownHosts()
-            .filter { $0.lowercased().contains(needle) }
-        // Put the canonical host last so users with a self-hosted token land
-        // on theirs by default — that's the one most likely to actually work.
-        var result = stored
-        if !result.contains(canonical) { result.append(canonical) }
-        return result
-    }
-
-    /// Filling the clone form from a remote repo row: prefer SSH if available
-    /// (matches what most devs have configured for push), otherwise HTTPS.
-    /// Switches to the URL tab so the user sees what's about to be cloned and
-    /// can tweak the path or branch before confirming.
-    private func selectRemoteRepo(_ repo: RemoteRepoSummary) {
-        sourceURL = repo.sshURL ?? repo.httpsURL
+    /// Filling the clone form from a "My repos" row: HTTPS, so the account
+    /// it was listed with can sign the clone (spec §7.4). Switches to the
+    /// URL tab so the user sees what's about to be cloned.
+    private func selectRemoteRepo(_ repo: RemoteRepoSummary, accountId: UUID) {
+        sourceURL = repo.httpsURL
+        browsedURL = repo.httpsURL
+        browsedAccountId = accountId
         autofillPath(from: sourceURL)
         sourceTab = .url
     }
@@ -174,6 +152,11 @@ struct CloneView: View {
                     .onChange(of: sourceURL) { _, newValue in
                         autofillPath(from: newValue)
                     }
+            }
+            if let suggestion = instanceSuggestion {
+                GFButton(title: "Add \(suggestion.host) as a \(suggestion.kind.label) instance…", size: .small) {
+                    appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind, url: "https://\(suggestion.host)")
+                }
             }
             field(label: "Local path", hint: pathHint) {
                 HStack(spacing: DesignTokens.Spacing.sm) {
@@ -284,10 +267,12 @@ struct CloneView: View {
         // Persist the parent so next time we land on the same default.
         let parent = (localPath as NSString).deletingLastPathComponent
         if !parent.isEmpty { lastParentDir = parent }
+        let trimmed = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
         appState.startClone(
             url: sourceURL,
             path: localPath,
-            branch: branch.isEmpty ? nil : branch
+            branch: branch.isEmpty ? nil : branch,
+            accountId: trimmed == browsedURL ? browsedAccountId : nil
         )
     }
 
@@ -321,7 +306,6 @@ struct CloneView: View {
 
     private func inferRepoName(from url: String) -> String? {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let host = RemoteHost.parse(trimmed, instances: HostingInstance.builtIns) { return host.repo }
         guard let last = trimmed.split(separator: "/").last else { return nil }
         var name = String(last)
         if name.hasSuffix(".git") { name.removeLast(4) }
@@ -350,12 +334,21 @@ struct CloneView: View {
     private var urlHint: FieldHint? {
         let trimmed = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return nil }
-        if RemoteHost.parse(trimmed, instances: HostingInstance.builtIns) != nil { return FieldHint(kind: .ok, message: "Recognized") }
+        if RemoteHost.parse(trimmed, instances: appState.accounts.instances) != nil {
+            return FieldHint(kind: .ok, message: "Recognized")
+        }
+        if let suggestion = instanceSuggestion {
+            return FieldHint(kind: .warn, message: "\(suggestion.host) isn't an added instance")
+        }
         // Looks like a git URL (ends in .git or contains :) but unknown host.
         if trimmed.hasSuffix(".git") || trimmed.contains(":") || trimmed.hasPrefix("http") {
             return FieldHint(kind: .warn, message: "Unknown host — clone may still work")
         }
         return FieldHint(kind: .bad, message: "Doesn't look like a git URL")
+    }
+
+    private var instanceSuggestion: InstanceSuggestion? {
+        RemoteHost.suggestedInstance(forRemoteURL: sourceURL, instances: appState.accounts.instances)
     }
 
     private var pathHint: FieldHint? {
