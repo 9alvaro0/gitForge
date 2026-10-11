@@ -351,8 +351,6 @@ extension AccountStore {
 
     /// The old host-name heuristic, used only to type migrated hosts.
     static func legacyKind(forHost host: String) -> HostingInstance.Kind? {
-        if host == "github.com" || host.hasSuffix(".github.com") { return .github }
-        if host.contains("gitlab") { return .gitlab }
-        return nil
+        HostingInstance.guessedKind(forHost: host)
     }
 }

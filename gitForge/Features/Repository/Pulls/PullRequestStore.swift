@@ -84,7 +84,7 @@ final class PullRequestStore {
             guard rejected == nil, let value = token(host.host) else { return .connectAccount(instanceId: nil, replacing: nil) }
             return .token(value)
         }
-        self.resolveHost = resolveHost ?? { await cli.remoteHost() }
+        self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
         self.makeProvider = makeProvider
     }
 
