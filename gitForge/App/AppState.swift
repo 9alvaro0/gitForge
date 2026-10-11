@@ -15,6 +15,9 @@ final class AppState {
     let ui: WorkspaceUI
     let profiles: ProfileStore
     let accounts: AccountStore
+    let tokenRefresher: TokenRefresher
+    let accountValidator: AccountValidator
+    let accountConnector: AccountConnector
     let network: NetworkMonitor
 
     init(
@@ -34,7 +37,14 @@ final class AppState {
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
         self.profiles = profiles ?? ProfileStore()
-        self.accounts = accounts ?? AccountStore()
+        let accountStore = accounts ?? AccountStore()
+        let refresher = TokenRefresher(secrets: accountStore.secrets, onRefreshRejected: { id in
+            await accountStore.markNeedsAttention(id, .expired)
+        })
+        self.accounts = accountStore
+        self.tokenRefresher = refresher
+        self.accountValidator = AccountValidator(store: accountStore, refresher: refresher)
+        self.accountConnector = AccountConnector(store: accountStore)
         self.network = network ?? NetworkMonitor()
     }
 
@@ -61,10 +71,12 @@ final class AppState {
         }
         catalog.startStatusPolling()
 
-        // Hosting accounts, phase 1: sync the old per-host tokens into
-        // accounts (non-destructive; PRs and clone still read the old store).
-        // Last, so any Keychain prompt comes after the window is restored.
+        // Hosting accounts: sync the old per-host tokens into accounts
+        // (non-destructive until phase 5), then check each account against
+        // its API at most once a day, in the background. Last, so any
+        // Keychain prompt comes after the window is restored.
         accounts.migrateLegacyTokens(from: RemoteCredentialsStore.shared)
+        Task { await accountValidator.validateDueAccounts() }
     }
 
     // MARK: - Repository open / activate (cross-cutting: catalog + ui)

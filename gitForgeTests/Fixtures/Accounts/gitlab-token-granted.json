@@ -1,0 +1,1 @@
+{"access_token":"test-gitlab-access","token_type":"Bearer","expires_in":7200,"refresh_token":"test-gitlab-refresh-2","scope":"api read_user write_repository","created_at":1760000000}
