@@ -1,144 +1,125 @@
 import SwiftUI
 
-/// Lists repos the current user has access to on a remote host (GitHub or
-/// GitLab) using the PAT stored in `RemoteCredentialsStore`. Renders a search
-/// box + scrollable list with paginated loading. The parent decides what to do
-/// when a repo is selected — typically: prefill the clone form's URL/path and
-/// kick off the clone.
+/// Clone › "My repos" (spec §7.4): the repos of a connected account, with
+/// an account picker when there are several. Without a usable account it
+/// offers to connect (or reconnect) one. The parent decides what to do with
+/// the chosen repo and the account it was listed with.
 struct RemoteRepoPicker: View {
-    let provider: RemoteProvider
-    /// Hosts the user has tokens for that match this provider, plus the
-    /// canonical default (`github.com` / `gitlab.com`). First element is the
-    /// initial selection.
-    let availableHosts: [String]
-    let onSelect: (RemoteRepoSummary) -> Void
+    let kind: HostingInstance.Kind
+    let onSelect: (RemoteRepoSummary, UUID) -> Void
 
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
-
-    @State private var host: String = ""
-    @State private var repos: [RemoteRepoSummary] = []
-    @State private var search: String = ""
-    @State private var page: Int = 1
-    @State private var hasMore: Bool = true
-    @State private var loading: Bool = false
-    @State private var loadingMore: Bool = false
-    @State private var loadError: String?
-    @State private var hasLoadedOnce: Bool = false
-
-    private var token: String? {
-        RemoteCredentialsStore.shared.token(for: host)
-    }
-
-    private var filtered: [RemoteRepoSummary] {
-        let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return repos }
-        return repos.filter {
-            $0.fullName.lowercased().contains(q)
-                || $0.name.lowercased().contains(q)
-                || ($0.description?.lowercased().contains(q) ?? false)
-        }
-    }
+    @State private var model: RemoteRepoListModel?
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
-            hostSelector
-            if token == nil {
-                missingTokenCard
-            } else {
-                searchBar
-                listOrEmpty
+            if let model {
+                content(model)
             }
         }
         .onAppear {
-            if host.isEmpty { host = availableHosts.first ?? "" }
+            if model == nil {
+                model = RemoteRepoListModel(kind: kind, store: appState.accounts, refresher: appState.tokenRefresher)
+            }
         }
-        .onChange(of: host) { _, _ in
-            // Switching hosts wipes state — different API, different repos.
-            hasLoadedOnce = false
-            page = 1
-            hasMore = true
-            repos = []
-            loadError = nil
+        // Back from "Connect account": pick up the new or reconnected account.
+        .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
+            if closed { model?.refreshAccounts() }
         }
-        .task(id: host) { await loadInitialIfNeeded() }
+        .task(id: model?.selectedAccountId) {
+            if let model, model.state == .idle { await model.load() }
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ model: RemoteRepoListModel) -> some View {
+        if case .needsAccount(let instanceId, let replacing) = model.state {
+            connectCard(instanceId: instanceId, replacing: replacing)
+        } else {
+            accountSelector(model)
+            searchBar(model)
+            listOrEmpty(model)
+        }
     }
 
     // MARK: - Sections
 
     @ViewBuilder
-    private var hostSelector: some View {
-        if availableHosts.count > 1 {
+    private func accountSelector(_ model: RemoteRepoListModel) -> some View {
+        if model.accounts.count > 1 {
             HStack(spacing: DesignTokens.Spacing.md) {
-                Text("Host")
+                Text("Account")
                     .font(AppFont.sans(FontSize.sm, weight: .medium))
                     .foregroundStyle(theme.palette.fg3)
-                Picker("", selection: $host) {
-                    ForEach(availableHosts, id: \.self) { h in
-                        Text(h).tag(h)
+                Picker("", selection: Binding(get: { model.selectedAccountId ?? model.accounts[0].id },
+                                              set: { model.select($0) })) {
+                    ForEach(model.accounts) { account in
+                        Text(model.label(for: account)).tag(account.id)
                     }
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .frame(maxWidth: 280)
+                .frame(maxWidth: 320)
                 Spacer()
             }
-        } else if let only = availableHosts.first {
+        } else if let only = model.accounts.first {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: .cloud, size: DesignTokens.IconSize.xs, stroke: theme.palette.fg3)
-                Text(only)
+                Text(model.label(for: only))
                     .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
                     .foregroundStyle(theme.palette.fg2)
             }
         }
     }
 
-    private var searchBar: some View {
+    private func searchBar(_ model: RemoteRepoListModel) -> some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             GFIcon(kind: .search, size: DesignTokens.IconSize.sm, stroke: theme.palette.fg3)
-            GFTextField(placeholder: "Filter by name or description…", text: $search)
-            if loading || loadingMore {
+            GFTextField(placeholder: "Filter by name or description…", text: Bindable(model).search)
+            if model.state == .loading || model.isLoadingMore {
                 ProgressView().controlSize(.small)
             }
         }
     }
 
     @ViewBuilder
-    private var listOrEmpty: some View {
-        if let loadError, repos.isEmpty {
-            errorCard(loadError)
-        } else if !hasLoadedOnce && repos.isEmpty {
-            HStack {
-                Spacer()
-                ProgressView()
-                Spacer()
-            }
-            .padding(.vertical, DesignTokens.Spacing.xxhuge)
-        } else if repos.isEmpty {
-            emptyCard
-        } else {
-            list
+    private func listOrEmpty(_ model: RemoteRepoListModel) -> some View {
+        switch model.state {
+        case .failed(let message):
+            errorCard(message, model: model)
+        case .idle, .loading:
+            HStack { Spacer(); ProgressView(); Spacer() }
+                .padding(.vertical, DesignTokens.Spacing.xxhuge)
+        case .loaded where model.repos.isEmpty:
+            Text("No repositories found.")
+                .font(AppFont.sans(FontSize.sm))
+                .foregroundStyle(theme.palette.fg3)
+                .padding(.vertical, DesignTokens.Spacing.xxxl)
+        case .loaded, .needsAccount:
+            list(model)
         }
     }
 
-    private var list: some View {
+    private func list(_ model: RemoteRepoListModel) -> some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
-            ForEach(filtered) { repo in
-                row(for: repo)
+            ForEach(model.filtered) { repo in
+                row(for: repo, model: model)
             }
-            if hasMore {
-                GFButton(title: loadingMore ? "Loading…" : "Load more",
+            if model.hasMore {
+                GFButton(title: model.isLoadingMore ? "Loading…" : "Load more",
                          style: .secondary,
-                         disabled: loadingMore) {
-                    Task { await loadMore() }
+                         disabled: model.isLoadingMore) {
+                    Task { await model.loadMore() }
                 }
                 .padding(.top, DesignTokens.Spacing.xs)
             }
         }
     }
 
-    private func row(for repo: RemoteRepoSummary) -> some View {
+    private func row(for repo: RemoteRepoSummary, model: RemoteRepoListModel) -> some View {
         Button {
-            onSelect(repo)
+            if let accountId = model.selectedAccountId { onSelect(repo, accountId) }
         } label: {
             HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
                 Image(systemName: repo.isPrivate ? "lock.fill" : "globe")
@@ -173,124 +154,54 @@ struct RemoteRepoPicker: View {
         .buttonStyle(.plain)
     }
 
-    private var missingTokenCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            Text("No token configured for \(host.isEmpty ? provider.label : host)")
+    private func connectCard(instanceId: UUID?, replacing: UUID?) -> some View {
+        card {
+            Text(replacing == nil ? "Connect a \(kind.label) account" : "Reconnect your \(kind.label) account")
                 .font(AppFont.sans(FontSize.lg, weight: .semibold))
                 .foregroundStyle(theme.palette.fg1)
-            Text("Add a Personal Access Token in Settings → Remote hosts to browse your repos from this host.")
+            Text(replacing == nil
+                 ? "Sign in to browse the repositories you can clone, and clone them over HTTPS with that account."
+                 : "Its token was rejected. Reconnect it to browse your repositories again.")
                 .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
+            GFButton(title: replacing == nil ? "Connect account…" : "Reconnect…", style: .primary) {
+                appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: replacing)
+            }
         }
-        .padding(DesignTokens.Spacing.xxxl)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
-    private var emptyCard: some View {
-        Text("No repositories found.")
-            .font(AppFont.sans(FontSize.sm))
-            .foregroundStyle(theme.palette.fg3)
-            .padding(.vertical, DesignTokens.Spacing.xxxl)
-    }
-
-    private func errorCard(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+    private func errorCard(_ message: String, model: RemoteRepoListModel) -> some View {
+        card {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 GFIcon(kind: .x, size: DesignTokens.IconSize.md, stroke: theme.palette.del)
-                Text("Couldn't load repos from \(host)")
+                Text("Couldn't load repositories")
                     .font(AppFont.sans(FontSize.md, weight: .semibold))
                     .foregroundStyle(theme.palette.fg1)
             }
             Text(message)
                 .font(AppFont.sans(FontSize.sm))
                 .foregroundStyle(theme.palette.fg3)
-            // Tokens are saved per-host; if the user landed on the wrong host
-            // the message above won't help. Nudge them to the right place.
-            if availableHosts.count > 1 {
-                Text("Try a different host above, or check the token's scopes in Settings.")
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.fg3)
-            } else {
-                Text("Check the token's scopes in Settings (needs read access to repositories), or that the token is for this host.")
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.fg3)
-            }
             GFButton(title: "Retry", style: .secondary) {
-                Task { await retry() }
+                Task { await model.load() }
             }
         }
-        .padding(DesignTokens.Spacing.xxxl)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 
-    // MARK: - Loading
-
-    private func loadInitialIfNeeded() async {
-        guard !hasLoadedOnce, !loading, token != nil else { return }
-        await loadPage(1, replacing: true)
-        hasLoadedOnce = true
-    }
-
-    private func retry() async {
-        loadError = nil
-        hasLoadedOnce = false
-        page = 1
-        hasMore = true
-        repos = []
-        await loadPage(1, replacing: true)
-        hasLoadedOnce = true
-    }
-
-    private func loadMore() async {
-        guard hasMore, !loadingMore, !loading else { return }
-        await loadPage(page + 1, replacing: false)
-    }
-
-    private func loadPage(_ pageNumber: Int, replacing: Bool) async {
-        guard let token else { return }
-        let kind: HostingInstance.Kind = provider == .github ? .github : .gitlab
-        let browser = RemoteRepoBrowserFactory.make(for: kind)
-
-        if replacing { loading = true } else { loadingMore = true }
-        defer {
-            if replacing { loading = false } else { loadingMore = false }
-        }
-
-        do {
-            let chunk = try await browser.fetchUserRepos(apiBase: HostingInstance.defaultAPIBaseURL(kind: kind, host: host),
-                                                         token: token, page: pageNumber)
-            if replacing {
-                repos = chunk
-            } else {
-                repos.append(contentsOf: chunk)
-            }
-            page = pageNumber
-            hasMore = chunk.count >= 50
-            loadError = nil
-        } catch {
-            loadError = error.userMessage
-        }
+    private func card<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md, content: content)
+            .padding(DesignTokens.Spacing.xxxl)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
     }
 }
 
-#Preview("No token") {
+#Preview {
     @Previewable @State var theme = AppTheme()
-    RemoteRepoPicker(provider: .github, availableHosts: ["github.com"]) { _ in }
+    RemoteRepoPicker(kind: .github) { _, _ in }
         .padding(DesignTokens.Spacing.huge)
         .frame(width: 600, height: 400)
         .background(theme.palette.bg2)
-        .appTheme(theme)
-}
-
-#Preview("Multi-host") {
-    @Previewable @State var theme = AppTheme()
-    RemoteRepoPicker(provider: .gitlab, availableHosts: ["gitlab.com", "gitlab.example.com"]) { _ in }
-        .padding(DesignTokens.Spacing.huge)
-        .frame(width: 600, height: 400)
-        .background(theme.palette.bg2)
+        .previewAppState(.preview)
         .appTheme(theme)
 }

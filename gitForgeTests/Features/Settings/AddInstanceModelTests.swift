@@ -80,4 +80,12 @@ struct AddInstanceModelTests {
         #expect(duplicate.state == .failed("gitlab.com is already in the list."))
         #expect(server.requests.isEmpty)
     }
+
+    @Test("Opened from an unknown remote: the type and URL come filled in")
+    func prefilled() {
+        let model = AddInstanceModel(store: makeStore(), kind: .github, url: "https://ghe.corp.test")
+        #expect(model.kind == .github)
+        #expect(model.url == "https://ghe.corp.test")
+        #expect(model.defaultAPIURL == "https://ghe.corp.test/api/v3")
+    }
 }

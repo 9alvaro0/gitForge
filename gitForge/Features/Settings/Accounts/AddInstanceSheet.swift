@@ -2,6 +2,7 @@ import SwiftUI
 
 /// "Add instance" (P4 spec §5.3).
 struct AddInstanceSheet: View {
+    var request = AddInstanceRequest()
     var onAdded: (HostingInstance) -> Void = { _ in }
 
     @Environment(AppState.self) private var appState
@@ -12,7 +13,7 @@ struct AddInstanceSheet: View {
     @State private var showAdvanced = false
 
     var body: some View {
-        let model = model ?? AddInstanceModel(store: appState.accounts)
+        let model = model ?? AddInstanceModel(store: appState.accounts, kind: request.kind, url: request.url)
         VStack(alignment: .leading, spacing: Spacing.s12) {
             Text("Add instance").textRole(.title)
             Picker("Type", selection: Bindable(model).kind) {

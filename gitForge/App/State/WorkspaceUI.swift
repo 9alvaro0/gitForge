@@ -20,8 +20,8 @@ final class WorkspaceUI {
     var discardAllConfirmVisible: Bool = false
     /// "Connect account" sheet (P4 spec §5.2); `ShellView` presents it.
     var connectAccountRequest: ConnectAccountRequest?
-    /// "Add instance" sheet (P4 spec §5.3).
-    var addInstanceVisible: Bool = false
+    /// "Add instance" sheet (P4 spec §5.3), prefilled from an unknown remote.
+    var addInstanceRequest: AddInstanceRequest?
 
     /// Shared toast emission for git operations that return an
     /// `IntegrationOutcome` (merge / rebase / cherry-pick / revert / reset /
@@ -48,4 +48,11 @@ struct ConnectAccountRequest: Identifiable, Equatable {
     let id = UUID()
     var instanceId: UUID?
     var replacing: UUID?
+}
+
+/// Opens "Add instance", optionally prefilled (an unknown remote's host).
+struct AddInstanceRequest: Identifiable, Equatable {
+    let id = UUID()
+    var kind: HostingInstance.Kind = .gitlab
+    var url = ""
 }
