@@ -12,3 +12,4 @@
 | 7 | ver git log | error de compilación (`connectAccount`) → verde (24 con las suites del almacén) | — |
 | 8 | ver git log | error de compilación (`TokenRefresher`) → 10/10, ×3 iteraciones 30/30 | — |
 | 9 | ver git log | error de compilación (`AccountValidator`) → 8/8 | Ruling: `AccountValidator.interval` se marca `nonisolated` (lo usa `isDue`, que es nonisolated). |
+| 10 | ver git log | error de compilación (`AccountConnector`) → 10/10, ×3 iteraciones 30/30 | — |
