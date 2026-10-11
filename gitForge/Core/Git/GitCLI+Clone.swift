@@ -67,6 +67,7 @@ extension GitCLI {
     static func clone(url: String,
                       destination: URL,
                       branch: String? = nil,
+                      credentials: GitCredentialProvider? = nil,
                       onProgress: (@Sendable (CloneProgress) -> Void)? = nil) async throws {
         let safeURL = try CloneURLValidator.validate(url)
         let safeBranch: String? = try {
@@ -92,8 +93,25 @@ extension GitCLI {
 
         // Clone runs from `$HOME` so `Process` has a valid cwd; the
         // destination is passed explicitly in argv.
+        let finalArgs = args
+        guard let credentials else {
+            try await runClone(args: finalArgs, credential: nil, onProgress: onProgress)
+            return
+        }
+        try await credentials.withCredential(remoteURL: safeURL, remoteName: "origin",
+                                             repoPath: destination.path(percentEncoded: false)) { credential in
+            try await runClone(args: finalArgs, credential: credential, onProgress: onProgress)
+        }
+    }
+
+    /// Runs the clone process (`clone` has validated `args`), reporting
+    /// progress and honouring cancellation and the watchdog.
+    private static func runClone(args: [String], credential: GitCredential?,
+                                 onProgress: (@Sendable (CloneProgress) -> Void)?) async throws {
         let process = GitProcess.make(arguments: args,
-                                      workingDirectory: URL(fileURLWithPath: NSHomeDirectory()))
+                                      workingDirectory: URL(fileURLWithPath: NSHomeDirectory()),
+                                      credential: credential)
+        if let credential { SecretRedactor.shared.register(credential.password) }
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
