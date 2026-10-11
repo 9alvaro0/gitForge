@@ -9,35 +9,12 @@ struct IdentityStep: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xxl) {
-            heading
-            card
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var heading: some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
-            ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.xl)
-                    .fill(theme.palette.accentSoft)
-                    .frame(width: 56, height: 56)
-                GFIcon(kind: .user, size: 26, stroke: theme.palette.accent)
-            }
-            .padding(.bottom, DesignTokens.Spacing.sm)
-            Text("Who are you?")
-                .font(AppFont.sans(FontSize.title, weight: .semibold))
-                .foregroundStyle(theme.palette.fg1)
-            Text("git records your name and email on every commit. This writes to `~/.gitconfig` and applies to every repository.")
-                .font(AppFont.sans(FontSize.md))
-                .foregroundStyle(theme.palette.fg3)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 460)
-        }
+        card
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s16) {
             field(label: "Name") {
                 GFTextField(placeholder: "Ada Lovelace", text: $state.name)
             }
@@ -46,15 +23,16 @@ struct IdentityStep: View {
             }
             signingDisclosure
         }
-        .padding(DesignTokens.Spacing.xxl)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .padding(Spacing.s16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(theme.colors.separator, lineWidth: 1))
     }
 
     @ViewBuilder
     private var signingDisclosure: some View {
         if state.showSigningField {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Spacing.s8) {
                 disclosureToggle
                 field(label: "Signing key (GPG / SSH)") {
                     GFTextField(placeholder: "Key id, optional", text: $state.signingKey)
@@ -67,16 +45,18 @@ struct IdentityStep: View {
 
     private var disclosureToggle: some View {
         Button {
-            withAnimation(DesignTokens.Motion.fast) {
+            withAnimation(.easeOut(duration: 0.15)) {
                 state.showSigningField.toggle()
             }
         } label: {
-            HStack(spacing: DesignTokens.Spacing.xs) {
-                GFIcon(kind: state.showSigningField ? .chevD : .chevR,
-                       size: 10, stroke: theme.palette.fg3)
+            HStack(spacing: Spacing.s4) {
+                Image(systemName: state.showSigningField ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .accessibilityHidden(true)
                 Text("Advanced — signing key")
-                    .font(AppFont.sans(FontSize.sm, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout, weight: .medium)
+                    .foregroundStyle(theme.colors.textTertiary)
             }
         }
         .buttonStyle(.plain)
@@ -84,10 +64,10 @@ struct IdentityStep: View {
 
     @ViewBuilder
     private func field<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
             Text(label)
-                .font(AppFont.sans(FontSize.sm, weight: .medium))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.callout, weight: .medium)
+                .foregroundStyle(theme.colors.textSecondary)
             content()
         }
     }
@@ -97,9 +77,9 @@ struct IdentityStep: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var state = OnboardingState()
     IdentityStep(state: state)
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s48)
         .frame(width: 720, height: 600)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
 
@@ -107,8 +87,8 @@ struct IdentityStep: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var state = OnboardingState.previewFilled
     IdentityStep(state: state)
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s48)
         .frame(width: 720, height: 600)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

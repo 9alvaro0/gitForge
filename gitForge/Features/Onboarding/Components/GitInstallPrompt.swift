@@ -9,19 +9,24 @@ struct GitInstallPrompt: View {
     @State private var isInstalling = false
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xxl) {
-            StatusBadge(icon: .warn, tint: theme.palette.warn)
-            VStack(spacing: DesignTokens.Spacing.sm) {
-                Text("Git is required")
-                    .font(AppFont.sans(FontSize.xxxl, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
-                Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg3)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
+        VStack(alignment: .leading, spacing: Spacing.s16) {
+            HStack(alignment: .top, spacing: Spacing.s12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(theme.colors.warn)
+                    .frame(width: 36, height: 36)
+                    .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.warnSoft))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Spacing.s4) {
+                    Text("Git is required")
+                        .textRole(.body, weight: .semibold)
+                        .foregroundStyle(theme.colors.textPrimary)
+                    Text("gitForge needs the `git` command-line tool. Install the Xcode Command Line Tools to continue.")
+                        .textRole(.callout)
+                        .foregroundStyle(theme.colors.textSecondary)
+                }
             }
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: Spacing.s8) {
                 GFButton(
                     title: isInstalling ? "Installing…" : "Install Command Line Tools",
                     style: .primary,
@@ -38,6 +43,10 @@ struct GitInstallPrompt: View {
                 }
             }
         }
+        .padding(Spacing.s16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(theme.colors.separator, lineWidth: 1))
     }
 }
 
@@ -45,8 +54,8 @@ struct GitInstallPrompt: View {
     @Previewable @State var theme = AppTheme()
     GitInstallPrompt()
         .previewAppState(.previewMissingGit)
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s48)
         .frame(width: 720, height: 420)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
