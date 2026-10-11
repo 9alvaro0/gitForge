@@ -319,9 +319,11 @@ final class RepositoryViewModel {
         }
     }
 
-    init(repository: Repository) {
+    /// `credentials`: signs network git commands with the repo's hosting
+    /// account (`AppState` passes the account provider).
+    init(repository: Repository, credentials: GitCredentialProvider? = nil) {
         self.repository = repository
-        let cli = GitCLI(workingDirectory: repository.url)
+        let cli = GitCLI(workingDirectory: repository.url, credentials: credentials)
         self.cli = cli
         self.pullRequests = PullRequestStore(cli: cli)
         self.stashDetail = StashDetailStore(cli: cli)

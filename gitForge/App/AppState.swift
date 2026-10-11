@@ -18,6 +18,7 @@ final class AppState {
     let tokenRefresher: TokenRefresher
     let accountValidator: AccountValidator
     let accountConnector: AccountConnector
+    let gitCredentials: AccountGitCredentials
     let network: NetworkMonitor
 
     init(
@@ -36,7 +37,8 @@ final class AppState {
         self.gitEnvironment = gitEnvironment ?? GitEnvironment()
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
-        self.profiles = profiles ?? ProfileStore()
+        let profileStore = profiles ?? ProfileStore()
+        self.profiles = profileStore
         let accountStore = accounts ?? AccountStore()
         let refresher = TokenRefresher(secrets: accountStore.secrets, onRefreshRejected: { id in
             await accountStore.markNeedsAttention(id, .expired)
@@ -45,7 +47,12 @@ final class AppState {
         self.tokenRefresher = refresher
         self.accountValidator = AccountValidator(store: accountStore, refresher: refresher)
         self.accountConnector = AccountConnector(store: accountStore)
+        self.gitCredentials = AccountGitCredentials(store: accountStore, refresher: refresher, activeProfileId: { repoPath in
+            let identity = await GitCLI(workingDirectory: URL(fileURLWithPath: repoPath)).currentIdentity()
+            return await profileStore.match(for: identity)?.id
+        })
         self.network = network ?? NetworkMonitor()
+        self.catalog.gitCredentials = gitCredentials
     }
 
     // MARK: - Bootstrap
@@ -144,6 +151,7 @@ final class AppState {
                 url: trimmedUrl,
                 destination: destination,
                 branch: branch,
+                credentials: gitCredentials,
                 onProgress: { [weak self] progress in
                     Task { @MainActor [weak self] in
                         // Progress hops are unordered relative to this
