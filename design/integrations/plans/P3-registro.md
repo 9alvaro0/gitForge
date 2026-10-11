@@ -4,3 +4,4 @@
 |---|---|---|
 | 1 | error de compilación (`GitCredential`) → 13/13 | `credential fill` con git real: el helper responde para su host y no para otro. |
 | 2 | error de compilación (`SecretRedactor`) → verde (9 con `GitErrorRedactionTests`) | — |
+| 3 | error de compilación (`credential:`) → verde (10 con watchdog y robustez) | — |
