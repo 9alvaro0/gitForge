@@ -43,34 +43,37 @@ nonisolated struct RemoteHost: Sendable, Equatable, Identifiable {
 }
 
 extension RemoteHost {
-    /// Parse a git remote URL (SSH or HTTPS) into a `RemoteHost`. Returns nil
-    /// if the URL doesn't belong to a supported provider.
+    /// Parses a git remote URL (SSH or HTTPS) whose host is a declared
+    /// instance (spec §4.1): its kind decides the provider and its API base
+    /// goes along. Undeclared hosts aren't recognised; see
+    /// `suggestedInstance(forRemoteURL:instances:)`.
     ///
     /// Accepted forms:
     ///   - `git@github.com:owner/repo.git`
     ///   - `ssh://git@github.com/owner/repo.git`
     ///   - `https://github.com/owner/repo.git`
     ///   - `https://gitlab.com/group/sub/repo.git` (nested groups for GitLab)
-    nonisolated static func parse(_ remoteURL: String) -> RemoteHost? {
-        let trimmed = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let pair = extractHostAndPath(trimmed), let provider = providerForHost(pair.0) else { return nil }
-        return parse(trimmed, provider: provider)
-    }
-
-    /// Like `parse(_:)`, but a host declared as an instance (P5 / spec §4.1)
-    /// wins over the host-name guess: its kind decides the provider and its
-    /// API base goes along. Undeclared hosts fall back to the guess.
     nonisolated static func parse(_ remoteURL: String, instances: [HostingInstance]) -> RemoteHost? {
         let trimmed = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let pair = extractHostAndPath(trimmed),
               let host = HostingInstance.normalizedHost(pair.0),
-              let instance = instances.first(where: { $0.host == host }) else {
-            return parse(remoteURL)
-        }
+              let instance = instances.first(where: { $0.host == host }) else { return nil }
         let provider: RemoteProvider = instance.kind == .github ? .github : .gitlab
         guard var parsed = parse(trimmed, provider: provider) else { return nil }
         parsed.apiBaseURL = instance.apiBaseURL
         return parsed
+    }
+
+    /// An undeclared host whose name looks like GitHub or GitLab, offered as
+    /// "Add <host> as a <kind> instance…". `nil` for declared hosts.
+    nonisolated static func suggestedInstance(forRemoteURL remoteURL: String,
+                                              instances: [HostingInstance]) -> InstanceSuggestion? {
+        let trimmed = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let pair = extractHostAndPath(trimmed),
+              let host = HostingInstance.normalizedHost(pair.0),
+              !instances.contains(where: { $0.host == host }),
+              let kind = HostingInstance.guessedKind(forHost: host) else { return nil }
+        return InstanceSuggestion(host: host, kind: kind)
     }
 
     /// The path half of `parse`, once the provider is known.
@@ -121,16 +124,11 @@ extension RemoteHost {
         guard let parsed = URL(string: url), let host = parsed.host else { return nil }
         return (host, parsed.path)
     }
+}
 
-    private nonisolated static func providerForHost(_ host: String) -> RemoteProvider? {
-        let normalized = host.lowercased()
-        if normalized == "github.com" || normalized.hasSuffix(".github.com") {
-            return .github
-        }
-        if normalized == "gitlab.com" || normalized.contains("gitlab") {
-            // Self-hosted GitLab is common — match anything containing "gitlab".
-            return .gitlab
-        }
-        return nil
-    }
+/// A remote's host that isn't a declared instance but looks like GitHub or
+/// GitLab by name (spec §4.1).
+nonisolated struct InstanceSuggestion: Equatable, Sendable {
+    let host: String
+    let kind: HostingInstance.Kind
 }

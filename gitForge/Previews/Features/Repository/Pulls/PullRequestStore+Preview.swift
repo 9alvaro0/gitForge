@@ -4,7 +4,7 @@ import Foundation
 extension PullRequestStore {
     /// Empty store that never hits the network (no token).
     static var preview: PullRequestStore {
-        PullRequestStore(cli: GitCLI(workingDirectory: Repository.preview.url), token: { _ in nil })
+        PullRequestStore(cli: GitCLI(workingDirectory: Repository.preview.url))
     }
 
     /// Populated PR list against a GitHub host.

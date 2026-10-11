@@ -27,7 +27,7 @@ struct GitCredentialsWiringTests {
         let secrets = InMemoryAccountSecretStore()
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: .none)
         try store.addInstance(HostingInstance(kind: .gitlab, host: "git.empresa.com"))
-        let auth = AccountPullRequestAuth(store: store, refresher: TokenRefresher(secrets: secrets), legacyToken: { _ in nil })
+        let auth = AccountPullRequestAuth(store: store, refresher: TokenRefresher(secrets: secrets))
         let repo = try await GitTestRepo.make { try $0.git("remote", "add", "origin", "https://git.empresa.com/group/app.git") }
         let vm = RepositoryViewModel(repository: Repository(url: repo.url), pullRequestAuth: auth)
         await vm.pullRequests.load(force: true)

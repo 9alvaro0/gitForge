@@ -281,15 +281,20 @@ nonisolated protocol LegacyTokenSource: Sendable {
     func legacyToken(for host: String) throws -> String?
 }
 
+/// The old store, with deletes: what phase 5b retires.
+nonisolated protocol LegacyTokenStore: LegacyTokenSource {
+    func removeLegacyToken(for host: String) throws
+}
+
 extension AccountStore {
     /// Syncs each old per-host token into a token account (spec §4.4). Runs
-    /// every launch until phase 5 retires the old store, so a token added
-    /// or rotated in Settings › Remote hosts meanwhile still reaches the
-    /// accounts. Non-destructive: the old entries stay until phase 5.
-    /// `migratedLegacyTokens` is set only once a run read and copied every
-    /// host without error; phase 5 must see it set before deleting.
-    func migrateLegacyTokens(from legacy: LegacyTokenSource) {
-        guard let hosts = try? legacy.legacyHosts() else { return }
+    /// at every launch through `retireLegacyTokens`, so a token an older
+    /// build added or rotated still reaches the accounts. Non-destructive.
+    /// Returns whether this run read and copied every host without error;
+    /// `migratedLegacyTokens` records that a run did.
+    @discardableResult
+    func migrateLegacyTokens(from legacy: LegacyTokenSource) -> Bool {
+        guard let hosts = try? legacy.legacyHosts() else { return false }
         var complete = true
         for host in hosts {
             guard let normalized = HostingInstance.normalizedHost(host),
@@ -347,12 +352,30 @@ extension AccountStore {
             }
         }
         if complete { migratedLegacyTokens = true }
+        return complete
+    }
+
+    /// Phase 5b (spec §4.4, step 3): one last sync, then the old entries go —
+    /// only when this launch's sync read and copied every host and a
+    /// complete sync is on record. Only hosts whose token reached an account
+    /// (or whose copy was disconnected) are deleted; hosts the sync couldn't
+    /// type were never copied and stay. A failed delete is retried next launch.
+    func retireLegacyTokens(from legacy: LegacyTokenStore) {
+        guard migrateLegacyTokens(from: legacy), migratedLegacyTokens,
+              let hosts = try? legacy.legacyHosts() else { return }
+        for host in hosts {
+            guard let normalized = HostingInstance.normalizedHost(host),
+                  legacyHostAccounts[normalized] != nil || detachedLegacyHosts.contains(normalized) else { continue }
+            do {
+                try legacy.removeLegacyToken(for: host)
+            } catch {
+                Self.logger.error("Couldn't remove the old token for \(normalized, privacy: .public)")
+            }
+        }
     }
 
     /// The old host-name heuristic, used only to type migrated hosts.
     static func legacyKind(forHost host: String) -> HostingInstance.Kind? {
-        if host == "github.com" || host.hasSuffix(".github.com") { return .github }
-        if host.contains("gitlab") { return .gitlab }
-        return nil
+        HostingInstance.guessedKind(forHost: host)
     }
 }

@@ -8,6 +8,7 @@ struct PullsContentSection: View {
     let store: PullRequestStore
     let nounPlural: String
     let onConnect: () -> Void
+    let onAddInstance: (InstanceSuggestion) -> Void
     let onOpenSettings: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -27,11 +28,23 @@ struct PullsContentSection: View {
         } else if let message = store.error {
             errorState(message: message)
         } else if store.host == nil {
-            EmptyState(
-                icon: .pr,
-                title: "No supported remote detected",
-                subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them."
-            )
+            if let suggestion = store.suggestedInstance {
+                EmptyState(
+                    icon: .pr,
+                    title: "\(suggestion.host) isn't added yet",
+                    subtitle: "It looks like a \(suggestion.kind.label) server. Add it as an instance to see its \(nounPlural)."
+                ) {
+                    GFButton(title: "Add as \(suggestion.kind.label) instance…", style: .primary) {
+                        onAddInstance(suggestion)
+                    }
+                }
+            } else {
+                EmptyState(
+                    icon: .pr,
+                    title: "No supported remote detected",
+                    subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts."
+                )
+            }
         } else if store.requiresToken {
             PullsTokenMissingSection(
                 host: store.host,
@@ -76,7 +89,7 @@ struct PullsContentSection: View {
     PullsContentSection(
         store: .previewWithPullRequests,
         nounPlural: "pull requests",
-        onConnect: {}, onOpenSettings: {}
+        onConnect: {}, onAddInstance: { _ in }, onOpenSettings: {}
     )
     .frame(width: 1100, height: 600)
     .background(theme.colors.bgContent)
@@ -93,7 +106,7 @@ struct PullsContentSection: View {
     PullsContentSection(
         store: store,
         nounPlural: "pull requests",
-        onConnect: {}, onOpenSettings: {}
+        onConnect: {}, onAddInstance: { _ in }, onOpenSettings: {}
     )
     .frame(width: 1100, height: 600)
     .background(theme.colors.bgContent)

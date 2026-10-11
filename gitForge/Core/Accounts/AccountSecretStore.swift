@@ -23,8 +23,9 @@ nonisolated enum AccountSecretStoreError: LocalizedError, Equatable {
     }
 }
 
-/// Legacy macOS keychain, like `RemoteCredentialsStore` (see its notes on why
-/// no data-protection keychain or access group). One generic-password item
+/// Legacy macOS keychain (no data-protection keychain, no access group): the
+/// ACL follows the app's designated requirement, so one "Always Allow"
+/// survives updates signed with the same certificate. One generic-password item
 /// per account: account = lowercased UUID, data = JSON `AccountSecret`.
 nonisolated struct KeychainAccountSecretStore: AccountSecretStore {
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "accounts")

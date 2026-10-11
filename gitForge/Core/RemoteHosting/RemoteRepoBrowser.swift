@@ -13,19 +13,18 @@ struct RemoteRepoSummary: Sendable, Identifiable, Equatable {
     let defaultBranch: String?
 }
 
-/// Browses repos a token-bearing user has access to. Drives the "My repos"
-/// tab in `CloneView`.
+/// Browses the repos an account can see. Drives "My repos" in `CloneView`.
 protocol RemoteRepoBrowsing: Sendable {
-    /// Fetches a single page of repos. `page` is 1-based; 50 results per page.
-    /// Returns an empty array when there are no more pages.
-    func fetchUserRepos(host: String, token: String, page: Int) async throws -> [RemoteRepoSummary]
+    /// One page of repos from the instance API at `apiBase`. `page` is
+    /// 1-based; 50 results per page. An empty array means no more pages.
+    func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary]
 }
 
 enum RemoteRepoBrowserFactory {
-    static func make(for provider: RemoteProvider) -> any RemoteRepoBrowsing {
-        switch provider {
-        case .github: return GitHubRepoBrowser()
-        case .gitlab: return GitLabRepoBrowser()
+    static func make(for kind: HostingInstance.Kind, session: URLSession = RemoteAPI.session) -> any RemoteRepoBrowsing {
+        switch kind {
+        case .github: GitHubRepoBrowser(session: session)
+        case .gitlab: GitLabRepoBrowser(session: session)
         }
     }
 }
@@ -33,9 +32,11 @@ enum RemoteRepoBrowserFactory {
 // MARK: - GitHub
 
 struct GitHubRepoBrowser: RemoteRepoBrowsing {
-    func fetchUserRepos(host: String, token: String, page: Int) async throws -> [RemoteRepoSummary] {
-        let base = host == "github.com" ? "https://api.github.com" : "https://\(host)/api/v3"
-        guard var components = URLComponents(string: "\(base)/user/repos") else {
+    var session: URLSession = RemoteAPI.session
+
+    func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary] {
+        guard var components = URLComponents(url: apiBase.appendingPathComponent("user/repos"),
+                                             resolvingAgainstBaseURL: false) else {
             throw PullRequestFetchError.network("bad URL")
         }
         components.queryItems = [
@@ -45,17 +46,17 @@ struct GitHubRepoBrowser: RemoteRepoBrowsing {
             URLQueryItem(name: "direction", value: "desc"),
             URLQueryItem(name: "affiliation", value: "owner,collaborator,organization_member"),
         ]
-        var request = URLRequest(url: components.url ?? URL(string: base)!)
+        guard let url = components.url else { throw PullRequestFetchError.network("bad URL") }
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         request.setValue("gitForge", forHTTPHeaderField: "User-Agent")
 
-        let data = try await RemoteAPI.send(request)
+        let data = try await RemoteAPI.send(request, session: session)
         do {
-            let decoded = try JSONDecoder().decode([GitHubRepoDTO].self, from: data)
-            return decoded.map { $0.toSummary() }
+            return try JSONDecoder().decode([GitHubRepoDTO].self, from: data).map { $0.toSummary() }
         } catch {
             throw PullRequestFetchError.decoding(error.localizedDescription)
         }
@@ -89,8 +90,11 @@ private struct GitHubRepoDTO: Decodable {
 // MARK: - GitLab
 
 struct GitLabRepoBrowser: RemoteRepoBrowsing {
-    func fetchUserRepos(host: String, token: String, page: Int) async throws -> [RemoteRepoSummary] {
-        guard var components = URLComponents(string: "https://\(host)/api/v4/projects") else {
+    var session: URLSession = RemoteAPI.session
+
+    func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary] {
+        guard var components = URLComponents(url: apiBase.appendingPathComponent("projects"),
+                                             resolvingAgainstBaseURL: false) else {
             throw PullRequestFetchError.network("bad URL")
         }
         components.queryItems = [
@@ -101,16 +105,16 @@ struct GitLabRepoBrowser: RemoteRepoBrowsing {
             URLQueryItem(name: "per_page", value: "50"),
             URLQueryItem(name: "page", value: String(page)),
         ]
-        var request = URLRequest(url: components.url ?? URL(string: "https://\(host)/api/v4/projects")!)
+        guard let url = components.url else { throw PullRequestFetchError.network("bad URL") }
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("gitForge", forHTTPHeaderField: "User-Agent")
 
-        let data = try await RemoteAPI.send(request)
+        let data = try await RemoteAPI.send(request, session: session)
         do {
-            let decoded = try JSONDecoder().decode([GitLabProjectDTO].self, from: data)
-            return decoded.map { $0.toSummary() }
+            return try JSONDecoder().decode([GitLabProjectDTO].self, from: data).map { $0.toSummary() }
         } catch {
             throw PullRequestFetchError.decoding(error.localizedDescription)
         }
