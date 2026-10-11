@@ -36,7 +36,15 @@ struct ShellView: View {
         }
         .overlay(alignment: .bottom) {
             if let toast = appState.ui.activeToast {
-                ToastView(toast: toast) { appState.ui.activeToast = nil }
+                ToastView(toast: toast, onDismiss: { appState.ui.activeToast = nil }, onAction: { action in
+                    appState.ui.activeToast = nil
+                    switch action.route {
+                    case .reconnectAccount(let instanceId, let accountId):
+                        appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: accountId)
+                    case .openAccounts:
+                        appState.ui.workspaceSection = .settings
+                    }
+                })
                     .padding(.bottom, Spacing.s16)
                     .transition(.opacity)
                     .task(id: toast.id) {
@@ -68,7 +76,10 @@ struct ShellView: View {
                 appState.catalog.activeViewModel?.remoteFailure = nil
                 return
             }
-            appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error)
+            appState.ui.activeToast = ToastMessage(message: failure.toastMessage, kind: .error,
+                                                   action: AccountToastAction.action(for: failure,
+                                                                                     instances: appState.accounts.instances,
+                                                                                     accounts: appState.accounts.accounts))
             appState.catalog.activeViewModel?.remoteFailure = nil
         }
     }
