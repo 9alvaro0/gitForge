@@ -13,6 +13,8 @@ final class RepositoryCatalog {
     /// Signs the active repo's network git with its hosting account; set by
     /// `AppState`.
     @ObservationIgnored var gitCredentials: GitCredentialProvider?
+    /// Pull requests' token source for the active repo; set by `AppState`.
+    @ObservationIgnored var pullRequestAuth: AccountPullRequestAuth?
     var repositoryStatuses: [URL: RepoStatusSnapshot] = [:]
 
     private let store: RepositoryStore
@@ -72,7 +74,7 @@ final class RepositoryCatalog {
             // — otherwise its background work keeps running until ARC happens
             // to release it, which is never guaranteed.
             activeViewModel?.stopReactivity()
-            activeViewModel = RepositoryViewModel(repository: active, credentials: gitCredentials)
+            activeViewModel = RepositoryViewModel(repository: active, credentials: gitCredentials, pullRequestAuth: pullRequestAuth)
         }
         defaults.set(url.path(percentEncoded: false), forKey: Self.lastActiveRepoKey)
         // Seed the snapshot for any newly added repo so the sidebar pills

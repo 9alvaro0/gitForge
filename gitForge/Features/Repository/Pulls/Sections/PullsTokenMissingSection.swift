@@ -1,29 +1,27 @@
 import SwiftUI
 
+/// No credential for this repo's host (spec §7.4): connect an account, or
+/// reconnect the one whose token was rejected.
 struct PullsTokenMissingSection: View {
     let host: RemoteHost?
     let nounPlural: String
-    let onAddToken: () -> Void
+    let reconnect: Bool
+    let onConnect: () -> Void
     let onOpenSettings: () -> Void
 
     var body: some View {
-        if let host {
-            EmptyState(
-                icon: .pr,
-                title: "\(host.provider.label) token required",
-                subtitle: "No token stored for \(host.host). Add a Personal Access Token to list \(nounPlural)."
-            ) {
-                HStack(spacing: Spacing.s8) {
-                    GFButton(title: "Add token…", action: onAddToken)
-                    GFButton(title: "Open Settings", action: onOpenSettings)
-                }
+        let provider = host?.provider.label ?? "hosting"
+        EmptyState(
+            icon: .pr,
+            title: reconnect ? "Reconnect your \(provider) account" : "Connect a \(provider) account",
+            subtitle: reconnect
+                ? "The account's token was rejected. Sign in again to list \(nounPlural)."
+                : "Sign in to \(host?.host ?? "the host") to list \(nounPlural) and push over HTTPS."
+        ) {
+            HStack(spacing: Spacing.s8) {
+                GFButton(title: reconnect ? "Reconnect…" : "Connect account…", style: .primary, action: onConnect)
+                GFButton(title: "Open Settings", action: onOpenSettings)
             }
-        } else {
-            EmptyState(
-                icon: .pr,
-                title: "Token required",
-                subtitle: "Add a Personal Access Token in Settings → Remote hosts."
-            )
         }
     }
 }
@@ -33,7 +31,8 @@ struct PullsTokenMissingSection: View {
     PullsTokenMissingSection(
         host: .previewGitHub,
         nounPlural: "pull requests",
-        onAddToken: {}, onOpenSettings: {}
+        reconnect: false,
+        onConnect: {}, onOpenSettings: {}
     )
     .padding()
     .frame(width: 800, height: 400)

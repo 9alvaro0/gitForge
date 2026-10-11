@@ -100,18 +100,21 @@ struct GitLabPullRequestProvider: PullRequestProvider {
 
     // MARK: - Helpers
 
-    private static func base(for host: RemoteHost) -> String {
-        "https://\(host.host)/api/v4"
+    nonisolated static func base(for host: RemoteHost) -> String {
+        if let api = host.apiBaseURL { return api.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
+        return "https://\(host.host)/api/v4"
     }
 
     private static func encodeSlug(_ host: RemoteHost) -> String {
         host.slug.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? host.slug
     }
 
-    private static func makeRequest(url: URL?, token: String) -> URLRequest {
+    /// `Bearer` works for personal and OAuth tokens alike (`PRIVATE-TOKEN`
+    /// only for personal ones).
+    nonisolated static func makeRequest(url: URL?, token: String) -> URLRequest {
         var request = URLRequest(url: url ?? URL(string: "https://gitlab.com")!)
         request.httpMethod = "GET"
-        request.setValue(token, forHTTPHeaderField: "PRIVATE-TOKEN")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("gitForge", forHTTPHeaderField: "User-Agent")
         return request

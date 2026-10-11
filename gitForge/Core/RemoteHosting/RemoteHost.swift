@@ -28,6 +28,8 @@ nonisolated struct RemoteHost: Sendable, Equatable, Identifiable {
     let host: String
     let owner: String
     let repo: String
+    /// The declared instance's API base; `nil` = derived from the host as before.
+    var apiBaseURL: URL? = nil
 
     var id: String { "\(host)/\(owner)/\(repo)" }
 
@@ -51,13 +53,30 @@ extension RemoteHost {
     ///   - `https://gitlab.com/group/sub/repo.git` (nested groups for GitLab)
     nonisolated static func parse(_ remoteURL: String) -> RemoteHost? {
         let trimmed = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
+        guard let pair = extractHostAndPath(trimmed), let provider = providerForHost(pair.0) else { return nil }
+        return parse(trimmed, provider: provider)
+    }
 
-        let (host, path) = extractHostAndPath(trimmed) ?? (nil, nil)
-        guard let host, let path else { return nil }
+    /// Like `parse(_:)`, but a host declared as an instance (P5 / spec §4.1)
+    /// wins over the host-name guess: its kind decides the provider and its
+    /// API base goes along. Undeclared hosts fall back to the guess.
+    nonisolated static func parse(_ remoteURL: String, instances: [HostingInstance]) -> RemoteHost? {
+        let trimmed = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let pair = extractHostAndPath(trimmed),
+              let host = HostingInstance.normalizedHost(pair.0),
+              let instance = instances.first(where: { $0.host == host }) else {
+            return parse(remoteURL)
+        }
+        let provider: RemoteProvider = instance.kind == .github ? .github : .gitlab
+        guard var parsed = parse(trimmed, provider: provider) else { return nil }
+        parsed.apiBaseURL = instance.apiBaseURL
+        return parsed
+    }
 
-        let provider = providerForHost(host)
-        guard let provider else { return nil }
+    /// The path half of `parse`, once the provider is known.
+    private nonisolated static func parse(_ trimmed: String, provider: RemoteProvider) -> RemoteHost? {
+        guard !trimmed.isEmpty, let pair = extractHostAndPath(trimmed) else { return nil }
+        let (host, path) = pair
 
         // Strip leading slash + trailing `.git` and split into segments.
         var pathComponents = path

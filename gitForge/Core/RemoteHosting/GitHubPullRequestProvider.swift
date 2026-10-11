@@ -113,8 +113,9 @@ struct GitHubPullRequestProvider: PullRequestProvider {
 
     // MARK: - Helpers
 
-    private static func base(for host: RemoteHost) -> String {
-        host.host == "github.com" ? "https://api.github.com" : "https://\(host.host)/api/v3"
+    nonisolated static func base(for host: RemoteHost) -> String {
+        if let api = host.apiBaseURL { return api.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
+        return host.host == "github.com" ? "https://api.github.com" : "https://\(host.host)/api/v3"
     }
 
     private static func makeRequest(url: URL?, token: String) -> URLRequest {
