@@ -94,6 +94,8 @@ extension RepositoryViewModel {
         case clean
         case conflicts
         case failed(String)
+        /// The user cancelled (e.g. the account sheet): no toast.
+        case cancelled
     }
 
     /// Convenience: merge `source` into the currently checked-out branch.

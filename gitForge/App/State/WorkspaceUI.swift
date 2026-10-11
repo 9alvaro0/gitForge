@@ -37,6 +37,8 @@ final class WorkspaceUI {
             activeToast = ToastMessage(message: conflicts, kind: .warn)
         case .failed(let message):
             activeToast = ToastMessage(message: message, kind: .error)
+        case .cancelled:
+            break
         }
     }
 }

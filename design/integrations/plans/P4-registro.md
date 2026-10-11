@@ -21,3 +21,17 @@
 - Datos reales: las dos cuentas copiadas salen `Rejected`. La de Mercadona respondió 401 en este arranque, ya sin bloqueo del WAF.
 - Ajuste tras verla: el botón de inicio del flujo pasa de "Sign in with browser" (repetía el control segmentado) a "Get sign-in code".
 - El menú del perfil no se pudo capturar: el control en segundo plano no abre menús. Lo cubren los tests de `RepoAccountMenuModel`.
+
+## Revisión final (subagente Opus)
+
+Sin críticos. Arreglados en una pasada, cada uno con test en rojo primero; suite 878/878 y build limpio sin warnings:
+
+| Hallazgo | Tests rojo → verde |
+|---|---|
+| I1. Cancelar la hoja en "Check out" o "Integrate locally" de un PR mostraba un toast de error. `IntegrationOutcome.cancelled` y sin toast al cancelar. | `AccountCancellationTests.localMergeCancelled` |
+| I2. En "Force push (with lease)", el fetch previo se tragaba la cancelación y la hoja volvía a salir para el push. Ahora Cancel lo para del todo. | `AccountCancellationTests.forcePushCancelled` |
+| I3. El menú del perfil y la firma real elegían cuentas distintas: una copia rechazada hacía ambigua una cuenta buena, o ganaba por perfil o por elección. Ahora la firma resuelve solo entre cuentas usables, igual que el menú. | `AccountGitCredentialsTests.usableAccountsOnly` |
+| I4. Una build anterior (cualquier `main` de Debug) ponía en cuarentena el `accounts.json` v2 y perdía la cuenta de GitHub. Ahora el fichero se escribe con la forma v1 más una clave opcional `systemChoices`, que las builds antiguas ignoran; el v2 ya escrito en esta máquina se sigue leyendo. | `RepoAccountChoiceTests.olderBuildsCanRead`, `.readsDraftV2` (y `migratesV1` ajustado) |
+| I5. Cerrar la hoja podía cancelar la petición siguiente de la cola. Ahora las respuestas van por id y una tardía se ignora. | `AccountChooserTests.staleAnswer` |
+
+Menores pendientes: ver el resumen del PR.
