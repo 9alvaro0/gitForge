@@ -10,17 +10,19 @@ struct SettingsPicker<Items: View>: View {
         Menu {
             items()
         } label: {
-            HStack(spacing: DesignTokens.Spacing.sm) {
+            HStack(spacing: Spacing.s6) {
                 Text(current)
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.body)
+                    .foregroundStyle(theme.colors.textPrimary)
                 Spacer(minLength: 0)
-                GFIcon(kind: .chevD, size: 10, stroke: theme.palette.fg3)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.colors.textTertiary)
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .frame(height: DesignTokens.IconSize.xxl)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular))
+            .padding(.horizontal, Spacing.s8)
+            .frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.bgContent))
+            .overlay(RoundedRectangle(cornerRadius: Radius.control).stroke(theme.colors.strokeControl, lineWidth: 1))
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -39,7 +41,7 @@ struct SettingsPicker<Items: View>: View {
         Button("Fast-forward only") { current = "Fast-forward only" }
     }
     .frame(width: 240)
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

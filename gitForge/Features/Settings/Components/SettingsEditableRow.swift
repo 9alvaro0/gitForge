@@ -26,20 +26,20 @@ struct SettingsEditableRow: View {
                 displayControls
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
     }
 
     private var editingControls: some View {
         HStack {
             TextField(placeholder, text: $draft)
                 .textFieldStyle(.plain)
-                .font(font)
-                .foregroundStyle(theme.palette.fg1)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .frame(height: DesignTokens.IconSize.xxl)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg2))
-                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).stroke(theme.palette.accent, lineWidth: DesignTokens.Stroke.regular))
+                .textRole(mono ? .mono : .body)
+                .foregroundStyle(theme.colors.textPrimary)
+                .padding(.horizontal, Spacing.s8)
+                .frame(height: 24)
+                .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.bgContent))
+                .overlay(RoundedRectangle(cornerRadius: Radius.control).stroke(theme.colors.accent, lineWidth: 1))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onSubmit { commit() }
             GFButton(title: "Save", style: .primary, size: .small) { commit() }
@@ -50,18 +50,14 @@ struct SettingsEditableRow: View {
     private var displayControls: some View {
         HStack {
             Text(value ?? "—")
-                .font(font)
-                .foregroundStyle(value == nil ? theme.palette.fg3 : theme.palette.fg1)
+                .textRole(mono ? .mono : .body)
+                .foregroundStyle(value == nil ? theme.colors.textTertiary : theme.colors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             GFButton(title: "Edit", size: .small) {
                 draft = value ?? ""
                 editing = true
             }
         }
-    }
-
-    private var font: Font {
-        mono ? AppFont.mono(FontSize.md, family: theme.monoFont) : AppFont.sans(FontSize.md)
     }
 
     private func commit() {
@@ -75,16 +71,16 @@ struct SettingsEditableRow: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var name: String? = "Alvaro Guerra"
     @Previewable @State var key: String? = nil
-    VStack(spacing: DesignTokens.Spacing.none) {
+    VStack(spacing: 0) {
         SettingsEditableRow(label: "Name", value: name) { name = $0 }
         SettingsDivider()
         SettingsEditableRow(label: "Signing key", value: key, mono: true,
                             placeholder: "GPG / SSH key id (optional)") { key = $0 }
     }
-    .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-    .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+    .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+    .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(theme.colors.separator, lineWidth: 1))
     .frame(width: 560)
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

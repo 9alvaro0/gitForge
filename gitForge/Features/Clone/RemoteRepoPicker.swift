@@ -13,7 +13,7 @@ struct RemoteRepoPicker: View {
     @State private var model: RemoteRepoListModel?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             if let model {
                 content(model)
             }
@@ -48,10 +48,10 @@ struct RemoteRepoPicker: View {
     @ViewBuilder
     private func accountSelector(_ model: RemoteRepoListModel) -> some View {
         if model.accounts.count > 1 {
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: Spacing.s8) {
                 Text("Account")
-                    .font(AppFont.sans(FontSize.sm, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout, weight: .medium)
+                    .foregroundStyle(theme.colors.textTertiary)
                 Picker("", selection: Binding(get: { model.selectedAccountId ?? model.accounts[0].id },
                                               set: { model.select($0) })) {
                     ForEach(model.accounts) { account in
@@ -64,18 +64,18 @@ struct RemoteRepoPicker: View {
                 Spacer()
             }
         } else if let only = model.accounts.first {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                GFIcon(kind: .cloud, size: DesignTokens.IconSize.xs, stroke: theme.palette.fg3)
+            HStack(spacing: Spacing.s6) {
+                Image(systemName: "cloud").font(.system(size: 11)).foregroundStyle(theme.colors.textTertiary).accessibilityHidden(true)
                 Text(model.label(for: only))
-                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg2)
+                    .textRole(.monoSmall)
+                    .foregroundStyle(theme.colors.textSecondary)
             }
         }
     }
 
     private func searchBar(_ model: RemoteRepoListModel) -> some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            GFIcon(kind: .search, size: DesignTokens.IconSize.sm, stroke: theme.palette.fg3)
+        HStack(spacing: Spacing.s8) {
+            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(theme.colors.textTertiary).accessibilityHidden(true)
             GFTextField(placeholder: "Filter by name or description…", text: Bindable(model).search)
             if model.state == .loading || model.isLoadingMore {
                 ProgressView().controlSize(.small)
@@ -90,19 +90,19 @@ struct RemoteRepoPicker: View {
             errorCard(message, model: model)
         case .idle, .loading:
             HStack { Spacer(); ProgressView(); Spacer() }
-                .padding(.vertical, DesignTokens.Spacing.xxhuge)
+                .padding(.vertical, Spacing.s32)
         case .loaded where model.repos.isEmpty:
             Text("No repositories found.")
-                .font(AppFont.sans(FontSize.sm))
-                .foregroundStyle(theme.palette.fg3)
-                .padding(.vertical, DesignTokens.Spacing.xxxl)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
+                .padding(.vertical, Spacing.s16)
         case .loaded, .needsAccount:
             list(model)
         }
     }
 
     private func list(_ model: RemoteRepoListModel) -> some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
+        VStack(spacing: Spacing.s6) {
             ForEach(model.filtered) { repo in
                 row(for: repo, model: model)
             }
@@ -112,7 +112,7 @@ struct RemoteRepoPicker: View {
                          disabled: model.isLoadingMore) {
                     Task { await model.loadMore() }
                 }
-                .padding(.top, DesignTokens.Spacing.xs)
+                .padding(.top, Spacing.s4)
             }
         }
     }
@@ -121,35 +121,35 @@ struct RemoteRepoPicker: View {
         Button {
             if let accountId = model.selectedAccountId { onSelect(repo, accountId) }
         } label: {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+            HStack(alignment: .top, spacing: Spacing.s12) {
                 Image(systemName: repo.isPrivate ? "lock.fill" : "globe")
-                    .font(.system(size: FontSize.md, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
-                    .frame(width: DesignTokens.IconSize.md)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: 16)
                     .accessibilityLabel(repo.isPrivate ? "Private" : "Public")
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                VStack(alignment: .leading, spacing: Spacing.s2) {
                     Text(repo.fullName)
-                        .font(AppFont.mono(FontSize.md, weight: .medium, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg1)
+                        .textRole(.mono, weight: .medium)
+                        .foregroundStyle(theme.colors.textPrimary)
                         .lineLimit(1)
                     if let desc = repo.description, !desc.isEmpty {
                         Text(desc)
-                            .font(AppFont.sans(FontSize.sm))
-                            .foregroundStyle(theme.palette.fg3)
+                            .textRole(.callout)
+                            .foregroundStyle(theme.colors.textTertiary)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                     }
                 }
                 Spacer()
                 Text("Clone")
-                    .font(AppFont.sans(FontSize.sm, weight: .medium))
-                    .foregroundStyle(theme.palette.accent)
+                    .textRole(.callout, weight: .medium)
+                    .foregroundStyle(theme.colors.accent)
             }
-            .padding(.horizontal, DesignTokens.Spacing.xl)
-            .padding(.vertical, DesignTokens.Spacing.lg)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
+            .padding(.horizontal, Spacing.s12)
+            .padding(.vertical, Spacing.s12)
+            .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(theme.colors.separator, lineWidth: 1))
+            .contentShape(.rect(cornerRadius: Radius.card))
         }
         .buttonStyle(.plain)
     }
@@ -157,13 +157,13 @@ struct RemoteRepoPicker: View {
     private func connectCard(instanceId: UUID?, replacing: UUID?) -> some View {
         card {
             Text(replacing == nil ? "Connect a \(kind.label) account" : "Reconnect your \(kind.label) account")
-                .font(AppFont.sans(FontSize.lg, weight: .semibold))
-                .foregroundStyle(theme.palette.fg1)
+                .textRole(.headline)
+                .foregroundStyle(theme.colors.textPrimary)
             Text(replacing == nil
                  ? "Sign in to browse the repositories you can clone, and clone them over HTTPS with that account."
                  : "Its token was rejected. Reconnect it to browse your repositories again.")
-                .font(AppFont.sans(FontSize.sm))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
             GFButton(title: replacing == nil ? "Connect account…" : "Reconnect…", style: .primary) {
                 appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: replacing)
             }
@@ -172,15 +172,15 @@ struct RemoteRepoPicker: View {
 
     private func errorCard(_ message: String, model: RemoteRepoListModel) -> some View {
         card {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                GFIcon(kind: .x, size: DesignTokens.IconSize.md, stroke: theme.palette.del)
+            HStack(spacing: Spacing.s6) {
+                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(theme.colors.del).accessibilityHidden(true)
                 Text("Couldn't load repositories")
-                    .font(AppFont.sans(FontSize.md, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.body, weight: .semibold)
+                    .foregroundStyle(theme.colors.textPrimary)
             }
             Text(message)
-                .font(AppFont.sans(FontSize.sm))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textTertiary)
             GFButton(title: "Retry", style: .secondary) {
                 Task { await model.load() }
             }
@@ -188,20 +188,20 @@ struct RemoteRepoPicker: View {
     }
 
     private func card<C: View>(@ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md, content: content)
-            .padding(DesignTokens.Spacing.xxxl)
+        VStack(alignment: .leading, spacing: Spacing.s8, content: content)
+            .padding(Spacing.s16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+            .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card).strokeBorder(theme.colors.separator, lineWidth: 1))
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     RemoteRepoPicker(kind: .github) { _, _ in }
-        .padding(DesignTokens.Spacing.huge)
+        .padding(Spacing.s24)
         .frame(width: 600, height: 400)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .previewAppState(.preview)
         .appTheme(theme)
 }
