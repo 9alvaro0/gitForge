@@ -88,6 +88,9 @@ struct HostingAuthModelTests {
         #expect(throws: HostingAuthError.server(502)) {
             try OAuthResponse.refreshOutcome(Data(), status: 502)
         }
+        #expect(throws: HostingAuthError.server(502)) {
+            try OAuthResponse.refreshOutcome(self.json(#"{"error":"Bad Gateway"}"#), status: 502)
+        }
         #expect(try OAuthResponse.refreshOutcome(json(#"{"access_token":"a2","refresh_token":"r2","expires_in":60}"#), status: 200).refreshToken == "r2")
     }
 
@@ -108,7 +111,7 @@ struct HostingAuthModelTests {
     func statuses() throws {
         try HostingHTTP.check(204)
         #expect(throws: HostingAuthError.unauthorized) { try HostingHTTP.check(401) }
-        #expect(throws: HostingAuthError.forbidden) { try HostingHTTP.check(403) }
+        #expect(throws: HostingAuthError.server(403)) { try HostingHTTP.check(403) }
         #expect(throws: HostingAuthError.server(404)) { try HostingHTTP.check(404) }
     }
 

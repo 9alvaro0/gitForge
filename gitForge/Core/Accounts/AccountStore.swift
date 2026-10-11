@@ -114,6 +114,8 @@ final class AccountStore {
     func removeAccount(_ id: UUID) {
         secrets.delete(id)
         accounts.removeAll { $0.id == id }
+        // The old token mustn't bring a removed account back on next launch.
+        detachedLegacyHosts.formUnion(legacyHostAccounts.filter { $0.value == id }.map(\.key))
         legacyHostAccounts = legacyHostAccounts.filter { $0.value != id }
         for (repo, remotes) in assignments {
             let kept = remotes.filter { $0.value != id }

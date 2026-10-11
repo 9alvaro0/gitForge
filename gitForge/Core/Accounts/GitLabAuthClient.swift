@@ -52,13 +52,11 @@ nonisolated struct GitLabAuthClient: HostingAuthClient {
             data = try await http.get(instance.apiBaseURL.appending(path: "personal_access_tokens/self"), token: token).0
         } catch HostingAuthError.forbidden {
             return TokenValidation(user: user, scopes: nil, expiresAt: nil)
-        } catch HostingAuthError.server(let status) where status == 404 {
+        } catch HostingAuthError.server(let status) where status == 403 || status == 404 {
             return TokenValidation(user: user, scopes: nil, expiresAt: nil)
         }
         let body = try HostingHTTP.decode(GitLabTokenBody.self, data)
         if body.revoked == true || body.active == false { throw HostingAuthError.inactiveToken }
-        let missing = HostingScopes.missing(body.scopes, kind: .gitlab)
-        guard missing.isEmpty else { throw HostingAuthError.missingScopes(missing) }
         return TokenValidation(user: user, scopes: body.scopes, expiresAt: Self.parseDay(body.expires_at))
     }
 

@@ -33,14 +33,10 @@ nonisolated struct GitHubAuthClient: HostingAuthClient {
     }
 
     /// `/user` plus `X-OAuth-Scopes`. Without that header (fine-grained
-    /// token) the scopes can't be checked and the token is accepted.
+    /// token) the scopes can't be checked: `scopes` is `nil`.
     func validate(token: String, method: HostingAccount.Method) async throws -> TokenValidation {
         let (user, response) = try await user(token: token)
         let scopes = response.value(forHTTPHeaderField: "X-OAuth-Scopes").map(HostingScopes.parse)
-        if let scopes {
-            let missing = HostingScopes.missing(scopes, kind: .github)
-            guard missing.isEmpty else { throw HostingAuthError.missingScopes(missing) }
-        }
         let expiry = Self.parseExpiration(response.value(forHTTPHeaderField: "github-authentication-token-expiration"))
         return TokenValidation(user: user, scopes: scopes, expiresAt: expiry)
     }

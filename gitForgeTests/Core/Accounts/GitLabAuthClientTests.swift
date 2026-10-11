@@ -95,12 +95,37 @@ struct GitLabAuthClientTests {
     }
 
     @Test("A read-only token is refused, naming what's missing")
-    func readOnly() async {
+    func readOnly() async throws {
         server.on("GET", "/api/v4/user", fixture: "gitlab-user")
         server.on("GET", "/api/v4/personal_access_tokens/self", fixture: "gitlab-pat-self-read-only")
-        await #expect(throws: HostingAuthError.missingScopes(["api", "write_repository"])) {
+        let validation = try await client.validate(token: "test-token", method: .personalToken)
+        #expect(validation.user.login == "tanuki-test")
+        #expect(validation.scopes == ["read_api", "read_user"])
+        #expect(validation.missingScopes(kind: .gitlab) == ["api", "write_repository"])
+    }
+
+    @Test("A 403 from a proxy or WAF says nothing about scopes; GitLab's insufficient_scope does")
+    func forbiddenKinds() async {
+        server.on("GET", "/api/v4/user", status: 403, body: Data("<html>Forbidden</html>".utf8))
+        await #expect(throws: HostingAuthError.server(403)) {
             try await client.validate(token: "test-token", method: .personalToken)
         }
+        let scoped = StubServer()
+        scoped.on("GET", "/api/v4/user", status: 403,
+                  headers: ["WWW-Authenticate": #"Bearer realm="", error="insufficient_scope""#],
+                  body: Data(#"{"error":"insufficient_scope","scope":"read_user"}"#.utf8))
+        let scopedClient = GitLabAuthClient(instance: HostingInstance(kind: .gitlab, host: scoped.host), http: scoped.http)
+        await #expect(throws: HostingAuthError.forbidden) {
+            try await scopedClient.validate(token: "test-token", method: .personalToken)
+        }
+    }
+
+    @Test("A plain 403 on /self: scopes not verifiable")
+    func selfForbidden() async throws {
+        server.on("GET", "/api/v4/user", fixture: "gitlab-user")
+        server.on("GET", "/api/v4/personal_access_tokens/self", status: 403, body: Data(#"{"message":"403 Forbidden"}"#.utf8))
+        let validation = try await client.validate(token: "test-token", method: .personalToken)
+        #expect(validation.scopes == nil)
     }
 
     @Test("GitLab without /self (before 15.5): scopes not verifiable")

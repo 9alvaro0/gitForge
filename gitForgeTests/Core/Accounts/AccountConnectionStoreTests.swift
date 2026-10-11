@@ -133,6 +133,36 @@ struct AccountConnectionStoreTests {
         #expect(secrets.read(copied.id)?.accessToken == "new-pat")
     }
 
+    @Test("Reconnecting a copied account without a login, by id: same account, host detached")
+    func reconnectByIdDetaches() throws {
+        let secrets = InMemoryAccountSecretStore()
+        let legacy = Legacy(tokens: ["gitlab.com": "dead-pat"])
+        let store = AccountStore(directory: Self.tempDir(), secrets: secrets, clientIds: .none)
+        store.migrateLegacyTokens(from: legacy)
+        let copied = try #require(store.accounts.first)
+        store.markNeedsAttention(copied.id, .revoked, validatedAt: Self.now)
+
+        try store.connectAccount(instanceId: HostingInstance.gitLabDotCom.id, method: .oauth, validation: Self.tanuki,
+                                 secret: AccountSecret(accessToken: "oauth-access"), now: Self.now, replacing: copied.id)
+        store.migrateLegacyTokens(from: legacy)
+        #expect(store.accounts.map(\.id) == [copied.id])
+        #expect(store.accounts[0].login == "tanuki-test")
+        #expect(store.detachedLegacyHosts == ["gitlab.com"])
+        #expect(secrets.read(copied.id)?.accessToken == "oauth-access")
+    }
+
+    @Test("Removing a copied account keeps the old token from bringing it back")
+    func removeDetachesLegacy() throws {
+        let legacy = Legacy(tokens: ["gitlab.com": "dead-pat"])
+        let store = AccountStore(directory: Self.tempDir(), secrets: InMemoryAccountSecretStore(), clientIds: .none)
+        store.migrateLegacyTokens(from: legacy)
+        let copied = try #require(store.accounts.first)
+        store.removeAccount(copied.id)
+        store.migrateLegacyTokens(from: legacy)
+        #expect(store.accounts.isEmpty)
+        #expect(store.detachedLegacyHosts == ["gitlab.com"])
+    }
+
     // MARK: Validation results
 
     @Test("A validation fills identity, scopes, expiry, status and the check time")
@@ -165,6 +195,20 @@ struct AccountConnectionStoreTests {
         store.applyValidation(unreported, to: token.id, now: Self.now)
         #expect(store.accounts.first { $0.id == oauth.id }?.scopes == ["api"])
         #expect(store.accounts.first { $0.id == token.id }?.scopes == [])
+    }
+
+    @Test("Reported scopes short of the required ones: identity and scopes kept, missingScopes")
+    func validationMissingScopes() throws {
+        let store = AccountStore(directory: Self.tempDir(), secrets: InMemoryAccountSecretStore(), clientIds: .none)
+        let account = HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, method: .personalToken, status: .unverified)
+        try store.addAccount(account, secret: AccountSecret(accessToken: "pat"))
+        var readOnly = Self.tanuki
+        readOnly.scopes = ["read_api"]
+        store.applyValidation(readOnly, to: account.id, now: Self.now)
+        #expect(store.accounts[0].login == "tanuki-test")
+        #expect(store.accounts[0].scopes == ["read_api"])
+        #expect(store.accounts[0].status == .needsAttention(.missingScopes))
+        #expect(store.accounts[0].lastValidatedAt == Self.now)
     }
 
     @Test("needsAttention keeps the reason and, when given, the check time")
