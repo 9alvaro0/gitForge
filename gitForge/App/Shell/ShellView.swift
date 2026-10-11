@@ -62,11 +62,13 @@ struct ShellView: View {
         .sheet(isPresented: Bindable(appState.ui).addInstanceVisible) {
             AddInstanceSheet()
         }
-        .sheet(item: Binding(get: { appState.accountChooser.request },
-                             set: { if $0 == nil { appState.accountChooser.answer(nil) } })) { request in
+        .sheet(item: Binding(get: { appState.accountChooser.request }, set: { _ in })) { request in
             ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {
-                appState.accountChooser.answer($0)
+                appState.accountChooser.answer($0, for: request.id)
             }
+            // The sheet went away some other way: that's a Cancel (ignored
+            // if it was already answered).
+            .onDisappear { appState.accountChooser.answer(nil, for: request.id) }
         }
         // Centralised error reporting for fetch/pull/push/tag pushes —
         // covers every entry point (menu, toolbar, command palette).

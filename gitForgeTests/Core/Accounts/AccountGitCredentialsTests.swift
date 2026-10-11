@@ -228,6 +228,19 @@ struct AccountGitCredentialsTests {
         #expect(system.store.choice(repoPath: "/r/app", remoteName: "origin") == .system)
     }
 
+    @Test("A failing copied account neither makes a good one ambiguous nor wins by profile link or choice")
+    func usableAccountsOnly() async throws {
+        let profile = UUID()
+        let asked = LockedList<AmbiguousRemote>()
+        let s = setup(activeProfileId: { _ in profile }, chooseAccount: { remote in asked.append(remote); return nil })
+        let old = try addAccount(s.store, login: "old-copy", status: .needsAttention(.revoked), linkedProfileId: profile)
+        try addAccount(s.store, login: "tanuki-ok", secret: AccountSecret(accessToken: "test-good-value"))
+        #expect(try await credential(s.provider)?.password == "test-good-value")
+        s.store.setChoice(.account(old.id), repoPath: "/r/app", remoteName: "origin")
+        #expect(try await credential(s.provider)?.password == "test-good-value")
+        #expect(asked.values.isEmpty)
+    }
+
     @Test("The token missing from the Keychain: git falls back to the system")
     func missingSecret() async throws {
         let s = setup()

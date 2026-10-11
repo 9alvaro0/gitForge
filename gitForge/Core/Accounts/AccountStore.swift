@@ -21,7 +21,12 @@ nonisolated enum AccountStoreError: LocalizedError, Equatable {
 @MainActor
 final class AccountStore {
     private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "accounts")
-    private static let schemaVersion = 2
+    /// Written to the file. Stays 1 so builds from before phase 4 can still
+    /// read it (they ignore `systemChoices`) instead of quarantining it.
+    private static let schemaVersion = 1
+    /// Newest version this build reads: 2 is a file written by an earlier
+    /// phase-4 build.
+    private static let newestReadableVersion = 2
 
     private(set) var instances: [HostingInstance] = HostingInstance.builtIns
     private(set) var accounts: [HostingAccount] = []
@@ -48,21 +53,26 @@ final class AccountStore {
         let version: Int
         let instances: [HostingInstance]
         let accounts: [HostingAccount]
-        let assignments: [String: [String: RepoAccountChoice]]
+        /// Account choices only, as builds before phase 4 expect them.
+        let assignments: [String: [String: UUID]]
         let migratedLegacyTokens: Bool
         /// Optional: absent in files written before the sync existed.
         let legacyHostAccounts: [String: UUID]?
         /// Optional: absent in files written before phase 2.
         let detachedLegacyHosts: [String]?
+        /// Optional (phase 4): repo path → remotes using the system's
+        /// credentials. Older builds ignore it.
+        let systemChoices: [String: [String]]?
     }
 
     private struct VersionProbe: Decodable { let version: Int }
 
-    /// The file before phase 4: assignments were bare account ids.
-    private struct StoredV1: Decodable {
+    /// What an earlier phase-4 build wrote as version 2: all choices in
+    /// `assignments`.
+    private struct StoredDraftV2: Decodable {
         let instances: [HostingInstance]
         let accounts: [HostingAccount]
-        let assignments: [String: [String: UUID]]
+        let assignments: [String: [String: RepoAccountChoice]]
         let migratedLegacyTokens: Bool
         let legacyHostAccounts: [String: UUID]?
         let detachedLegacyHosts: [String]?
@@ -188,27 +198,33 @@ final class AccountStore {
         do {
             let data = try Data(contentsOf: fileURL)
             let version = try JSONDecoder().decode(VersionProbe.self, from: data).version
-            guard version <= Self.schemaVersion else {
+            guard version <= Self.newestReadableVersion else {
                 Self.logger.error("accounts.json version \(version, privacy: .public) is newer than supported")
                 quarantine()
                 return
             }
             let stored: Stored
-            if version < 2 {
-                let old = try JSONDecoder().decode(StoredV1.self, from: data)
-                stored = Stored(version: Self.schemaVersion, instances: old.instances, accounts: old.accounts,
-                                assignments: old.assignments.mapValues { $0.mapValues(RepoAccountChoice.account) },
-                                migratedLegacyTokens: old.migratedLegacyTokens,
-                                legacyHostAccounts: old.legacyHostAccounts,
-                                detachedLegacyHosts: old.detachedLegacyHosts)
+            let choices: [String: [String: RepoAccountChoice]]
+            if version == 2 {
+                let draft = try JSONDecoder().decode(StoredDraftV2.self, from: data)
+                stored = Stored(version: Self.schemaVersion, instances: draft.instances, accounts: draft.accounts,
+                                assignments: [:], migratedLegacyTokens: draft.migratedLegacyTokens,
+                                legacyHostAccounts: draft.legacyHostAccounts,
+                                detachedLegacyHosts: draft.detachedLegacyHosts, systemChoices: nil)
+                choices = draft.assignments
             } else {
                 stored = try JSONDecoder().decode(Stored.self, from: data)
+                var merged = stored.assignments.mapValues { $0.mapValues(RepoAccountChoice.account) }
+                for (repo, remotes) in stored.systemChoices ?? [:] {
+                    for remote in remotes { merged[repo, default: [:]][remote] = .system }
+                }
+                choices = merged
             }
             // Built-ins always come first and win over any stored copy.
             let builtInIds = Set(builtIns.map(\.id))
             instances = builtIns + stored.instances.filter { !builtInIds.contains($0.id) }
             accounts = stored.accounts.filter { account in instances.contains { $0.id == account.instanceId } }
-            assignments = stored.assignments
+            assignments = choices
             migratedLegacyTokens = stored.migratedLegacyTokens
             legacyHostAccounts = (stored.legacyHostAccounts ?? [:]).filter { mapping in
                 accounts.contains { $0.id == mapping.value }
@@ -221,13 +237,24 @@ final class AccountStore {
     }
 
     private func save() {
+        var accountChoices: [String: [String: UUID]] = [:]
+        var systemChoices: [String: [String]] = [:]
+        for (repo, remotes) in assignments {
+            for (remote, choice) in remotes {
+                switch choice {
+                case .account(let id): accountChoices[repo, default: [:]][remote] = id
+                case .system: systemChoices[repo, default: []].append(remote)
+                }
+            }
+        }
         let stored = Stored(version: Self.schemaVersion,
                             instances: instances.filter { !$0.isBuiltIn },
                             accounts: accounts,
-                            assignments: assignments,
+                            assignments: accountChoices,
                             migratedLegacyTokens: migratedLegacyTokens,
                             legacyHostAccounts: legacyHostAccounts,
-                            detachedLegacyHosts: detachedLegacyHosts.sorted())
+                            detachedLegacyHosts: detachedLegacyHosts.sorted(),
+                            systemChoices: systemChoices.isEmpty ? nil : systemChoices.mapValues { $0.sorted() })
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

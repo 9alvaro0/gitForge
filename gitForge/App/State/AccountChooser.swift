@@ -30,9 +30,11 @@ final class AccountChooser {
         }
     }
 
-    /// The sheet's answer; `nil` = Cancel (or the sheet went away).
-    func answer(_ choice: RepoAccountChoice?) {
-        guard let current = request else { return }
+    /// The answer for the sheet showing `id`; `nil` = Cancel (or the sheet
+    /// went away). A late answer for a sheet that's no longer shown is
+    /// ignored, so it can't cancel the next one.
+    func answer(_ choice: RepoAccountChoice?, for id: UUID) {
+        guard let current = request, current.id == id else { return }
         let pending = waiters.removeValue(forKey: current.key) ?? []
         request = nil
         for continuation in pending { continuation.resume(returning: choice) }

@@ -41,6 +41,8 @@ extension RepositoryViewModel {
             try await cli.fetchAll()
             lastFetchedAt = .now
             await loadRefs()
+        } catch is CancellationError {
+            return .cancelled
         } catch {
             let message = error.userMessage
             return .failed("Fetch failed: \(message)")

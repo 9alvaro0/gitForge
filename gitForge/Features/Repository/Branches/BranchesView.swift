@@ -250,6 +250,8 @@ struct BranchesView: View {
         case .conflicts:
             appState.ui.workspaceSection = .conflict
             toast(conflicts, kind: .warn)
+        case .cancelled:
+            break
         case .failed(let message):
             toast(message, kind: .error)
         }

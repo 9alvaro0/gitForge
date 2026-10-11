@@ -57,9 +57,48 @@ struct RepoAccountChoiceTests {
         #expect(store.migratedLegacyTokens)
         // Loading already persists the migration (the migrated flag saves).
         let saved = try String(contentsOf: dir.appendingPathComponent("accounts.json"), encoding: .utf8)
-        #expect(saved.contains("\"version\" : 2"))
+        #expect(saved.contains("\"version\" : 1"))
         let reloaded = AccountStore(directory: dir, secrets: InMemoryAccountSecretStore(), clientIds: .none)
         #expect(reloaded.choice(repoPath: "/r/app", remoteName: "origin") == .account(accountId))
+    }
+
+    /// What builds before phase 4 decode (their `Stored`, trimmed).
+    private struct OldShape: Decodable {
+        let version: Int
+        let assignments: [String: [String: UUID]]
+    }
+
+    @Test("The file stays readable by builds before phase 4")
+    func olderBuildsCanRead() throws {
+        let dir = Self.tempDir()
+        let store = AccountStore(directory: dir, secrets: InMemoryAccountSecretStore(), clientIds: .none)
+        let account = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "octo", method: .oauth)
+        try store.addAccount(account, secret: AccountSecret(accessToken: "t"))
+        store.setChoice(.system, repoPath: "/r/a", remoteName: "origin")
+        store.setChoice(.account(account.id), repoPath: "/r/b", remoteName: "origin")
+        let old = try JSONDecoder().decode(OldShape.self, from: Data(contentsOf: dir.appendingPathComponent("accounts.json")))
+        #expect(old.version == 1)
+        #expect(old.assignments == ["/r/b": ["origin": account.id]])
+        let reloaded = AccountStore(directory: dir, secrets: InMemoryAccountSecretStore(), clientIds: .none)
+        #expect(reloaded.choice(repoPath: "/r/a", remoteName: "origin") == .system)
+    }
+
+    @Test("A version-2 file from an earlier phase-4 build still loads, and is written back as 1")
+    func readsDraftV2() throws {
+        let dir = Self.tempDir()
+        let accountId = UUID(uuidString: "11111111-2222-4333-8444-555555555555")!
+        let v2 = """
+        {"version":2,"instances":[],"accounts":[{"id":"\(accountId.uuidString)","instanceId":"\(HostingInstance.gitHubDotCom.id.uuidString)","method":"oauth","scopes":[],"status":{"ok":{}}}],
+         "assignments":{"/r/a":{"origin":{"system":{}}},"/r/b":{"origin":{"account":{"_0":"\(accountId.uuidString)"}}}},
+         "migratedLegacyTokens":true}
+        """
+        try Data(v2.utf8).write(to: dir.appendingPathComponent("accounts.json"))
+        let store = AccountStore(directory: dir, secrets: InMemoryAccountSecretStore(), clientIds: .none)
+        #expect(store.choice(repoPath: "/r/a", remoteName: "origin") == .system)
+        #expect(store.choice(repoPath: "/r/b", remoteName: "origin") == .account(accountId))
+        store.setChoice(nil, repoPath: "/r/none", remoteName: "origin")
+        let old = try JSONDecoder().decode(OldShape.self, from: Data(contentsOf: dir.appendingPathComponent("accounts.json")))
+        #expect(old.version == 1)
     }
 
     @Test("Removing an account drops the choices that pointed at it, not the system ones")

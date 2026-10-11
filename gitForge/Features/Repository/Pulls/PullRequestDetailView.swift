@@ -159,6 +159,8 @@ struct PullRequestDetailView: View {
         switch await checkoutBranch() {
         case .success(let branch):
             appState.ui.activeToast = ToastMessage(message: "Checked out \(branch)", kind: .ok)
+        case .failure(let error) where error is CancellationError:
+            break
         case .failure(let error):
             appState.ui.activeToast = ToastMessage(
                 message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription, kind: .error)
@@ -175,6 +177,8 @@ struct PullRequestDetailView: View {
         case .conflicts:
             appState.ui.workspaceSection = .conflict
             appState.ui.activeToast = ToastMessage(message: "Merge has conflicts — resolve to continue", kind: .warn)
+        case .cancelled:
+            break
         case .failed(let message):
             appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }

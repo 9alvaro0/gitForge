@@ -111,7 +111,13 @@ extension RepositoryViewModel {
         // We fail silently on the fetch — git will reject the push if
         // anything's wrong with the remote anyway.
         if forceWithLease {
-            try? await cli.fetch(remote: resolvedRemote)
+            do {
+                try await cli.fetch(remote: resolvedRemote)
+            } catch is CancellationError {
+                // "Choose an account" → Cancel: stop here, don't ask again for the push.
+                remoteFailure = .cancelled
+                return false
+            } catch {}
             await loadRefs()
         }
         do {

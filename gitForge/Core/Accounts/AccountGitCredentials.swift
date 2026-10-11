@@ -90,13 +90,17 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
         let store = self.store
         return await MainActor.run {
             guard let instance = store.instance(forHost: host) else { return .system }
-            switch store.resolveAccount(remoteHost: host, remoteOwner: owner, repoPath: repoPath,
-                                        remoteName: remoteName, activeProfileId: profile) {
+            // Only accounts that can sign take part, so a failing copy neither
+            // makes a good account ambiguous nor wins by profile link or
+            // choice — the same rule as the profile menu.
+            switch AccountResolver.resolve(remoteHost: host, remoteOwner: owner, repoPath: repoPath,
+                                           remoteName: remoteName, activeProfileId: profile,
+                                           instances: store.instances, accounts: store.accounts.filter(Self.signs),
+                                           assignments: store.assignments) {
             case .account(let account):
-                return Self.signs(account) ? .sign(account, instance) : .system
-            case .ambiguous(let candidates):
-                let usable = candidates.filter(Self.signs)
-                guard canAsk, !usable.isEmpty else { return .system }
+                return .sign(account, instance)
+            case .ambiguous(let usable):
+                guard canAsk else { return .system }
                 let path = URLComponents(string: remoteURL)?.path ?? ""
                 let ownerRepo = path.split(separator: "/").joined(separator: "/")
                     .replacingOccurrences(of: ".git", with: "", options: [.anchored, .backwards])
