@@ -33,9 +33,13 @@ final class AccountStore {
     var migratedLegacyTokens = false {
         didSet { if oldValue != migratedLegacyTokens { save() } }
     }
+    /// Hosts whose old token no longer feeds an account: the user reconnected
+    /// it in gitForge, so the sync must not overwrite or re-create it.
+    private(set) var detachedLegacyHosts: Set<String> = []
 
     private let fileURL: URL
-    private let secrets: AccountSecretStore
+    /// Also used by the token refresher, off the main actor.
+    let secrets: AccountSecretStore
     /// github.com and gitlab.com with this build's OAuth client ids. Never
     /// persisted, so a new build's ids always win.
     private let builtIns: [HostingInstance]
@@ -48,6 +52,8 @@ final class AccountStore {
         let migratedLegacyTokens: Bool
         /// Optional: absent in files written before the sync existed.
         let legacyHostAccounts: [String: UUID]?
+        /// Optional: absent in files written before phase 2.
+        let detachedLegacyHosts: [String]?
     }
 
     init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore(),
@@ -120,6 +126,15 @@ final class AccountStore {
         secrets.read(accountId)
     }
 
+    /// Stops the old-token sync for the hosts that fed `accountId`.
+    func detachFromLegacy(_ accountId: UUID) {
+        let hosts = legacyHostAccounts.filter { $0.value == accountId }.map(\.key)
+        guard !hosts.isEmpty else { return }
+        detachedLegacyHosts.formUnion(hosts)
+        for host in hosts { legacyHostAccounts[host] = nil }
+        save()
+    }
+
     // MARK: Repo assignments
 
     func assignedAccountId(repoPath: String, remoteName: String) -> UUID? {
@@ -154,6 +169,7 @@ final class AccountStore {
             legacyHostAccounts = (stored.legacyHostAccounts ?? [:]).filter { mapping in
                 accounts.contains { $0.id == mapping.value }
             }
+            detachedLegacyHosts = Set(stored.detachedLegacyHosts ?? [])
         } catch {
             Self.logger.error("Failed to load accounts.json: \(error.localizedDescription, privacy: .public)")
             quarantine()
@@ -166,7 +182,8 @@ final class AccountStore {
                             accounts: accounts,
                             assignments: assignments,
                             migratedLegacyTokens: migratedLegacyTokens,
-                            legacyHostAccounts: legacyHostAccounts)
+                            legacyHostAccounts: legacyHostAccounts,
+                            detachedLegacyHosts: detachedLegacyHosts.sorted())
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -206,6 +223,7 @@ extension AccountStore {
         for host in hosts {
             guard let normalized = HostingInstance.normalizedHost(host),
                   let kind = Self.legacyKind(forHost: normalized) else { continue }
+            if detachedLegacyHosts.contains(normalized) { continue }
             let token: String
             do {
                 guard let stored = try legacy.legacyToken(for: host) else { continue }
@@ -222,11 +240,20 @@ extension AccountStore {
                 do { try addInstance(target) } catch { continue }
             }
             // Already synced: keep its secret current (only while it's still
-            // a token account; a reconnect via OAuth owns its own secret).
+            // a token account; a reconnect via OAuth owns its own secret). A
+            // changed token is checked again by the validator.
             if let mapped = legacyHostAccounts[normalized],
                let account = accounts.first(where: { $0.id == mapped }) {
                 if account.method == .personalToken, secret(for: mapped)?.accessToken != token {
-                    do { try secrets.write(AccountSecret(accessToken: token), for: mapped) } catch { complete = false }
+                    do {
+                        try secrets.write(AccountSecret(accessToken: token), for: mapped)
+                        var rotated = account
+                        rotated.status = .unverified
+                        rotated.lastValidatedAt = nil
+                        updateAccount(rotated)
+                    } catch {
+                        complete = false
+                    }
                 }
                 continue
             }
