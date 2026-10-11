@@ -34,6 +34,10 @@ final class PullRequestStore {
     /// Host detected but no token configured — drives the "Connect a host"
     /// empty state in `PullsView`.
     var requiresToken = false
+    /// The instance "Connect a … account" opens on, when known.
+    var connectInstanceId: UUID?
+    /// The account to reconnect, when its token was rejected.
+    var reconnectAccountId: UUID?
     var lastLoadedAt: Date?
 
     // MARK: Detail
@@ -52,7 +56,11 @@ final class PullRequestStore {
     /// Drives the spinner on "Resolve locally" while a try-merge runs.
     var localMergeRunning = false
 
-    private let token: @MainActor (String) -> String?
+    /// Where the token comes from (the repo's account, the old store…).
+    /// `rejected`: a token that just got a 401.
+    private let auth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
+    /// The token of the last successful list load, reused by Closed, CI and the detail.
+    private var currentToken: String?
     private let resolveHost: @MainActor () async -> RemoteHost?
     private let makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
     private var detailTask: Task<Void, Never>?
@@ -69,11 +77,34 @@ final class PullRequestStore {
     ///     real GitHub / GitLab clients; tests pass fakes.
     init(cli: GitCLI,
          token: @escaping @MainActor (String) -> String? = { RemoteCredentialsStore.shared.token(for: $0) },
+         auth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
          makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) }) {
-        self.token = token
+        self.auth = auth ?? { host, rejected in
+            guard rejected == nil, let value = token(host.host) else { return .connectAccount(instanceId: nil, replacing: nil) }
+            return .token(value)
+        }
         self.resolveHost = resolveHost ?? { await cli.remoteHost() }
         self.makeProvider = makeProvider
+    }
+
+    /// Asks `auth` for a token and updates the connect state; nil = no token.
+    private func authorize(_ host: RemoteHost, rejected: String? = nil) async -> String? {
+        switch await auth(host, rejected) {
+        case .token(let value):
+            requiresToken = false
+            connectInstanceId = nil
+            reconnectAccountId = nil
+            return value
+        case .connectAccount(let instanceId, let replacing):
+            requiresToken = true
+            connectInstanceId = instanceId
+            reconnectAccountId = replacing
+            return nil
+        case .cancelled:
+            requiresToken = false
+            return nil
+        }
     }
 
     // MARK: Scopes
@@ -106,7 +137,7 @@ final class PullRequestStore {
     }
 
     func loadClosed() async {
-        guard let host, let token = token(host.host), !isLoadingClosed else { return }
+        guard let host, let token = currentToken, !isLoadingClosed else { return }
         isLoadingClosed = true
         defer { isLoadingClosed = false }
         let gen = listGen
@@ -179,17 +210,27 @@ final class PullRequestStore {
         host = resolvedHost
         Self.logger.info("Pulls: detected host \(resolvedHost.host, privacy: .public) (\(resolvedHost.provider.rawValue, privacy: .public))")
 
-        guard let token = token(resolvedHost.host) else {
+        guard var token = await authorize(resolvedHost) else {
             items = []
-            requiresToken = true
-            Self.logger.info("Pulls: no token for host \(resolvedHost.host, privacy: .public)")
+            currentToken = nil
             return
         }
-        requiresToken = false
 
         let provider = makeProvider(resolvedHost)
         do {
-            items = try await provider.fetchPulls(host: resolvedHost, state: .open, token: token)
+            do {
+                items = try await provider.fetchPulls(host: resolvedHost, state: .open, token: token)
+            } catch PullRequestFetchError.unauthorized {
+                // One fresh token (GitLab OAuth refresh), then one retry.
+                guard let fresh = await authorize(resolvedHost, rejected: token) else {
+                    items = []
+                    currentToken = nil
+                    return
+                }
+                token = fresh
+                items = try await provider.fetchPulls(host: resolvedHost, state: .open, token: token)
+            }
+            currentToken = token
             lastLoadedAt = .now
         } catch {
             self.error = Self.message(for: error)
@@ -240,8 +281,8 @@ final class PullRequestStore {
         detailGen &+= 1
         let gen = detailGen
         guard let pr = selected, let host else { return }
-        guard let token = token(host.host) else {
-            detailError = "No token configured for \(host.host)."
+        guard let token = currentToken else {
+            detailError = "Load the list first."
             return
         }
 
@@ -289,6 +330,9 @@ final class PullRequestStore {
         host = nil
         error = nil
         requiresToken = false
+        connectInstanceId = nil
+        reconnectAccountId = nil
+        currentToken = nil
         lastLoadedAt = nil
     }
 
