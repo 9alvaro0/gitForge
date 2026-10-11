@@ -13,6 +13,7 @@ final class OnboardingState {
         case welcome
         case git
         case identity
+        case appearance
         case defaults
         case firstRepo
 
@@ -23,13 +24,54 @@ final class OnboardingState {
             case .welcome:    return "Welcome"
             case .git:        return "Git"
             case .identity:   return "Identity"
+            case .appearance: return "Appearance"
             case .defaults:   return "Defaults"
             case .firstRepo:  return "First repository"
             }
         }
 
+        /// The second line of the step in the rail.
+        var railSubtitle: String {
+            switch self {
+            case .welcome:    return "What gitForge does"
+            case .git:        return "Find the git tool"
+            case .identity:   return "Name and email"
+            case .appearance: return "Theme, accent, density"
+            case .defaults:   return "Branch and clone folder"
+            case .firstRepo:  return "Open or clone a repo"
+            }
+        }
+
+        var heading: String {
+            switch self {
+            case .welcome:    return "Welcome to gitForge"
+            case .git:        return "Find git"
+            case .identity:   return "Who are you?"
+            case .appearance: return "Make it yours"
+            case .defaults:   return "Defaults"
+            case .firstRepo:  return "Add your first repository"
+            }
+        }
+
+        var lede: String {
+            switch self {
+            case .welcome:
+                return "A native macOS git client built around fast history navigation, fluid diffs, and a quiet UI."
+            case .git:
+                return "gitForge drives the git command-line tool installed on this Mac."
+            case .identity:
+                return "git records your name and email on every commit. This writes to `~/.gitconfig` and applies to every repository."
+            case .appearance:
+                return "Pick a look. The preview updates as you go."
+            case .defaults:
+                return "Two preferences that pay off later. You can change them anytime in Settings."
+            case .firstRepo:
+                return "Pick how you want to get started — or skip and add one later."
+            }
+        }
+
         /// Steps the user can rewind into. Step 0 has nothing behind it,
-        /// step 4 (firstRepo) is terminal — any action there closes the flow.
+        /// firstRepo is terminal — any action there closes the flow.
         var canGoBack: Bool { rawValue > 0 && self != .firstRepo }
 
         /// Steps that the user is allowed to skip without completing.
@@ -37,20 +79,25 @@ final class OnboardingState {
         /// junk authorship; everything after is opt-in.
         var canSkip: Bool {
             switch self {
-            case .welcome, .git, .identity:    return false
-            case .defaults, .firstRepo:        return true
+            case .welcome, .git, .identity:                return false
+            case .appearance, .defaults, .firstRepo:       return true
             }
         }
 
         var primaryLabel: String {
             switch self {
             case .welcome:    return "Get started"
-            case .git:        return "Continue"
-            case .identity:   return "Continue"
-            case .defaults:   return "Continue"
+            case .git, .identity, .appearance, .defaults: return "Continue"
             case .firstRepo:  return ""
             }
         }
+
+        var next: Step? { Step(rawValue: rawValue + 1) }
+
+        /// "Next: Defaults" beside the primary button.
+        var nextLabel: String? { next.map { "Next: \($0.title)" } }
+
+        var counter: String { "Step \(rawValue + 1) of \(Step.allCases.count)" }
     }
 
     var currentStep: Step = .welcome
