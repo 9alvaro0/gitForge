@@ -28,6 +28,7 @@ final class StubServer: @unchecked Sendable {
     private let lock = NSLock()
     private var routes: [String: [Response]] = [:]
     private var log: [Request] = []
+    private var failures: [String: URLError.Code] = [:]
 
     init() {
         let config = URLSessionConfiguration.ephemeral
@@ -47,6 +48,15 @@ final class StubServer: @unchecked Sendable {
         if headers["Content-Type"] == nil { headers["Content-Type"] = "application/json" }
         let response = Response(status: status, headers: headers, body: body)
         lock.withLock { routes["\(method) \(path)", default: []].append(response) }
+    }
+
+    /// Makes `method path` fail at the transport level (e.g. an untrusted certificate).
+    func fail(_ method: String, _ path: String, with code: URLError.Code) {
+        lock.withLock { failures["\(method) \(path)"] = code }
+    }
+
+    fileprivate func failure(for request: URLRequest) -> URLError.Code? {
+        lock.withLock { failures["\(request.httpMethod ?? "GET") \(request.url?.path ?? "/")"] }
     }
 
     var requests: [Request] { lock.withLock { log } }
@@ -103,6 +113,10 @@ final class StubURLProtocol: URLProtocol {
     override func startLoading() {
         guard let url = request.url, let server = Self.server(for: url.host) else {
             client?.urlProtocol(self, didFailWithError: URLError(.cannotFindHost))
+            return
+        }
+        if let code = server.failure(for: request) {
+            client?.urlProtocol(self, didFailWithError: URLError(code))
             return
         }
         let response = server.answer(request)

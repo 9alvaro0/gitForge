@@ -54,7 +54,7 @@ struct RootView: View {
     }
 }
 
-private extension Binding {
+extension Binding {
     /// Adapts a `Binding<T?>` to a `Binding<Bool>` for SwiftUI presenters
     /// (`.alert(_:isPresented:)`, `.sheet(isPresented:)`, …) that key off a
     /// boolean flag while the source of truth is an optional payload. Reading

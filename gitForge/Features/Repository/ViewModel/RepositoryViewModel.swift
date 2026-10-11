@@ -453,7 +453,9 @@ final class RepositoryViewModel {
         autoFetchInFlight = true
         defer { autoFetchInFlight = false }
         do {
-            try await cli.fetchAll()
+            try await GitNetworkContext.$isBackground.withValue(true) {
+                try await cli.fetchAll()
+            }
             lastFetchedAt = .now
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.

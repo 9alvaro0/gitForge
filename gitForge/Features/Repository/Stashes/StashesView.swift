@@ -136,6 +136,8 @@ struct StashesView: View {
                 message: "Stash applied with conflicts — resolve to continue",
                 kind: .warn)
             appState.ui.workspaceSection = .conflict
+        case .cancelled:
+            break
         case .failed(let message):
             appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }

@@ -6,15 +6,20 @@ import Testing
 /// credential, so the commands run exactly as without accounts.
 private final class RecordingCredentials: GitCredentialProvider, @unchecked Sendable {
     private let accounts: [String: UUID]
+    private let needsChoice: Set<String>
     private let lock = NSLock()
     private var remotes: [String] = []
 
-    init(accounts: [String: UUID] = [:]) { self.accounts = accounts }
+    init(accounts: [String: UUID] = [:], needsChoice: Set<String> = []) {
+        self.accounts = accounts
+        self.needsChoice = needsChoice
+    }
 
     var signedRemotes: [String] { lock.withLock { remotes } }
 
-    func accountId(remoteURL: String, remoteName: String, repoPath: String) async -> UUID? {
-        accounts[remoteURL]
+    func signer(remoteURL: String, remoteName: String, repoPath: String) async -> GitSigner {
+        if needsChoice.contains(remoteURL) { return .needsChoice }
+        return accounts[remoteURL].map(GitSigner.account) ?? .none
     }
 
     func withCredential<T: Sendable>(remoteURL: String, remoteName: String, repoPath: String,
@@ -71,6 +76,14 @@ struct GitCLICredentialRoutingTests {
         try await GitCLI(workingDirectory: work.url, credentials: recorder).fetchAll()
         #expect(recorder.signedRemotes == ["origin", "upstream"])
         #expect(hasRef(work, "refs/remotes/upstream/main"))
+    }
+
+    @Test("A remote that needs a choice is fetched on its own, so the sheet can show")
+    func fetchAllNeedsChoice() async throws {
+        let (work, _, upstream) = try makeRepos()
+        let recorder = RecordingCredentials(needsChoice: [upstream.url.path])
+        try await GitCLI(workingDirectory: work.url, credentials: recorder).fetchAll()
+        #expect(recorder.signedRemotes == ["origin", "upstream"])
     }
 
     @Test("fetch --all with no accounts: nothing is signed")

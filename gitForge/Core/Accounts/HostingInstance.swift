@@ -46,12 +46,20 @@ nonisolated struct HostingInstance: Codable, Identifiable, Hashable, Sendable {
     }
 
     static func defaultAPIBaseURL(kind: Kind, host: String) -> URL {
+        var components = URLComponents()
+        components.scheme = "https"
         switch kind {
+        case .github where host == "github.com":
+            components.host = "api.github.com"
         case .github:
-            return URL(string: host == "github.com" ? "https://api.github.com" : "https://\(host)/api/v3")!
+            components.host = host
+            components.path = "/api/v3"
         case .gitlab:
-            return URL(string: "https://\(host)/api/v4")!
+            components.host = host
+            components.path = "/api/v4"
         }
+        // Only reachable with a host `make` would have refused.
+        return components.url ?? URL(fileURLWithPath: "/")
     }
 
     /// `https://<host>`: where the OAuth endpoints live (not the API base).
@@ -71,4 +79,45 @@ nonisolated struct HostingInstance: Codable, Identifiable, Hashable, Sendable {
         kind: .gitlab, host: "gitlab.com", isBuiltIn: true)
 
     static let builtIns = [gitHubDotCom, gitLabDotCom]
+}
+
+/// Why "Add instance" can't use what was typed.
+nonisolated enum InstanceInputError: LocalizedError, Equatable, Sendable {
+    case missingHost
+    case invalidHost(String)
+    case invalidAPIURL(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingHost: "Enter the instance's address, like https://git.example.com."
+        case .invalidHost(let host): "“\(host)” isn't a valid host name."
+        case .invalidAPIURL(let url): "“\(url)” isn't a valid HTTPS API address."
+        }
+    }
+}
+
+extension HostingInstance {
+    /// A validated instance from what the user typed in "Add instance"
+    /// (P4 spec §4.3): host normalised, trailing dot dropped, only DNS
+    /// characters; an API URL override must be HTTPS.
+    nonisolated static func make(kind: Kind, url: String,
+                                 apiBaseURL: String? = nil) -> Result<HostingInstance, InstanceInputError> {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .failure(.missingHost) }
+        guard var host = normalizedHost(trimmed) else { return .failure(.invalidHost(trimmed)) }
+        while host.hasSuffix(".") { host.removeLast() }
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789.-")
+        guard !host.isEmpty, host.unicodeScalars.allSatisfy(allowed.contains),
+              !host.hasPrefix("."), !host.hasPrefix("-"), !host.contains("..") else {
+            return .failure(.invalidHost(trimmed))
+        }
+        var api: URL?
+        if let raw = apiBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+            guard let parsed = URL(string: raw), parsed.scheme?.lowercased() == "https", parsed.host != nil else {
+                return .failure(.invalidAPIURL(raw))
+            }
+            api = parsed
+        }
+        return .success(HostingInstance(kind: kind, host: host, apiBaseURL: api))
+    }
 }

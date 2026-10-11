@@ -14,7 +14,7 @@ struct AccountResolverTests {
     }
 
     private static func resolve(_ accounts: [HostingAccount], owner: String? = "someone", profile: UUID? = nil,
-                                assignments: [String: [String: UUID]] = [:], host: String = "github.com") -> AccountResolution {
+                                assignments: [String: [String: RepoAccountChoice]] = [:], host: String = "github.com") -> AccountResolution {
         AccountResolver.resolve(remoteHost: host, remoteOwner: owner, repoPath: "/r/app", remoteName: "origin",
                                 activeProfileId: profile, instances: HostingInstance.builtIns,
                                 accounts: accounts, assignments: assignments)
@@ -23,7 +23,7 @@ struct AccountResolverTests {
     @Test("1 · a manual choice for the repo remote wins")
     func manual() {
         let a = Self.account("alvaro"), b = Self.account("alvaro-work")
-        #expect(Self.resolve([a, b], assignments: ["/r/app": ["origin": b.id]]) == .account(b))
+        #expect(Self.resolve([a, b], assignments: ["/r/app": ["origin": .account(b.id)]]) == .account(b))
     }
 
     @Test("2 · the only account on the instance")
@@ -56,6 +56,6 @@ struct AccountResolverTests {
     @Test("A stale manual choice (account removed) falls through to the next rules")
     func staleChoice() {
         let a = Self.account("alvaro")
-        #expect(Self.resolve([a], assignments: ["/r/app": ["origin": UUID()]]) == .account(a))
+        #expect(Self.resolve([a], assignments: ["/r/app": ["origin": .account(UUID())]]) == .account(a))
     }
 }
