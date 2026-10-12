@@ -144,7 +144,7 @@ struct RepositoryViewModelPullMergeGuardsTests {
             unstagedStatus: .modified,
             originalPath: nil
         )
-        vm.status = WorkingCopyStatus(files: [dirty])
+        vm.workingCopy.status = WorkingCopyStatus(files: [dirty])
         let outcome = await vm.attemptLocalMergeForPullRequest()
         guard case .failed(let message) = outcome else {
             Issue.record("Expected .failed, got \(outcome)")

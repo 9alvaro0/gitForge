@@ -4,13 +4,13 @@ import Foundation
 extension RepositoryViewModel {
     static var preview: RepositoryViewModel {
         let vm = RepositoryViewModel(repository: Repository.preview)
-        vm.commits = Commit.previewSamples
-        vm.selectedCommitId = Commit.previewSamples.first?.id
-        vm.cacheDetail(CommitDetail.preview, for: Commit.preview.sha)
+        vm.history.commits = Commit.previewSamples
+        vm.history.selectedCommitId = Commit.previewSamples.first?.id
+        vm.history.cacheDetail(CommitDetail.preview, for: Commit.preview.sha)
         vm.refs = GitRef.previewSamples
         vm.currentBranchName = "main"
-        vm.status = WorkingCopyStatus.preview
-        vm.recomputeGraphSync()
+        vm.workingCopy.status = WorkingCopyStatus.preview
+        vm.history.recomputeGraphSync()
         return vm
     }
 
@@ -32,8 +32,8 @@ extension RepositoryViewModel {
     /// staging skeleton.
     static var previewLoadingStatus: RepositoryViewModel {
         let vm = preview
-        vm.status = WorkingCopyStatus(files: [])
-        vm.hasLoadedStatusOnce = false
+        vm.workingCopy.status = WorkingCopyStatus(files: [])
+        vm.workingCopy.hasLoadedStatusOnce = false
         return vm
     }
 
@@ -41,8 +41,8 @@ extension RepositoryViewModel {
     /// "Working tree is clean" empty state.
     static var previewCleanTree: RepositoryViewModel {
         let vm = preview
-        vm.status = WorkingCopyStatus(files: [])
-        vm.hasLoadedStatusOnce = true
+        vm.workingCopy.status = WorkingCopyStatus(files: [])
+        vm.workingCopy.hasLoadedStatusOnce = true
         return vm
     }
 

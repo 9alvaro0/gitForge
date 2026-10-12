@@ -74,8 +74,8 @@ extension RepositoryViewModel {
         do {
             try await cli.pull(rebase: rebase, ffOnly: ffOnly)
             await loadRefs()
-            await refreshStatus()
-            await reloadLog()
+            await workingCopy.refreshStatus()
+            await history.reloadLog()
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)

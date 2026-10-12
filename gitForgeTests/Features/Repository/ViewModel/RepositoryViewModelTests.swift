@@ -30,28 +30,28 @@ struct RepositoryViewModelSelectionTests {
         let vm = Self.makeVM()
         let a = Self.commit("aaa")
         let b = Self.commit("bbb")
-        vm.commits = [a, b]
-        #expect(vm.commitsById["aaa"] == a)
-        #expect(vm.commitsById["bbb"] == b)
-        #expect(vm.commitsById.count == 2)
+        vm.history.commits = [a, b]
+        #expect(vm.history.commitsById["aaa"] == a)
+        #expect(vm.history.commitsById["bbb"] == b)
+        #expect(vm.history.commitsById.count == 2)
     }
 
     @Test("commits append keeps commitsById in sync")
     func commitsByIdReflectsAppend() {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa")]
-        vm.commits.append(Self.commit("bbb"))
-        #expect(vm.commitsById.count == 2)
-        #expect(vm.commitsById["bbb"]?.sha == "bbb")
+        vm.history.commits = [Self.commit("aaa")]
+        vm.history.commits.append(Self.commit("bbb"))
+        #expect(vm.history.commitsById.count == 2)
+        #expect(vm.history.commitsById["bbb"]?.sha == "bbb")
     }
 
     @Test("commits removeAll keeps commitsById in sync")
     func commitsByIdReflectsRemoval() {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa"), Self.commit("bbb")]
-        vm.commits.removeAll { $0.sha == "aaa" }
-        #expect(vm.commitsById["aaa"] == nil)
-        #expect(vm.commitsById["bbb"] != nil)
+        vm.history.commits = [Self.commit("aaa"), Self.commit("bbb")]
+        vm.history.commits.removeAll { $0.sha == "aaa" }
+        #expect(vm.history.commitsById["aaa"] == nil)
+        #expect(vm.history.commitsById["bbb"] != nil)
     }
 
     @Test("commitsById tolerates duplicate ids without trapping")
@@ -61,62 +61,62 @@ struct RepositoryViewModelSelectionTests {
         let vm = Self.makeVM()
         let first = Self.commit("dup", subject: "first")
         let second = Self.commit("dup", subject: "second")
-        vm.commits = [first, second]
-        #expect(vm.commitsById["dup"] != nil)
+        vm.history.commits = [first, second]
+        #expect(vm.history.commitsById["dup"] != nil)
     }
 
     @Test("Switching commit clears commit-file diff state")
     func switchingCommitClearsFileState() {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa")]
-        vm.commitFileDiff = []
-        vm.commitFileDiffEmptyState = .binary
-        vm.loadingCommitFileDiff = true
+        vm.history.commits = [Self.commit("aaa")]
+        vm.history.commitFileDiff = []
+        vm.history.commitFileDiffEmptyState = .binary
+        vm.history.loadingCommitFileDiff = true
 
-        vm.selectedCommitId = "aaa"
+        vm.history.selectedCommitId = "aaa"
 
-        #expect(vm.selectedCommitFile == nil)
-        #expect(vm.commitFileDiff.isEmpty)
-        #expect(vm.commitFileDiffEmptyState == .empty)
-        #expect(vm.loadingCommitFileDiff == false)
+        #expect(vm.history.selectedCommitFile == nil)
+        #expect(vm.history.commitFileDiff.isEmpty)
+        #expect(vm.history.commitFileDiffEmptyState == .empty)
+        #expect(vm.history.loadingCommitFileDiff == false)
     }
 
     @Test("Switching commit bumps the diff generation token")
     func switchingCommitBumpsGen() {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa"), Self.commit("bbb")]
-        vm.selectedCommitId = "aaa"
-        let gen = vm.commitFileDiffGen
-        vm.selectedCommitId = "bbb"
-        #expect(vm.commitFileDiffGen > gen)
+        vm.history.commits = [Self.commit("aaa"), Self.commit("bbb")]
+        vm.history.selectedCommitId = "aaa"
+        let gen = vm.history.commitFileDiffGen
+        vm.history.selectedCommitId = "bbb"
+        #expect(vm.history.commitFileDiffGen > gen)
     }
 
     @Test("Reselecting the same commit is a no-op")
     func reselectingSameCommitIsNoOp() {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa")]
-        vm.selectedCommitId = "aaa"
-        let gen = vm.commitFileDiffGen
-        vm.selectedCommitId = "aaa"
-        #expect(vm.commitFileDiffGen == gen)
+        vm.history.commits = [Self.commit("aaa")]
+        vm.history.selectedCommitId = "aaa"
+        let gen = vm.history.commitFileDiffGen
+        vm.history.selectedCommitId = "aaa"
+        #expect(vm.history.commitFileDiffGen == gen)
     }
 
     @Test("Setting selectedCommitFile to nil bumps the gen token")
     func clearingFileBumpsGen() {
         let vm = Self.makeVM()
-        vm.selectedCommitFile = "Sources/foo.swift"
-        let gen = vm.commitFileDiffGen
-        vm.selectedCommitFile = nil
-        #expect(vm.commitFileDiffGen > gen)
+        vm.history.selectedCommitFile = "Sources/foo.swift"
+        let gen = vm.history.commitFileDiffGen
+        vm.history.selectedCommitFile = nil
+        #expect(vm.history.commitFileDiffGen > gen)
     }
 
     @Test("Setting the same selectedCommitFile twice doesn't bump the gen")
     func sameFileDoesNotBumpGen() {
         let vm = Self.makeVM()
-        vm.selectedCommitFile = "Sources/foo.swift"
-        let gen = vm.commitFileDiffGen
-        vm.selectedCommitFile = "Sources/foo.swift"
-        #expect(vm.commitFileDiffGen == gen)
+        vm.history.selectedCommitFile = "Sources/foo.swift"
+        let gen = vm.history.commitFileDiffGen
+        vm.history.selectedCommitFile = "Sources/foo.swift"
+        #expect(vm.history.commitFileDiffGen == gen)
     }
 
     @Test("Clearing the working-copy file resets diff state")
@@ -128,16 +128,16 @@ struct RepositoryViewModelSelectionTests {
             unstagedStatus: .modified,
             originalPath: nil
         )
-        vm.selectedWorkingCopyFile = file
-        vm.workingCopyDiff = []
-        vm.workingCopyDiffEmptyState = .binary
-        vm.loadingWorkingCopyDiff = true
+        vm.workingCopy.selectedWorkingCopyFile = file
+        vm.workingCopy.workingCopyDiff = []
+        vm.workingCopy.workingCopyDiffEmptyState = .binary
+        vm.workingCopy.loadingWorkingCopyDiff = true
 
-        vm.selectedWorkingCopyFile = nil
+        vm.workingCopy.selectedWorkingCopyFile = nil
 
-        #expect(vm.workingCopyDiff.isEmpty)
-        #expect(vm.workingCopyDiffEmptyState == .empty)
-        #expect(vm.loadingWorkingCopyDiff == false)
+        #expect(vm.workingCopy.workingCopyDiff.isEmpty)
+        #expect(vm.workingCopy.workingCopyDiffEmptyState == .empty)
+        #expect(vm.workingCopy.loadingWorkingCopyDiff == false)
     }
 
     @Test("Switching working-copy file bumps the working-copy diff gen")
@@ -147,10 +147,10 @@ struct RepositoryViewModelSelectionTests {
                                 unstagedStatus: .modified, originalPath: nil)
         let b = WorkingCopyFile(path: "b.swift", stagedStatus: .unmodified,
                                 unstagedStatus: .modified, originalPath: nil)
-        vm.selectedWorkingCopyFile = a
-        let gen = vm.workingCopyDiffGen
-        vm.selectedWorkingCopyFile = b
-        #expect(vm.workingCopyDiffGen > gen)
+        vm.workingCopy.selectedWorkingCopyFile = a
+        let gen = vm.workingCopy.workingCopyDiffGen
+        vm.workingCopy.selectedWorkingCopyFile = b
+        #expect(vm.workingCopy.workingCopyDiffGen > gen)
     }
 }
 
@@ -168,36 +168,36 @@ struct RepositoryViewModelAmendTests {
         // Regression: the previous didSet shape wiped subject/body on any
         // false→false assignment.
         let vm = Self.makeVM()
-        vm.commitSubject = "WIP: keep me"
-        vm.commitBody = "in-progress body"
+        vm.workingCopy.commitSubject = "WIP: keep me"
+        vm.workingCopy.commitBody = "in-progress body"
 
-        vm.amendMode = false  // already false
+        vm.workingCopy.amendMode = false  // already false
 
-        #expect(vm.commitSubject == "WIP: keep me")
-        #expect(vm.commitBody == "in-progress body")
+        #expect(vm.workingCopy.commitSubject == "WIP: keep me")
+        #expect(vm.workingCopy.commitBody == "in-progress body")
     }
 
     @Test("Disabling amend after enabling clears typed text")
     func disablingAmendAfterEnableClearsText() {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         // Simulate the user (or prefill) populating fields…
-        vm.commitSubject = "fixup the thing"
-        vm.commitBody = "details"
+        vm.workingCopy.commitSubject = "fixup the thing"
+        vm.workingCopy.commitBody = "details"
 
-        vm.amendMode = false
+        vm.workingCopy.amendMode = false
 
-        #expect(vm.commitSubject == "")
-        #expect(vm.commitBody == "")
+        #expect(vm.workingCopy.commitSubject == "")
+        #expect(vm.workingCopy.commitBody == "")
     }
 
     @Test("Enabling amend twice is a no-op for typed text")
     func enablingAmendTwiceKeepsText() {
         let vm = Self.makeVM()
-        vm.amendMode = true
-        vm.commitSubject = "edited"
-        vm.amendMode = true  // idempotent
-        #expect(vm.commitSubject == "edited")
+        vm.workingCopy.amendMode = true
+        vm.workingCopy.commitSubject = "edited"
+        vm.workingCopy.amendMode = true  // idempotent
+        #expect(vm.workingCopy.commitSubject == "edited")
     }
 }
 
@@ -249,7 +249,7 @@ struct RepositoryViewModelSelectedCommitTests {
     @Test("selectedCommit returns nil when nothing is selected")
     func nilWhenUnselected() {
         let vm = Self.makeVM()
-        #expect(vm.selectedCommit == nil)
+        #expect(vm.history.selectedCommit == nil)
     }
 
     @Test("selectedCommit resolves through commitsById")
@@ -258,9 +258,9 @@ struct RepositoryViewModelSelectedCommitTests {
         let a = Commit(sha: "aaa", parentShas: [], authorName: "T",
                        authorEmail: "t@x", authorDate: .init(timeIntervalSince1970: 0),
                        subject: "s")
-        vm.commits = [a]
-        vm.selectedCommitId = "aaa"
-        #expect(vm.selectedCommit == a)
+        vm.history.commits = [a]
+        vm.history.selectedCommitId = "aaa"
+        #expect(vm.history.selectedCommit == a)
     }
 
     @Test("selectedCommit returns nil when the id is no longer in commits")
@@ -269,9 +269,9 @@ struct RepositoryViewModelSelectedCommitTests {
         let a = Commit(sha: "aaa", parentShas: [], authorName: "T",
                        authorEmail: "t@x", authorDate: .init(timeIntervalSince1970: 0),
                        subject: "s")
-        vm.commits = [a]
-        vm.selectedCommitId = "aaa"
-        vm.commits = []  // e.g. a fresh scope before the first page
-        #expect(vm.selectedCommit == nil)
+        vm.history.commits = [a]
+        vm.history.selectedCommitId = "aaa"
+        vm.history.commits = []  // e.g. a fresh scope before the first page
+        #expect(vm.history.selectedCommit == nil)
     }
 }

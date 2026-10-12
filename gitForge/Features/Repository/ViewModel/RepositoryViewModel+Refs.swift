@@ -44,8 +44,8 @@ extension RepositoryViewModel {
         // loadRefs run concurrently the first recomputeGraph fires with an
         // empty refs dictionary and priority loses, so re-run once refs
         // actually land.
-        if refsChanged && !commits.isEmpty {
-            await recomputeGraph()
+        if refsChanged && !history.commits.isEmpty {
+            await history.recomputeGraph()
         }
         await loadAheadBehind()
     }

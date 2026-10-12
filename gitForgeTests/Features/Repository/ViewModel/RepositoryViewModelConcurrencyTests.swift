@@ -20,16 +20,16 @@ struct RepositoryViewModelConcurrencyTests {
         let repo = try await makeRepo()
         defer { repo.remove() }
         let vm = RepositoryViewModel(repository: Repository(url: repo.url))
-        await vm.loadInitial()
-        let last = try #require(vm.commits.last)
-        vm.hasMore = true // force the pagination path on a short history
+        await vm.history.loadInitial()
+        let last = try #require(vm.history.commits.last)
+        vm.history.hasMore = true // force the pagination path on a short history
 
-        async let page: Void = vm.loadMoreIfNeeded(currentItem: last)
-        async let reload: Void = vm.reloadLog()
+        async let page: Void = vm.history.loadMoreIfNeeded(currentItem: last)
+        async let reload: Void = vm.history.reloadLog()
         _ = await (page, reload)
 
-        #expect(!vm.isLoadingMore)
-        #expect(vm.commits.count == 3)
+        #expect(!vm.history.isLoadingMore)
+        #expect(vm.history.commits.count == 3)
     }
 
     @Test("A reload landing mid-loadInitial doesn't leave isLoadingInitial stuck")
@@ -38,26 +38,26 @@ struct RepositoryViewModelConcurrencyTests {
         defer { repo.remove() }
         let vm = RepositoryViewModel(repository: Repository(url: repo.url))
 
-        async let initial: Void = vm.loadInitial()
-        async let reload: Void = vm.reloadLog()
+        async let initial: Void = vm.history.loadInitial()
+        async let reload: Void = vm.history.reloadLog()
         _ = await (initial, reload)
 
-        #expect(!vm.isLoadingInitial)
+        #expect(!vm.history.isLoadingInitial)
         // And a later loadInitial (empty log) still runs.
-        vm.commits = []
-        await vm.loadInitial()
-        #expect(vm.commits.count == 3)
+        vm.history.commits = []
+        await vm.history.loadInitial()
+        #expect(vm.history.commits.count == 3)
     }
 
     @Test("Tracked tasks deregister themselves when they finish")
     func trackedTasksDeregister() async throws {
         let vm = RepositoryViewModel(repository: Repository(url: URL(fileURLWithPath: "/var/empty")))
-        for _ in 0..<5 { vm.track { } }
-        #expect(vm.ownedTasks.count == 5)
-        for _ in 0..<20 where !vm.ownedTasks.isEmpty {
+        for _ in 0..<5 { vm.tasks.track { } }
+        #expect(vm.tasks.count == 5)
+        for _ in 0..<20 where !vm.tasks.isEmpty {
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(vm.ownedTasks.isEmpty)
+        #expect(vm.tasks.isEmpty)
     }
 
     @Test("Pull holds isMutating so local mutations can't race it")

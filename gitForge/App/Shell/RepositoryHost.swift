@@ -38,8 +38,8 @@ struct RepositoryHost: View {
             // for reads) and the Changes view paints without waiting for
             // `git log` to finish.
             await viewModel.refreshIdentity()
-            async let statusTask: Void = viewModel.refreshStatus()
-            async let initialTask: Void = viewModel.loadInitial()
+            async let statusTask: Void = viewModel.workingCopy.refreshStatus()
+            async let initialTask: Void = viewModel.history.loadInitial()
             async let refsTask: Void = viewModel.loadRefs()
             // Conflict state must land before reactivity starts so guards
             // like the amend/rebase rejections see `mergeState != .clean`

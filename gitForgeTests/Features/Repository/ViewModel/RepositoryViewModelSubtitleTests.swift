@@ -24,7 +24,7 @@ struct RepositoryViewModelSubtitleTests {
     @Test("Changes adds the staged and unstaged counts the status bar used to show")
     func changesSubtitle() {
         let vm = Self.makeVM()
-        vm.status = WorkingCopyStatus(files: [
+        vm.workingCopy.status = WorkingCopyStatus(files: [
             WorkingCopyFile(path: "a", stagedStatus: .modified, unstagedStatus: .unmodified, originalPath: nil),
             WorkingCopyFile(path: "b", stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil),
             WorkingCopyFile(path: "c", stagedStatus: .unmodified, unstagedStatus: .untracked, originalPath: nil),
@@ -35,7 +35,7 @@ struct RepositoryViewModelSubtitleTests {
     @Test("A clean working copy says so on Changes")
     func changesClean() {
         let vm = Self.makeVM()
-        vm.status = WorkingCopyStatus(files: [])
+        vm.workingCopy.status = WorkingCopyStatus(files: [])
         #expect(vm.toolbarSubtitle(for: .changes) == "main · no changes")
     }
 

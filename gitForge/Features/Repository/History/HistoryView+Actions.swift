@@ -36,7 +36,7 @@ extension HistoryView {
     /// check that branch out — safer than a detached HEAD on the same SHA.
     /// Otherwise prompt before detaching.
     func handleDoubleClick(_ sha: String) {
-        guard let commit = viewModel.commits.first(where: { $0.sha == sha }) else { return }
+        guard let commit = viewModel.history.commits.first(where: { $0.sha == sha }) else { return }
         let candidates = (viewModel.refsBySha[sha] ?? []).filter { ref in
             ref.isLocalBranch && ref.name != viewModel.currentBranchName
         }
