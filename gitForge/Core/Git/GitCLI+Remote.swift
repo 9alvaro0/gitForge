@@ -100,6 +100,22 @@ extension GitCLI {
         }
     }
 
+    /// The remote a push of `branch` goes to, in git's order:
+    /// `branch.<name>.pushRemote`, `remote.pushDefault`, `branch.<name>.remote`.
+    /// `nil` when none is set (git then uses `origin`).
+    func pushRemoteName(forBranch branch: String) async -> String? {
+        for key in ["branch.\(branch).pushRemote", "remote.pushDefault", "branch.\(branch).remote"] {
+            if let value = await configValue(key) { return value }
+        }
+        return nil
+    }
+
+    private func configValue(_ key: String) async -> String? {
+        guard let result = try? await run(["config", "--get", key]) else { return nil }
+        let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     /// `branch.<name>.remote` — the remote configured for push/pull on this
     /// branch. Returns nil if the branch has no tracking config. Used to push
     /// to `upstream`/`fork`/etc. when the user renamed `origin`.
@@ -156,9 +172,11 @@ extension GitCLI {
         })
     }
 
-    /// The URL git talks to for `remote`; `nil` when there's no such remote.
-    func remoteURL(_ remote: String) async -> String? {
-        guard let result = try? await run(["remote", "get-url", Self.endOfOptions, remote]) else { return nil }
+    /// The URL git talks to for `remote` (its `pushurl` when `push`); `nil`
+    /// when there's no such remote.
+    func remoteURL(_ remote: String, push: Bool = false) async -> String? {
+        let args = ["remote", "get-url"] + (push ? ["--push"] : []) + [Self.endOfOptions, remote]
+        guard let result = try? await run(args) else { return nil }
         let url = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         return url.isEmpty ? nil : url
     }
@@ -180,10 +198,11 @@ extension GitCLI {
     }
 
     /// Runs a network command against `remote` with its account's credential
-    /// when there is one; otherwise exactly like `run`.
+    /// when there is one; otherwise exactly like `run`. A push is signed for
+    /// the remote's push URL (`pushurl`), the one git will talk to.
     @discardableResult
     func runNetwork(_ args: [String], remote: String) async throws -> GitResult {
-        guard let credentials, let url = await remoteURL(remote) else { return try await run(args) }
+        guard let credentials, let url = await remoteURL(remote, push: args.first == "push") else { return try await run(args) }
         let repoPath = workingDirectory.path(percentEncoded: false)
         return try await credentials.withCredential(remoteURL: url, remoteName: remote, repoPath: repoPath) { credential in
             try await self.run(args, credential: credential)

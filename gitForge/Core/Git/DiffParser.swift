@@ -119,7 +119,11 @@ nonisolated enum DiffParser {
             if line.hasPrefix("@@") || line.hasPrefix("diff --git") {
                 break
             }
-            guard let firstChar = line.first else {
+            // `diff.suppressBlankEmpty` prints a blank context line as an
+            // empty line (no leading space). Inside the hunk's counts it's
+            // context; past them it's the output's trailing newline.
+            guard let firstChar = line.first ?? (oldNum < header.oldStart + header.oldCount
+                                                 && newNum < header.newStart + header.newCount ? " " : nil) else {
                 i += 1
                 continue
             }

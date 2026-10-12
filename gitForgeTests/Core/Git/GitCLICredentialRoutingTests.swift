@@ -9,6 +9,7 @@ private final class RecordingCredentials: GitCredentialProvider, @unchecked Send
     private let needsChoice: Set<String>
     private let lock = NSLock()
     private var remotes: [String] = []
+    private var urls: [String] = []
 
     init(accounts: [String: UUID] = [:], needsChoice: Set<String> = []) {
         self.accounts = accounts
@@ -16,6 +17,7 @@ private final class RecordingCredentials: GitCredentialProvider, @unchecked Send
     }
 
     var signedRemotes: [String] { lock.withLock { remotes } }
+    var signedURLs: [String] { lock.withLock { urls } }
 
     func signer(remoteURL: String, remoteName: String, repoPath: String) async -> GitSigner {
         if needsChoice.contains(remoteURL) { return .needsChoice }
@@ -24,7 +26,7 @@ private final class RecordingCredentials: GitCredentialProvider, @unchecked Send
 
     func withCredential<T: Sendable>(remoteURL: String, remoteName: String, repoPath: String,
                                      _ operation: @Sendable (GitCredential?) async throws -> T) async throws -> T {
-        lock.withLock { remotes.append(remoteName) }
+        lock.withLock { remotes.append(remoteName); urls.append(remoteURL) }
         return try await operation(nil)
     }
 }
@@ -131,5 +133,30 @@ struct GitCLICredentialRoutingTests {
         let recorder = RecordingCredentials()
         try await GitCLI(workingDirectory: work.url, credentials: recorder).pull(ffOnly: true)
         #expect(recorder.signedRemotes == ["upstream"])
+    }
+
+    @Test("A push is signed for the remote's pushurl, the URL git pushes to")
+    func pushUsesPushURL() async throws {
+        let (work, _, upstream) = try makeRepos()
+        try work.git("config", "remote.origin.pushurl", upstream.url.path)
+        let recorder = RecordingCredentials()
+        let cli = GitCLI(workingDirectory: work.url, credentials: recorder)
+        try await cli.push(setUpstream: false, remote: "origin", branch: "main", forceWithLease: true)
+        try await cli.fetch(remote: "origin")
+        #expect(recorder.signedURLs.first == upstream.url.path)
+        #expect(recorder.signedURLs.last != upstream.url.path)
+    }
+
+    @Test("The push remote follows git: pushRemote, then pushDefault, then the tracking remote")
+    func pushRemoteOrder() async throws {
+        let (work, _, _) = try makeRepos()
+        let cli = GitCLI(workingDirectory: work.url)
+        #expect(await cli.pushRemoteName(forBranch: "main") == nil)
+        try work.git("branch", "-q", "--set-upstream-to=origin/main")
+        #expect(await cli.pushRemoteName(forBranch: "main") == "origin")
+        try work.git("config", "remote.pushDefault", "upstream")
+        #expect(await cli.pushRemoteName(forBranch: "main") == "upstream")
+        try work.git("config", "branch.main.pushRemote", "origin")
+        #expect(await cli.pushRemoteName(forBranch: "main") == "origin")
     }
 }
