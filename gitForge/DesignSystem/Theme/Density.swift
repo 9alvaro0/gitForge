@@ -20,20 +20,5 @@ enum Density: String, CaseIterable, Identifiable, Sendable {
         case .regular: .regular
         }
     }
-
-    /// v1 row height for the commit graph table. Removed in phase F9.
-    var rowHeight: CGFloat {
-        switch self {
-        case .compact: 26
-        case .regular: 30
-        }
-    }
-
-    /// v1 monospace size. Removed in phase F9.
-    var monoFontSize: CGFloat {
-        switch self {
-        case .compact: 11.5
-        case .regular: 12.5
-        }
-    }
 }
+

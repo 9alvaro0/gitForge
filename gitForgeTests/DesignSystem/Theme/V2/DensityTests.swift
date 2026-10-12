@@ -36,11 +36,9 @@ struct DensityTests {
         #expect(Density.compact.metrics.graph.chipHeight == 16)
     }
 
-    @Test("v1 values are untouched until the screens migrate")
-    func legacyUnchanged() {
-        #expect(Density.regular.rowHeight == 30)
-        #expect(Density.compact.rowHeight == 26)
-        #expect(Density.regular.monoFontSize == 12.5)
-        #expect(Density.compact.monoFontSize == 11.5)
+    @Test("Mono text follows density: 12 pt regular, 11 pt compact")
+    func monoRole() {
+        #expect(MonoText.role(for: .regular) == .mono)
+        #expect(MonoText.role(for: .compact) == .monoSmall)
     }
 }

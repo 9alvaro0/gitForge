@@ -57,13 +57,17 @@ struct CommitActionButtonLabel: View {
         .frame(height: 30)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(background))
+        // Hover adds on top of the rest fill, so it always reads stronger.
+        .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(hoverLayer))
         .overlay(RoundedRectangle(cornerRadius: Radius.controlSmall).stroke(border, lineWidth: 1))
         .contentShape(.rect(cornerRadius: Radius.controlSmall))
     }
 
     private var background: Color {
-        if destructive { return theme.colors.delSoft }
-        return hovering ? theme.colors.fillHover : theme.colors.fillControl
+        destructive ? theme.colors.delSoft : theme.colors.fillControl
+    }
+    private var hoverLayer: Color {
+        hovering && !destructive ? theme.colors.fillHover : .clear
     }
     private var foreground: Color {
         if destructive { return theme.colors.del }

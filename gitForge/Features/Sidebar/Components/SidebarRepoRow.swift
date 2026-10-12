@@ -60,9 +60,11 @@ struct SidebarRepoRow: View {
         }
     }
 
+    /// Current: `accentSoft`, like a selected list row (spec §5); hover:
+    /// `fillHover`, so hovering never looks stronger than the current repo.
     private var rowBackground: Color {
-        if isCurrent { return theme.colors.fillHover }
-        return hovering ? theme.colors.fillControl : .clear
+        if isCurrent { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : .clear
     }
 }
 
