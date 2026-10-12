@@ -35,31 +35,22 @@ struct CollapsedPaneStrip: View {
         switch kind {
         case .diff:
             HStack(spacing: Spacing.s8) {
-                Image(systemName: "square.and.pencil")
-                    .font(.system(size: 9.6, weight: .medium))
+                SymbolGlyph("square.and.pencil", size: 12)
                     .foregroundStyle(theme.colors.textSecondary)
-                    .frame(width: 12, height: 12)
-                    .accessibilityHidden(true)
                 Text("Show diff pane")
                     .textRole(.callout)
                     .foregroundStyle(theme.colors.textSecondary)
                 Spacer(minLength: 0)
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 8.8, weight: .medium))
+                SymbolGlyph("arrow.up", size: 11)
                     .foregroundStyle(theme.colors.textTertiary)
-                    .frame(width: 11, height: 11)
-                    .accessibilityHidden(true)
             }
             .padding(.horizontal, Spacing.s12)
             .frame(height: 30)
             .frame(maxWidth: .infinity)
         case .detail:
             VStack(spacing: 0) {
-                Image(systemName: "diamond")
-                    .font(.system(size: 10.4, weight: .medium))
+                SymbolGlyph("diamond", size: 13)
                     .foregroundStyle(theme.colors.textSecondary)
-                    .frame(width: 13, height: 13)
-                    .accessibilityHidden(true)
                     .padding(.top, Spacing.s12)
                 Spacer(minLength: 0)
             }

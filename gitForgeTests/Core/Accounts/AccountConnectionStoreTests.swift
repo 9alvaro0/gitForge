@@ -18,7 +18,7 @@ struct AccountConnectionStoreTests {
         scopes: ["api"], expiresAt: nil)
 
     private static func tempDir() -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-connect-\(UUID().uuidString)")
+        TemporaryDirectories.make("gitForge-connect")
     }
 
     // MARK: Policy

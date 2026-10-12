@@ -23,7 +23,7 @@ struct GitCredentialsWiringTests {
 
     @Test("A repository's pull requests resolve the host through declared instances")
     func pullsUseInstances() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-wiring-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-wiring")
         let secrets = InMemoryAccountSecretStore()
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: .none)
         try store.addInstance(HostingInstance(kind: .gitlab, host: "git.empresa.com"))

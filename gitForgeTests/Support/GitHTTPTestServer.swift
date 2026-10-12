@@ -1,23 +1,25 @@
 import Foundation
 import Network
 
-/// A git smart-HTTP server for tests: 127.0.0.1 only, Basic auth, and each
+/// A git smart-HTTP server for tests: 127.0.0.1 only, Basic auth (or none), and each
 /// authorised request runs `git http-backend` (CGI) against the bare repos
 /// under `root`. Records the `Authorization` header of every request, so
 /// tests can tell which credential (if any) git sent.
 final class GitHTTPTestServer: @unchecked Sendable {
     let root: URL
-    private let expectedAuthorization: String
+    /// `nil`: anonymous, every request is served.
+    private let expectedAuthorization: String?
     private let listener: NWListener
     private let queue = DispatchQueue(label: "GitHTTPTestServer")
     private let lock = NSLock()
     private var seen: [String?] = []
     private var boundPort: UInt16 = 0
 
-    init(username: String, password: String) throws {
-        root = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-http-\(UUID().uuidString)")
+    /// No username: an anonymous server (like a public repo's).
+    init(username: String? = nil, password: String = "") throws {
+        root = TemporaryDirectories.make("gitForge-http")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        expectedAuthorization = "Basic " + Data("\(username):\(password)".utf8).base64EncodedString()
+        expectedAuthorization = username.map { "Basic " + Data("\($0):\(password)".utf8).base64EncodedString() }
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         listener = try NWListener(using: parameters)
@@ -93,7 +95,7 @@ final class GitHTTPTestServer: @unchecked Sendable {
     private func respond(to request: Request, on connection: NWConnection) {
         let authorization = request.headers["authorization"]
         lock.withLock { seen.append(authorization) }
-        guard authorization == expectedAuthorization else {
+        guard expectedAuthorization == nil || authorization == expectedAuthorization else {
             send(status: "401 Unauthorized", headers: ["WWW-Authenticate": "Basic realm=\"test\""], body: Data(), on: connection)
             return
         }

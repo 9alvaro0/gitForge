@@ -12,7 +12,7 @@ struct AccountValidatorTests {
 
     private func makeStore(clientIds: OAuthClientIDs = .none) -> (AccountStore, InMemoryAccountSecretStore) {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-validator-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-validator")
         return (AccountStore(directory: dir, secrets: secrets, clientIds: clientIds), secrets)
     }
 

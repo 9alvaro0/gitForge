@@ -217,8 +217,10 @@ final class PullRequestStore {
     }
 
     /// Refresh the open PR/MR list. Resolution order:
-    /// 1) detect the remote host (`origin`); stop if not GitHub/GitLab
-    /// 2) read the token; surface "needs token" if missing
+    /// 1) detect the remote host (`origin`) among the declared instances;
+    ///    otherwise offer to add it
+    /// 2) get a token from the repo's account; otherwise "connect", "no
+    ///    account chosen" or the error
     /// 3) hit the provider, store results / error
     func load(force: Bool = false) async {
         guard !isLoading else { return }
@@ -310,14 +312,15 @@ final class PullRequestStore {
         clearDetail()
     }
 
-    /// Fetch the three detail payloads in parallel. The first failure wins
+    /// Fetch the detail payloads in parallel, with the list's token (the
+    /// list loads before any row can be selected). The first failure wins
     /// `detailError`; successful parts still render.
     func loadDetail() async {
         detailGen &+= 1
         let gen = detailGen
         guard let pr = selected, let host else { return }
         guard let token = currentToken else {
-            detailError = "Load the list first."
+            detailError = "The account's token isn't available. Refresh the list."
             return
         }
 

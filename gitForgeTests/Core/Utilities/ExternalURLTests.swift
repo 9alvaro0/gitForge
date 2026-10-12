@@ -18,7 +18,7 @@ struct ExternalURLTests {
 
     @Test("Bundles and launchable files are revealed instead of opened")
     func launchable() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-ext-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-ext")
         try FileManager.default.createDirectory(at: dir.appendingPathComponent("Evil.app/Contents"), withIntermediateDirectories: true)
         try Data("echo hi".utf8).write(to: dir.appendingPathComponent("run.command"))
         try Data("text".utf8).write(to: dir.appendingPathComponent("notes.txt"))

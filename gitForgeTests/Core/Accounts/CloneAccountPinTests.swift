@@ -9,7 +9,7 @@ struct CloneAccountPinTests {
 
     private func setup() throws -> (AccountStore, AccountGitCredentials, HostingAccount, HostingAccount) {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-pin-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-pin")
         let store = AccountStore(directory: dir, secrets: secrets)
         let octo = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "octo", method: .oauth, status: .ok)
         let work = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "work", method: .oauth, status: .ok)
@@ -61,7 +61,7 @@ struct CloneAccountPinTests {
     @Test("After cloning, the choice follows the clone's own git root, not whichever repo is active")
     func followsRoot() async throws {
         let (store, _, octo, _) = try setup()
-        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-pin-\(UUID().uuidString)")
+        let destination = TemporaryDirectories.make("gitForge-pin")
         defer { try? FileManager.default.removeItem(at: destination) }
         var pin = try #require(CloneAccountPin.pin(octo.id, destination: destination, in: store))
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)

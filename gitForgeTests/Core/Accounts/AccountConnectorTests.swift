@@ -8,7 +8,7 @@ struct AccountConnectorTests {
     nonisolated static let user = HostingUser(login: "octo-test", displayName: "Octo Test", avatarURL: nil)
 
     private func makeStore(_ secrets: InMemoryAccountSecretStore = .init()) -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-connector-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-connector")
         return AccountStore(directory: dir, secrets: secrets, clientIds: .none)
     }
 

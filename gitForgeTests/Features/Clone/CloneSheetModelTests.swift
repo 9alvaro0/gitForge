@@ -15,7 +15,7 @@ private final class ProbeLog: @unchecked Sendable {
 struct CloneSheetModelTests {
 
     private func store() -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-clonesheet-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-clonesheet")
         return AccountStore(directory: dir, secrets: InMemoryAccountSecretStore())
     }
 

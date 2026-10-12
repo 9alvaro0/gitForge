@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct RepoAccountChoiceTests {
     private static func tempDir() -> URL {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-choice-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-choice")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

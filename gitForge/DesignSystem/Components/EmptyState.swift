@@ -23,11 +23,9 @@ struct EmptyState<Action: View>: View {
 
     var body: some View {
         VStack(spacing: Spacing.s8) {
-            Image(systemName: symbol)
-                .font(.system(size: 24 * 0.8, weight: .medium))
+            SymbolGlyph(symbol, size: 24)
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: 48, height: 48)
-                .accessibilityHidden(true)
                 .background(RoundedRectangle(cornerRadius: Radius.popover).fill(theme.colors.fillControl))
                 .padding(.bottom, Spacing.s4)
             Text(title)

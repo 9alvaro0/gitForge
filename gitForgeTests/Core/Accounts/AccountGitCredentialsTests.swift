@@ -21,7 +21,7 @@ struct AccountGitCredentialsTests {
                        chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil,
                        clientIds: OAuthClientIDs = OAuthClientIDs(gitHub: nil, gitLab: "test-client")) -> Setup {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-gitcreds-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-gitcreds")
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: clientIds)
         let client = FakeAuthClient(refresh: refresh)
         let refresher = TokenRefresher(secrets: secrets, makeClient: { _ in client },

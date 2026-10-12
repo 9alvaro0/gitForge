@@ -41,7 +41,7 @@ struct RemoteRepoListModelTests {
 
     private func setup() -> Setup {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-repos-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-repos")
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: OAuthClientIDs(gitHub: "gh", gitLab: "gl"))
         return Setup(store: store, secrets: secrets, server: StubServer())
     }

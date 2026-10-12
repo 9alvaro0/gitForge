@@ -7,9 +7,7 @@ nonisolated enum LayoutMetrics {
     /// Height of the repository row at the top of the sidebar: name (body)
     /// and branch (monoSmall) lines plus 6 above and below.
     static let sidebarRepoRow: CGFloat = 44
-    /// Width of a drill-in detail column (uncommitted changes, stash).
-    static let detailPanelWidth: CGFloat = 360
-    /// Height of a plain control row (skeleton toolbar placeholders).
+    /// Row height of the History loading skeleton.
     static let controlHeight: CGFloat = 28
 
     /// Onboarding content: space above the step's counter.

@@ -16,7 +16,7 @@ struct AccountPullRequestAuthTests {
     private func setup(refresh: @escaping @Sendable (String) async throws -> TokenGrant = { _ in throw HostingAuthError.refreshRejected },
                        chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil) -> Setup {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-prauth-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-prauth")
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: OAuthClientIDs(gitHub: "gh", gitLab: "gl"))
         let client = FakeAuthClient(refresh: refresh)
         let refresher = TokenRefresher(secrets: secrets, makeClient: { _ in client },

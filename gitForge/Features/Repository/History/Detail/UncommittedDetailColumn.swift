@@ -38,11 +38,8 @@ struct UncommittedDetailColumn: View {
 
     private var header: some View {
         HStack(spacing: Spacing.s8) {
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 11.2, weight: .medium))
+            SymbolGlyph("square.and.pencil", size: 14)
                 .foregroundStyle(theme.colors.textPrimary)
-                .frame(width: 14, height: 14)
-                .accessibilityHidden(true)
             Text("Uncommitted changes")
                 .textRole(.body)
                 .foregroundStyle(theme.colors.textPrimary)
@@ -137,7 +134,7 @@ private struct WorkingCopyMiniRow: View {
     UncommittedDetailColumn(viewModel: .preview)
         .previewAppState(.preview)
         .padding()
-        .frame(width: LayoutMetrics.detailPanelWidth, height: 720)
+        .frame(width: 360, height: 720)
         .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

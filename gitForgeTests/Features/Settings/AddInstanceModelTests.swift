@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct AddInstanceModelTests {
     private func makeStore() -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-addinstance-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-addinstance")
         return AccountStore(directory: dir, secrets: InMemoryAccountSecretStore(), clientIds: .none)
     }
 
