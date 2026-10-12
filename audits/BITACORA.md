@@ -503,3 +503,33 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | Arrastre entre filas de la tabla de Branches | `Branches` | F5 | Hoy el arrastre de ramas solo existe en History. |
 | Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
 | Push de una rama que no es la actual desde el inspector | `Branches` | F5 | Hoy solo se hace push de la rama actual. |
+
+---
+
+## Rediseño v2 (F0–F9, 2026-10-08 → 2026-10-12)
+
+Rediseño visual completo a la dirección A+ ("Native Refined") del canvas "gitForge — Redesign". Spec: [`design/redesign-v2/spec.md`](../design/redesign-v2/spec.md); planes y registros por fase en [`design/redesign-v2/plans/`](../design/redesign-v2/plans/).
+
+| Fase | Contenido | PR |
+|---|---|---|
+| F0 | Tokens v2: `TypeRole`, `Spacing`, `Radius`, `GFColors` (4 variantes), acento derivado, `GraphMetrics`, densidades (adiós a `comfy`) | #78 |
+| F1 | Shell: `NavigationSplitView` con sidebar flotante, toolbar nativa con vidrio, sin barra de estado | #79 |
+| F2 | Componentes de `DesignSystem` restyleados | #80 |
+| F3 | History, grafo e inspector del commit | #82 |
+| F4 | Changes y diff, con Amend y selección por lotes | #83 |
+| F5 | Branches, tags y stashes | #84 |
+| F6 | Conflicts (con "Both · theirs first", siguiente conflicto y resultado editable) | #85 |
+| F7 | Pull requests (Open/Mine/Closed, CI por fila, Checks por job, aprobaciones) | #86, #87, #88 |
+| — | Conexiones con proveedores (cuentas, OAuth, git por HTTPS, PRs y clonado sobre cuentas), proyecto intercalado | #89–#95 |
+| F8 | ⌘K fuzzy y agrupado, Clone como hoja (con comprobación de alcance y perfil), Welcome con estado de los recientes, onboarding con paso Appearance, Settings | #96 |
+| F9 | Limpieza: fuera el sistema visual v1 (`FontSize`, `DesignTokens` de espaciado y radios, `ThemePalette`, `GraphPalette`, `GFIcon`, Inter Tight) y test guardián `V1TokensGoneTests` | (este PR) |
+
+**Decisiones que atan a futuro:**
+- Todo el estilo sale de `TypeRole`, `Spacing`, `Radius`, `theme.colors` y SF Symbols. `V1TokensGoneTests` falla si vuelve a entrar v1.
+- Las animaciones y medidas fijas de pantalla viven en `Motion` y `LayoutMetrics` (tokens v2 con nombre).
+- Si los mocks enseñan algo que la app no hace, no se pinta: va a la tabla de funciones candidatas de arriba.
+
+**Lo que queda:**
+- Las funciones candidatas de la tabla anterior.
+- Los menores pendientes de F8, anotados en `design/redesign-v2/plans/F8-registro.md` (VoiceOver del resultado de la comprobación de la URL, ⌥⌘C con la hoja abierta, hover frente a teclado en ⌘K…).
+- A04-bis (`HistoryStore` / `WorkingCopyStore`), que la spec dejaba para después de F9.
