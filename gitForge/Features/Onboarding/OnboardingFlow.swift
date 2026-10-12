@@ -55,8 +55,8 @@ struct OnboardingFlow: View {
         case .firstRepo:
             FirstRepoStep(
                 onOpenLocal: openLocal,
-                onClone: openClonePane,
-                onConnect: openClonePane
+                onClone: { openClonePane() },
+                onConnect: { openClonePane(source: providerTab) }
             )
         }
     }
@@ -141,9 +141,18 @@ struct OnboardingFlow: View {
     }
 
     /// Closes the flow and opens the clone sheet in the main window.
-    private func openClonePane() {
+    private func openClonePane(source: CloneRequest.Source = .url) {
         onComplete()
-        appState.ui.cloneRequest = CloneRequest()
+        appState.ui.requestClone(CloneRequest(source: source))
+    }
+
+    /// "Connect GitHub or GitLab": the tab of the provider already
+    /// connected, GitLab only if it's the sole one; GitHub otherwise.
+    private var providerTab: CloneRequest.Source {
+        let kinds = Set(appState.accounts.accounts.compactMap { account in
+            appState.accounts.instances.first { $0.id == account.instanceId }?.kind
+        })
+        return kinds == [.gitlab] ? .gitlab : .github
     }
 
     private func pickCloneDirectory() {

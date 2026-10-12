@@ -48,7 +48,8 @@ struct PullsView: View {
         .navigationTitle(headerTitle)
         .task { await store.load() }
         .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
-            if closed, store.requiresToken { Task { await store.load(force: true) } }
+            // Also from an error: the right account may have just been connected.
+            if closed, store.requiresToken || store.error != nil { Task { await store.load(force: true) } }
         }
         .onChange(of: appState.ui.addInstanceRequest == nil) { _, closed in
             if closed, store.host == nil { Task { await store.load(force: true) } }
@@ -58,7 +59,8 @@ struct PullsView: View {
     /// The list (and its detail) shows once the host, the token and a first
     /// load are in; before that the full-width states take over.
     private var listReady: Bool {
-        store.host != nil && !store.requiresToken && store.error == nil && !(store.isLoading && store.items.isEmpty)
+        store.host != nil && !store.requiresToken && !store.accountNotChosen && store.error == nil
+            && !(store.isLoading && store.items.isEmpty)
     }
 
     private var splitLayout: some View {

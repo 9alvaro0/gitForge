@@ -92,4 +92,12 @@ struct AccountsSettingsModelTests {
         reloaded.setOAuthClientId("  ", forInstance: Self.mercadona.id)
         #expect(reloaded.instance(forHost: "gitlab.gcp.mercadona.com")?.oauthClientId == nil)
     }
+
+    @Test("Trusted hosts without an instance block are listed so they can be revoked")
+    func otherTrustedHosts() {
+        let instance = HostingInstance(kind: .gitlab, host: "git.example.test")
+        let others = AccountsSettingsModel.otherTrustedHosts(["git.example.test", "old.example.test", "api.example.test"],
+                                                             instances: HostingInstance.builtIns + [instance])
+        #expect(others == ["api.example.test", "old.example.test"])
+    }
 }

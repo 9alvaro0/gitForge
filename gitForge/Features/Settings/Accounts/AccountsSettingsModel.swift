@@ -49,6 +49,14 @@ nonisolated enum AccountsSettingsModel {
         }
     }
 
+    /// Hosts with a trusted certificate that no instance block shows (left
+    /// from the old Remote hosts section, or an instance's API host), so
+    /// they can still be revoked.
+    static func otherTrustedHosts(_ trustedHosts: Set<String>, instances: [HostingInstance]) -> [String] {
+        let shown = Set(instances.map(\.host))
+        return trustedHosts.subtracting(shown).sorted()
+    }
+
     static func row(_ account: HostingAccount, kind: HostingInstance.Kind, copied: Bool, now: Date) -> AccountRowModel {
         let (text, tone) = status(account, kind: kind, now: now)
         return AccountRowModel(id: account.id, title: account.login ?? "Copied token",

@@ -13,10 +13,10 @@ struct CloneSheet: View {
 
     @AppStorage("gitForge.clone.lastParentDir") private var lastParentDir: String = ""
     @State private var model: CloneSheetModel?
-    @State private var source: Source = .url
+    @State private var source: CloneRequest.Source = .url
     @State private var started = false
 
-    enum Source: Hashable { case url, github, gitlab }
+    private typealias Source = CloneRequest.Source
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
@@ -189,9 +189,12 @@ struct CloneSheet: View {
         guard model == nil else { return }
         let credentials = appState.gitCredentials
         let parent = lastParentDir.isEmpty ? ("~/Developer" as NSString).expandingTildeInPath : lastParentDir
+        let profiles = appState.profiles
         let made = CloneSheetModel(store: appState.accounts, parentDirectory: parent,
-                                   probe: { url in await RemoteProbe.run(url: url, credentials: credentials) })
+                                   probe: { url in await RemoteProbe.run(url: url, credentials: credentials) },
+                                   profileExists: { id in profiles.profiles.contains { $0.id == id } })
         if let initial = request.initialURL { made.url = initial }
+        source = request.source
         model = made
     }
 

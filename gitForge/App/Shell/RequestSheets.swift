@@ -17,7 +17,8 @@ private struct RequestSheets: ViewModifier {
                 AddInstanceSheet(request: request)
             }
             .sheet(item: Binding(get: { enabled ? appState.accountChooser.request : nil }, set: { _ in })) { request in
-                ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {
+                ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil,
+                                   providerLabel: appState.accounts.instance(forHost: request.remote.host)?.kind.label) {
                     appState.accountChooser.answer($0, for: request.id)
                 }
                 // The sheet went away some other way: that's a Cancel (ignored

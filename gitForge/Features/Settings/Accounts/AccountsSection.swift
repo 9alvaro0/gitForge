@@ -27,6 +27,11 @@ struct AccountsSection: View {
                 if index > 0 { SettingsDivider() }
                 instanceBlock(block)
             }
+            let otherTrusted = AccountsSettingsModel.otherTrustedHosts(trustedHosts, instances: store.instances)
+            if !otherTrusted.isEmpty {
+                SettingsDivider()
+                otherTrustedBlock(otherTrusted)
+            }
             SettingsDivider()
             HStack(spacing: Spacing.s8) {
                 GFButton(title: "Connect account…", style: .primary, size: .small) {
@@ -53,6 +58,23 @@ struct AccountsSection: View {
             Text(block.accounts.isEmpty ? "The instance is removed from gitForge."
                  : "Its \(block.accounts.count) account(s) are disconnected too.")
         }
+    }
+
+    private func otherTrustedBlock(_ hosts: [String]) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
+            Text("Other trusted certificates").textRole(.body, weight: .semibold).foregroundStyle(theme.colors.textPrimary)
+            ForEach(hosts, id: \.self) { host in
+                HStack(spacing: Spacing.s8) {
+                    MonoText(host, dim: true)
+                    Spacer()
+                    GFButton(title: "Stop trusting", size: .small) {
+                        RemoteHostTrust.shared.revoke(host)
+                        trustedHosts = Set(RemoteHostTrust.shared.trustedHosts())
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.s12).padding(.vertical, Spacing.s8)
     }
 
     @ViewBuilder

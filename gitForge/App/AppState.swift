@@ -147,8 +147,11 @@ final class AppState {
     /// result is `false`, so the caller doesn't cover it with "Cloned".
     @discardableResult
     func applyCloneProfile(_ profileId: UUID?) async -> Bool {
-        guard let profileId, let profile = profiles.profiles.first(where: { $0.id == profileId }),
-              let viewModel = catalog.activeViewModel else { return true }
+        guard let profileId, let viewModel = catalog.activeViewModel else { return true }
+        guard let profile = profiles.profiles.first(where: { $0.id == profileId }) else {
+            ui.activeToast = ToastMessage(message: "Cloned, but the chosen profile no longer exists", kind: .warn)
+            return false
+        }
         do {
             try await viewModel.applyProfile(profile)
             return true

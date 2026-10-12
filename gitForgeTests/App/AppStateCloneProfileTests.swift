@@ -45,4 +45,15 @@ struct AppStateCloneProfileTests {
         #expect(app.ui.activeToast?.kind == .warn)
         #expect(await app.applyCloneProfile(nil))
     }
+
+    @Test("A profile deleted meanwhile isn't skipped silently")
+    func deletedProfile() async throws {
+        let app = AppState.isolated()
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("first", files: ["a.txt": "a\n"])
+        try await app.openRepository(at: repo.url)
+        #expect(!(await app.applyCloneProfile(UUID())))
+        #expect(app.ui.activeToast?.kind == .warn)
+    }
 }
