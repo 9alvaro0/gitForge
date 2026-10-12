@@ -114,7 +114,7 @@ nonisolated enum AccountsSettingsModel {
         return parts.joined(separator: " · ")
     }
 
-    private static func initials(_ account: HostingAccount) -> String {
+    static func initials(_ account: HostingAccount) -> String {
         if let name = account.displayName, !name.isEmpty {
             let letters = name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined()
             if !letters.isEmpty { return letters.uppercased() }

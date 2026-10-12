@@ -29,7 +29,7 @@ struct PullsView: View {
                     onAddInstance: { suggestion in
                         appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind, url: "https://\(suggestion.host)")
                     },
-                    onOpenSettings: { appState.ui.workspaceSection = .settings }
+                    onOpenSettings: { appState.ui.openSettings(at: .accounts) }
                 )
             }
         }

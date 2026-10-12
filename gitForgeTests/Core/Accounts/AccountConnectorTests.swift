@@ -203,7 +203,7 @@ struct AccountConnectorTests {
         server.on("POST", "/login/device/code", fixture: "oauth-device-code-github")
         server.on("POST", "/login/oauth/access_token", fixture: "oauth-pending")
         var flow = connector.deviceFlow(on: instance)
-        weak var dropped = flow
+        weak let dropped = flow
         flow?.start()
         await waitUntil { flow.map { waiting($0) } ?? false }
         flow = nil

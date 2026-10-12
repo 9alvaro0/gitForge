@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// ⌘K (artboard `CommandPalette`): a glass panel over a dimmed window, with
@@ -9,6 +10,7 @@ struct CommandPaletteView: View {
 
     @State private var query: String = ""
     @State private var selectedIndex: Int = 0
+    @State private var pointer = PointerIntent()
     @FocusState private var inputFocused: Bool
     @Environment(\.appTheme) private var theme
 
@@ -42,7 +44,11 @@ struct CommandPaletteView: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Command palette")
         }
-        .onAppear { inputFocused = true; selectedIndex = 0 }
+        .onAppear {
+            inputFocused = true
+            selectedIndex = 0
+            pointer.reset(at: NSEvent.mouseLocation)
+        }
         .onKeyPress(.escape) { onClose(); return .handled }
         .onKeyPress(.return) {
             if let row = rows[safe: selectedIndex] { onPick(row.item) }
@@ -97,7 +103,11 @@ struct CommandPaletteView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .id(row.id)
-                                .onHover { if $0 { selectedIndex = index } }
+                                // Only a pointer that moved selects: rows scrolling under a
+                                // still one (arrow keys) would pull the selection back.
+                                .onHover { inside in
+                                    if inside, pointer.moved(to: NSEvent.mouseLocation) { selectedIndex = index }
+                                }
                             }
                         }
                     }
@@ -210,6 +220,22 @@ private struct PaletteRow: View {
         case .commit:  "circle.circle"
         case .file:    "doc"
         }
+    }
+}
+
+/// Tells a hover the pointer caused from one the content caused by
+/// scrolling under a pointer that stayed put.
+nonisolated struct PointerIntent: Equatable {
+    private var last: CGPoint?
+
+    mutating func reset(at location: CGPoint) {
+        last = location
+    }
+
+    /// `true` when the pointer is somewhere else than at the last call.
+    mutating func moved(to location: CGPoint) -> Bool {
+        defer { last = location }
+        return location != last
     }
 }
 

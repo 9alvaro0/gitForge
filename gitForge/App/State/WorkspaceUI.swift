@@ -23,6 +23,15 @@ final class WorkspaceUI {
     /// "Clone a repository" sheet; `ShellView` presents it.
     var cloneRequest: CloneRequest?
 
+    /// A Settings section to scroll to once Settings shows; cleared then.
+    var settingsAnchor: SettingsAnchor?
+
+    /// Shows Settings, scrolled to `anchor` when given.
+    func openSettings(at anchor: SettingsAnchor? = nil) {
+        workspaceSection = .settings
+        settingsAnchor = anchor
+    }
+
     /// Opens the clone sheet, unless one is already up: replacing it would
     /// tear down a clone in progress.
     func requestClone(_ request: CloneRequest = CloneRequest()) {
@@ -64,6 +73,11 @@ struct AddInstanceRequest: Identifiable, Equatable {
     let id = UUID()
     var kind: HostingInstance.Kind = .gitlab
     var url = ""
+}
+
+/// A Settings section other screens link to.
+enum SettingsAnchor: Hashable {
+    case accounts
 }
 
 /// Opens "Clone a repository", optionally with a URL already in or on a

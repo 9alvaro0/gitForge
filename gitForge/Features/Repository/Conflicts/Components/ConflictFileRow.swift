@@ -107,8 +107,8 @@ struct ConflictStateGlyph: View {
                     .foregroundStyle(theme.colors.bgContent)
             } else {
                 Circle().strokeBorder(theme.colors.warn, lineWidth: 1)
-                Text("!")
-                    .font(.system(size: 10, weight: .bold))
+                Image(systemName: "exclamationmark")
+                    .font(.system(size: 8, weight: .heavy))
                     .foregroundStyle(theme.colors.warn)
             }
         }

@@ -195,7 +195,7 @@ struct GraphColumnView: View {
                 let side = m.stashSize
                 let square = Path(
                     roundedRect: CGRect(x: nodeCenter.x - side / 2, y: nodeCenter.y - side / 2, width: side, height: side),
-                    cornerRadius: 2
+                    cornerRadius: GraphMetrics.squareMarkRadius
                 )
                 context.fill(square, with: .color(style.nodeFill))
                 context.stroke(square, with: .color(commitColor),

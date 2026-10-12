@@ -23,6 +23,7 @@ struct AddInstanceSheet: View {
         .onAppear {
             if model == nil { model = AddInstanceModel(store: appState.accounts, kind: request.kind, url: request.url) }
         }
+        .accountChooserSheet()
     }
 
     private func form(_ model: AddInstanceModel) -> some View {

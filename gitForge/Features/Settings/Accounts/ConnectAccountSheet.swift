@@ -32,6 +32,7 @@ struct ConnectAccountSheet: View {
         .sheet(isPresented: $addingInstance) {
             AddInstanceSheet { instance in model?.instanceId = instance.id }
         }
+        .accountChooserSheet(enabled: !addingInstance)
     }
 
     @ViewBuilder
@@ -90,7 +91,8 @@ struct ConnectAccountSheet: View {
             ProgressView().controlSize(.small)
         case .waitingForUser(let code, let expiresAt)?:
             VStack(spacing: Spacing.s8) {
-                Text(code.userCode).font(.system(size: 26, weight: .semibold, design: .monospaced))
+                Text(code.userCode)
+                    .font(AppFont.font(.largeTitle, weight: .semibold, monoFamily: theme.monoFont, monospaced: true))
                     .textSelection(.enabled)
                 GFButton(title: "Copy code & open browser", style: .primary) {
                     NSPasteboard.general.clearContents()
@@ -117,7 +119,8 @@ struct ConnectAccountSheet: View {
     @ViewBuilder
     private func token(_ model: ConnectAccountModel) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
-            Text("1. Create a token with the scopes \(model.requiredScopes)").textRole(.callout)
+            Text("1. Create a token with the scopes \(Text(model.requiredScopes).font(AppFont.font(.callout, monoFamily: theme.monoFont, monospaced: true)))")
+                .textRole(.callout)
             GFButton(title: "Create token in browser", size: .small) {
                 if let url = model.createTokenURL { NSWorkspace.shared.open(url) }
             }
@@ -142,7 +145,13 @@ struct ConnectAccountSheet: View {
     @ViewBuilder
     private func result(_ account: HostingAccount, _ model: ConnectAccountModel) -> some View {
         HStack(spacing: Spacing.s8) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(theme.colors.ok)
+            AccountAvatar(initials: AccountsSettingsModel.initials(account), url: account.avatarURL, size: 36)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(theme.colors.ok)
+                        .background(Circle().fill(theme.colors.bgElevated))
+                        .accessibilityLabel("Connected")
+                }
             VStack(alignment: .leading) {
                 Text(account.displayName ?? account.login ?? "Connected").textRole(.body, weight: .semibold)
                 MonoText("\(account.login ?? "") · \(model.instance?.host ?? "")", dim: true)

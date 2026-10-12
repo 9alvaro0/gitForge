@@ -72,6 +72,6 @@ nonisolated enum RepoAccountMenuModel {
     }
 
     private static func name(_ account: HostingAccount) -> String {
-        account.login ?? "copied token"
+        account.login ?? "Copied token"
     }
 }

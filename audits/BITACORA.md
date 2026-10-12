@@ -593,6 +593,14 @@ Recogidos el 2026-10-12. Las revisiones finales de cada fase dejaban "menores an
 
 ### Lote 3 · Pulido de UI y accesibilidad
 
+**Hecho (2026-10-12, misma rama).** Todos los puntos; 6 tests nuevos, suite 956/956, 0 warnings. Notas:
+- F8-10 decidido: 48 de margen lateral por defecto y el 96 del artboard cuando la columna mide 1000 pt o más (`LayoutMetrics.onboardingGutter`), para que el paso Appearance quepa con su preview a 1100.
+- F9-6: la fila de repo del selector pasa de 38 a 44 pt (dos líneas más 6 arriba y abajo).
+- F9-x: no se reproduce. Con la ventana activa e inactiva, y cambiando de oscuro a claro en Settings y en History, el grupo remoto y ⌘K se ven claros. Se cierra sin cambios.
+- P4-2: el selector de cuenta es ahora un modificador propio (`accountChooserSheet`); Connect account y Add instance lo presentan mientras están delante.
+- Menús con checkmark nativo vía `MenuCheckItem` (Toggle), también en "Switch profile".
+- Visto en pantalla: fila de repo a 44, menú de perfiles con check nativo y email debajo, barra en claro. Sin ver: el avatar del resultado de Connect y el código de dispositivo (hace falta conectar una cuenta).
+
 | # | Menor | Dónde |
 |---|---|---|
 | P4-2 | El selector de cuenta comparte vista con Connect y Add instance: un push espera invisible si otra hoja está abierta. | `RequestSheets.swift` |
