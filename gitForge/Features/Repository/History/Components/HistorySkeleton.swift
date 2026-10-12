@@ -22,48 +22,48 @@ struct HistorySkeleton: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: DesignTokens.Spacing.none) {
+            LazyVStack(spacing: 0) {
                 ForEach(0..<10, id: \.self) { index in
                     row(index: index)
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .skeleton(true)
     }
 
     @ViewBuilder
     private func row(index: Int) -> some View {
         let subject = Self.placeholderSubjects[index % Self.placeholderSubjects.count]
-        HStack(spacing: DesignTokens.Spacing.xl) {
+        HStack(spacing: Spacing.s12) {
             Text("main")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.hairline)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
+                .textRole(.monoSmall)
+                .padding(.horizontal, Spacing.s6).padding(.vertical, 1)
+                .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.fillControl))
                 .frame(width: 100, alignment: .leading)
             Text(subject)
-                .font(AppFont.sans(FontSize.mdPlus))
-                .foregroundStyle(theme.palette.fg1)
+                .textRole(.body)
+                .foregroundStyle(theme.colors.textPrimary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("9alvaro0")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: 110, alignment: .leading)
             Text("abc1234")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.accent)
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.accent)
                 .frame(width: 70, alignment: .leading)
             Text("2h")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: 50, alignment: .leading)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xl)
-        .padding(.vertical, DesignTokens.Spacing.sm)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s6)
         .frame(height: DesignTokens.Control.height)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.separator).frame(height: 1) }
     }
 }
 
@@ -72,17 +72,17 @@ struct LoadingMoreFooter: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
+        HStack(spacing: Spacing.s8) {
             ProgressView().controlSize(.small).scaleEffect(0.7)
             Text("Loading more commits…")
-                .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.textTertiary)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxl)
-        .padding(.vertical, DesignTokens.Spacing.md)
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s8)
         .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
-        .padding(.bottom, DesignTokens.Spacing.xl)
+        .overlay(Capsule().stroke(theme.colors.separator, lineWidth: 1))
+        .padding(.bottom, Spacing.s12)
     }
 }
 
@@ -97,6 +97,6 @@ struct LoadingMoreFooter: View {
     @Previewable @State var theme = AppTheme()
     LoadingMoreFooter()
         .padding()
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

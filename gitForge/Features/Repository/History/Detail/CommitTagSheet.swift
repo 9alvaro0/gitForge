@@ -10,19 +10,19 @@ struct CommitTagSheet: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             Text("New tag at \(commitShortSha)")
-                .font(AppFont.sans(FontSize.xl, weight: .semibold))
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                .textRole(.headline)
+            VStack(alignment: .leading, spacing: Spacing.s4) {
                 Text("Name")
-                    .font(AppFont.sans(FontSize.sm, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.caption, weight: .medium)
+                    .foregroundStyle(theme.colors.textTertiary)
                 GFTextField(placeholder: "v1.2.3", text: $name)
             }
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            VStack(alignment: .leading, spacing: Spacing.s4) {
                 Text("Message (optional — annotated tag if set)")
-                    .font(AppFont.sans(FontSize.sm, weight: .medium))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.caption, weight: .medium)
+                    .foregroundStyle(theme.colors.textTertiary)
                 GFTextField(placeholder: "Release 1.2.3", text: $message)
             }
             HStack {
@@ -32,9 +32,9 @@ struct CommitTagSheet: View {
                          disabled: name.isEmpty, action: onConfirm)
             }
         }
-        .padding(DesignTokens.Spacing.huge)
+        .padding(Spacing.s20)
         .frame(width: 420)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
     }
 }

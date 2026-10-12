@@ -40,7 +40,7 @@ struct BranchInspector: View {
                 .textRole(.caption, weight: .semibold)
                 .foregroundStyle(theme.colors.textQuaternary)
             Text(ref.displayName)
-                .font(AppFont.mono(TypeRole.headline.size, weight: .semibold, family: theme.monoFont))
+                .font(AppFont.font(.headline, weight: .semibold, monoFamily: theme.monoFont, monospaced: true))
                 .foregroundStyle(isCurrent ? theme.colors.accent : theme.colors.textPrimary)
                 .lineLimit(2)
                 .textSelection(.enabled)
@@ -70,7 +70,7 @@ struct BranchInspector: View {
     private func countCard(value: String, color: Color, caption: String) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s2) {
             Text(value)
-                .font(AppFont.mono(TypeRole.title.size, weight: .semibold, family: theme.monoFont))
+                .font(AppFont.font(.title, weight: .semibold, monoFamily: theme.monoFont, monospaced: true))
                 .foregroundStyle(color)
             Text(caption)
                 .textRole(.caption)

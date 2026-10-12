@@ -84,10 +84,12 @@ nonisolated enum TypeRole: CaseIterable, Sendable {
 }
 
 extension AppFont {
-    /// Font for a v2 type role.
-    static func font(_ role: TypeRole, weight: Font.Weight? = nil, monoFamily: MonoFontFamily = .systemMono) -> Font {
+    /// Font for a v2 type role. `monospaced` sets a sans role's size in the
+    /// code font (a ref name or a count shown large).
+    static func font(_ role: TypeRole, weight: Font.Weight? = nil, monoFamily: MonoFontFamily = .systemMono,
+                     monospaced: Bool = false) -> Font {
         let resolvedWeight = weight ?? role.weight
-        if role.isMono {
+        if role.isMono || monospaced {
             return mono(role.size, weight: resolvedWeight, family: monoFamily)
         }
         return .system(size: role.size, weight: resolvedWeight)

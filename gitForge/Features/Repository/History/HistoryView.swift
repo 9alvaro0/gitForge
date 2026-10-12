@@ -188,7 +188,7 @@ struct HistoryView: View {
     /// Widest the inspector may be so the table keeps `minTableWidth`
     /// (the handle's own width included).
     private func inspectorCap(available: CGFloat) -> CGFloat {
-        let handle = DesignTokens.Spacing.md
+        let handle = Spacing.s8
         return min(Self.maxDetailWidth, max(Self.minDetailWidth, available - Self.minTableWidth - handle))
     }
 

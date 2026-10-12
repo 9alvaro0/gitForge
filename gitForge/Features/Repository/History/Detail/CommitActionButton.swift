@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct CommitActionButton: View {
-    let icon: GFIconKind
+    let icon: String
     let title: String
     let tooltip: String
     var destructive: Bool = false
@@ -26,7 +26,7 @@ struct CommitActionButton: View {
 }
 
 struct CommitActionButtonLabel: View {
-    let icon: GFIconKind
+    let icon: String
     let title: String
     var destructive: Bool = false
     var trailingChevron: Bool = false
@@ -35,47 +35,55 @@ struct CommitActionButtonLabel: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            GFIcon(kind: icon, size: 13, stroke: foreground)
+        HStack(spacing: Spacing.s8) {
+            Image(systemName: icon)
+                .font(.system(size: 13 * 0.8, weight: .medium))
+                .foregroundStyle(foreground)
+                .frame(width: 13, height: 13)
+                .accessibilityHidden(true)
             Text(title)
-                .font(AppFont.sans(FontSize.md))
+                .textRole(.callout)
                 .foregroundStyle(foreground)
             Spacer(minLength: 0)
             if trailingChevron {
-                GFIcon(kind: .chevD, size: 11, stroke: theme.palette.fg3)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11 * 0.8, weight: .medium))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: 11, height: 11)
+                    .accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.lg)
+        .padding(.horizontal, Spacing.s12)
         .frame(height: 30)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(background))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
-        .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
+        .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(background))
+        .overlay(RoundedRectangle(cornerRadius: Radius.controlSmall).stroke(border, lineWidth: 1))
+        .contentShape(.rect(cornerRadius: Radius.controlSmall))
     }
 
     private var background: Color {
-        if destructive { return theme.palette.delSoft }
-        return hovering ? theme.palette.bg4 : theme.palette.bg3
+        if destructive { return theme.colors.delSoft }
+        return hovering ? theme.colors.fillHover : theme.colors.fillControl
     }
     private var foreground: Color {
-        if destructive { return theme.palette.del }
-        return hovering ? theme.palette.fg1 : theme.palette.fg2
+        if destructive { return theme.colors.del }
+        return hovering ? theme.colors.textPrimary : theme.colors.textSecondary
     }
     private var border: Color {
-        if destructive { return theme.palette.del.opacity(hovering ? 0.55 : 0.3) }
-        return hovering ? theme.palette.lineStrong : theme.palette.line
+        if destructive { return theme.colors.del.opacity(hovering ? 0.55 : 0.3) }
+        return hovering ? theme.colors.strokeControl : theme.colors.separator
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     VStack(spacing: 8) {
-        CommitActionButton(icon: .branch, title: "Branch", tooltip: "Create a new branch", action: {})
-        CommitActionButton(icon: .warn, title: "Reset to here", tooltip: "Move HEAD here", destructive: true, action: {})
-        CommitActionButtonLabel(icon: .warn, title: "Reset to here", destructive: true, trailingChevron: true)
+        CommitActionButton(icon: "arrow.triangle.branch", title: "Branch", tooltip: "Create a new branch", action: {})
+        CommitActionButton(icon: "exclamationmark.triangle", title: "Reset to here", tooltip: "Move HEAD here", destructive: true, action: {})
+        CommitActionButtonLabel(icon: "exclamationmark.triangle", title: "Reset to here", destructive: true, trailingChevron: true)
     }
     .padding()
     .frame(width: 280)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

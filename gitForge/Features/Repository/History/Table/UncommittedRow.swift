@@ -70,6 +70,6 @@ struct UncommittedRow: View {
         UncommittedRow(rowHeight: 28, layout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64), isSelected: true, onSelect: {})
     }
     .frame(width: 1100)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

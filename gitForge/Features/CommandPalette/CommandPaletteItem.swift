@@ -28,30 +28,6 @@ struct CommandPaletteItem: Identifiable, Hashable {
     let label: String
     let hint: String?
     let action: PaletteAction
-
-    var tag: String {
-        switch kind {
-        case .repo:    return "Repo"
-        case .commit:  return "Commit"
-        case .branch:  return "Branch"
-        case .file:    return "File"
-        case .command: return "Command"
-        }
-    }
-
-    var icon: GFIconKind {
-        switch kind {
-        case .repo:    return .folder
-        case .commit:  return .diamond
-        case .branch:  return .branch
-        case .file:    return .diff
-        case .command: return .cmd
-        }
-    }
-
-    func matches(_ query: String) -> Bool {
-        FuzzyMatcher.match(query, in: label) != nil
-    }
 }
 
 /// What happens when a palette item is selected.
