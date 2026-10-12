@@ -12,7 +12,7 @@ struct CommitDetailColumn: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
 
-    private var detail: CommitDetail? { viewModel.detailCache[commit.sha] }
+    private var detail: CommitDetail? { viewModel.history.detailCache[commit.sha] }
 
     /// Inspector header (redesign spec §6.2, History artboard): title,
     /// author and date, SHA, parents, message; then files and actions.
@@ -46,7 +46,7 @@ struct CommitDetailColumn: View {
             CommitActionsSection(commit: commit, viewModel: viewModel)
         }
         .task(id: commit.sha) {
-            _ = await viewModel.detail(for: commit)
+            _ = await viewModel.history.detail(for: commit)
         }
     }
 
@@ -92,8 +92,8 @@ struct CommitDetailColumn: View {
                     .foregroundStyle(theme.colors.textTertiary)
                 ForEach(commit.parentShas, id: \.self) { parent in
                     Button(String(parent.prefix(7))) {
-                        if let match = viewModel.commits.first(where: { $0.sha == parent }) {
-                            viewModel.selectedCommitId = match.sha
+                        if let match = viewModel.history.commits.first(where: { $0.sha == parent }) {
+                            viewModel.history.selectedCommitId = match.sha
                         }
                     }
                     .buttonStyle(.plain)
@@ -101,7 +101,7 @@ struct CommitDetailColumn: View {
                     .foregroundStyle(theme.colors.accent)
                     .help("Select parent \(parent.prefix(7))")
                     .accessibilityLabel("Select parent commit \(parent.prefix(7))")
-                    .disabled(!viewModel.commits.contains { $0.sha == parent })
+                    .disabled(!viewModel.history.commits.contains { $0.sha == parent })
                 }
             }
         }

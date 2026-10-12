@@ -14,7 +14,7 @@ import SwiftUI
 struct CommitGraphTable: View {
     let commits: [Commit]
     let layouts: [GraphRowLayout]
-    /// Widest row of the graph (`RepositoryViewModel.graphMaxLanes`, computed
+    /// Widest row of the graph (`HistoryStore.graphMaxLanes`, computed
     /// once per layout pass). Recomputing it here walked every layout, and
     /// did so for each row SwiftUI built — O(visible rows × commits) on every
     /// re-render of History.
@@ -43,7 +43,7 @@ struct CommitGraphTable: View {
     /// it to checkout the commit (or its enclosing local branch).
     var onDoubleClick: ((String) -> Void)? = nil
     /// Fired when a row appears in the viewport. Host wires it to
-    /// `RepositoryViewModel.loadMoreIfNeeded(currentItem:)` so reaching the
+    /// `HistoryStore.loadMoreIfNeeded(currentItem:)` so reaching the
     /// last loaded commit pulls in the next page. Without this hook the log
     /// silently stops at `pageSize` even though `hasMore` is true.
     var onAppear: ((Commit) -> Void)? = nil
@@ -213,13 +213,13 @@ struct CommitGraphTable: View {
     @Previewable @State var columns = ResizableTableModel.historyColumns(id: "history.preview")
     let vm = RepositoryViewModel.preview
     CommitGraphTable(
-        commits: vm.commits,
-        layouts: vm.graphLayouts,
-        maxLanes: vm.graphMaxLanes,
+        commits: vm.history.commits,
+        layouts: vm.history.graphLayouts,
+        maxLanes: vm.history.graphMaxLanes,
         refsBySha: vm.refsBySha,
         currentBranch: vm.currentBranchName,
-        selectedSha: vm.commits.first?.sha,
-        workingCopyDirty: !vm.status.isClean,
+        selectedSha: vm.history.commits.first?.sha,
+        workingCopyDirty: !vm.workingCopy.status.isClean,
         columns: columns,
         onSelect: { _ in }
     )

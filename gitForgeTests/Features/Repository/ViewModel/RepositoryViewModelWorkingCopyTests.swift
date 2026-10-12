@@ -14,18 +14,18 @@ struct RepositoryViewModelRefreshStatusTests {
     @Test("refreshStatus bumps statusGen by one")
     func bumpsGen() async {
         let vm = Self.makeVM()
-        let before = vm.statusGen
-        await vm.refreshStatus()
-        #expect(vm.statusGen == before &+ 1)
+        let before = vm.workingCopy.statusGen
+        await vm.workingCopy.refreshStatus()
+        #expect(vm.workingCopy.statusGen == before &+ 1)
     }
 
     @Test("statusGen is monotonic across consecutive refreshStatus calls")
     func monotonic() async {
         let vm = Self.makeVM()
-        await vm.refreshStatus()
-        let mid = vm.statusGen
-        await vm.refreshStatus()
-        #expect(vm.statusGen == mid &+ 1)
+        await vm.workingCopy.refreshStatus()
+        let mid = vm.workingCopy.statusGen
+        await vm.workingCopy.refreshStatus()
+        #expect(vm.workingCopy.statusGen == mid &+ 1)
     }
 
     @Test("refreshStatus on a bogus dir leaves status untouched and clears the spinner via defer")
@@ -39,11 +39,11 @@ struct RepositoryViewModelRefreshStatusTests {
             unstagedStatus: .unmodified,
             originalPath: nil
         )
-        vm.status = WorkingCopyStatus(files: [sentinel])
-        await vm.refreshStatus()
-        #expect(vm.status.files.first?.path == "sentinel.swift")
-        #expect(vm.isLoadingStatus == false, "defer must clear the spinner even on failure")
-        #expect(vm.hasLoadedStatusOnce == true, "first attempt counts as 'loaded once' regardless of outcome")
+        vm.workingCopy.status = WorkingCopyStatus(files: [sentinel])
+        await vm.workingCopy.refreshStatus()
+        #expect(vm.workingCopy.status.files.first?.path == "sentinel.swift")
+        #expect(vm.workingCopy.isLoadingStatus == false, "defer must clear the spinner even on failure")
+        #expect(vm.workingCopy.hasLoadedStatusOnce == true, "first attempt counts as 'loaded once' regardless of outcome")
     }
 }
 
@@ -60,7 +60,7 @@ struct RepositoryViewModelCommitGuardsTests {
     func emptySubjectGuard() async {
         let vm = Self.makeVM()
         vm.commitError = "stale error"
-        vm.commitSubject = "   "
+        vm.workingCopy.commitSubject = "   "
         let ok = await vm.commit()
         #expect(ok == false)
         #expect(vm.commitError == "Commit subject cannot be empty")
@@ -70,7 +70,7 @@ struct RepositoryViewModelCommitGuardsTests {
     func nothingStagedGuard() async {
         let vm = Self.makeVM()
         vm.commitError = "stale"
-        vm.commitSubject = "feat: thing"
+        vm.workingCopy.commitSubject = "feat: thing"
         // Default `status` has no files → no staged changes; amendMode is false.
         let ok = await vm.commit()
         #expect(ok == false)
@@ -80,7 +80,7 @@ struct RepositoryViewModelCommitGuardsTests {
     @Test("commit on a bogus dir surfaces a fresh error message past the guards")
     func bogusDirCommitSurfacesError() async {
         let vm = Self.makeVM()
-        vm.commitSubject = "feat: thing"
+        vm.workingCopy.commitSubject = "feat: thing"
         // Bypass the "nothing staged" guard with a fake staged file so the
         // call reaches `cli.commit`. Avoids the amendMode toggle path which
         // would kick a parallel `prefillFromHead` Task and race with the
@@ -91,7 +91,7 @@ struct RepositoryViewModelCommitGuardsTests {
             unstagedStatus: .unmodified,
             originalPath: nil
         )
-        vm.status = WorkingCopyStatus(files: [staged])
+        vm.workingCopy.status = WorkingCopyStatus(files: [staged])
         let ok = await vm.commit()
         #expect(ok == false)
         #expect(vm.commitError != nil)
@@ -112,15 +112,15 @@ struct RepositoryViewModelPrefillFromHeadTests {
     @Test("prefillFromHead leaves subject/body untouched when amendMode flipped off underneath it")
     func amendOffPostAwait() async {
         let vm = Self.makeVM()
-        vm.amendMode = false
-        vm.commitSubject = "user is mid-typing"
-        vm.commitBody = "still typing"
+        vm.workingCopy.amendMode = false
+        vm.workingCopy.commitSubject = "user is mid-typing"
+        vm.workingCopy.commitBody = "still typing"
         // Calling prefillFromHead directly with amendMode off simulates the
         // state after a `false → true → false` toggle whose pending Task is
         // about to resume. Bogus dir would also short-circuit, so we assert
         // the strict invariant: amendMode == false → no write.
-        await vm.prefillFromHead()
-        #expect(vm.commitSubject == "user is mid-typing")
-        #expect(vm.commitBody == "still typing")
+        await vm.workingCopy.prefillFromHead()
+        #expect(vm.workingCopy.commitSubject == "user is mid-typing")
+        #expect(vm.workingCopy.commitBody == "still typing")
     }
 }

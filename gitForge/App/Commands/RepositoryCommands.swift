@@ -58,7 +58,7 @@ struct RepositoryCommands: Commands {
                     }
                 }
             }
-            .disabled(appState.catalog.activeViewModel?.status.isClean ?? true)
+            .disabled(appState.catalog.activeViewModel?.workingCopy.status.isClean ?? true)
 
             Divider()
 
@@ -69,7 +69,7 @@ struct RepositoryCommands: Commands {
                 appState.ui.workspaceSection = .changes
                 appState.ui.discardAllConfirmVisible = true
             }
-            .disabled(appState.catalog.activeViewModel?.status.isClean ?? true)
+            .disabled(appState.catalog.activeViewModel?.workingCopy.status.isClean ?? true)
         }
     }
 

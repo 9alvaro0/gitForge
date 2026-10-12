@@ -27,7 +27,7 @@ struct RepositoryViewModelLogHelperTests {
         let vm = Self.makeVM()
         vm.unmergedLocalBranchRefs = ["refs/heads/feature/a", "refs/heads/feature/b"]
         vm.stashes = [Stash(index: 0, sha: "stashA", subject: "WIP a")]
-        let scope = vm.graphScope()
+        let scope = vm.history.graphScope()
         #expect(scope == ["HEAD", "refs/heads/feature/a", "refs/heads/feature/b", "--tags", "stashA"])
     }
 
@@ -40,15 +40,15 @@ struct RepositoryViewModelLogHelperTests {
         let indexParent = "index-tree"
         let untrackedParent = "untracked-tree"
         vm.stashes = [Stash(index: 0, sha: stashSha, subject: "WIP")]
-        vm.commits = [
+        vm.history.commits = [
             Self.commit(stashSha, parents: [realParent, indexParent, untrackedParent]),
             Self.commit(realParent),
             Self.commit(indexParent),
             Self.commit(untrackedParent),
             Self.commit("unrelated"),
         ]
-        vm.dropStashInternals()
-        let surviving = Set(vm.commits.map(\.sha))
+        vm.history.dropStashInternals()
+        let surviving = Set(vm.history.commits.map(\.sha))
         #expect(surviving == [stashSha, realParent, "unrelated"])
     }
 
@@ -56,38 +56,38 @@ struct RepositoryViewModelLogHelperTests {
     func dropStashInternalsNoOpWithoutStashes() {
         let vm = Self.makeVM()
         vm.stashes = []
-        vm.commits = [Self.commit("a"), Self.commit("b")]
-        vm.dropStashInternals()
-        #expect(vm.commits.map(\.sha) == ["a", "b"])
+        vm.history.commits = [Self.commit("a"), Self.commit("b")]
+        vm.history.dropStashInternals()
+        #expect(vm.history.commits.map(\.sha) == ["a", "b"])
     }
 
     @Test("loadInitial is a no-op when commits already populated")
     func loadInitialNoOpWhenCommitsExist() async {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa")]
-        let beforeGen = vm.logGen
-        await vm.loadInitial()
-        #expect(vm.logGen == beforeGen, "should not bump the token on early-return")
-        #expect(vm.commits.count == 1)
+        vm.history.commits = [Self.commit("aaa")]
+        let beforeGen = vm.history.logGen
+        await vm.history.loadInitial()
+        #expect(vm.history.logGen == beforeGen, "should not bump the token on early-return")
+        #expect(vm.history.commits.count == 1)
     }
 
     @Test("loadMoreIfNeeded is a no-op when hasMore is false")
     func loadMoreNoOpWhenNoMore() async {
         let vm = Self.makeVM()
-        vm.hasMore = false
-        let beforeGen = vm.logGen
-        await vm.loadMoreIfNeeded(currentItem: Self.commit("aaa"))
-        #expect(vm.logGen == beforeGen)
+        vm.history.hasMore = false
+        let beforeGen = vm.history.logGen
+        await vm.history.loadMoreIfNeeded(currentItem: Self.commit("aaa"))
+        #expect(vm.history.logGen == beforeGen)
     }
 
     @Test("loadMoreIfNeeded is a no-op when item isn't the current last")
     func loadMoreNoOpWhenItemIsNotLast() async {
         let vm = Self.makeVM()
-        vm.commits = [Self.commit("aaa"), Self.commit("bbb")]
-        vm.hasMore = true
-        let beforeGen = vm.logGen
+        vm.history.commits = [Self.commit("aaa"), Self.commit("bbb")]
+        vm.history.hasMore = true
+        let beforeGen = vm.history.logGen
         // Caller asks to load more "after aaa" but the last is bbb — refuse.
-        await vm.loadMoreIfNeeded(currentItem: Self.commit("aaa"))
-        #expect(vm.logGen == beforeGen)
+        await vm.history.loadMoreIfNeeded(currentItem: Self.commit("aaa"))
+        #expect(vm.history.logGen == beforeGen)
     }
 }

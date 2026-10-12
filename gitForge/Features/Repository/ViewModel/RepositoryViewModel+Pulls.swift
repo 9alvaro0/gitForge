@@ -21,7 +21,7 @@ extension RepositoryViewModel {
         if mergeState.isInProgress {
             return .failed("A merge or rebase is already in progress. Resolve it from the Conflicts section first.")
         }
-        if !status.isClean {
+        if !workingCopy.status.isClean {
             return .failed("Working tree has uncommitted changes. Commit, stash or discard them before integrating.")
         }
 

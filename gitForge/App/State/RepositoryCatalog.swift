@@ -168,10 +168,10 @@ final class RepositoryCatalog {
                 }
             }
         }
-        if let activeUrl, let vm = activeViewModel, vm.hasLoadedStatusOnce {
+        if let activeUrl, let vm = activeViewModel, vm.workingCopy.hasLoadedStatusOnce {
             repositoryStatuses[activeUrl] = RepoStatusSnapshot(
                 branch: vm.currentBranchName,
-                dirty: vm.status.files.count,
+                dirty: vm.workingCopy.status.files.count,
                 ahead: vm.aheadCount,
                 behind: vm.behindCount
             )

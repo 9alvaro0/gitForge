@@ -55,13 +55,13 @@ struct StagingFilesColumn: View {
                          onAll: @escaping () -> Void,
                          moveTitle: String,
                          onMove: @escaping () -> Void) -> some View {
-        let selection = StagingSectionSelection(paths: files.map(\.path), selected: viewModel.selectedFilePaths)
+        let selection = StagingSectionSelection(paths: files.map(\.path), selected: viewModel.workingCopy.selectedFilePaths)
         VStack(spacing: 0) {
             StagingFileSectionHeader(
                 title: title,
                 count: files.count,
                 selection: selection,
-                onToggleAll: { viewModel.setSelection(files, selected: selection != .full) },
+                onToggleAll: { viewModel.workingCopy.setSelection(files, selected: selection != .full) },
                 actionLabel: allLabel,
                 onAction: onAll
             )
@@ -83,10 +83,10 @@ struct StagingFilesColumn: View {
                     moveTitle: moveTitle,
                     onMove: onMove,
                     onDiscard: {
-                        let ticked = files.filter { viewModel.selectedFilePaths.contains($0.path) }
+                        let ticked = files.filter { viewModel.workingCopy.selectedFilePaths.contains($0.path) }
                         Task {
                             await viewModel.discardChanges(ticked)
-                            viewModel.deselect(ticked)
+                            viewModel.workingCopy.deselect(ticked)
                         }
                     },
                     disabled: viewModel.isMutating
@@ -101,8 +101,8 @@ struct StagingFilesColumn: View {
     let vm: RepositoryViewModel = .preview
     StagingFilesColumn(
         viewModel: vm,
-        staged: vm.status.stagedFiles,
-        unstaged: vm.status.unstagedFiles,
+        staged: vm.workingCopy.status.stagedFiles,
+        unstaged: vm.workingCopy.status.unstagedFiles,
         statusLoading: false
     )
     .frame(width: 440, height: 600)

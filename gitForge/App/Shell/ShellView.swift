@@ -100,8 +100,8 @@ struct ShellView: View {
         return PaletteOverlay(
             repositories: appState.catalog.repositories,
             branches: appState.catalog.activeViewModel?.refs ?? [],
-            commits: appState.catalog.activeViewModel?.commits ?? [],
-            workingFiles: appState.catalog.activeViewModel?.status.files ?? [],
+            commits: appState.catalog.activeViewModel?.history.commits ?? [],
+            workingFiles: appState.catalog.activeViewModel?.workingCopy.status.files ?? [],
             onPick: { action in
                 appState.ui.commandPaletteOpen = false
                 router.route(action)

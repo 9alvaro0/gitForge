@@ -63,7 +63,7 @@ extension RepositoryViewModel {
             commitError = error.userMessage
         }
         await loadConflictState()
-        await refreshStatus()
+        await workingCopy.refreshStatus()
     }
 
     /// Drops the in-progress integration and returns the worktree to clean.
@@ -183,9 +183,9 @@ extension RepositoryViewModel {
     /// same parallel refresh as merge / rebase.
     func refreshAfterIntegration() async {
         async let conflicts: Void = loadConflictState()
-        async let status: Void = refreshStatus()
+        async let status: Void = workingCopy.refreshStatus()
         async let refs: Void = loadRefs()
         _ = await (conflicts, status, refs)
-        await reloadLog()
+        await history.reloadLog()
     }
 }

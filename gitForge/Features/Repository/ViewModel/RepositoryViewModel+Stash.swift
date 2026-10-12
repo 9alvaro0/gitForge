@@ -3,7 +3,7 @@ import Foundation
 extension RepositoryViewModel {
     func stashAll(message: String? = nil) async -> Result<Void, Error> {
         guard !isMutating else { return .failure(GitError.busy) }
-        guard !status.isClean else {
+        guard !workingCopy.status.isClean else {
             return .failure(StashError.nothingToStash)
         }
         isMutating = true

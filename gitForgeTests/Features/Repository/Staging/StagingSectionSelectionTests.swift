@@ -29,12 +29,12 @@ struct StagingSectionSelectionTests {
     @Test("setSelection ticks a whole section and unticks only that section")
     func setSelection() {
         let vm = RepositoryViewModel(repository: Repository(url: URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")))
-        vm.selectedFilePaths = ["other"]
+        vm.workingCopy.selectedFilePaths = ["other"]
         let section = [Self.file("a"), Self.file("b")]
-        vm.setSelection(section, selected: true)
-        #expect(vm.selectedFilePaths == ["a", "b", "other"])
-        vm.setSelection(section, selected: false)
-        #expect(vm.selectedFilePaths == ["other"])
+        vm.workingCopy.setSelection(section, selected: true)
+        #expect(vm.workingCopy.selectedFilePaths == ["a", "b", "other"])
+        vm.workingCopy.setSelection(section, selected: false)
+        #expect(vm.workingCopy.selectedFilePaths == ["other"])
     }
 
     @Test("Commit button names the file count and branch, or the amend")

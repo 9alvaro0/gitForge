@@ -16,7 +16,7 @@ struct SidebarHost: View {
             activeRepository: appState.catalog.activeRepository,
             statusFor: statusFor,
             activeSection: appState.ui.workspaceSection,
-            unstagedBadge: appState.catalog.activeViewModel?.status.unstagedFiles.count ?? 0,
+            unstagedBadge: appState.catalog.activeViewModel?.workingCopy.status.unstagedFiles.count ?? 0,
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
             pullsBadge: appState.catalog.activeViewModel?.pullRequests.items.count ?? 0,
             conflictsBadge: appState.catalog.activeViewModel?.conflicts.files.filter { !$0.resolved }.count ?? 0,
@@ -38,7 +38,7 @@ struct SidebarHost: View {
             onRevealBranch: { ref in
                 guard let vm = appState.catalog.activeViewModel else { return }
                 appState.ui.workspaceSection = .history
-                if !vm.revealInHistory(ref) {
+                if !vm.history.revealInHistory(ref) {
                     appState.ui.activeToast = ToastMessage(
                         message: "“\(ref.name)” isn’t in the loaded history",
                         kind: .warn
@@ -223,10 +223,10 @@ struct SidebarHost: View {
         if let active = appState.catalog.activeRepository,
            active.id == repo.id,
            let vm = appState.catalog.activeViewModel,
-           vm.hasLoadedStatusOnce {
+           vm.workingCopy.hasLoadedStatusOnce {
             return RepoStatusSnapshot(
                 branch: vm.currentBranchName,
-                dirty: vm.status.files.count,
+                dirty: vm.workingCopy.status.files.count,
                 ahead: vm.aheadCount,
                 behind: vm.behindCount,
                 loaded: true

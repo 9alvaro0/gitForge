@@ -100,9 +100,9 @@ extension RepositoryViewModel {
     /// loaded `unmergedLocalBranchRefs` and `stashes` and stays sequential.
     func refreshAfterRefMutation(reloadLog: Bool) async {
         async let refsTask: Void = loadRefs()
-        async let statusTask: Void = refreshStatus()
+        async let statusTask: Void = workingCopy.refreshStatus()
         _ = await (refsTask, statusTask)
-        if reloadLog { await self.reloadLog() }
+        if reloadLog { await history.reloadLog() }
     }
 }
 

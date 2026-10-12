@@ -7,7 +7,7 @@ struct CommitFilesSection: View {
 
     @Environment(\.appTheme) private var theme
 
-    private var detail: CommitDetail? { viewModel.detailCache[commit.sha] }
+    private var detail: CommitDetail? { viewModel.history.detailCache[commit.sha] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s4) {
@@ -18,9 +18,9 @@ struct CommitFilesSection: View {
                         FileMiniRow(
                             file: f,
                             absoluteURL: viewModel.repository.url.appendingPathComponent(f.path),
-                            isActive: viewModel.selectedCommitFile == f.path
+                            isActive: viewModel.history.selectedCommitFile == f.path
                         ) {
-                            viewModel.selectedCommitFile = f.path
+                            viewModel.history.selectedCommitFile = f.path
                         }
                     }
                 }
