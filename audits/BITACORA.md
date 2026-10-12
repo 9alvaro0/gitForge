@@ -568,6 +568,14 @@ Recogidos el 2026-10-12. Las revisiones finales de cada fase dejaban "menores an
 
 ### Lote 2 · Pull requests y clonado
 
+**Hecho (2026-10-12, misma rama).** Todos los puntos, con 14 tests nuevos; suite 952/952, 0 warnings. Notas:
+- Cancelar el selector de cuenta deja el estado "No account chosen" con "Choose account…".
+- Borrar un perfil desenlaza las cuentas que lo usaban; la hoja de Clone no sugiere uno que ya no existe y, si desaparece durante el clon, lo avisa.
+- "Connect GitHub or GitLab" del onboarding abre la pestaña del proveedor ya conectado (GitHub por defecto).
+- La barra lateral relee los remotos cuando aparecen ramas de un remoto nuevo y cuando la app vuelve al frente.
+- `PullRequestFetchError.missingToken` eliminado (no se lanzaba).
+- En pantalla solo se ha comprobado Settings › Accounts con los datos reales (sin certificados huérfanos, así que el bloque nuevo no aparece). Los estados de cuenta no elegida y el selector con dos cuentas necesitan dos cuentas en la misma instancia.
+
 | # | Menor | Dónde |
 |---|---|---|
 | P4-7 | La barra lateral carga los remotos una vez por repo: un remoto nuevo no aparece hasta reabrirlo. | `SidebarHost.swift` |

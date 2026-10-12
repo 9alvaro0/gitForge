@@ -34,6 +34,18 @@ struct CloneAccountPinTests {
         #expect(CloneAccountPin.pin(nil, destination: destination, in: store) == nil)
     }
 
+    @Test("A choice already at the destination comes back when the clone fails")
+    func undoRestoresPrevious() throws {
+        let (store, _, octo, work) = try setup()
+        let destination = URL(fileURLWithPath: "/tmp/gitforge-pin-\(UUID().uuidString)/app")
+        let path = destination.path(percentEncoded: false)
+        store.setChoice(.account(octo.id), repoPath: path, remoteName: "origin")
+        let pin = try #require(CloneAccountPin.pin(work.id, destination: destination, in: store))
+        #expect(store.choice(repoPath: path, remoteName: "origin") == .account(work.id))
+        pin.undo()
+        #expect(store.choice(repoPath: path, remoteName: "origin") == .account(octo.id))
+    }
+
     @Test("Opened under another path: the choice follows the repo")
     func move() async throws {
         let (store, credentials, octo, _) = try setup()

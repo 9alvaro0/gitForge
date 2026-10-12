@@ -23,7 +23,7 @@ private final class AuthFakeProvider: PullRequestProvider, @unchecked Sendable {
         return [PullRequest(id: "1", number: 1, title: "PR", state: .open, authorLogin: "octo", authorAvatarURL: nil,
                             sourceBranch: "f", targetBranch: "main", webURL: nil, createdAt: nil, updatedAt: nil)]
     }
-    func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String { "octo" }
+    func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String { "user-of-\(token)" }
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] { [] }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         detailTokens.append(token)
@@ -35,6 +35,13 @@ private final class AuthFakeProvider: PullRequestProvider, @unchecked Sendable {
     }
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] { [] }
     func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] { [] }
+}
+
+/// A value the test changes between loads.
+@MainActor
+private final class Answer<T> {
+    var value: T
+    init(_ value: T) { self.value = value }
 }
 
 @Suite("PullRequestStore — account auth", .serialized)
@@ -133,13 +140,31 @@ struct PullRequestStoreAuthTests {
         #expect(s.error == "Couldn't reach the server: offline")
     }
 
-    @Test("Cancelling the account sheet leaves an empty list, no spinner, no error")
+    @Test("Cancelling the account sheet: no account chosen, not an empty list; choosing later loads")
     func cancelled() async {
-        let s = store(AuthFakeProvider()) { _, _ in .cancelled }
+        let answer = Answer(PullRequestAuthResult.cancelled)
+        let s = store(AuthFakeProvider()) { _, _ in answer.value }
         await s.load(force: true)
         #expect(!s.isLoading)
         #expect(!s.requiresToken)
+        #expect(s.accountNotChosen)
         #expect(s.error == nil)
         #expect(s.items.isEmpty)
+
+        answer.value = .token("test-token")
+        await s.load(force: true)
+        #expect(!s.accountNotChosen)
+        #expect(s.items.count == 1)
+    }
+
+    @Test("Another token (reconnected, or another account): Mine follows the new login")
+    func currentUserFollowsToken() async {
+        let token = Answer("token-a")
+        let s = store(AuthFakeProvider()) { _, _ in .token(token.value) }
+        await s.load(force: true)
+        #expect(s.currentUser == "user-of-token-a")
+        token.value = "token-b"
+        await s.load(force: true)
+        #expect(s.currentUser == "user-of-token-b")
     }
 }

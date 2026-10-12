@@ -30,6 +30,7 @@ final class CloneSheetModel {
     @ObservationIgnored private var parentDirectory: String
     @ObservationIgnored private let debounce: Duration
     @ObservationIgnored private let runProbe: @Sendable (String) async -> RemoteProbeResult
+    @ObservationIgnored private let profileExists: (UUID) -> Bool
     @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private var lastAutoDestination = ""
     @ObservationIgnored private var destinationEdited = false
@@ -42,9 +43,13 @@ final class CloneSheetModel {
     ///     clone's parent).
     ///   - probe: checks a URL; the app passes `RemoteProbe.run` with its
     ///     credentials.
+    ///   - profileExists: whether a profile id is still in the catalog (an
+    ///     account may still link a deleted one).
     init(store: AccountStore, parentDirectory: String, debounce: Duration = .milliseconds(600),
-         probe: @escaping @Sendable (String) async -> RemoteProbeResult) {
+         probe: @escaping @Sendable (String) async -> RemoteProbeResult,
+         profileExists: @escaping (UUID) -> Bool = { _ in true }) {
         self.store = store
+        self.profileExists = profileExists
         self.parentDirectory = parentDirectory
         self.debounce = debounce
         self.runProbe = probe
@@ -110,7 +115,7 @@ final class CloneSheetModel {
 
     /// The profile linked to the account that will sign the clone.
     var suggestedProfileId: UUID? {
-        signingAccount?.linkedProfileId
+        signingAccount?.linkedProfileId.flatMap { profileExists($0) ? $0 : nil }
     }
 
     var canClone: Bool {

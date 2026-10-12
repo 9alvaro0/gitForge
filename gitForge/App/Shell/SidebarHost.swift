@@ -32,7 +32,7 @@ struct SidebarHost: View {
             onRemoveRepo: { repo in Task { await appState.catalog.remove(repo.url) } },
             onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
             onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
-            onCloneNew: { appState.ui.cloneRequest = CloneRequest() },
+            onCloneNew: { appState.ui.requestClone() },
             onOpenSettings: { appState.ui.workspaceSection = .settings },
             onSelectSection: { appState.ui.workspaceSection = $0 },
             onRevealBranch: { ref in
@@ -79,8 +79,15 @@ struct SidebarHost: View {
             hostingSections: hostingSections(identitySnapshot.activeProfileId),
             onHostingEntry: handleHostingEntry
         )
-        .task(id: appState.catalog.activeRepository?.url) {
-            remotes = await appState.catalog.activeViewModel?.cli.remotesWithURLs() ?? []
+        // Remotes live in `.git/config`, which the watcher doesn't follow:
+        // read them again when a new remote's branches show up, and when the
+        // app comes back to the front (a remote added in a terminal).
+        .task(id: RemotesKey(repo: appState.catalog.activeRepository?.url,
+                             fetched: Self.remoteNames(appState.catalog.activeViewModel?.refs ?? []))) {
+            await reloadRemotes()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await reloadRemotes() }
         }
         .confirmationDialog(
             pendingProfile.map { "Apply profile “\($0.profile.name)”?" } ?? "",
@@ -103,6 +110,23 @@ struct SidebarHost: View {
         } message: { pending in
             Text(pending.diff.message)
         }
+    }
+
+    private struct RemotesKey: Hashable {
+        let repo: URL?
+        let fetched: Set<String>
+    }
+
+    /// Remotes that have remote-tracking branches.
+    nonisolated static func remoteNames(_ refs: [GitRef]) -> Set<String> {
+        Set(refs.compactMap { ref in
+            if case .remoteBranch(let remote) = ref.kind { remote } else { nil }
+        })
+    }
+
+    private func reloadRemotes() async {
+        let fresh = await appState.catalog.activeViewModel?.cli.remotesWithURLs() ?? []
+        if fresh != remotes { remotes = fresh }
     }
 
     private func hostingSections(_ activeProfileId: GitProfile.ID?) -> [RepoAccountSection] {

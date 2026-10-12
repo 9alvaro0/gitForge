@@ -4,6 +4,7 @@ import SwiftUI
 /// actions. macOS still owns ⌘W (close window); ⇧⌘W closes the active repo.
 struct FileCommands: Commands {
     let appState: AppState
+    @AppStorage("gitForge.onboarding.completed") private var onboardingCompleted = false
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -25,9 +26,11 @@ struct FileCommands: Commands {
             .keyboardShortcut("o", modifiers: .command)
 
             Button("Clone Repository…") {
-                appState.ui.cloneRequest = CloneRequest()
+                appState.ui.requestClone()
             }
             .keyboardShortcut("c", modifiers: [.command, .option])
+            // Onboarding ends with its own Clone; the sheet would pop up after it.
+            .disabled(!onboardingCompleted || appState.ui.cloneRequest != nil)
 
             Menu("Open Recent") {
                 ForEach(appState.catalog.repositories) { repo in

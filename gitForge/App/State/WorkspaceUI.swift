@@ -22,6 +22,13 @@ final class WorkspaceUI {
     var connectAccountRequest: ConnectAccountRequest?
     /// "Clone a repository" sheet; `ShellView` presents it.
     var cloneRequest: CloneRequest?
+
+    /// Opens the clone sheet, unless one is already up: replacing it would
+    /// tear down a clone in progress.
+    func requestClone(_ request: CloneRequest = CloneRequest()) {
+        guard cloneRequest == nil else { return }
+        cloneRequest = request
+    }
     /// "Add instance" sheet (P4 spec §5.3), prefilled from an unknown remote.
     var addInstanceRequest: AddInstanceRequest?
 
@@ -59,8 +66,12 @@ struct AddInstanceRequest: Identifiable, Equatable {
     var url = ""
 }
 
-/// Opens "Clone a repository", optionally with a URL already in.
+/// Opens "Clone a repository", optionally with a URL already in or on a
+/// provider's tab.
 struct CloneRequest: Identifiable, Equatable {
+    enum Source: Hashable { case url, github, gitlab }
+
     let id = UUID()
     var initialURL: String?
+    var source: Source = .url
 }

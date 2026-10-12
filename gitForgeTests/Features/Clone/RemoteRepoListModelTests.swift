@@ -2,6 +2,33 @@ import Foundation
 import Testing
 @testable import gitForge
 
+/// Answers each token's pages from `pages`; a token in `gated` waits for
+/// the gate first.
+private final class GatedBrowser: RemoteRepoBrowsing, @unchecked Sendable {
+    let gate = AsyncGate()
+    let gated: Set<String>
+    let pages: [String: [RemoteRepoSummary]]
+    let fromPage: Int
+
+    init(gated: Set<String>, pages: [String: [RemoteRepoSummary]], fromPage: Int = 1) {
+        self.gated = gated
+        self.pages = pages
+        self.fromPage = fromPage
+    }
+
+    func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary] {
+        if gated.contains(token), page >= fromPage { await gate.wait() }
+        return pages[token] ?? []
+    }
+
+    static func repos(_ prefix: String, count: Int) -> [RemoteRepoSummary] {
+        (0..<count).map { i in
+            RemoteRepoSummary(id: "\(prefix)\(i)", name: "r\(i)", fullName: "\(prefix)/r\(i)", description: nil, sshURL: nil,
+                              httpsURL: "https://example.test/\(prefix)/r\(i).git", isPrivate: false, defaultBranch: "main")
+        }
+    }
+}
+
 @Suite("Clone › My repos on accounts", .serialized)
 @MainActor
 struct RemoteRepoListModelTests {
@@ -186,5 +213,63 @@ struct RemoteRepoListModelTests {
         }
         #expect(!message.isEmpty)
         #expect(s.store.accounts.first?.status == .ok)
+    }
+
+    private func gatedModel(_ s: Setup, _ browser: GatedBrowser) -> RemoteRepoListModel {
+        let refresher = TokenRefresher(secrets: s.secrets, makeClient: { _ in FakeAuthClient() })
+        return RemoteRepoListModel(kind: .github, store: s.store, refresher: refresher, browser: browser)
+    }
+
+    @Test("A slow answer for the previous account never lands on the new one")
+    func staleAnswerDropped() async throws {
+        let s = setup()
+        let instance = try instance(s)
+        try account(s, instance, login: "octo", secret: AccountSecret(accessToken: "test-a"))
+        let work = try account(s, instance, login: "work", secret: AccountSecret(accessToken: "test-b"))
+        let browser = GatedBrowser(gated: ["test-a"], pages: ["test-a": GatedBrowser.repos("a", count: 1),
+                                                             "test-b": GatedBrowser.repos("b", count: 1)])
+        let m = gatedModel(s, browser)
+        let slow = Task { await m.load() }
+        await browser.gate.waiting()
+        m.select(work.id)
+        await m.load()
+        browser.gate.open()
+        await slow.value
+        #expect(m.repos.map(\.fullName) == ["b/r0"])
+        #expect(m.state == .loaded)
+    }
+
+    @Test("Switching account during Load more clears the spinner for the new account")
+    func loadMoreAcrossSwitch() async throws {
+        let s = setup()
+        let instance = try instance(s)
+        try account(s, instance, login: "octo", secret: AccountSecret(accessToken: "test-a"))
+        let work = try account(s, instance, login: "work", secret: AccountSecret(accessToken: "test-b"))
+        let gatedMore = GatedBrowser(gated: ["test-a"], pages: ["test-a": GatedBrowser.repos("a", count: RemoteRepoListModel.pageSize)],
+                                     fromPage: 2)
+        let m2 = gatedModel(s, gatedMore)
+        await m2.load()
+        #expect(m2.hasMore)
+        let more: Task<Void, Never> = Task { await m2.loadMore() }
+        await gatedMore.gate.waiting()
+        #expect(m2.isLoadingMore)
+        m2.select(work.id)
+        #expect(!m2.isLoadingMore)
+        gatedMore.gate.open()
+        await more.value
+        #expect(!m2.isLoadingMore)
+        #expect(m2.repos.isEmpty)
+    }
+
+    @Test("A 403 says the token can't list repositories, not pull requests")
+    func forbiddenMessage() async throws {
+        let s = setup()
+        let instance = try instance(s)
+        try account(s, instance, login: "octo", secret: AccountSecret(accessToken: "test-a"))
+        s.server.on("GET", "/api/v3/user/repos", status: 403, body: Data("{}".utf8))
+        let m = model(s)
+        await m.load()
+        guard case .failed(let message) = m.state else { Issue.record("\(m.state)"); return }
+        #expect(message.contains("list repositories"))
     }
 }
