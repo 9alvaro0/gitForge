@@ -1,10 +1,12 @@
-> **Status (2026-10-08): v1 reference only.** This is the original design
-> handoff the current UI was built from. The redesign will replace it; until
-> then, treat it as historical context, not as the spec. Paths below were
-> written for the original bundle layout — the files live in `design/design/`
-> (e.g. `design/design/GitForge.html`). Two notable divergences from the
-> shipped app: the design's Inter Tight typeface is not bundled (the app
-> renders in SF Pro), and some status-bar fields were mock-only.
+> **Status (2026-10-12): historical.** The current design is the **redesign
+> v2** (direction A+, "Native Refined"): spec in
+> [`design/redesign-v2/spec.md`](redesign-v2/spec.md), per-phase plans in
+> [`design/redesign-v2/plans/`](redesign-v2/plans/), and the Claude Design
+> canvas "gitForge — Redesign". The app implements it fully since phase F9;
+> the v1 design system is gone. This bundle below is the original handoff the
+> first UI was built from — keep it only as historical context. Its paths
+> were written for the original bundle layout (the files live in
+> `design/design/`, e.g. `design/design/GitForge.html`).
 
 # CODING AGENTS: READ THIS FIRST
 
