@@ -95,3 +95,29 @@ struct RepositoryViewModelBranchComparisonTests {
         #expect(try remote.git("branch", "--list", "local-name").isEmpty)
     }
 }
+
+@Suite("RepositoryViewModel — rebase one branch onto another", .serialized)
+@MainActor
+struct RepositoryViewModelRebaseBranchTests {
+
+    @Test("A branch that isn't checked out is checked out, then rebased")
+    func rebasesOtherBranch() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("base", files: ["f.txt": "0\n"])
+            try repo.git("checkout", "-q", "-b", "feature")
+            try repo.commit("feature work", files: ["a.txt": "1\n"])
+            try repo.git("checkout", "-q", "main")
+            try repo.commit("main work", files: ["f.txt": "1\n"])
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        let feature = try #require(vm.localBranches.first { $0.name == "feature" })
+        let main = try #require(vm.localBranches.first { $0.name == "main" })
+
+        #expect(await vm.rebase(feature, onto: main) == .clean)
+        #expect(vm.currentBranchName == "feature")
+        let parent = try repo.git("rev-parse", "feature^")
+        #expect(try parent == repo.git("rev-parse", "main"))
+    }
+}

@@ -155,6 +155,18 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Rebases `source` onto `target` — dropping one branch on another. A
+    /// rebase works on the checked-out branch, so `source` is checked out
+    /// first when it isn't current.
+    func rebase(_ source: GitRef, onto target: GitRef) async -> IntegrationOutcome {
+        if source.name != currentBranchName {
+            if case .failure(let error) = await checkoutBranch(source) {
+                return .failed(error.userMessage)
+            }
+        }
+        return await rebaseOnto(target)
+    }
+
     /// Continues a paused merge or rebase. `.unmerged` has no continue command —
     /// once everything is staged the user just commits; we still refresh so
     /// the UI catches up either way.

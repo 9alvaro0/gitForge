@@ -17,6 +17,8 @@ struct BranchRow: View {
     let isSelected: Bool
     let onSelect: () -> Void
     let actions: BranchActions
+    /// Another local branch dropped on this row (merge / rebase).
+    var onBranchDrop: ((DraggedBranch) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
@@ -64,6 +66,7 @@ struct BranchRow: View {
         }
         .simultaneousGesture(TapGesture().onEnded(onSelect))
         .contextMenu { menu }
+        .modifier(BranchRowDragDrop(ref: ref, isCurrent: isCurrent, onDrop: onBranchDrop))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenLabel)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
