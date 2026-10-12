@@ -17,7 +17,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 - **Conflicts** — visual resolver for merge / rebase / cherry-pick / revert / stash conflicts: pick ours / theirs / both per hunk, or resolve whole files
 - **Remotes** — fetch, pull (merge / rebase / fast-forward only), push, force-push with lease, optional background auto-fetch, categorised errors (auth, network, rejected, protected branch…)
 - **Pull / merge requests** — read-only list and detail for GitHub and GitLab (including self-hosted), with CI status; integrate a PR locally to resolve its conflicts
-- **Clone** — from a URL or by browsing your GitHub / GitLab repositories
+- **Clone** — from a URL or by browsing your GitHub / GitLab repositories, optionally shallow or with submodules; or start a new repository
 - **Identity profiles** — switch the repo's `user.name` / `user.email` / signing key between saved profiles
 - Command palette, native menus and keyboard shortcuts; light / dark themes and accessibility support (VoiceOver, Increase Contrast, Reduce Motion)
 
@@ -28,6 +28,7 @@ Not supported (yet): staging individual hunks or lines, interactive rebase, LFS,
 | Shortcut | Action |
 | --- | --- |
 | `⌘O` | Open Repository… |
+| `⌥⌘N` | New Repository… |
 | `⇧⌘W` | Close Repository |
 | `⌘B` | New Branch… |
 | `⌘1` … `⌘4` | Show History / Changes / Branches / Pull Requests |
