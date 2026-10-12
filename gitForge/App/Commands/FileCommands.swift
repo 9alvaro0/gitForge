@@ -25,6 +25,11 @@ struct FileCommands: Commands {
             }
             .keyboardShortcut("o", modifiers: .command)
 
+            Button("New Repository…") {
+                Task { await appState.presentNewRepositoryPanel() }
+            }
+            .keyboardShortcut("n", modifiers: [.command, .option])
+
             Button("Clone Repository…") {
                 appState.ui.requestClone()
             }
