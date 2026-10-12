@@ -12,9 +12,9 @@ struct StagingRow: View {
     @State private var pendingDiscard = false
 
     var body: some View {
-        let isSelected = viewModel.selectedWorkingCopyFile?.id == file.id
-        let isTicked = viewModel.selectedFilePaths.contains(file.path)
-        Button(action: { viewModel.selectedWorkingCopyFile = file }) {
+        let isSelected = viewModel.workingCopy.selectedWorkingCopyFile?.id == file.id
+        let isTicked = viewModel.workingCopy.selectedFilePaths.contains(file.path)
+        Button(action: { viewModel.workingCopy.selectedWorkingCopyFile = file }) {
             HStack(spacing: Spacing.s8) {
                 // The checkbox is for *batch selection*, not stage/unstage —
                 // pairing it with the batch bar under the section. Stage /
@@ -22,7 +22,7 @@ struct StagingRow: View {
                 // and the context menu.
                 Toggle("", isOn: Binding(
                     get: { isTicked },
-                    set: { _ in viewModel.toggleSelection(file) }
+                    set: { _ in viewModel.workingCopy.toggleSelection(file) }
                 ))
                 .toggleStyle(GFCheckboxStyle())
                 .accessibilityLabel("Select \(file.path)")

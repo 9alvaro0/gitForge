@@ -25,7 +25,7 @@ struct StashesView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
-    private var hasDirtyChanges: Bool { !viewModel.status.isClean }
+    private var hasDirtyChanges: Bool { !viewModel.workingCopy.status.isClean }
 
     var body: some View {
         Group {

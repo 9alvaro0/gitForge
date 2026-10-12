@@ -94,14 +94,14 @@ struct StagingCommitBox: View {
         let shape = RoundedRectangle(cornerRadius: Radius.control)
         let focused = focusedField != nil
         return VStack(alignment: .leading, spacing: 0) {
-            TextField("Commit message", text: $viewModel.commitSubject)
+            TextField("Commit message", text: Bindable(viewModel.workingCopy).commitSubject)
                 .textFieldStyle(.plain)
                 .textRole(.body, weight: .semibold)
                 .foregroundStyle(theme.colors.textPrimary)
                 .focused($focusedField, equals: .subject)
                 .padding(.horizontal, Spacing.s8)
                 .padding(.top, Spacing.s8)
-            TextField("Description (optional)", text: $viewModel.commitBody, axis: .vertical)
+            TextField("Description (optional)", text: Bindable(viewModel.workingCopy).commitBody, axis: .vertical)
                 .lineLimit(3...3)
                 .textFieldStyle(.plain)
                 .textRole(.callout)
@@ -122,7 +122,7 @@ struct StagingCommitBox: View {
     /// Switch before its label, as in the artboard; the label names HEAD.
     private var amendToggle: some View {
         HStack(spacing: Spacing.s6) {
-            Toggle("Amend", isOn: $viewModel.amendMode)
+            Toggle("Amend", isOn: Bindable(viewModel.workingCopy).amendMode)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()
@@ -144,14 +144,14 @@ struct StagingCommitBox: View {
     // MARK: Commit
 
     private var canCommit: Bool {
-        !viewModel.commitSubject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && (stagedCount > 0 || viewModel.amendMode)
+        !viewModel.workingCopy.commitSubject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (stagedCount > 0 || viewModel.workingCopy.amendMode)
             && !viewModel.isMutating
     }
 
     private var commitButton: some View {
         GFButton(
-            title: CommitButtonTitle.make(fileCount: stagedCount, branch: viewModel.currentBranchName, amend: viewModel.amendMode),
+            title: CommitButtonTitle.make(fileCount: stagedCount, branch: viewModel.currentBranchName, amend: viewModel.workingCopy.amendMode),
             style: .primary,
             size: .large,
             disabled: !canCommit,

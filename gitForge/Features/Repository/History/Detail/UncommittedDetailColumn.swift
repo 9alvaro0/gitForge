@@ -3,7 +3,7 @@ import AppKit
 
 /// Right-side detail panel shown in the History view when the user selects
 /// the pinned "Uncommitted changes" row. Lists the working-copy files and
-/// drives `viewModel.selectedWorkingCopyFile`, which the bottom diff pane
+/// drives `viewModel.workingCopy.selectedWorkingCopyFile`, which the bottom diff pane
 /// already consumes — so click-to-diff lights up automatically without a
 /// parallel selection model.
 struct UncommittedDetailColumn: View {
@@ -14,8 +14,8 @@ struct UncommittedDetailColumn: View {
 
     @Environment(\.appTheme) private var theme
 
-    private var staged: [WorkingCopyFile]   { viewModel.status.stagedFiles }
-    private var unstaged: [WorkingCopyFile] { viewModel.status.unstagedFiles }
+    private var staged: [WorkingCopyFile]   { viewModel.workingCopy.status.stagedFiles }
+    private var unstaged: [WorkingCopyFile] { viewModel.workingCopy.status.unstagedFiles }
     private var totalCount: Int { staged.count + unstaged.count }
 
     var body: some View {
@@ -74,9 +74,9 @@ struct UncommittedDetailColumn: View {
                         WorkingCopyMiniRow(
                             file: file,
                             absoluteURL: viewModel.repository.url.appendingPathComponent(file.path),
-                            isActive: viewModel.selectedWorkingCopyFile?.id == file.id
+                            isActive: viewModel.workingCopy.selectedWorkingCopyFile?.id == file.id
                         ) {
-                            viewModel.selectedWorkingCopyFile = file
+                            viewModel.workingCopy.selectedWorkingCopyFile = file
                         }
                     }
                 }

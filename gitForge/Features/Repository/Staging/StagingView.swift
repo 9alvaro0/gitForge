@@ -27,8 +27,8 @@ struct StagingView: View {
         )
     }
 
-    private var staged: [WorkingCopyFile]   { viewModel.status.stagedFiles }
-    private var unstaged: [WorkingCopyFile] { viewModel.status.unstagedFiles }
+    private var staged: [WorkingCopyFile]   { viewModel.workingCopy.status.stagedFiles }
+    private var unstaged: [WorkingCopyFile] { viewModel.workingCopy.status.unstagedFiles }
 
     /// True only until the first refreshStatus() lands for this repo VM.
     /// Subsequent refreshes (watcher pulses, post-stage reloads…) keep the real
@@ -37,7 +37,7 @@ struct StagingView: View {
     /// stayed true and the loading flag won the race against the (empty)
     /// status payload arriving.
     private var statusLoading: Bool {
-        !viewModel.hasLoadedStatusOnce
+        !viewModel.workingCopy.hasLoadedStatusOnce
     }
 
     var body: some View {
@@ -99,7 +99,7 @@ struct StagingView: View {
             Button("Cancel", role: .cancel) {}
                 .keyboardShortcut(.defaultAction)
             Button("Discard all", role: .destructive) {
-                Task { await viewModel.discardChanges(viewModel.status.files) }
+                Task { await viewModel.discardChanges(viewModel.workingCopy.status.files) }
             }
         } message: {
             Text("All uncommitted changes will be lost — staged, unstaged, and untracked files included. This can't be undone.")

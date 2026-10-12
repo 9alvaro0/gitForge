@@ -16,12 +16,12 @@ struct RepositoryViewModelLifecycleTests {
         let vm = Self.makeVM()
         let observed = CancellationProbe()
         // Long-running work that would otherwise hold `self` alive for 10s.
-        vm.track {
+        vm.tasks.track {
             try? await Task.sleep(for: .seconds(10))
             observed.wasCancelled = Task.isCancelled
         }
         vm.stopReactivity()
-        #expect(vm.ownedTasks.isEmpty)
+        #expect(vm.tasks.isEmpty)
         for _ in 0..<50 where observed.wasCancelled == nil {
             try await Task.sleep(for: .milliseconds(10))
         }
@@ -34,7 +34,7 @@ struct RepositoryViewModelLifecycleTests {
         // Seed the publicly-settable caches with payload to prove they're
         // cleared. (commitsById is private(set) — its purge is exercised
         // indirectly through `commits` going empty.)
-        vm.commits = [
+        vm.history.commits = [
             Commit(sha: "a", parentShas: [], authorName: "x", authorEmail: "x@x", authorDate: .now, subject: "one")
         ]
         vm.upstream = "origin/main"
@@ -42,7 +42,7 @@ struct RepositoryViewModelLifecycleTests {
 
         vm.stopReactivity()
 
-        #expect(vm.commits.isEmpty)
+        #expect(vm.history.commits.isEmpty)
         #expect(vm.upstream == nil)
         #expect(vm.aheadCount == 0)
     }

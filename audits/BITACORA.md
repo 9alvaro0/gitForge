@@ -12,7 +12,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
 | A02-bis | Puntos menores de la capa Git (ver diferidos) | Hecha (2026-10-12), lote 5 de "Menores diferidos" |
-| A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
+| A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` | Hecha (2026-10-12), sin verificar aún en macOS |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
 | A07 | Design system y consistencia visual (preparación del rediseño) | Hecha (2026-10-08) |
@@ -205,8 +205,8 @@ Swift 6 añade comprobaciones de aislamiento en runtime en las fronteras con C/O
 | 1 | `PullRequestStore` (lista y detalle de PR/MR) | Hecha | — Las vistas de PR ya no conocen el VM: reciben el store y un closure `integrateLocally`. |
 | 2 | `StashDetailStore` (panel de detalle de stash) | Hecha | **Grave:** las stashes se direccionaban por índice (`stash@{n}`). Si se creaba o borraba una stash fuera de la app antes de que la lista se refrescara, *Drop* borraba **otra stash**, y el panel de detalle mostraba ficheros de otra. Ahora todo va por SHA; apply, pop y drop resuelven el índice actual justo antes de ejecutarse (`StashLookupError` si ya no existe). |
 | 3 | `ConflictStore` (ficheros, hunks, selección, picks) | Hecha | Resolver, abortar y continuar no tomaban `isMutating` (doble clic o carrera con un commit sobre `index.lock`). El resolutor forzaba UTF-8: un conflicto en un fichero Latin-1 no se podía abrir (diferido de A03, resuelto). Nuevo `TextFile` en Core: UTF-8 y, si falla, Latin-1, reescribiendo con la misma codificación y conservando los bytes. |
-| 4 | `HistoryStore` (log, grafo, caché de detalle, selección y diff de commit) | **A04-bis** | — |
-| 5 | `WorkingCopyStore` (status, selección, composer, diff) | **A04-bis** | — |
+| 4 | `HistoryStore` (log, grafo, caché de detalle, selección y diff de commit) | Hecha en A04-bis | — |
+| 5 | `WorkingCopyStore` (status, selección, composer, diff) | Hecha en A04-bis | — |
 
 Resultado tras las fases 1-3: el VM pasa de 96 a 70 propiedades almacenadas, `classifyEmptyDiff` se mueve a Core (`DiffEmptyState.classifying(raw:)`) y se traducen al inglés dos comentarios que estaban en castellano.
 
@@ -534,7 +534,7 @@ Rediseño visual completo a la dirección A+ ("Native Refined") del canvas "gitF
 **Lo que queda:**
 - Las funciones candidatas de la tabla anterior.
 - Los menores diferidos de P2–F9, recogidos en la sección siguiente.
-- A04-bis (`HistoryStore` / `WorkingCopyStore`), que la spec dejaba para después de F9.
+- ~~A04-bis (`HistoryStore` / `WorkingCopyStore`)~~: hecha, ver su sección al final.
 
 ---
 
@@ -664,3 +664,31 @@ Los cuatro puntos de "Hallazgos diferidos" del principio (`ARG_MAX`, `diff.suppr
 | # | Menor | Dónde |
 |---|---|---|
 | P3-1 | El push firma con `branch.<b>.remote` y la URL de fetch; git usa `pushRemote`/`remote.pushDefault` y `pushurl`. | `GitCLI+Remote.swift`, `RepositoryViewModel+Remote.swift` |
+
+---
+
+## A04-bis — `HistoryStore` y `WorkingCopyStore`
+
+**Fecha:** 2026-10-12
+**Alcance:** fases 4 y 5 de la descomposición de `RepositoryViewModel` (A04). Sin cambios visibles.
+
+### Cómo comparten estado
+
+`RepositoryViewModel` queda como sesión del repo: `cli`, refs y stashes, `isMutating`, `commitError`, watcher y auto-fetch, remoto, identidad, y la orquestación de refrescos (`refresh`, `refreshAfterIntegration`, `refreshAfterRefMutation`). Los almacenes cuelgan de él, como los de las fases 1-3:
+
+- **`viewModel.history` (`HistoryStore`)**: log paginado, grafo, caché de `CommitDetail`, commit seleccionado y diff de su fichero. Las refs no se mueven: el VM cumple `HistoryRefsSource` (stashes, ramas no mergeadas, `refsBySha`) y el almacén lo guarda en una referencia débil. Lee de ahí el alcance del grafo y escribe en ella las stashes y ramas que lee junto a cada primera página, como hacía antes.
+- **`viewModel.workingCopy` (`WorkingCopyStore`)**: `git status`, selección por lotes, fichero abierto y su diff, y el texto del composer (asunto, cuerpo, amend con su prefill desde HEAD).
+- **En el VM se quedan las mutaciones** (stage, unstage, discard, commit, `stageSelected`/`unstageSelected`), porque toman `isMutating` y refrescan toda la sesión. Es la misma regla que con las stashes. `commitError` sigue en el VM porque lo escriben todas las operaciones, no solo el commit.
+- **`OwnedTasks`**: el registro de tareas lanzadas desde los `didSet` pasa a un objeto que comparten el VM y los dos almacenes, y `stopReactivity()` las cancela todas de una vez.
+
+Las propiedades conservan sus nombres (`viewModel.history.commits`, `viewModel.workingCopy.status`…). Las vistas que editan el composer usan `Bindable(viewModel.workingCopy)`.
+
+### Resultado
+
+- `RepositoryViewModel.swift` pasa de 487 a 282 líneas, y sus propiedades almacenadas (`let` y `var`) de 67 a 34. Desaparecen `+Log`, `+Diff` y `+Reveal`. `+WorkingCopy` queda solo con las mutaciones.
+- Diferencia menor: al purgar, la caché de detalle también vacía su orden de inserción (antes quedaba con SHAs viejos, sin efecto visible).
+
+### Verificación
+
+- Typecheck en Linux (Swift 6.2, con el mismo aislamiento por defecto `MainActor` y las mismas *upcoming features* que el proyecto) de Core, el VM, los cinco almacenes y los tests del VM y de Staging, con stubs para las APIs exclusivas de Apple (Keychain, FSEvents, `os.Logger`). 0 errores y 0 warnings en esa parte.
+- **Pendiente en macOS:** compilar las vistas (SwiftUI no compila en Linux; sus cambios son mecánicos, `viewModel.X` → `viewModel.history.X` / `viewModel.workingCopy.X`), pasar la suite y un recorrido rápido: History (selección, diff, paginación), Changes (stage por lotes, diff, commit y amend) y el refresco tras editar fuera de la app.
