@@ -20,6 +20,8 @@ final class WorkspaceUI {
     var discardAllConfirmVisible: Bool = false
     /// "Connect account" sheet (P4 spec §5.2); `ShellView` presents it.
     var connectAccountRequest: ConnectAccountRequest?
+    /// "Clone a repository" sheet; `ShellView` presents it.
+    var cloneRequest: CloneRequest?
     /// "Add instance" sheet (P4 spec §5.3), prefilled from an unknown remote.
     var addInstanceRequest: AddInstanceRequest?
 
@@ -55,4 +57,10 @@ struct AddInstanceRequest: Identifiable, Equatable {
     let id = UUID()
     var kind: HostingInstance.Kind = .gitlab
     var url = ""
+}
+
+/// Opens "Clone a repository", optionally with a URL already in.
+struct CloneRequest: Identifiable, Equatable {
+    let id = UUID()
+    var initialURL: String?
 }

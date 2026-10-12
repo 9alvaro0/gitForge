@@ -8,7 +8,6 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
     case stashes
     case pulls
     case conflict
-    case clone
     case settings
 
     var id: String { rawValue }
@@ -21,7 +20,6 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         case .stashes:  return "Stashes"
         case .pulls:    return "Pull requests"
         case .conflict: return "Conflicts"
-        case .clone:    return "Clone repo…"
         case .settings: return "Settings"
         }
     }
@@ -34,7 +32,6 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         case .stashes:  return .stash
         case .pulls:    return .pr
         case .conflict: return .conflict
-        case .clone:    return .clone
         case .settings: return .settings
         }
     }

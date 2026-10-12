@@ -30,17 +30,11 @@ struct RootView: View {
         }
         .appTheme(ui.theme)
         .appPreferences(ui.preferences)
-        .alert(
-            ui.presentedError?.title ?? "",
-            isPresented: $ui.presentedError.isPresent(),
-            presenting: ui.presentedError
-        ) { _ in
-            // Cancel-role buttons in `.alert` automatically clear the
-            // `isPresented` binding, which clears `presentedError` for us.
-            Button("OK", role: .cancel) {}
-        } message: { error in
-            Text(error.message)
-        }
+        // Here, not in the shell, so onboarding's Appearance step previews
+        // light/dark on the window's own controls too.
+        .preferredColorScheme(preferredScheme)
+        // The clone sheet presents errors itself while it's up.
+        .errorAlert(enabled: ui.cloneRequest == nil)
         .onAppear {
             ui.theme.systemColorScheme = systemColorScheme
             ui.theme.increasedContrast = systemContrast == .increased
@@ -50,6 +44,16 @@ struct RootView: View {
         }
         .onChange(of: systemContrast) { _, contrast in
             ui.theme.increasedContrast = contrast == .increased
+        }
+    }
+
+    /// `.system` returns `nil` so SwiftUI keeps the OS scheme; explicit modes
+    /// force the window to follow the user's pick.
+    private var preferredScheme: ColorScheme? {
+        switch appState.ui.theme.mode {
+        case .system: nil
+        case .dark: .dark
+        case .light: .light
         }
     }
 }

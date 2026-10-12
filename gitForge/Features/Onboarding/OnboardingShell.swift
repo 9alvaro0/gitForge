@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Chrome around an onboarding step: top progress strip + bottom navigation
-/// row. Steps render their own content in the middle. Mirrors the layout of
-/// the toolbar title + a `ScrollView` body found across the rest of the app,
-/// but tuned for a single centered column instead of a sidebar+detail split.
+/// Chrome around an onboarding step (artboard `Onboarding`): a glass rail
+/// with the steps on the left; on the right "Step N of 6", the step's
+/// heading and lede, its content, and the Back / Skip / primary row.
 struct OnboardingShell<Content: View>: View {
     let currentStep: OnboardingState.Step
     let primaryLabel: String
@@ -17,140 +16,164 @@ struct OnboardingShell<Content: View>: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
-            OnboardingHeader(currentStep: currentStep)
-            ScrollView {
-                content()
-                    .frame(maxWidth: 540)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, DesignTokens.Spacing.xxhuge)
-                    .padding(.horizontal, DesignTokens.Spacing.xxxhuge)
+        HStack(spacing: 0) {
+            OnboardingRail(currentStep: currentStep)
+                .frame(width: 280)
+                .padding(Spacing.s8)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Spacing.s24) {
+                        header
+                        content()
+                    }
+                    .frame(maxWidth: 1000, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Spacing.s48)
+                    .padding(.top, 72)
+                    .padding(.bottom, Spacing.s24)
+                }
+                footer
             }
-            OnboardingFooter(
-                showBack: currentStep.canGoBack,
-                showSkip: currentStep.canSkip,
-                primaryLabel: primaryLabel,
-                primaryEnabled: primaryEnabled,
-                primaryBusy: primaryBusy,
-                onBack: onBack,
-                onSkip: onSkip,
-                onPrimary: onPrimary
-            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgWindow)
     }
-}
 
-/// App-name badge on the left, step counter and progress dots on the right.
-/// The badge intentionally avoids a heavy logo — the same `.branch` glyph
-/// used in the sidebar ties the onboarding to the rest of the chrome.
-private struct OnboardingHeader: View {
-    let currentStep: OnboardingState.Step
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: DesignTokens.Spacing.xxxl) {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                GFIcon(kind: .branch, size: 16, stroke: theme.palette.accent)
-                Text("gitForge")
-                    .font(AppFont.sans(FontSize.lg, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
-            }
-            Spacer(minLength: 0)
-            HStack(spacing: DesignTokens.Spacing.lg) {
-                Text("Step \(currentStep.rawValue + 1) of \(OnboardingState.Step.allCases.count)")
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.fg3)
-                ProgressDots(currentStep: currentStep)
-            }
-        }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .padding(.vertical, DesignTokens.Spacing.xxl)
-        .frame(maxWidth: .infinity)
-        .background(theme.palette.bg2)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
-        }
-    }
-}
-
-private struct ProgressDots: View {
-    let currentStep: OnboardingState.Step
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            ForEach(OnboardingState.Step.allCases) { step in
-                Circle()
-                    .fill(color(for: step))
-                    .frame(width: dotSize(for: step), height: dotSize(for: step))
-                    .animation(DesignTokens.Motion.fast, value: currentStep)
-            }
+    private var header: some View {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
+            Text(currentStep.counter)
+                .textRole(.callout, weight: .semibold)
+                .foregroundStyle(theme.colors.accent)
+            Text(currentStep.heading)
+                .textRole(.largeTitle)
+                .foregroundStyle(theme.colors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text(LocalizedStringKey(currentStep.lede))
+                .textRole(.body)
+                .foregroundStyle(theme.colors.textSecondary)
+                .frame(maxWidth: 560, alignment: .leading)
         }
     }
 
-    private func color(for step: OnboardingState.Step) -> Color {
-        if step == currentStep { return theme.palette.accent }
-        if step.rawValue < currentStep.rawValue { return theme.palette.fg3 }
-        return theme.palette.fg4
-    }
-
-    private func dotSize(for step: OnboardingState.Step) -> CGFloat {
-        step == currentStep ? 8 : 6
-    }
-}
-
-/// Sticky footer with the three nav controls. `Back` is hidden on the
-/// first step, `Skip` on the mandatory ones (welcome / git / identity),
-/// and `Continue` is omitted entirely on the terminal step (FirstRepo
-/// closes the flow via its own card actions).
-private struct OnboardingFooter: View {
-    let showBack: Bool
-    let showSkip: Bool
-    let primaryLabel: String
-    let primaryEnabled: Bool
-    let primaryBusy: Bool
-    let onBack: () -> Void
-    let onSkip: () -> Void
-    let onPrimary: () -> Void
-
-    @Environment(\.appTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            if showBack {
+    /// `Back` is hidden on the first step, `Skip` on the mandatory ones, and
+    /// the primary button on the terminal step (it closes through its cards).
+    private var footer: some View {
+        HStack(spacing: Spacing.s12) {
+            if currentStep.canGoBack {
                 GFButton(title: "Back", action: onBack)
             }
             Spacer(minLength: 0)
-            if showSkip {
+            if let next = currentStep.nextLabel, !primaryLabel.isEmpty {
+                Text(next)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
+            }
+            if currentStep.canSkip {
                 GFButton(title: "Skip", action: onSkip)
             }
             if !primaryLabel.isEmpty {
-                GFButton(
-                    title: primaryBusy ? "Working…" : primaryLabel,
-                    style: .primary,
-                    disabled: !primaryEnabled || primaryBusy,
-                    action: onPrimary
-                )
+                GFButton(title: primaryBusy ? "Working…" : primaryLabel,
+                         style: .primary,
+                         disabled: !primaryEnabled || primaryBusy,
+                         action: onPrimary)
             }
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .padding(.vertical, DesignTokens.Spacing.xxl)
-        .frame(maxWidth: .infinity)
-        .background(theme.palette.bg2)
-        .overlay(alignment: .top) {
-            Rectangle().fill(theme.palette.lineStrong).frame(height: DesignTokens.Stroke.regular)
+        .padding(.horizontal, Spacing.s48)
+        .padding(.vertical, Spacing.s20)
+    }
+}
+
+/// The steps, with done / current / to-do markers that differ in shape,
+/// not just colour.
+private struct OnboardingRail: View {
+    let currentStep: OnboardingState.Step
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.s24) {
+            HStack(spacing: Spacing.s8) {
+                Text("gf")
+                    .textRole(.body, weight: .bold)
+                    .foregroundStyle(theme.colors.accentOnFill)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.accentFill))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Welcome to gitForge").textRole(.headline)
+                    Text("About a minute to set up")
+                        .textRole(.callout)
+                        .foregroundStyle(theme.colors.textSecondary)
+                }
+            }
+            .padding(.top, Spacing.s32)
+            VStack(alignment: .leading, spacing: Spacing.s4) {
+                ForEach(OnboardingState.Step.allCases) { step in
+                    stepRow(step)
+                }
+            }
+            Spacer()
+            Text("Everything here lives in Settings later.")
+                .textRole(.caption)
+                .foregroundStyle(theme.colors.textTertiary)
+        }
+        .padding(.horizontal, Spacing.s16)
+        .padding(.bottom, Spacing.s20)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .glassEffect(.regular, in: .rect(cornerRadius: Radius.panel))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Setup steps")
+    }
+
+    private func stepRow(_ step: OnboardingState.Step) -> some View {
+        let isCurrent = step == currentStep
+        let isDone = step.rawValue < currentStep.rawValue
+        return HStack(spacing: Spacing.s12) {
+            marker(step, isCurrent: isCurrent, isDone: isDone)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(step.title)
+                    .textRole(.body, weight: isCurrent ? .semibold : .regular)
+                    .foregroundStyle(theme.colors.textPrimary)
+                Text(step.railSubtitle)
+                    .textRole(.caption)
+                    .foregroundStyle(theme.colors.textSecondary)
+            }
+        }
+        .padding(.horizontal, Spacing.s8)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(isCurrent ? theme.colors.fillHover : .clear))
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isCurrent ? "Current step" : isDone ? "Done" : "To do")
+    }
+
+    @ViewBuilder
+    private func marker(_ step: OnboardingState.Step, isCurrent: Bool, isDone: Bool) -> some View {
+        if isDone {
+            Image(systemName: "checkmark")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundStyle(theme.colors.bgContent)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(theme.colors.ok))
+        } else if isCurrent {
+            Text("\(step.rawValue + 1)")
+                .textRole(.caption, weight: .bold)
+                .foregroundStyle(theme.colors.accentOnFill)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(theme.colors.accentFill))
+        } else {
+            Text("\(step.rawValue + 1)")
+                .textRole(.caption, weight: .bold)
+                .foregroundStyle(theme.colors.textSecondary)
+                .frame(width: 24, height: 24)
+                .overlay(Circle().strokeBorder(theme.colors.strokeControl, lineWidth: 1.5))
         }
     }
 }
 
-#Preview("Shell — middle step") {
+#Preview("Shell — appearance") {
     @Previewable @State var theme = AppTheme()
     OnboardingShell(
-        currentStep: .identity,
+        currentStep: .appearance,
         primaryLabel: "Continue",
         primaryEnabled: true,
         primaryBusy: false,
@@ -158,30 +181,8 @@ private struct OnboardingFooter: View {
         onSkip: {},
         onPrimary: {}
     ) {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            Text("Step content goes here")
-                .font(AppFont.sans(FontSize.xl))
-                .foregroundStyle(theme.palette.fg2)
-        }
+        Text("Step content goes here").textRole(.body)
     }
-    .frame(width: 820, height: 560)
-    .appTheme(theme)
-}
-
-#Preview("Shell — first step (no Back)") {
-    @Previewable @State var theme = AppTheme()
-    OnboardingShell(
-        currentStep: .welcome,
-        primaryLabel: "Get started",
-        primaryEnabled: true,
-        primaryBusy: false,
-        onBack: {},
-        onSkip: {},
-        onPrimary: {}
-    ) {
-        Text("Welcome content")
-            .font(AppFont.sans(FontSize.xl))
-    }
-    .frame(width: 820, height: 560)
+    .frame(width: 1100, height: 700)
     .appTheme(theme)
 }

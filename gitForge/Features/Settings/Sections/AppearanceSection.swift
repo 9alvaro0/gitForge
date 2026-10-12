@@ -9,18 +9,18 @@ struct AppearanceSection: View {
 
     var body: some View {
         SettingsSection(title: "Appearance") {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.xhuge) {
+            HStack(alignment: .top, spacing: Spacing.s24) {
                 appearanceColumn
                 codeColumn
             }
-            .padding(.horizontal, DesignTokens.Spacing.xl)
-            .padding(.vertical, DesignTokens.Spacing.lg)
+            .padding(.horizontal, Spacing.s12)
+            .padding(.vertical, Spacing.s12)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private var appearanceColumn: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             radioRow(label: "Theme",
                      values: ThemeMode.allCases.map { ($0.rawValue, $0.label) },
                      current: ui.theme.mode.rawValue) { v in
@@ -39,7 +39,7 @@ struct AppearanceSection: View {
     }
 
     private var codeColumn: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             menuPicker(label: "Mono font",
                        values: MonoFontFamily.availableCases.map { ($0.rawValue, $0.label) },
                        current: ui.theme.monoFont.resolved().rawValue) { v in
@@ -66,15 +66,15 @@ struct AppearanceSection: View {
     }
 
     private var wrapToggle: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
             fieldLabel("Wrap long diff lines")
             Toggle(isOn: Binding(
                 get: { ui.preferences.diffWrapLongLines },
                 set: { ui.preferences.diffWrapLongLines = $0 }
             )) {
                 Text(ui.preferences.diffWrapLongLines ? "Soft-wrap onto the next visual row" : "Overflow horizontally (default)")
-                    .font(AppFont.sans(FontSize.sm))
-                    .foregroundStyle(theme.palette.fg2)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
             }
             .toggleStyle(.switch)
             .controlSize(.small)
@@ -90,17 +90,17 @@ struct AppearanceSection: View {
                           values: [(String, String)],
                           current: String,
                           onChange: @escaping (String) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
             fieldLabel(label)
-            HStack(spacing: DesignTokens.Spacing.xs) {
+            HStack(spacing: Spacing.s4) {
                 ForEach(values, id: \.0) { (raw, label) in
                     Button(action: { onChange(raw) }) {
                         Text(label.capitalized)
-                            .font(AppFont.sans(FontSize.sm))
-                            .padding(.horizontal, DesignTokens.Spacing.lg)
-                            .frame(height: DesignTokens.IconSize.xxl)
-                            .foregroundStyle(raw == current ? theme.palette.accent : theme.palette.fg2)
-                            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(raw == current ? theme.palette.accentSoft : theme.palette.bg2))
+                            .textRole(.callout)
+                            .padding(.horizontal, Spacing.s12)
+                            .frame(height: 24)
+                            .foregroundStyle(raw == current ? theme.colors.accent : theme.colors.textSecondary)
+                            .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(raw == current ? theme.colors.accentSoft : theme.colors.bgContent))
                     }
                     .buttonStyle(.plain)
                 }
@@ -113,15 +113,15 @@ struct AppearanceSection: View {
                           swatches: [Color],
                           current: Color,
                           onChange: @escaping (Color) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
             fieldLabel(label)
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: Spacing.s8) {
                 ForEach(Array(swatches.enumerated()), id: \.offset) { _, c in
                     Button(action: { onChange(c) }) {
                         Circle()
                             .fill(c)
                             .frame(width: 20, height: 20)
-                            .overlay(Circle().stroke(c == current ? theme.palette.fg1 : .clear, lineWidth: DesignTokens.Stroke.thick))
+                            .overlay(Circle().stroke(c == current ? theme.colors.textPrimary : .clear, lineWidth: 2))
                     }
                     .buttonStyle(.plain)
                 }
@@ -134,7 +134,7 @@ struct AppearanceSection: View {
                             values: [(String, String)],
                             current: String,
                             onChange: @escaping (String) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
             fieldLabel(label)
             SettingsPicker(current: current) {
                 ForEach(values, id: \.0) { (raw, label) in
@@ -148,8 +148,8 @@ struct AppearanceSection: View {
     @ViewBuilder
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
-            .font(AppFont.sans(FontSize.sm, weight: .medium))
-            .foregroundStyle(theme.palette.fg3)
+            .textRole(.callout, weight: .medium)
+            .foregroundStyle(theme.colors.textTertiary)
     }
 }
 
@@ -158,7 +158,7 @@ struct AppearanceSection: View {
     AppearanceSection()
         .previewAppState(.preview)
         .frame(width: 720)
-        .padding(DesignTokens.Spacing.huge)
-        .background(theme.palette.bg2)
+        .padding(Spacing.s20)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

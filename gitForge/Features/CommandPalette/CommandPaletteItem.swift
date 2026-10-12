@@ -8,6 +8,19 @@ struct CommandPaletteItem: Identifiable, Hashable {
         case branch
         case file
         case command
+
+        /// The order groups appear in ⌘K.
+        static let displayOrder: [Kind] = [.command, .repo, .branch, .commit, .file]
+
+        var title: String {
+            switch self {
+            case .command: "Actions"
+            case .repo:    "Repositories"
+            case .branch:  "Branches"
+            case .commit:  "Commits"
+            case .file:    "Files"
+            }
+        }
     }
 
     let id = UUID()
@@ -37,17 +50,15 @@ struct CommandPaletteItem: Identifiable, Hashable {
     }
 
     func matches(_ query: String) -> Bool {
-        guard !query.isEmpty else { return true }
-        let q = query.lowercased()
-        if label.lowercased().contains(q) { return true }
-        if let hint, hint.lowercased().contains(q) { return true }
-        return false
+        FuzzyMatcher.match(query, in: label) != nil
     }
 }
 
 /// What happens when a palette item is selected.
 enum PaletteAction: Hashable {
     case openRepo(URL)
+    case openRepository
+    case cloneRepository
     case selectSection(WorkspaceSection)
     case fetch
     case pull

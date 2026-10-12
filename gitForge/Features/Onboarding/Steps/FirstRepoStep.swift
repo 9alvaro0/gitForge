@@ -12,84 +12,61 @@ struct FirstRepoStep: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xxl) {
-            heading
-            VStack(spacing: DesignTokens.Spacing.lg) {
-                actionCard(icon: .folder,
-                           title: "Open a folder",
-                           subtitle: "Add an existing local git repository.",
-                           cta: "Choose folder…",
-                           action: onOpenLocal)
-                actionCard(icon: .clone,
-                           title: "Clone from URL",
-                           subtitle: "Bring a repository down from any git remote (HTTPS or SSH).",
-                           cta: "Open Clone…",
-                           action: onClone)
-                actionCard(icon: .cloud,
-                           title: "Connect GitHub or GitLab",
-                           subtitle: "Browse your repositories and clone them in two clicks.",
-                           cta: "Browse providers…",
-                           action: onConnect)
-            }
+        VStack(alignment: .leading, spacing: Spacing.s12) {
+            actionCard(symbol: "folder",
+                       title: "Open a folder",
+                       subtitle: "Add an existing local git repository.",
+                       cta: "Choose folder…",
+                       action: onOpenLocal)
+            actionCard(symbol: "square.and.arrow.down",
+                       title: "Clone from URL",
+                       subtitle: "Bring a repository down from any git remote (HTTPS or SSH).",
+                       cta: "Open Clone…",
+                       action: onClone)
+            actionCard(symbol: "cloud",
+                       title: "Connect GitHub or GitLab",
+                       subtitle: "Browse your repositories and clone them in two clicks.",
+                       cta: "Browse providers…",
+                       action: onConnect)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var heading: some View {
-        VStack(spacing: DesignTokens.Spacing.sm) {
-            ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.xl)
-                    .fill(theme.palette.accentSoft)
-                    .frame(width: 56, height: 56)
-                GFIcon(kind: .folder, size: 26, stroke: theme.palette.accent)
-            }
-            .padding(.bottom, DesignTokens.Spacing.sm)
-            Text("Add your first repository")
-                .font(AppFont.sans(FontSize.title, weight: .semibold))
-                .foregroundStyle(theme.palette.fg1)
-            Text("Pick how you want to get started — or skip and add one later from the sidebar.")
-                .font(AppFont.sans(FontSize.md))
-                .foregroundStyle(theme.palette.fg3)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 460)
-        }
-    }
-
-    private func actionCard(icon: GFIconKind,
+    private func actionCard(symbol: String,
                             title: String,
                             subtitle: String,
                             cta: String,
                             action: @escaping () -> Void) -> some View {
-        HStack(spacing: DesignTokens.Spacing.lg) {
-            ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.md)
-                    .fill(theme.palette.bg3)
-                    .frame(width: 40, height: 40)
-                GFIcon(kind: icon, size: 20, stroke: theme.palette.fg2)
-            }
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+        HStack(spacing: Spacing.s12) {
+            Image(systemName: symbol)
+                .font(.system(size: 16))
+                .foregroundStyle(theme.colors.accent)
+                .frame(width: 36, height: 36)
+                .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.accentSoft))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.s2) {
                 Text(title)
-                    .font(AppFont.sans(FontSize.lg, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.body, weight: .semibold)
+                    .foregroundStyle(theme.colors.textPrimary)
                 Text(subtitle)
-                    .font(AppFont.sans(FontSize.smPlus))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
             }
             Spacer(minLength: 0)
             GFButton(title: cta, action: action)
         }
-        .padding(DesignTokens.Spacing.xxl)
+        .padding(Spacing.s16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).fill(theme.palette.bg1))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.lg).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(theme.colors.separator, lineWidth: 1))
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     FirstRepoStep(onOpenLocal: {}, onClone: {}, onConnect: {})
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s48)
         .frame(width: 720, height: 600)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

@@ -10,22 +10,21 @@ struct SettingsRowLabel: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        Text(text.uppercased())
-            .font(.system(size: FontSize.sm, weight: .medium))
-            .tracking(0.6)
-            .foregroundStyle(theme.palette.fg3)
+        Text(text)
+            .textRole(.body)
+            .foregroundStyle(theme.colors.textPrimary)
             .frame(width: Self.width, alignment: .leading)
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+    VStack(alignment: .leading, spacing: Spacing.s8) {
         SettingsRowLabel(text: "Name")
         SettingsRowLabel(text: "Default branch")
         SettingsRowLabel(text: "Pull strategy")
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

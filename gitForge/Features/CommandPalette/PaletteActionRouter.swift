@@ -19,6 +19,10 @@ struct PaletteActionRouter {
                     appState.ui.presentedError = PresentedError(error: error)
                 }
             }
+        case .openRepository:
+            Task { await appState.presentOpenRepositoryPanel() }
+        case .cloneRepository:
+            appState.ui.cloneRequest = CloneRequest()
         case .selectSection(let section):
             appState.ui.workspaceSection = section
         case .fetch:
