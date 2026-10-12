@@ -66,6 +66,16 @@ struct AddInstanceModelTests {
         #expect(store.instance(forHost: server.host) == nil)
     }
 
+    @Test("With an API URL on another host, that host's certificate is the one to trust")
+    func needsTrustOnAPIHost() async {
+        let web = StubServer(), api = StubServer(), store = makeStore()
+        api.fail("GET", "/api/v4/version", with: .serverCertificateHasUnknownRoot)
+        let model = model(web, store, kind: .gitlab)
+        model.apiURL = "https://\(api.host)/api/v4"
+        await model.add()
+        #expect(model.state == .needsTrust(host: api.host))
+    }
+
     @Test("Bad input and duplicates are refused before any request")
     func refusals() async {
         let server = StubServer(), store = makeStore()

@@ -38,6 +38,20 @@ nonisolated struct GitCredential: Equatable, Sendable {
     }
 }
 
+/// Printing, interpolating or dumping a credential never shows its token.
+nonisolated extension GitCredential: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    var description: String {
+        "GitCredential(context: \(context), username: \(username), password: <redacted>, accountId: \(accountId?.uuidString ?? "nil"))"
+    }
+
+    var debugDescription: String { description }
+
+    var customMirror: Mirror {
+        Mirror(self, children: ["context": context, "username": username, "password": "<redacted>",
+                                "accountId": accountId as Any], displayStyle: .struct)
+    }
+}
+
 /// Pure helpers for signing git with an account (spec §6).
 nonisolated enum GitCredentialInjection {
     /// `https://host[:port]` for an HTTPS remote; `nil` for SSH, scp-style,

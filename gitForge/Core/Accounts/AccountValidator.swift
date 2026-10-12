@@ -50,7 +50,7 @@ final class AccountValidator {
             store.applyValidation(validation, to: account.id, now: now())
         } catch {
             let error = HostingAuthError.wrapping(error)
-            if let reason = AccountStatusPolicy.reason(for: error) {
+            if let reason = AccountStatusPolicy.reason(for: error, expiresAt: account.expiresAt, now: now()) {
                 Self.logger.notice("Account \(account.id.uuidString, privacy: .public) on \(instance.host, privacy: .public) needs attention: \(error.localizedDescription, privacy: .public)")
                 store.markNeedsAttention(account.id, reason, validatedAt: now())
             } else {

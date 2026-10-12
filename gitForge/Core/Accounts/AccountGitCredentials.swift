@@ -75,8 +75,11 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
             return try await operation(nil)
         } catch HostingAuthError.refreshRejected {
             throw rejected
+        } catch HostingAuthError.oauthUnavailable {
+            await store.markNeedsAttention(account.id, .expired)
+            throw rejected
         } catch let error where GitCredentialInjection.isRejection(error, context: context) {
-            await store.markNeedsAttention(account.id, .revoked)
+            await store.markNeedsAttention(account.id, AccountStatusPolicy.rejectionReason(expiresAt: account.expiresAt))
             throw rejected
         }
     }
@@ -85,9 +88,16 @@ nonisolated final class AccountGitCredentials: GitCredentialProvider {
         guard GitCredentialInjection.context(forRemoteURL: remoteURL) != nil,
               let host = GitCredentialInjection.host(forRemoteURL: remoteURL) else { return .system }
         let owner = GitCredentialInjection.owner(forRemoteURL: remoteURL)
+        let store = self.store
+        // The identity profile costs several `git config` runs: skip it on
+        // hosts with no account that could sign (every auto-fetch asks).
+        let hasSigners = await MainActor.run {
+            guard let instance = store.instance(forHost: host) else { return false }
+            return store.accounts(in: instance.id).contains(where: Self.signs)
+        }
+        guard hasSigners else { return .system }
         let profile = await activeProfileId(repoPath)
         let canAsk = chooseAccount != nil && !GitNetworkContext.isBackground
-        let store = self.store
         return await MainActor.run {
             guard let instance = store.instance(forHost: host) else { return .system }
             // Only accounts that can sign take part, so a failing copy neither

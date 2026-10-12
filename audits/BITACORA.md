@@ -542,6 +542,11 @@ Recogidos el 2026-10-12. Las revisiones finales de cada fase dejaban "menores an
 
 ### Lote 1 · Cuentas y autenticación
 
+**Hecho (2026-10-12, rama `fix/deferred-minors-accounts`).** Todos los puntos de la tabla, con 26 tests nuevos; suite 940/940, 0 warnings. Notas:
+- `oauthUnavailable` marca la cuenta como `expired` (git, Pull requests y "My repos"); `missingSecret` ofrece reconectar en Pull requests y "My repos", y en git sigue cayendo al helper del sistema.
+- El clonado usa el perfil elegido en la hoja mientras dura (`ActiveProfileLookup`, que también quita la closure duplicada de P5a-7), o la identidad global.
+- Sin comprobar en pantalla: el aviso nuevo de "Add instance" cuando se cancela la confianza (hace falta un servidor con certificado propio).
+
 | # | Menor | Dónde |
 |---|---|---|
 | P2-6 | Un certificado fijado que no coincide sale como "Cancelled." y no como error de certificado. | `HostingHTTP.swift`, `OptInTrustSessionDelegate.swift` |

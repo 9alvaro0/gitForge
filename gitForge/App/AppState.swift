@@ -21,6 +21,8 @@ final class AppState {
     let gitCredentials: AccountGitCredentials
     let accountChooser: AccountChooser
     let pullRequestAuth: AccountPullRequestAuth
+    /// The identity profile a repository (or a clone in progress) uses.
+    let profileLookup: ActiveProfileLookup
     let network: NetworkMonitor
 
     init(
@@ -51,14 +53,13 @@ final class AppState {
         self.accountConnector = AccountConnector(store: accountStore)
         let chooser = AccountChooser()
         self.accountChooser = chooser
-        self.gitCredentials = AccountGitCredentials(store: accountStore, refresher: refresher, activeProfileId: { repoPath in
-            let identity = await GitCLI(workingDirectory: URL(fileURLWithPath: repoPath)).currentIdentity()
-            return await profileStore.match(for: identity)?.id
-        }, chooseAccount: { remote in await chooser.choose(remote) })
-        self.pullRequestAuth = AccountPullRequestAuth(store: accountStore, refresher: refresher, activeProfileId: { repoPath in
-            let identity = await GitCLI(workingDirectory: URL(fileURLWithPath: repoPath)).currentIdentity()
-            return await profileStore.match(for: identity)?.id
-        }, chooseAccount: { remote in await chooser.choose(remote) })
+        let profileLookup = ActiveProfileLookup(profiles: profileStore)
+        self.profileLookup = profileLookup
+        let activeProfileId: @Sendable (String) async -> UUID? = { await profileLookup.profileId(forRepoAt: $0) }
+        self.gitCredentials = AccountGitCredentials(store: accountStore, refresher: refresher, activeProfileId: activeProfileId,
+                                                    chooseAccount: { remote in await chooser.choose(remote) })
+        self.pullRequestAuth = AccountPullRequestAuth(store: accountStore, refresher: refresher, activeProfileId: activeProfileId,
+                                                      chooseAccount: { remote in await chooser.choose(remote) })
         self.network = network ?? NetworkMonitor()
         self.catalog.gitCredentials = gitCredentials
         self.catalog.pullRequestAuth = pullRequestAuth
@@ -172,8 +173,13 @@ final class AppState {
         }
 
         var pin = CloneAccountPin.pin(accountId, destination: destination, in: accounts)
+        let destinationPath = destination.path(percentEncoded: false)
+        profileLookup.beginClone(at: destinationPath, profileId: profileId)
         clone.cloneState = .running(stage: "Connecting…", percent: 0)
-        defer { clone.cloneState = .idle }
+        defer {
+            clone.cloneState = .idle
+            profileLookup.endClone(at: destinationPath)
+        }
 
         do {
             try await GitCLI.clone(
