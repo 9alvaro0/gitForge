@@ -503,6 +503,7 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | ~~Arrastre entre filas de la tabla de Branches~~ | `Branches` | F5 | Hecho (2026-10-12): soltar una rama local sobre otra pregunta merge o rebase, con el mismo diálogo (`MergeRebaseDialog`) y HUD que History. |
 | ~~Sign-off en el composer~~ | `Changes` | spec §2 | Hecho (2026-10-12): interruptor junto a Amend, `--signoff`, recordado por repositorio. Firma verificada y CI en el detalle de commit siguen fuera. |
 | ~~Wrap lines y Hide whitespace~~ | `CommitDetail` | spec §2 | Hecho (2026-10-12): menú de opciones en la cabecera del diff; Hide whitespace pasa `-w` y no se ofrece en PRs (su diff no sale de git). "Show N hidden lines" sigue fuera. |
+| ~~Clone superficial y con submódulos, "New repository…"~~ | `Welcome` | spec §2 | Hecho (2026-10-12): casillas en la hoja de Clone (`--depth 1`, `--recurse-submodules`) y "New repository…" en Welcome y File (⌥⌘N), que hace `git init` y lo abre. |
 | Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
 | ~~Push de una rama que no es la actual desde el inspector~~ | `Branches` | F5 | Hecho (2026-10-12): inspector y menú contextual; al remoto que usaría git y a su upstream (con otro nombre incluido), fijándolo si no lo tiene. |
 

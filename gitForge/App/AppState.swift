@@ -136,9 +136,11 @@ final class AppState {
     /// `accountId`: the account "My repos" listed the repo with; it signs
     /// the clone and stays the repo's account. `profileId`: the identity
     /// profile pinned to the new repo (`nil` keeps the global identity).
-    func startClone(url: String, path: String, branch: String?, accountId: UUID? = nil, profileId: UUID? = nil) {
+    func startClone(url: String, path: String, branch: String?, options: CloneOptions = CloneOptions(),
+                    accountId: UUID? = nil, profileId: UUID? = nil) {
         clone.start { [weak self] in
-            await self?.runClone(url: url, path: path, branch: branch, accountId: accountId, profileId: profileId)
+            await self?.runClone(url: url, path: path, branch: branch, options: options,
+                                 accountId: accountId, profileId: profileId)
         }
     }
 
@@ -161,7 +163,8 @@ final class AppState {
         }
     }
 
-    private func runClone(url: String, path: String, branch: String?, accountId: UUID?, profileId: UUID?) async {
+    private func runClone(url: String, path: String, branch: String?, options: CloneOptions,
+                          accountId: UUID?, profileId: UUID?) async {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
@@ -189,6 +192,7 @@ final class AppState {
                 url: trimmedUrl,
                 destination: destination,
                 branch: branch,
+                options: options,
                 credentials: gitCredentials,
                 onProgress: { [weak self] progress in
                     Task { @MainActor [weak self] in
@@ -259,6 +263,22 @@ final class AppState {
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
         return url.path(percentEncoded: false)
+    }
+
+    /// File ▸ New Repository… and Welcome: picks (or creates) a folder, runs
+    /// `git init` there unless it already holds a repository, and opens it.
+    func presentNewRepositoryPanel() async {
+        guard let path = await pickDirectoryPath(prompt: "Create Repository") else { return }
+        let url = URL(fileURLWithPath: path)
+        do {
+            let created = try await GitCLI.initRepository(at: url)
+            try await openRepository(at: url)
+            if created {
+                ui.activeToast = ToastMessage(message: "Created \(url.lastPathComponent)", kind: .ok)
+            }
+        } catch {
+            ui.presentedError = PresentedError(error: error, title: "Couldn't create the repository")
+        }
     }
 
     /// Open Repository menu / sidebar entry. Picks a folder, opens it as a

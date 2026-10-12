@@ -20,6 +20,8 @@ final class CloneSheetModel {
         didSet { if destination != lastAutoDestination { destinationEdited = true } }
     }
     var branch = ""
+    /// Shallow / submodule flags (`git clone --depth 1`, `--recurse-submodules`).
+    var options = CloneOptions()
     /// `nil`: keep the global identity.
     var profileId: UUID? {
         didSet { if profileId != suggestedProfileId { profileEdited = true } }

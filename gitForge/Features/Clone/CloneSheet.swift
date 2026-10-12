@@ -115,6 +115,15 @@ struct CloneSheet: View {
                     .frame(width: 180)
             }
             .textRole(.callout)
+            HStack(spacing: Spacing.s24) {
+                Toggle("Latest commit only", isOn: $model.options.shallow)
+                    .help("Shallow clone (git clone --depth 1): faster, but History shows only the newest commit until you fetch more")
+                Toggle("Include submodules", isOn: $model.options.submodules)
+                    .help("Also clone the repository's submodules (--recurse-submodules)")
+            }
+            .toggleStyle(.checkbox)
+            .textRole(.callout)
+            .disabled(isCloning)
             if case let .running(stage, percent) = appState.clone.cloneState {
                 VStack(alignment: .leading, spacing: Spacing.s4) {
                     HStack {
@@ -222,6 +231,7 @@ struct CloneSheet: View {
         started = true
         appState.startClone(url: model.url, path: model.destination,
                             branch: model.branch.isEmpty ? nil : model.branch,
+                            options: model.options,
                             accountId: model.accountIdForClone, profileId: model.profileId)
     }
 
