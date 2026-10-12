@@ -13,7 +13,7 @@ extension GitCLI {
         }
         let repoPath = workingDirectory.path(percentEncoded: false)
         var signers: [(remote: String, url: String?, account: UUID?)] = []
-        for remote in await remoteNames() {
+        for remote in await fetchAllRemoteNames() {
             let url = await remoteURL(remote)
             var account: UUID?
             if let url {
@@ -100,6 +100,22 @@ extension GitCLI {
         }
     }
 
+    /// The remote a push of `branch` goes to, in git's order:
+    /// `branch.<name>.pushRemote`, `remote.pushDefault`, `branch.<name>.remote`.
+    /// `nil` when none is set (git then uses `origin`).
+    func pushRemoteName(forBranch branch: String) async -> String? {
+        for key in ["branch.\(branch).pushRemote", "remote.pushDefault", "branch.\(branch).remote"] {
+            if let value = await configValue(key) { return value }
+        }
+        return nil
+    }
+
+    private func configValue(_ key: String) async -> String? {
+        guard let result = try? await run(["config", "--get", key]) else { return nil }
+        let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     /// `branch.<name>.remote` — the remote configured for push/pull on this
     /// branch. Returns nil if the branch has no tracking config. Used to push
     /// to `upstream`/`fork`/etc. when the user renamed `origin`.
@@ -132,9 +148,35 @@ extension GitCLI {
         return result.stdout.split(separator: "\n").map(String.init)
     }
 
-    /// The URL git talks to for `remote`; `nil` when there's no such remote.
-    func remoteURL(_ remote: String) async -> String? {
-        guard let result = try? await run(["remote", "get-url", Self.endOfOptions, remote]) else { return nil }
+    /// The remotes `fetch --all` visits: all but those with
+    /// `remote.<name>.skipFetchAll` set.
+    func fetchAllRemoteNames() async -> [String] {
+        let names = await remoteNames()
+        guard let result = try? await run(["config", "--type=bool", "--get-regexp", #"^remote\..*\.skipfetchall$"#]) else {
+            return names
+        }
+        let skipped = Self.skipFetchAllRemotes(result.stdout)
+        return names.filter { !skipped.contains($0) }
+    }
+
+    /// Remote names whose `skipFetchAll` is true, from `config --get-regexp`
+    /// lines (`remote.<name>.skipfetchall true`). Names may contain dots.
+    nonisolated static func skipFetchAllRemotes(_ output: String) -> Set<String> {
+        Set(output.split(separator: "\n").compactMap { line -> String? in
+            let parts = line.split(separator: " ", maxSplits: 1)
+            guard parts.count == 2, parts[1] == "true" else { return nil }
+            let key = parts[0]
+            let prefix = "remote.", suffix = ".skipfetchall"
+            guard key.hasPrefix(prefix), key.hasSuffix(suffix), key.count > prefix.count + suffix.count else { return nil }
+            return String(key.dropFirst(prefix.count).dropLast(suffix.count))
+        })
+    }
+
+    /// The URL git talks to for `remote` (its `pushurl` when `push`); `nil`
+    /// when there's no such remote.
+    func remoteURL(_ remote: String, push: Bool = false) async -> String? {
+        let args = ["remote", "get-url"] + (push ? ["--push"] : []) + [Self.endOfOptions, remote]
+        guard let result = try? await run(args) else { return nil }
         let url = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         return url.isEmpty ? nil : url
     }
@@ -156,10 +198,11 @@ extension GitCLI {
     }
 
     /// Runs a network command against `remote` with its account's credential
-    /// when there is one; otherwise exactly like `run`.
+    /// when there is one; otherwise exactly like `run`. A push is signed for
+    /// the remote's push URL (`pushurl`), the one git will talk to.
     @discardableResult
     func runNetwork(_ args: [String], remote: String) async throws -> GitResult {
-        guard let credentials, let url = await remoteURL(remote) else { return try await run(args) }
+        guard let credentials, let url = await remoteURL(remote, push: args.first == "push") else { return try await run(args) }
         let repoPath = workingDirectory.path(percentEncoded: false)
         return try await credentials.withCredential(remoteURL: url, remoteName: remote, repoPath: repoPath) { credential in
             try await self.run(args, credential: credential)
@@ -175,7 +218,7 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
     /// The server refused the credential of the repo's hosting account
     /// (gitForge's own, not the system helper's).
     case accountRejected(account: String, host: String)
-    /// The account's token lacks a scope the operation needs (GitHub wants
+    /// The token git sent (an account's or the system helper's) lacks a scope the operation needs (GitHub wants
     /// `workflow` to change files under `.github/workflows`).
     case missingScope(String)
     case nonFastForward
@@ -316,7 +359,9 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
         case .accountRejected(let account, let host):
             "\(host) rejected the \(account) account gitForge used for this remote. Reconnect it in Settings › Accounts."
         case .missingScope(let scope):
-            "The account's token lacks the `\(scope)` scope this operation needs. Reconnect the account to grant it."
+            // git doesn't say whose token it was: a gitForge account or the
+            // system's credential helper.
+            "The token used for this remote lacks the `\(scope)` scope this operation needs. If it's a gitForge account, reconnect it to grant the scope; if it comes from your credential helper, replace it with a token that has it."
         case .authenticationSSH:
             "The host refused your SSH key. Run `ssh-add -l` to confirm it's loaded, or `ssh -T git@<host>` to test it. If the key has a passphrase, the agent needs it unlocked before the app can use it."
         case .nonFastForward:

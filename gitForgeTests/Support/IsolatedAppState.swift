@@ -6,7 +6,7 @@ extension AppState {
     /// in temporary storage, never the user's.
     @MainActor
     static func isolated() -> AppState {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-app-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-app")
         let defaults = TestDefaults(prefix: "gitForge-app").defaults
         return AppState(catalog: RepositoryCatalog(store: RepositoryStore(directory: dir), defaults: defaults),
                         profiles: ProfileStore(defaults: defaults),

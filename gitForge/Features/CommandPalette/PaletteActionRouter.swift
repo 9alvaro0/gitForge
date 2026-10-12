@@ -22,7 +22,7 @@ struct PaletteActionRouter {
         case .openRepository:
             Task { await appState.presentOpenRepositoryPanel() }
         case .cloneRepository:
-            appState.ui.cloneRequest = CloneRequest()
+            appState.ui.requestClone()
         case .selectSection(let section):
             appState.ui.workspaceSection = section
         case .fetch:

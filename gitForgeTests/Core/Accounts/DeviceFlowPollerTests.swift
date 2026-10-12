@@ -81,4 +81,22 @@ struct DeviceFlowPollerTests {
         }
         #expect(script.attempts == 0)
     }
+
+    @Test("A network blip or a server error keeps waiting")
+    func transientErrors() async throws {
+        let clock = VirtualClock()
+        let script = Script([.failure(.network("offline")), .failure(.server(502)), .success(.granted(Self.grant))])
+        let grant = try await DeviceFlowPoller.run(code: code(), clock: clock.clock) { try script.next() }
+        #expect(grant == Self.grant)
+        #expect(script.attempts == 3)
+    }
+
+    @Test("Network errors until the code's lifetime ends: expiredToken")
+    func transientUntilExpiry() async {
+        let clock = VirtualClock()
+        let script = Script([.failure(.network("offline"))])
+        await #expect(throws: HostingAuthError.expiredToken) {
+            try await DeviceFlowPoller.run(code: self.code(expiresIn: 12), clock: clock.clock) { try script.next() }
+        }
+    }
 }

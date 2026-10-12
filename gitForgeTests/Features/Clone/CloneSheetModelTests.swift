@@ -15,7 +15,7 @@ private final class ProbeLog: @unchecked Sendable {
 struct CloneSheetModelTests {
 
     private func store() -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-clonesheet-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-clonesheet")
         return AccountStore(directory: dir, secrets: InMemoryAccountSecretStore())
     }
 
@@ -64,6 +64,30 @@ struct CloneSheetModelTests {
         #expect(m.remoteSummary == "GitHub · octo/app · SSH")
         m.url = "https://example.org/x/y.git"
         #expect(m.remoteSummary == nil)
+    }
+
+    @Test("An account linked to a deleted profile suggests none")
+    func deletedProfile() throws {
+        let s = store()
+        var octo = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "octo", method: .oauth, status: .ok)
+        octo.linkedProfileId = UUID()
+        try s.addAccount(octo, secret: AccountSecret(accessToken: "test-a"))
+        let m = CloneSheetModel(store: s, parentDirectory: "/tmp/gitforge-none-\(UUID().uuidString)",
+                                probe: { _ in .reachable(defaultBranch: "main") }, profileExists: { _ in false })
+        m.url = "https://github.com/octo/app.git"
+        #expect(m.suggestedProfileId == nil)
+        #expect(m.profileId == nil)
+    }
+
+    @Test("Deleting a profile unlinks the accounts that pointed at it")
+    func unlinkProfile() throws {
+        let s = store()
+        let profile = UUID()
+        var octo = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "octo", method: .oauth, status: .ok)
+        octo.linkedProfileId = profile
+        try s.addAccount(octo, secret: AccountSecret(accessToken: "test-a"))
+        s.unlinkProfile(profile)
+        #expect(s.accounts[0].linkedProfileId == nil)
     }
 
     @Test("A repo picked from My repos is cloned with its account while the URL stays")
@@ -123,5 +147,13 @@ struct CloneSheetModelTests {
         await Task.yield()
         #expect(m.probe == .checking)
         await pending.value
+    }
+
+    @Test("VoiceOver hears the reachability badge's text")
+    func probeDescription() {
+        #expect(CloneSheet.probeDescription(.idle) == nil)
+        #expect(CloneSheet.probeDescription(.checking) == "Checking…")
+        #expect(CloneSheet.probeDescription(.done(.reachable(defaultBranch: "main"))) == "Reachable")
+        #expect(CloneSheet.probeDescription(.done(.unreachable(.network))) == "Can't reach · offline")
     }
 }

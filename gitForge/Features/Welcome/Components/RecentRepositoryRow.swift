@@ -60,6 +60,8 @@ struct RecentRepositoryRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .accessibilityElement(children: .ignore)
+        // Ignoring the children drops the Button's own trait.
+        .accessibilityAddTraits(.isButton)
         .accessibilityLabel("\(repo.name), \(branch.isEmpty ? "" : "\(branch), ")\(statusText)")
         .accessibilityHint(repo.path)
         .contextMenu {

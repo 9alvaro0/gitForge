@@ -130,7 +130,8 @@ final class RemoteRepoListModel {
               let account = selectedAccount, let instance = instance(of: account) else { return }
         let gen = generation
         isLoadingMore = true
-        defer { isLoadingMore = false }
+        // After an account switch the flag belongs to the new account.
+        defer { if gen == generation { isLoadingMore = false } }
         do {
             let chunk = try await fetch(page: page + 1, account, instance)
             guard gen == generation else { return }
@@ -156,6 +157,7 @@ final class RemoteRepoListModel {
         repos = []
         page = 0
         hasMore = false
+        isLoadingMore = false
         state = .idle
     }
 
@@ -170,20 +172,27 @@ final class RemoteRepoListModel {
         }
     }
 
-    /// A rejected token marks the account and offers to reconnect it; any
-    /// other failure is shown as it is.
+    /// A rejected token marks the account and offers to reconnect it, as
+    /// does a token that can't be read or refreshed; any other failure is
+    /// shown as it is.
     private func handle(_ error: any Error, _ account: HostingAccount) {
-        let rejected = (error as? PullRequestFetchError) == .unauthorized
-            || (error as? HostingAuthError) == .unauthorized
+        let authError = error as? HostingAuthError
+        let rejected = (error as? PullRequestFetchError) == .unauthorized || authError == .unauthorized
         if rejected {
-            store.markNeedsAttention(account.id, .revoked)
+            store.markNeedsAttention(account.id, AccountStatusPolicy.rejectionReason(expiresAt: account.expiresAt))
+        } else if authError == .oauthUnavailable {
+            store.markNeedsAttention(account.id, .expired)
         }
-        if rejected || (error as? HostingAuthError) == .refreshRejected {
+        let reconnect: [HostingAuthError] = [.refreshRejected, .missingSecret, .oauthUnavailable]
+        if rejected || authError.map({ reconnect.contains($0) }) == true {
             repos = []
             hasMore = false
             state = .needsAccount(instanceId: account.instanceId, replacing: account.id)
             return
         }
-        state = .failed(error.userMessage)
+        // The provider's 403 text is about pull requests.
+        state = .failed((error as? PullRequestFetchError) == .forbidden
+                        ? "The account's token isn't allowed to list repositories. Check its scopes."
+                        : error.userMessage)
     }
 }

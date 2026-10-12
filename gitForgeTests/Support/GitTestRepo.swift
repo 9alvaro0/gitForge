@@ -21,8 +21,7 @@ struct GitTestRepo: Sendable {
     var cli: GitCLI { GitCLI(workingDirectory: url) }
 
     init(bare: Bool = false) throws {
-        url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gitForge-repo-\(UUID().uuidString)")
+        url = TemporaryDirectories.make("gitForge-repo")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         if bare {
             try git("init", "-q", "--bare", "-b", "main")

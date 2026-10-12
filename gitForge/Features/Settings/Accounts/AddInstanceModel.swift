@@ -58,7 +58,8 @@ final class AddInstanceModel {
         case .needsSignIn:
             save(instance, warning: "The API needs a token to answer; it'll be checked when you connect the first account.")
         case .untrustedCertificate:
-            state = .needsTrust(host: instance.host)
+            // The API is what's checked, and it may live on another host.
+            state = .needsTrust(host: instance.apiBaseURL.host() ?? instance.host)
         case .unreachable(let message):
             state = .failed(message)
         }

@@ -18,6 +18,9 @@ nonisolated struct HostingInstance: Codable, Identifiable, Hashable, Sendable {
     var kind: Kind
     /// Lowercased, no scheme / port / path / `www.`.
     var host: String
+    /// "API URL" in Advanced can move it to another host or port. A server
+    /// installed under a path (`https://host/gitlab`) isn't supported: the
+    /// remote's path would then start with that prefix, read as the owner.
     var apiBaseURL: URL
     /// OAuth app registered on this instance; `nil` = token sign-in only.
     var oauthClientId: String?

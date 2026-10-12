@@ -7,7 +7,7 @@ struct TextFileTests {
 
     @Test("UTF-8 and Latin-1 files round-trip byte for byte")
     func roundTrip() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-text-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-text")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 

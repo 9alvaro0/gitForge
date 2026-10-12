@@ -84,6 +84,13 @@ final class ConnectAccountModel {
         deviceFlow?.cancel()
     }
 
+    /// The sheet went away (Done, Esc or closed): stops a running sign-in
+    /// and keeps the profile choice of an account already connected.
+    func close() {
+        cancel()
+        finish()
+    }
+
     /// "Done": applies the profile choice.
     func finish() {
         guard let result else { return }

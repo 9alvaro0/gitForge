@@ -105,4 +105,15 @@ struct GitCredentialInjectionTests {
                                                                           stderr: "fatal: Authentication failed")))
         #expect(!GitCredentialInjection.isRejection(CancellationError()))
     }
+
+    @Test("Printing, interpolating or dumping a credential never shows the token")
+    func redactedDescription() {
+        let credential = Self.credential
+        var dumped = ""
+        dump(credential, to: &dumped)
+        for text in [String(describing: credential), "\(credential)", String(reflecting: credential), dumped] {
+            #expect(!text.contains("test-secret-value-1"))
+            #expect(text.contains("example.test"))
+        }
+    }
 }

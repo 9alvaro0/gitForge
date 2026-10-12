@@ -23,26 +23,12 @@ struct IconButton<Content: View>: View {
     }
 }
 
-/// SF Symbol glyph sized like the old icon box (symbols fill more of their
-/// point size than the previous line glyphs, hence the 0.8 scale).
-struct IconButtonGlyph: View {
-    let symbol: String
-    let size: CGFloat
-
-    var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: size * 0.8, weight: .medium))
-            .frame(width: size, height: size)
-            .accessibilityHidden(true)
-    }
-}
-
-extension IconButton where Content == IconButtonGlyph {
+extension IconButton where Content == SymbolGlyph {
     /// `symbol` is an SF Symbol name.
     init(symbol: String, size: CGFloat = 14, accessibilityLabel: String, action: @escaping () -> Void) {
         self.action = action
         self.accessibilityLabel = accessibilityLabel
-        self.content = { IconButtonGlyph(symbol: symbol, size: size) }
+        self.content = { SymbolGlyph(symbol, size: size) }
     }
 }
 

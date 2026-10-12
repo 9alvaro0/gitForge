@@ -76,9 +76,12 @@ final class AccountPullRequestAuth {
             }
             return .token(try await refresher.accessToken(for: account, on: instance))
         } catch HostingAuthError.unauthorized {
-            store.markNeedsAttention(account.id, .revoked)
+            store.markNeedsAttention(account.id, AccountStatusPolicy.rejectionReason(expiresAt: account.expiresAt))
             return .connectAccount(instanceId: instance.id, replacing: account.id)
-        } catch HostingAuthError.refreshRejected {
+        } catch HostingAuthError.oauthUnavailable {
+            store.markNeedsAttention(account.id, .expired)
+            return .connectAccount(instanceId: instance.id, replacing: account.id)
+        } catch HostingAuthError.refreshRejected, HostingAuthError.missingSecret {
             return .connectAccount(instanceId: instance.id, replacing: account.id)
         } catch let error as HostingAuthError where Self.isTransient(error) {
             // Offline, TLS, server down: the account may be fine — say what

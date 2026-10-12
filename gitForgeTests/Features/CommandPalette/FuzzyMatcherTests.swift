@@ -41,4 +41,13 @@ struct FuzzyMatcherTests {
         #expect(FuzzyMatcher.match("   ", in: "Fetch") == FuzzyMatch(score: 0, indices: []))
         #expect(FuzzyMatcher.match("fetching", in: "Fetch") == nil)
     }
+
+    @Test("Emoji and combining marks count as one character each, so highlights land on the right letters")
+    func graphemes() throws {
+        // "e" + U+0301: one character, folded to "e".
+        #expect(FuzzyMatcher.match("cafe", in: "Cafe\u{301} bar")?.indices == [0, 1, 2, 3])
+        #expect(FuzzyMatcher.match("dep", in: "🚀 Deploy main")?.indices == [2, 3, 4])
+        #expect(FuzzyMatcher.match("🚀d", in: "🚀 Deploy")?.indices == [0, 2])
+        #expect(FuzzyMatcher.match("x", in: "👩‍👩‍👧 family") == nil)
+    }
 }

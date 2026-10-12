@@ -74,7 +74,7 @@ struct AccountsSettingsModelTests {
 
     @Test("Linking to a profile and setting a self-hosted client id persist; built-ins keep theirs")
     func storeOperations() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-settings-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-settings")
         let secrets = InMemoryAccountSecretStore()
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: OAuthClientIDs(gitHub: "gh", gitLab: nil))
         try store.addInstance(Self.mercadona)
@@ -91,5 +91,13 @@ struct AccountsSettingsModelTests {
         #expect(reloaded.instance(forHost: "github.com")?.oauthClientId == "gh")
         reloaded.setOAuthClientId("  ", forInstance: Self.mercadona.id)
         #expect(reloaded.instance(forHost: "gitlab.gcp.mercadona.com")?.oauthClientId == nil)
+    }
+
+    @Test("Trusted hosts without an instance block are listed so they can be revoked")
+    func otherTrustedHosts() {
+        let instance = HostingInstance(kind: .gitlab, host: "git.example.test")
+        let others = AccountsSettingsModel.otherTrustedHosts(["git.example.test", "old.example.test", "api.example.test"],
+                                                             instances: HostingInstance.builtIns + [instance])
+        #expect(others == ["api.example.test", "old.example.test"])
     }
 }

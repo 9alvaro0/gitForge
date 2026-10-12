@@ -8,7 +8,7 @@ struct ConnectAccountModelTests {
     nonisolated static let user = HostingUser(login: "octo-test", displayName: "Octo Test", avatarURL: nil)
 
     private func makeStore(_ secrets: InMemoryAccountSecretStore = .init(), clientIds: OAuthClientIDs = .none) -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-connectmodel-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-connectmodel")
         return AccountStore(directory: dir, secrets: secrets, clientIds: clientIds)
     }
 
@@ -43,6 +43,22 @@ struct ConnectAccountModelTests {
         let profile = UUID()
         model.profileChoice = profile
         model.finish()
+        #expect(store.accounts.first?.linkedProfileId == profile)
+    }
+
+    @Test("Closing the sheet (Esc) after connecting still links the chosen profile")
+    func closeKeepsProfile() async throws {
+        let store = makeStore()
+        let connector = AccountConnector(store: store, makeClient: { _ in
+            FakeAuthClient(instance: .gitHubDotCom, validate: { _ in
+                TokenValidation(user: Self.user, scopes: ["repo", "read:org", "workflow"], expiresAt: nil) })
+        })
+        let model = ConnectAccountModel(store: store, connector: connector, instanceId: HostingInstance.gitHubDotCom.id, replacing: nil)
+        model.token = "test-token"
+        await model.connectToken()
+        let profile = UUID()
+        model.profileChoice = profile
+        model.close()
         #expect(store.accounts.first?.linkedProfileId == profile)
     }
 

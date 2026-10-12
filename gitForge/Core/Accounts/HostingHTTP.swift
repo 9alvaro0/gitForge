@@ -25,7 +25,9 @@ nonisolated struct HostingHTTP: Sendable {
         } catch is CancellationError {
             throw HostingAuthError.cancelled
         } catch let error as URLError where error.code == .cancelled {
-            throw HostingAuthError.cancelled
+            // Not cancelled by the caller: the trust delegate refused the
+            // certificate (it no longer matches the one the user pinned).
+            throw Task.isCancelled ? HostingAuthError.cancelled : HostingAuthError.tls(Self.pinMismatch)
         } catch let error as URLError where Self.isTLSFailure(error) {
             throw HostingAuthError.tls(error.localizedDescription)
         } catch {
@@ -56,6 +58,8 @@ nonisolated struct HostingHTTP: Sendable {
         request.httpBody = Data(Self.formEncode(fields).utf8)
         return try await send(request)
     }
+
+    static let pinMismatch = "it doesn't match the certificate you trusted for this host"
 
     static func check(_ status: Int) throws {
         switch status {

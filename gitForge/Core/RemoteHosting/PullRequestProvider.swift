@@ -2,7 +2,6 @@ import Foundation
 
 /// Errors surfaced by remote PR/MR fetches. Mapped to friendly UI strings.
 enum PullRequestFetchError: LocalizedError, Sendable, Equatable {
-    case missingToken
     case unauthorized
     case forbidden
     case notFound
@@ -13,8 +12,6 @@ enum PullRequestFetchError: LocalizedError, Sendable, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .missingToken:
-            "No token configured for this host. Add a Personal Access Token in Settings."
         case .unauthorized:
             "The token was rejected. Check that it's valid and has the required scopes."
         case .forbidden:

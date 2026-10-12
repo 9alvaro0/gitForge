@@ -2,18 +2,15 @@ import Foundation
 
 extension GitCLI {
     func stage(paths: [String]) async throws {
-        guard !paths.isEmpty else { return }
-        try await run(["add", "--"] + paths)
+        try await runInBatches(["add", "--"], paths: paths)
     }
 
     func unstage(paths: [String]) async throws {
-        guard !paths.isEmpty else { return }
-        try await run(["restore", "--staged", "--"] + paths)
+        try await runInBatches(["restore", "--staged", "--"], paths: paths)
     }
 
     func discardChanges(paths: [String]) async throws {
-        guard !paths.isEmpty else { return }
-        try await run(["restore", "--"] + paths)
+        try await runInBatches(["restore", "--"], paths: paths)
     }
 
     /// Resets unmerged paths to HEAD content — the equivalent of "abandon
@@ -23,8 +20,40 @@ extension GitCLI {
     /// the index entry and the worktree from HEAD, which is what users want
     /// when they pick "Discard" on a conflicted file.
     func discardUnmerged(paths: [String]) async throws {
-        guard !paths.isEmpty else { return }
-        try await run(["checkout", "HEAD", "--"] + paths)
+        try await runInBatches(["checkout", "HEAD", "--"], paths: paths)
+    }
+
+    /// Bytes of paths per git run. macOS caps a process's arguments plus
+    /// environment at `ARG_MAX` (1 MB); staging tens of thousands of files
+    /// in one run failed to launch.
+    static let pathBatchBytes = 128 * 1024
+
+    /// Runs `command` once per batch of `paths`, in order; stops at the
+    /// first failure.
+    private func runInBatches(_ command: [String], paths: [String]) async throws {
+        for batch in Self.pathBatches(paths) {
+            try await run(command + batch)
+        }
+    }
+
+    /// `paths` split so each batch's bytes (with separators) stay under
+    /// `limit`; a single longer path gets a batch of its own.
+    nonisolated static func pathBatches(_ paths: [String], limit: Int = pathBatchBytes) -> [[String]] {
+        var batches: [[String]] = []
+        var current: [String] = []
+        var size = 0
+        for path in paths {
+            let bytes = path.utf8.count + 1
+            if !current.isEmpty, size + bytes > limit {
+                batches.append(current)
+                current = []
+                size = 0
+            }
+            current.append(path)
+            size += bytes
+        }
+        if !current.isEmpty { batches.append(current) }
+        return batches
     }
 
     /// Sends untracked files to the Trash when the volume has one, so a

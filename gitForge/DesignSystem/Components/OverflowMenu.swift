@@ -17,10 +17,8 @@ struct OverflowMenu<Content: View>: View {
             ZStack {
                 RoundedRectangle(cornerRadius: Radius.controlSmall)
                     .fill(hovering ? theme.colors.fillHover : .clear)
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14 * 0.8, weight: .medium))
+                SymbolGlyph("ellipsis", size: 14, framed: false)
                     .foregroundStyle(hovering ? theme.colors.textPrimary : theme.colors.textTertiary)
-                    .accessibilityHidden(true)
             }
             .frame(width: 26, height: 26)
             .contentShape(.rect)
