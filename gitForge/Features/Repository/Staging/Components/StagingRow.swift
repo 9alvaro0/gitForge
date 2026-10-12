@@ -4,6 +4,9 @@ import AppKit
 struct StagingRow: View {
     let file: WorkingCopyFile
     @Bindable var viewModel: RepositoryViewModel
+    /// The list the row sits in; a file with staged and unstaged changes
+    /// appears in both, each opening its own part of the diff.
+    var side: WorkingCopySide? = nil
     /// `+N −M` of this row's side (staged or unstaged), when git reports it.
     var lineCounts: DiffStats? = nil
     @Environment(\.appTheme) private var theme
@@ -15,8 +18,9 @@ struct StagingRow: View {
 
     var body: some View {
         let isSelected = viewModel.workingCopy.selectedWorkingCopyFile?.id == file.id
+            && (side == nil || viewModel.workingCopy.diffSide(for: file) == side)
         let isTicked = viewModel.workingCopy.selectedFilePaths.contains(file.path)
-        Button(action: { viewModel.workingCopy.selectedWorkingCopyFile = file }) {
+        Button(action: { viewModel.workingCopy.select(file, side: side) }) {
             HStack(spacing: Spacing.s8) {
                 // The checkbox is for *batch selection*, not stage/unstage —
                 // pairing it with the batch bar under the section. Stage /
@@ -49,7 +53,7 @@ struct StagingRow: View {
         .simultaneousGesture(
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
         )
-        .help(file.isStaged ? "Double-click to unstage · checkbox = select for batch" : "Double-click to stage · checkbox = select for batch")
+        .help(showsStagedSide ? "Double-click to unstage · checkbox = select for batch" : "Double-click to stage · checkbox = select for batch")
         .contextMenu { contextMenu }
         .confirmationDialog(
             file.isUntracked ? "Delete \(filename)?" : "Discard changes to \(filename)?",
@@ -69,7 +73,7 @@ struct StagingRow: View {
 
     @ViewBuilder
     private var contextMenu: some View {
-        if file.isStaged {
+        if showsStagedSide {
             Button("Unstage") { Task { await viewModel.unstage([file]) } }
         } else {
             Button("Stage") { Task { await viewModel.stage([file]) } }
@@ -118,8 +122,14 @@ struct StagingRow: View {
     }
 
     private func toggleStaged() async {
-        if file.isStaged { await viewModel.unstage([file]) }
-        else             { await viewModel.stage([file]) }
+        if showsStagedSide { await viewModel.unstage([file]) }
+        else               { await viewModel.stage([file]) }
+    }
+
+    /// In the Staged list the row's actions unstage; in Unstaged they stage,
+    /// even for a file that also has staged changes.
+    private var showsStagedSide: Bool {
+        side.map { $0 == .staged } ?? file.isStaged
     }
 
     /// Spoken status used by VoiceOver. Pairs the staged/unstaged side with
