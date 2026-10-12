@@ -28,7 +28,6 @@ struct ShellView: View {
         // `.titleAndIcon` also titles the system sidebar toggle, which then
         // no longer fits and drops into the toolbar overflow menu.
         .tint(theme.colors.accentFill)
-        .preferredColorScheme(preferredScheme)
         .overlay {
             if appState.ui.commandPaletteOpen {
                 paletteOverlay.transition(.opacity)
@@ -56,20 +55,11 @@ struct ShellView: View {
                     }
             }
         }
-        .sheet(item: Bindable(appState.ui).connectAccountRequest) { request in
-            ConnectAccountSheet(request: request)
+        .sheet(item: Bindable(appState.ui).cloneRequest) { request in
+            CloneSheet(request: request)
         }
-        .sheet(item: Bindable(appState.ui).addInstanceRequest) { request in
-            AddInstanceSheet(request: request)
-        }
-        .sheet(item: Binding(get: { appState.accountChooser.request }, set: { _ in })) { request in
-            ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {
-                appState.accountChooser.answer($0, for: request.id)
-            }
-            // The sheet went away some other way: that's a Cancel (ignored
-            // if it was already answered).
-            .onDisappear { appState.accountChooser.answer(nil, for: request.id) }
-        }
+        // While the clone sheet is up it presents these itself.
+        .requestSheets(enabled: appState.ui.cloneRequest == nil)
         // Centralised error reporting for fetch/pull/push/tag pushes —
         // covers every entry point (menu, toolbar, command palette).
         .onChange(of: appState.catalog.activeViewModel?.remoteFailure) { _, failure in
@@ -92,16 +82,6 @@ struct ShellView: View {
         appState.catalog.activeViewModel?.toolbarSubtitle(for: appState.ui.workspaceSection) ?? ""
     }
 
-    /// `.system` returns `nil` so SwiftUI keeps the OS scheme; explicit modes
-    /// force the window to follow the user's pick.
-    private var preferredScheme: ColorScheme? {
-        switch theme.mode {
-        case .system: nil
-        case .dark: .dark
-        case .light: .light
-        }
-    }
-
     @ViewBuilder
     private var mainColumn: some View {
         if let repo = appState.catalog.activeRepository {
@@ -109,7 +89,6 @@ struct ShellView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             switch appState.ui.workspaceSection {
-            case .clone:    CloneView()
             case .settings: SettingsView()
             default:        WelcomeView()
             }

@@ -24,6 +24,11 @@ struct FileCommands: Commands {
             }
             .keyboardShortcut("o", modifiers: .command)
 
+            Button("Clone Repository…") {
+                appState.ui.cloneRequest = CloneRequest()
+            }
+            .keyboardShortcut("c", modifiers: [.command, .option])
+
             Menu("Open Recent") {
                 ForEach(appState.catalog.repositories) { repo in
                     Button(repo.name) {

@@ -7,9 +7,9 @@ struct SettingsView: View {
     @Environment(GitEnvironment.self) private var gitEnvironment
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.none) {
+        VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xhuge) {
+                VStack(alignment: .leading, spacing: Spacing.s24) {
                     AppearanceSection()
                     IdentitySection()
                     ProfilesSection()
@@ -17,12 +17,12 @@ struct SettingsView: View {
                     BehaviorSection()
                     AccountsSection()
                 }
-                .padding(DesignTokens.Spacing.xxxxl)
+                .padding(Spacing.s20)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .navigationTitle("Settings")
         .task { await gitEnvironment.refreshGlobalConfig() }
     }

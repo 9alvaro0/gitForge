@@ -13,14 +13,14 @@ struct GitStep: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(spacing: DesignTokens.Spacing.xxhuge) {
+        VStack(alignment: .leading, spacing: Spacing.s24) {
             switch gitEnvironment.gitStatus {
             case .checking:    checkingState
             case .available:   availableState
             case .notFound:    notFoundState
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: gitEnvironment.gitStatus) {
             if gitEnvironment.gitStatus == .available {
                 // Auto-skip after a short beat so the user sees the green
@@ -32,28 +32,40 @@ struct GitStep: View {
     }
 
     private var checkingState: some View {
-        VStack(spacing: DesignTokens.Spacing.xl) {
+        HStack(spacing: Spacing.s12) {
             ProgressView()
-                .controlSize(.regular)
+                .controlSize(.small)
             Text("Checking for git…")
-                .font(AppFont.sans(FontSize.lg))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.body)
+                .foregroundStyle(theme.colors.textSecondary)
         }
+        .padding(Spacing.s16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(theme.colors.separator, lineWidth: 1))
     }
 
     private var availableState: some View {
-        VStack(spacing: DesignTokens.Spacing.xl) {
-            StatusBadge(icon: .check, tint: theme.palette.ok)
-            VStack(spacing: DesignTokens.Spacing.sm) {
+        HStack(alignment: .top, spacing: Spacing.s12) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(theme.colors.ok)
+                .frame(width: 36, height: 36)
+                .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.okSoft))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.s4) {
                 Text("Git is ready")
-                    .font(AppFont.sans(FontSize.xxxl, weight: .semibold))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.body, weight: .semibold)
+                    .foregroundStyle(theme.colors.textPrimary)
                 Text("The `git` command-line tool was found on this Mac.")
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg3)
-                    .multilineTextAlignment(.center)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
             }
         }
+        .padding(Spacing.s16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgElevated))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(theme.colors.separator, lineWidth: 1))
     }
 
     private var notFoundState: some View {
@@ -65,9 +77,9 @@ struct GitStep: View {
     @Previewable @State var theme = AppTheme()
     GitStep(onAvailable: {})
         .previewAppState(.previewEmpty)
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s48)
         .frame(width: 720, height: 480)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
 
@@ -75,8 +87,8 @@ struct GitStep: View {
     @Previewable @State var theme = AppTheme()
     GitStep(onAvailable: {})
         .previewAppState(.previewMissingGit)
-        .padding(DesignTokens.Spacing.xxxhuge)
+        .padding(Spacing.s48)
         .frame(width: 720, height: 480)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }

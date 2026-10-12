@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// First-run flow shown by `RootView` until `gitForge.onboarding.completed`
-/// flips to `true`. Walks the user through five steps; identity is the only
+/// flips to `true`. Walks the user through six steps; identity is the only
 /// hard gate after `git` itself, defaults / first repo are skippable.
 struct OnboardingFlow: View {
     let onComplete: () -> Void
@@ -14,7 +14,7 @@ struct OnboardingFlow: View {
     @Environment(GitEnvironment.self) private var gitEnvironment
     @Environment(ProfileStore.self) private var profiles
 
-    /// Same key `CloneView` reads from — picking a default during onboarding
+    /// Same key `CloneSheet` reads from — picking a default during onboarding
     /// pre-fills the next clone session for free.
     @AppStorage("gitForge.clone.lastParentDir") private var lastParentDir: String = ""
 
@@ -48,6 +48,8 @@ struct OnboardingFlow: View {
             GitStep(onAvailable: { if state.currentStep == .git { state.advance() } })
         case .identity:
             IdentityStep(state: state)
+        case .appearance:
+            AppearanceStep()
         case .defaults:
             DefaultsStep(state: state, onPickDirectory: pickCloneDirectory)
         case .firstRepo:
@@ -64,6 +66,7 @@ struct OnboardingFlow: View {
         case .welcome:    return true
         case .git:        return gitEnvironment.gitStatus == .available
         case .identity:   return state.identityValid
+        case .appearance: return true
         case .defaults:   return true
         case .firstRepo:  return false
         }
@@ -71,7 +74,7 @@ struct OnboardingFlow: View {
 
     private func handlePrimary() async {
         switch state.currentStep {
-        case .welcome, .git:
+        case .welcome, .git, .appearance:
             state.advance()
         case .identity:
             await commitIdentity()
@@ -84,7 +87,7 @@ struct OnboardingFlow: View {
 
     private func handleSkip() {
         switch state.currentStep {
-        case .defaults:   state.advance()
+        case .appearance, .defaults: state.advance()
         case .firstRepo:  onComplete()
         default:          break
         }
@@ -137,9 +140,10 @@ struct OnboardingFlow: View {
         Task { await appState.presentOpenRepositoryPanel() }
     }
 
+    /// Closes the flow and opens the clone sheet in the main window.
     private func openClonePane() {
-        appState.ui.workspaceSection = .clone
         onComplete()
+        appState.ui.cloneRequest = CloneRequest()
     }
 
     private func pickCloneDirectory() {

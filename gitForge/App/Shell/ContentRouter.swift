@@ -18,7 +18,6 @@ struct ContentRouter: View {
                       integrateLocally: { await viewModel.attemptLocalMergeForPullRequest() },
                       checkoutBranch: { await viewModel.checkoutPullRequestBranch() })
         case .conflict: ConflictView(viewModel: viewModel)
-        case .clone:    CloneView()
         case .settings: SettingsView()
         }
     }

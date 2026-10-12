@@ -9,9 +9,10 @@ struct GitNotFoundView: View {
 
     var body: some View {
         GitInstallPrompt()
-            .padding(DesignTokens.Spacing.xxxhuge)
+            .frame(maxWidth: 480)
+            .padding(Spacing.s48)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.palette.bg2)
+            .background(theme.colors.bgContent)
     }
 }
 

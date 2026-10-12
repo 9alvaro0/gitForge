@@ -1,11 +1,11 @@
 import SwiftUI
 import AppKit
 
-/// Card row used by `WelcomeView` to surface recently opened repositories.
-/// The card style (border + filled background + hover lift) is specific to
-/// the welcome empty state — `SidebarRepoRow` handles the in-sidebar variant.
+/// One recent repository on Welcome (artboard `Welcome`): initials tile,
+/// name, branch and path, state and when it was last opened.
 struct RecentRepositoryRow: View {
     let repo: Repository
+    let state: RecentState?
     var onSelect: () -> Void
     var onRemove: () -> Void
 
@@ -14,29 +14,54 @@ struct RecentRepositoryRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: DesignTokens.Spacing.lg) {
-                RepoMark(letter: orgInitial)
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+            HStack(spacing: Spacing.s12) {
+                Text(initials)
+                    .textRole(.body, weight: .bold)
+                    .foregroundStyle(theme.colors.accent)
+                    .frame(width: 36, height: 36)
+                    .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.accentSoft))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(repo.name)
-                        .font(AppFont.sans(FontSize.md, weight: .medium))
-                        .foregroundStyle(theme.palette.fg1)
-                    Text(repo.path)
-                        .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg3)
+                        .textRole(.body, weight: .semibold)
+                        .foregroundStyle(theme.colors.textPrimary)
                         .lineLimit(1)
-                        .truncationMode(.middle)
+                    HStack(spacing: Spacing.s6) {
+                        if !branch.isEmpty {
+                            Label(branch, systemImage: "arrow.triangle.branch")
+                                .labelStyle(.titleAndIcon)
+                                .textRole(.monoSmall)
+                                .foregroundStyle(theme.colors.textPrimary)
+                                .lineLimit(1)
+                                .layoutPriority(1)
+                        }
+                        Text(repo.path)
+                            .textRole(.monoSmall)
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
-                Spacer(minLength: 0)
+                .frame(minWidth: 140, maxWidth: .infinity, alignment: .leading)
+                Text(statusText)
+                    .textRole(.caption, weight: statusIsNotable ? .semibold : .regular)
+                    .foregroundStyle(statusColor)
+                    .frame(width: 96, alignment: .leading)
+                Text(DateDisplayMode.relative.format(repo.lastOpenedAt))
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .frame(width: 72, alignment: .trailing)
             }
-            .padding(.horizontal, DesignTokens.Spacing.xl)
-            .padding(.vertical, DesignTokens.Spacing.md)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(background))
-            .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(border, lineWidth: DesignTokens.Stroke.regular))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
+            .padding(.horizontal, Spacing.s12)
+            .frame(height: 60)
+            .background(RoundedRectangle(cornerRadius: Radius.card).fill(hovering ? theme.colors.fillHover : .clear))
+            .contentShape(.rect(cornerRadius: Radius.card))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(DesignTokens.Motion.fast, value: hovering)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(repo.name), \(branch.isEmpty ? "" : "\(branch), ")\(statusText)")
+        .accessibilityHint(repo.path)
         .contextMenu {
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([repo.url])
@@ -46,29 +71,47 @@ struct RecentRepositoryRow: View {
         }
     }
 
-    private var background: Color {
-        hovering ? theme.palette.bg3 : theme.palette.bg1
+    private var initials: String {
+        String(repo.name.prefix(2)).lowercased()
     }
 
-    private var border: Color {
-        hovering ? theme.palette.lineStrong : theme.palette.line
+    private var branch: String {
+        if case .ready(let summary) = state { return summary.branch ?? "detached" }
+        return ""
     }
 
-    private var orgInitial: String {
-        let parent = repo.url.deletingLastPathComponent().lastPathComponent
-        return String((parent.isEmpty ? repo.name : parent).prefix(1))
+    private var statusText: String {
+        switch state {
+        case .ready(let summary): summary.label
+        case .missing: "Missing"
+        case .loading, nil: ""
+        }
+    }
+
+    private var statusIsNotable: Bool {
+        if case .ready(let summary) = state { return summary.label != "Clean" }
+        return false
+    }
+
+    private var statusColor: Color {
+        switch state {
+        case .ready(let summary) where summary.behind > 0 && summary.changed == 0: theme.colors.warn
+        case .ready(let summary) where summary.label != "Clean": theme.colors.textPrimary
+        default: theme.colors.textTertiary
+        }
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(spacing: DesignTokens.Spacing.md) {
+    VStack(spacing: 2) {
         ForEach(Repository.previewSamples) { repo in
-            RecentRepositoryRow(repo: repo, onSelect: {}, onRemove: {})
+            RecentRepositoryRow(repo: repo, state: .ready(RecentRepoSummary(branch: "main", changed: 2, ahead: 0, behind: 0)),
+                                onSelect: {}, onRemove: {})
         }
     }
-    .frame(width: 480)
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .frame(width: 720)
+    .padding(Spacing.s24)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
