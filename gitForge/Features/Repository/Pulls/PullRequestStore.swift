@@ -26,6 +26,9 @@ final class PullRequestStore {
     var scope: PullListScope = .open
     /// Login of the token's owner, for "Mine". `nil` until known.
     var currentUser: String?
+    /// The token `currentUser` was read with: another token (a reconnect, a
+    /// different account for the repo) may belong to someone else.
+    private var currentUserToken: String?
     /// CI summary per PR id, filled in after the list loads.
     var ciByPull: [String: CIStatus] = [:]
     var host: RemoteHost?
@@ -34,9 +37,12 @@ final class PullRequestStore {
     var suggestedInstance: InstanceSuggestion?
     var isLoading = false
     var error: String?
-    /// Host detected but no token configured — drives the "Connect a host"
-    /// empty state in `PullsView`.
+    /// Host detected but no account can give a token — drives the "Connect
+    /// a … account" empty state in `PullsView`.
     var requiresToken = false
+    /// Several accounts fit and the user closed the chooser without
+    /// picking one: nothing was loaded.
+    var accountNotChosen = false
     /// The instance "Connect a … account" opens on, when known.
     var connectInstanceId: UUID?
     /// The account to reconnect, when its token was rejected.
@@ -93,6 +99,7 @@ final class PullRequestStore {
 
     /// Asks `auth` for a token and updates the connect state; nil = no token.
     private func authorize(_ host: RemoteHost, rejected: String? = nil) async -> String? {
+        accountNotChosen = false
         switch await auth(host, rejected) {
         case .token(let value):
             requiresToken = false
@@ -106,6 +113,7 @@ final class PullRequestStore {
             return nil
         case .cancelled:
             requiresToken = false
+            accountNotChosen = true
             return nil
         case .failed(let message):
             requiresToken = false
@@ -209,8 +217,10 @@ final class PullRequestStore {
     }
 
     /// Refresh the open PR/MR list. Resolution order:
-    /// 1) detect the remote host (`origin`); stop if not GitHub/GitLab
-    /// 2) read the token; surface "needs token" if missing
+    /// 1) detect the remote host (`origin`) among the declared instances;
+    ///    otherwise offer to add it
+    /// 2) get a token from the repo's account; otherwise "connect", "no
+    ///    account chosen" or the error
     /// 3) hit the provider, store results / error
     func load(force: Bool = false) async {
         guard !isLoading else { return }
@@ -265,8 +275,9 @@ final class PullRequestStore {
         // The closed list is refetched next time it's shown.
         closedLoaded = false
         closedItems = []
-        if currentUser == nil {
+        if currentUser == nil || currentUserToken != token {
             currentUser = try? await provider.fetchCurrentUser(host: resolvedHost, token: token)
+            currentUserToken = currentUser == nil ? nil : token
         }
         // CI badges fill in afterwards, so the list (and Refresh) don't wait
         // on one lookup per row.
@@ -301,14 +312,15 @@ final class PullRequestStore {
         clearDetail()
     }
 
-    /// Fetch the three detail payloads in parallel. The first failure wins
+    /// Fetch the detail payloads in parallel, with the list's token (the
+    /// list loads before any row can be selected). The first failure wins
     /// `detailError`; successful parts still render.
     func loadDetail() async {
         detailGen &+= 1
         let gen = detailGen
         guard let pr = selected, let host else { return }
         guard let token = currentToken else {
-            detailError = "Load the list first."
+            detailError = "The account's token isn't available. Refresh the list."
             return
         }
 
@@ -362,10 +374,12 @@ final class PullRequestStore {
         closedLoaded = false
         scope = .open
         currentUser = nil
+        currentUserToken = nil
         ciByPull = [:]
         host = nil
         error = nil
         requiresToken = false
+        accountNotChosen = false
         connectInstanceId = nil
         reconnectAccountId = nil
         currentToken = nil

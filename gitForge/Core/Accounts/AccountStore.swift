@@ -356,13 +356,12 @@ extension AccountStore {
     }
 
     /// Phase 5b (spec §4.4, step 3): one last sync, then the old entries go —
-    /// only when this launch's sync read and copied every host and a
-    /// complete sync is on record. Only hosts whose token reached an account
+    /// only when this launch's sync read and copied every host (each copy
+    /// is in the new Keychain item before its old entry is deleted). Only hosts whose token reached an account
     /// (or whose copy was disconnected) are deleted; hosts the sync couldn't
     /// type were never copied and stay. A failed delete is retried next launch.
     func retireLegacyTokens(from legacy: LegacyTokenStore) {
-        guard migrateLegacyTokens(from: legacy), migratedLegacyTokens,
-              let hosts = try? legacy.legacyHosts() else { return }
+        guard migrateLegacyTokens(from: legacy), let hosts = try? legacy.legacyHosts() else { return }
         for host in hosts {
             guard let normalized = HostingInstance.normalizedHost(host),
                   legacyHostAccounts[normalized] != nil || detachedLegacyHosts.contains(normalized) else { continue }

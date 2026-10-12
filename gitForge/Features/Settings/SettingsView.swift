@@ -5,20 +5,30 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.appTheme) private var theme
     @Environment(GitEnvironment.self) private var gitEnvironment
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.s24) {
-                    AppearanceSection()
-                    IdentitySection()
-                    ProfilesSection()
-                    GitSection()
-                    BehaviorSection()
-                    AccountsSection()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Spacing.s24) {
+                        AppearanceSection()
+                        IdentitySection()
+                        ProfilesSection()
+                        GitSection()
+                        BehaviorSection()
+                        AccountsSection()
+                            .id(SettingsAnchor.accounts)
+                    }
+                    .padding(Spacing.s20)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .padding(Spacing.s20)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                // On arrival and when asked again while already here.
+                .task(id: appState.ui.settingsAnchor) {
+                    guard let anchor = appState.ui.settingsAnchor else { return }
+                    withAnimation { proxy.scrollTo(anchor, anchor: .top) }
+                    appState.ui.settingsAnchor = nil
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

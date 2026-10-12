@@ -14,8 +14,10 @@ nonisolated struct GraphMetrics: Equatable, Sendable {
     let nodeGap: CGFloat
     let headOuterRadius: CGFloat
     let headInnerRadius: CGFloat
-    /// Dashed square, corner radius 2.
+    /// Dashed square, corner radius `squareMarkRadius`.
     let stashSize: CGFloat
+    /// Corner of the square marks: stash nodes and the uncommitted row.
+    static let squareMarkRadius: CGFloat = 2
     /// Hollow dashed circle.
     let worktreeRadius: CGFloat
     let selectHaloOutset: CGFloat

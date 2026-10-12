@@ -5,6 +5,7 @@ import SwiftUI
 /// (CRUD), it never writes anything to a repo's `.git/config` itself.
 struct ProfilesSection: View {
     @Environment(ProfileStore.self) private var store
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
 
     /// Holds the in-progress edit/create form. `nil` when nothing is being
@@ -80,6 +81,7 @@ struct ProfilesSection: View {
                 }
                 GFButton(title: "Delete", size: .small) {
                     store.remove(profile.id)
+                    appState.accounts.unlinkProfile(profile.id)
                 }
             }
         }

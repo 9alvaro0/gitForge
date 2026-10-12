@@ -10,7 +10,8 @@ nonisolated struct DeviceFlowClock: Sendable {
 
 /// Waits for the user to approve a device code (spec §5.1): one poll every
 /// `interval` seconds, 5 more after each `slow_down`, until a token, a
-/// terminal error, cancellation or the code's expiry.
+/// terminal error, cancellation or the code's expiry. A network blip or a
+/// server error counts as "still pending": the wait can last 15 minutes.
 nonisolated enum DeviceFlowPoller {
     static let slowDownStep = 5
 
@@ -26,7 +27,13 @@ nonisolated enum DeviceFlowPoller {
             }
             if Task.isCancelled { throw HostingAuthError.cancelled }
             guard clock.now() < deadline else { throw HostingAuthError.expiredToken }
-            switch try await attempt() {
+            let outcome: DevicePollOutcome
+            do {
+                outcome = try await attempt()
+            } catch HostingAuthError.network, HostingAuthError.server {
+                continue
+            }
+            switch outcome {
             case .granted(let grant):
                 return grant
             case .pending:

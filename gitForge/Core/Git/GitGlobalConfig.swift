@@ -100,10 +100,22 @@ actor GitGlobalConfigReader {
     // MARK: private
 
     private func pullStrategyFromConfig() async -> String? {
-        if let rebase = await get("pull.rebase"), !rebase.isEmpty {
-            return rebase == "true" ? "rebase" : "merge"
+        Self.pullStrategy(rebase: await get("pull.rebase"), ff: await get("pull.ff"))
+    }
+
+    /// The strategy Settings shows for `pull.rebase` and `pull.ff`. Every
+    /// value git reads as rebasing (`true`, `merges`, `interactive`, `yes`…)
+    /// shows as rebase; git's false spellings as merge; anything else as
+    /// unknown rather than a wrong guess.
+    static func pullStrategy(rebase: String?, ff: String?) -> String? {
+        if let rebase = rebase?.trimmingCharacters(in: .whitespaces).lowercased(), !rebase.isEmpty {
+            switch rebase {
+            case "true", "yes", "on", "1", "merges", "m", "interactive", "i": return "rebase"
+            case "false", "no", "off", "0": return "merge"
+            default: return nil
+            }
         }
-        if let ff = await get("pull.ff"), !ff.isEmpty {
+        if let ff = ff?.trimmingCharacters(in: .whitespaces).lowercased(), !ff.isEmpty {
             return ff == "only" ? "ff-only" : nil
         }
         return nil

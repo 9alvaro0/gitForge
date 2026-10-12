@@ -96,13 +96,12 @@ extension RepositoryViewModel {
         remoteFailure = nil
         defer { remoteOperation = nil }
         let setUpstream = upstream == nil
-        // Resolve the configured remote for the current branch so users with
-        // a renamed `origin` (upstream/fork patterns) push to the right place.
-        // Falls back to "origin" for first push (no tracking config yet) and
-        // when config read fails.
+        // The remote git pushes this branch to (pushRemote, pushDefault, then
+        // the tracking remote), so fork / triangular setups push — and are
+        // signed — where git would. "origin" when nothing is configured.
         let resolvedRemote: String = await {
             guard let branch = currentBranchName else { return "origin" }
-            return await cli.upstreamRemoteName(forBranch: branch) ?? "origin"
+            return await cli.pushRemoteName(forBranch: branch) ?? "origin"
         }()
         // Force-with-lease compares against the local remote-tracking ref. If
         // the user never fetched, that ref can be days old and the "safe

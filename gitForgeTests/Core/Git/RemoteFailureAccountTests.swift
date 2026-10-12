@@ -12,6 +12,14 @@ struct RemoteFailureAccountTests {
         #expect(RemoteFailure(stderr: stderr) == .missingScope("workflow"))
     }
 
+    @Test("The missing-scope message doesn't assume a gitForge account signed")
+    func missingScopeMessage() {
+        let message = RemoteFailure.missingScope("workflow").message
+        #expect(message.contains("`workflow`"))
+        #expect(message.contains("credential helper"))
+        #expect(!message.contains("The account's token"))
+    }
+
     @Test("A refused account credential says which account to reconnect")
     func accountRejected() {
         let failure = RemoteFailure.from(GitAccountError.rejected(account: "octo-test", host: "github.com"))

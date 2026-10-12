@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The PR screen's full-width states: loading / error / no host /
-/// missing token. Its only state is the certificate trust
+/// no account chosen / missing token. Its only state is the certificate trust
 /// flow offered on TLS errors; every other action flows back to the
 /// compositor via callbacks.
 struct PullsContentSection: View {
@@ -44,6 +44,16 @@ struct PullsContentSection: View {
                     title: "No supported remote detected",
                     subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts."
                 )
+            }
+        } else if store.accountNotChosen {
+            EmptyState(
+                symbol: "person.crop.circle.badge.questionmark",
+                title: "No account chosen",
+                subtitle: "Several \(store.host?.provider.label ?? "hosting") accounts can read \(store.host?.host ?? "this host"). Choose the one this repository uses to list its \(nounPlural)."
+            ) {
+                GFButton(title: "Choose account…", style: .primary) {
+                    Task { await store.load(force: true) }
+                }
             }
         } else if store.requiresToken {
             PullsTokenMissingSection(

@@ -59,7 +59,8 @@ final class AccountConnector {
 
 /// One OAuth device-flow attempt, observable by the wizard: show
 /// `userCode`, open `verificationURI`, count down to `expiresAt`, cancel.
-/// The owner cancels it when the wizard closes.
+/// The owner cancels it when the wizard closes; a session dropped without
+/// that stops on its own, so nothing is saved after the wizard is gone.
 @MainActor
 @Observable
 final class DeviceFlowSession {
@@ -101,7 +102,19 @@ final class DeviceFlowSession {
     func start() {
         guard task == nil else { return }
         state = .requestingCode
-        task = Task { await run() }
+        let flow = Flow(instance: instance, clientId: clientId, client: client, store: store, clock: clock, replacedId: replacedId)
+        // The task holds the session weakly, so dropping it ends the flow.
+        task = Task { [weak self] in
+            await flow.run { [weak self] state in self?.state = state }
+            // A cancelled run's task was already released (and may have
+            // been replaced by a restart).
+            guard !Task.isCancelled else { return }
+            self?.task = nil
+        }
+    }
+
+    isolated deinit {
+        task?.cancel()
     }
 
     /// Stops waiting at once; nothing is saved.
@@ -112,32 +125,42 @@ final class DeviceFlowSession {
         state = .cancelled
     }
 
-    private func run() async {
-        do {
-            let code = try await client.requestDeviceCode(clientId: clientId)
-            try Task.checkCancellation()
-            state = .waitingForUser(code, expiresAt: clock.now().addingTimeInterval(TimeInterval(code.expiresIn)))
-            let grant = try await client.pollToken(clientId: clientId, code: code, clock: clock)
-            try Task.checkCancellation()
-            state = .finishing
-            let validation = try await client.validate(token: grant.accessToken, method: .oauth)
-            try Task.checkCancellation()
-            // GitLab doesn't report an OAuth token's scopes on /user: then
-            // check what the grant says.
-            if let scopes = validation.scopes ?? grant.scopes {
-                let missing = HostingScopes.missing(scopes, kind: instance.kind)
-                guard missing.isEmpty else { throw HostingAuthError.missingScopes(missing) }
+    /// The flow itself, apart from the session so the task doesn't keep it alive.
+    @MainActor
+    private struct Flow {
+        let instance: HostingInstance
+        let clientId: String
+        let client: any HostingAuthClient
+        let store: AccountStore
+        let clock: DeviceFlowClock
+        let replacedId: UUID?
+
+        func run(_ update: (State) -> Void) async {
+            do {
+                let code = try await client.requestDeviceCode(clientId: clientId)
+                try Task.checkCancellation()
+                update(.waitingForUser(code, expiresAt: clock.now().addingTimeInterval(TimeInterval(code.expiresIn))))
+                let grant = try await client.pollToken(clientId: clientId, code: code, clock: clock)
+                try Task.checkCancellation()
+                update(.finishing)
+                let validation = try await client.validate(token: grant.accessToken, method: .oauth)
+                try Task.checkCancellation()
+                // GitLab doesn't report an OAuth token's scopes on /user: then
+                // check what the grant says.
+                if let scopes = validation.scopes ?? grant.scopes {
+                    let missing = HostingScopes.missing(scopes, kind: instance.kind)
+                    guard missing.isEmpty else { throw HostingAuthError.missingScopes(missing) }
+                }
+                let now = clock.now()
+                let account = try store.connectAccount(instanceId: instance.id, method: .oauth, validation: validation,
+                                                       grantedScopes: grant.scopes, secret: grant.secret(now: now), now: now,
+                                                       replacing: replacedId)
+                update(.connected(account))
+            } catch {
+                // `cancel()` already set the state and released the task.
+                guard !Task.isCancelled else { return }
+                update(.failed(HostingAuthError.wrapping(error)))
             }
-            let now = clock.now()
-            let account = try store.connectAccount(instanceId: instance.id, method: .oauth, validation: validation,
-                                                   grantedScopes: grant.scopes, secret: grant.secret(now: now), now: now,
-                                                   replacing: replacedId)
-            state = .connected(account)
-        } catch {
-            // `cancel()` already set the state and released the task.
-            guard !Task.isCancelled else { return }
-            state = .failed(HostingAuthError.wrapping(error))
         }
-        task = nil
     }
 }

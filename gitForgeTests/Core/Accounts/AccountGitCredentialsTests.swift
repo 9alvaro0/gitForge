@@ -18,10 +18,11 @@ struct AccountGitCredentialsTests {
 
     private func setup(refresh: @escaping @Sendable (String) async throws -> TokenGrant = { _ in throw HostingAuthError.refreshRejected },
                        activeProfileId: @escaping @Sendable (String) async -> UUID? = { _ in nil },
-                       chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil) -> Setup {
+                       chooseAccount: (@Sendable (AmbiguousRemote) async -> RepoAccountChoice?)? = nil,
+                       clientIds: OAuthClientIDs = OAuthClientIDs(gitHub: nil, gitLab: "test-client")) -> Setup {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-gitcreds-\(UUID().uuidString)")
-        let store = AccountStore(directory: dir, secrets: secrets, clientIds: OAuthClientIDs(gitHub: nil, gitLab: "test-client"))
+        let dir = TemporaryDirectories.make("gitForge-gitcreds")
+        let store = AccountStore(directory: dir, secrets: secrets, clientIds: clientIds)
         let client = FakeAuthClient(refresh: refresh)
         let refresher = TokenRefresher(secrets: secrets, makeClient: { _ in client },
                                        onRefreshRejected: { id in await store.markNeedsAttention(id, .expired) })
@@ -34,9 +35,9 @@ struct AccountGitCredentialsTests {
     private func addAccount(_ store: AccountStore, instance: HostingInstance = .gitLabDotCom, login: String = "tanuki-test",
                             method: HostingAccount.Method = .personalToken, status: HostingAccount.Status = .ok,
                             secret: AccountSecret = AccountSecret(accessToken: "test-pat-value"),
-                            linkedProfileId: UUID? = nil) throws -> HostingAccount {
-        let account = HostingAccount(instanceId: instance.id, login: login, method: method, status: status,
-                                     linkedProfileId: linkedProfileId)
+                            linkedProfileId: UUID? = nil, expiresAt: Date? = nil) throws -> HostingAccount {
+        let account = HostingAccount(instanceId: instance.id, login: login, method: method, expiresAt: expiresAt,
+                                     status: status, linkedProfileId: linkedProfileId)
         try store.addAccount(account, secret: secret)
         return account
     }
@@ -247,5 +248,39 @@ struct AccountGitCredentialsTests {
         let account = try addAccount(s.store)
         s.secrets.delete(account.id)
         #expect(try await credential(s.provider) == nil)
+    }
+
+    @Test("A refused token past its expiry date: the account needs attention as expired")
+    func rejectedExpired() async throws {
+        let s = setup()
+        try addAccount(s.store, expiresAt: Date().addingTimeInterval(-3600))
+        await #expect(throws: GitAccountError.rejected(account: "tanuki-test", host: "gitlab.com")) {
+            try await s.provider.withCredential(remoteURL: Self.remote, remoteName: "origin", repoPath: "/r/app") { _ -> Void in
+                throw Self.authFailure
+            }
+        }
+        #expect(s.store.accounts[0].status == .needsAttention(.expired))
+    }
+
+    @Test("An OAuth token that needs a refresh on an instance without a client id: expired, and the error names it")
+    func oauthUnavailable() async throws {
+        let s = setup(clientIds: .none)
+        try addAccount(s.store, method: .oauth,
+                       secret: AccountSecret(accessToken: "test-old-access", refreshToken: "test-refresh-1",
+                                             accessTokenExpiresAt: Date().addingTimeInterval(60)))
+        await #expect(throws: GitAccountError.rejected(account: "tanuki-test", host: "gitlab.com")) {
+            try await self.credential(s.provider)
+        }
+        #expect(s.store.accounts[0].status == .needsAttention(.expired))
+    }
+
+    @Test("A host without accounts that can sign never reads the identity profile")
+    func skipsProfileWithoutSigners() async throws {
+        let asked = LockedList<String>()
+        let s = setup(activeProfileId: { path in asked.append(path); return nil })
+        try addAccount(s.store, status: .needsAttention(.revoked))
+        #expect(try await credential(s.provider) == nil)
+        #expect(try await credential(s.provider, remote: "https://example.test/group/app.git") == nil)
+        #expect(asked.values.isEmpty)
     }
 }

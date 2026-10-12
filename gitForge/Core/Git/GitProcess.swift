@@ -16,6 +16,9 @@ nonisolated enum GitProcess {
     ///     true, but forcing it shields users who set it to false in their
     ///     global config (NFD-vs-NFC mismatches break Swift `String == String`
     ///     comparisons in the VM).
+    ///   • `-c diff.suppressBlankEmpty=false`: a blank context line keeps its
+    ///     leading space, so `DiffParser` numbers lines right whatever the
+    ///     user's config says.
     ///
     /// NOTE: `--no-optional-locks` was here too in an earlier pass to avoid
     /// two reads colliding on `.git/index`. It also prevents `git status`
@@ -36,6 +39,7 @@ nonisolated enum GitProcess {
             "git",
             "-c", "core.quotePath=false",
             "-c", "core.precomposeUnicode=true",
+            "-c", "diff.suppressBlankEmpty=false",
         ] + (credential?.configArguments ?? []) + arguments
         process.currentDirectoryURL = workingDirectory
         var environment = environment()

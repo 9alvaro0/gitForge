@@ -7,7 +7,7 @@ import Testing
 struct AccountStoreTests {
 
     private static func tempDir() -> URL {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-accounts-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-accounts")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

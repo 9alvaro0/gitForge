@@ -50,11 +50,8 @@ struct BranchChip: View {
     }
 
     private func glyph(_ name: String) -> some View {
-        Image(systemName: name)
-            .font(.system(size: 11 * 0.8, weight: .medium))
+        SymbolGlyph(name, size: 11)
             .foregroundStyle(foreground)
-            .frame(width: 11, height: 11)
-            .accessibilityHidden(true)
     }
 
     // Redesign spec §5 (RefChip). The per-lane tint of local chips arrives

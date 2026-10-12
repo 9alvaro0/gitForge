@@ -11,7 +11,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A02 | Capa Git (`GitCLI`): spawn de procesos, parsing, errores, inyección de argumentos | Hecha (2026-10-08) |
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
-| A02-bis | Puntos menores de la capa Git (ver diferidos) | Pendiente |
+| A02-bis | Puntos menores de la capa Git (ver diferidos) | Hecha (2026-10-12), lote 5 de "Menores diferidos" |
 | A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
@@ -515,14 +515,16 @@ Rediseño visual completo a la dirección A+ ("Native Refined") del canvas "gitF
 | F0 | Tokens v2: `TypeRole`, `Spacing`, `Radius`, `GFColors` (4 variantes), acento derivado, `GraphMetrics`, densidades (adiós a `comfy`) | #78 |
 | F1 | Shell: `NavigationSplitView` con sidebar flotante, toolbar nativa con vidrio, sin barra de estado | #79 |
 | F2 | Componentes de `DesignSystem` restyleados | #80 |
+| — | Tests: suites de `UserDefaults` aisladas (dejaban plists) | #81 |
 | F3 | History, grafo e inspector del commit | #82 |
 | F4 | Changes y diff, con Amend y selección por lotes | #83 |
 | F5 | Branches, tags y stashes | #84 |
 | F6 | Conflicts (con "Both · theirs first", siguiente conflicto y resultado editable) | #85 |
-| F7 | Pull requests (Open/Mine/Closed, CI por fila, Checks por job, aprobaciones) | #86, #87, #88 |
+| F7 | Pull requests (Open/Mine/Closed, CI por fila, Checks por job, aprobaciones) | #86, #88 |
+| — | Barra lateral: las filas ya no se ven a través de la tarjeta de perfil | #87 |
 | — | Conexiones con proveedores (cuentas, OAuth, git por HTTPS, PRs y clonado sobre cuentas), proyecto intercalado | #89–#95 |
 | F8 | ⌘K fuzzy y agrupado, Clone como hoja (con comprobación de alcance y perfil), Welcome con estado de los recientes, onboarding con paso Appearance, Settings | #96 |
-| F9 | Limpieza: fuera el sistema visual v1 (`FontSize`, `DesignTokens` de espaciado y radios, `ThemePalette`, `GraphPalette`, `GFIcon`, Inter Tight) y test guardián `V1TokensGoneTests` | (este PR) |
+| F9 | Limpieza: fuera el sistema visual v1 (`FontSize`, `DesignTokens` de espaciado y radios, `ThemePalette`, `GraphPalette`, `GFIcon`, Inter Tight) y test guardián `V1TokensGoneTests` | #97 |
 
 **Decisiones que atan a futuro:**
 - Todo el estilo sale de `TypeRole`, `Spacing`, `Radius`, `theme.colors` y SF Symbols. `V1TokensGoneTests` falla si vuelve a entrar v1.
@@ -531,5 +533,134 @@ Rediseño visual completo a la dirección A+ ("Native Refined") del canvas "gitF
 
 **Lo que queda:**
 - Las funciones candidatas de la tabla anterior.
-- Los menores pendientes de F8, anotados en `design/redesign-v2/plans/F8-registro.md` (VoiceOver del resultado de la comprobación de la URL, ⌥⌘C con la hoja abierta, hover frente a teclado en ⌘K…).
+- Los menores diferidos de P2–F9, recogidos en la sección siguiente.
 - A04-bis (`HistoryStore` / `WorkingCopyStore`), que la spec dejaba para después de F9.
+
+---
+
+## Menores diferidos (P2–F9 y A02-bis)
+
+Recogidos el 2026-10-12. Las revisiones finales de cada fase dejaban "menores anotados", pero la lista no llegó ni al registro ni al PR. Se recuperó de los informes de revisión y se comprobó cada punto contra `main` (67d8ce3). Aquí solo están los que siguen abiertos. Prefijo = fase de origen.
+
+### Lote 1 · Cuentas y autenticación
+
+**Hecho (2026-10-12, rama `fix/deferred-minors-accounts`).** Todos los puntos de la tabla, con 26 tests nuevos; suite 940/940, 0 warnings. Notas:
+- `oauthUnavailable` marca la cuenta como `expired` (git, Pull requests y "My repos"); `missingSecret` ofrece reconectar en Pull requests y "My repos", y en git sigue cayendo al helper del sistema.
+- El clonado usa el perfil elegido en la hoja mientras dura (`ActiveProfileLookup`, que también quita la closure duplicada de P5a-7), o la identidad global.
+- Sin comprobar en pantalla: el aviso nuevo de "Add instance" cuando se cancela la confianza (hace falta un servidor con certificado propio).
+
+| # | Menor | Dónde |
+|---|---|---|
+| P2-6 | Un certificado fijado que no coincide sale como "Cancelled." y no como error de certificado. | `HostingHTTP.swift`, `OptInTrustSessionDelegate.swift` |
+| P2-7 | Un PAT caducado recibe 401 y queda "revoked", nunca "expired". | `AccountValidator.swift`, `AccountStatusPolicy.swift` |
+| P2-8 | Un fallo de red o 5xx puntual durante el sondeo termina todo el device flow. | `DeviceFlowPoller.swift` |
+| P2-9 | Si falla la escritura en el Keychain tras rotar GitLab el refresh token, el token nuevo se pierde. | `TokenRefresher.swift` |
+| P2-10 | Una renovación en curso puede sobrescribir o caducar una cuenta que se reconecta en ese momento. | `TokenRefresher.swift` |
+| P2-11 / P3-7 / P5b-4 | `oauthUnavailable` (y `missingSecret` en "My repos") deja la cuenta en `ok` con un token muerto o da un error genérico. | `AccountStatusPolicy.swift`, `AccountGitCredentials.swift`, `RemoteRepoListModel.swift` |
+| P2-12 | `DeviceFlowSession` sin cancelación en `deinit`; su `Task` retiene `self`. | `AccountConnector.swift` |
+| P3-3 | El fetch por remoto ignora `remote.<name>.skipFetchAll`. | `GitCLI+Remote.swift` |
+| P3-4 | Cada fetch lanza 5 `git config` (perfil) antes de saber si el host tiene cuentas, dos veces por remoto. | `AccountGitCredentials.swift` |
+| P3-5 | El clonado por URL nunca usa el perfil de identidad (el destino aún no existe). | `GitCLI+Clone.swift` |
+| P3-6 | El aviso de scope que falta culpa a "la cuenta" aunque firmara el helper del sistema. | `GitCLI+Remote.swift` |
+| P3-8 | La descripción sintetizada de `GitCredential` incluye el token. | `GitCredentialInjection.swift` |
+| P4-3b | Si se cancela el diálogo de confianza al añadir una instancia, la hoja no dice nada. | `AddInstanceSheet.swift` |
+| P4-4 | La confianza se pide para `instance.host` y no para el host (y puerto) de la API. | `AddInstanceModel.swift` |
+| P4-5a/b | "Reconnect" del toast abre sin `replacing` si no hay coincidencia (duplica) y con dos copias sin login elige la primera. | `AccountToastAction.swift` |
+| P4-9c | Cerrar Connect con Esc desde el resultado no aplica el enlace al perfil. | `ConnectAccountSheet.swift` |
+
+### Lote 2 · Pull requests y clonado
+
+**Hecho (2026-10-12, misma rama).** Todos los puntos, con 14 tests nuevos; suite 952/952, 0 warnings. Notas:
+- Cancelar el selector de cuenta deja el estado "No account chosen" con "Choose account…".
+- Borrar un perfil desenlaza las cuentas que lo usaban; la hoja de Clone no sugiere uno que ya no existe y, si desaparece durante el clon, lo avisa.
+- "Connect GitHub or GitLab" del onboarding abre la pestaña del proveedor ya conectado (GitHub por defecto).
+- La barra lateral relee los remotos cuando aparecen ramas de un remoto nuevo y cuando la app vuelve al frente.
+- `PullRequestFetchError.missingToken` eliminado (no se lanzaba).
+- En pantalla solo se ha comprobado Settings › Accounts con los datos reales (sin certificados huérfanos, así que el bloque nuevo no aparece). Los estados de cuenta no elegida y el selector con dos cuentas necesitan dos cuentas en la misma instancia.
+
+| # | Menor | Dónde |
+|---|---|---|
+| P4-7 | La barra lateral carga los remotos una vez por repo: un remoto nuevo no aparece hasta reabrirlo. | `SidebarHost.swift` |
+| P4-8 | El selector de cuenta dice "N accounts on host" (y "1 accounts") en vez del proveedor. | `ChooseAccountSheet.swift` |
+| P5a-2 | Al cerrar la hoja de cuenta solo se recarga desde `requiresToken`, no desde el estado de error. | `PullsView.swift` |
+| P5a-3 | `currentUser` ("Mine") no se refresca si cambia la cuenta. | `PullRequestStore.swift` |
+| P5a-4 | Cancelar el selector deja "No open merge requests". | `PullRequestStore.swift`, `PullsView.swift` |
+| P5b-1 | `isLoadingMore` sobrevive a un cambio de cuenta en "My repos". | `RemoteRepoListModel.swift` |
+| P5b-3 | Un 403 en "My repos" habla de pull requests; `.missingToken` ya no se lanza y apunta a la sección borrada. | `PullRequestProvider.swift` |
+| P5b-7 | `CloneAccountPin.pin` pisa una elección previa y `undo` la deja a nil. | `CloneAccountPin.swift` |
+| P5b-9 | Un host de confianza sin instancia ya no se puede revocar desde la UI. | `AccountsSection.swift` |
+| F8-1 | ⌥⌘C con la hoja de Clone abierta (o en el onboarding) sustituye la petición. | `FileCommands.swift` |
+| F8-8 | "Connect GitHub or GitLab" del onboarding abre la pestaña URL. | `OnboardingFlow.swift`, `WorkspaceUI.swift` |
+| F8-9 | El perfil sugerido puede ser uno borrado; `applyCloneProfile` lo ignora en silencio. | `CloneSheetModel.swift`, `AppState.swift` |
+
+### Lote 3 · Pulido de UI y accesibilidad
+
+**Hecho (2026-10-12, misma rama).** Todos los puntos; 6 tests nuevos, suite 956/956, 0 warnings. Notas:
+- F8-10 decidido: 48 de margen lateral por defecto y el 96 del artboard cuando la columna mide 1000 pt o más (`LayoutMetrics.onboardingGutter`), para que el paso Appearance quepa con su preview a 1100.
+- F9-6: la fila de repo del selector pasa de 38 a 44 pt (dos líneas más 6 arriba y abajo).
+- F9-x: no se reproduce. Con la ventana activa e inactiva, y cambiando de oscuro a claro en Settings y en History, el grupo remoto y ⌘K se ven claros. Se cierra sin cambios.
+- P4-2: el selector de cuenta es ahora un modificador propio (`accountChooserSheet`); Connect account y Add instance lo presentan mientras están delante.
+- Menús con checkmark nativo vía `MenuCheckItem` (Toggle), también en "Switch profile".
+- Visto en pantalla: fila de repo a 44, menú de perfiles con check nativo y email debajo, barra en claro. Sin ver: el avatar del resultado de Connect y el código de dispositivo (hace falta conectar una cuenta).
+
+| # | Menor | Dónde |
+|---|---|---|
+| P4-2 | El selector de cuenta comparte vista con Connect y Add instance: un push espera invisible si otra hoja está abierta. | `RequestSheets.swift` |
+| P4-5c | `.missingScope` lleva a Settings sin bajar a Accounts. | `AccountToastAction.swift`, `ShellView.swift` |
+| P4-6a | Los "checkmarks" de los menús son `Label`, no nativos (desalineados, sin estado para VoiceOver). | `AccountsSection.swift`, `SidebarUserCard.swift` |
+| P4-6b | Los botones "…" solo tienen `.help`, sin `accessibilityLabel`. | `AccountsSection.swift` |
+| P4-9a/b | El resultado de Connect muestra un check y no el avatar; los scopes no van en mono. | `ConnectAccountSheet.swift` |
+| P4-11 | "copied token" en minúscula. | `RepoAccountMenuModel.swift` |
+| F8-3 | En ⌘K el hover roba la selección al teclado. | `CommandPaletteView.swift` |
+| F8-4 | VoiceOver no anuncia Reachable / Can't reach. | `CloneSheet.swift` |
+| F8-5 | `RecentRepositoryRow` puede perder el rasgo de botón. | `RecentRepositoryRow.swift` |
+| F8-10 | Margen lateral del onboarding 48 (el plan decía 72/96). Pendiente de decisión. | `OnboardingShell.swift` |
+| F9-6 | Derivas de tamaño de fuente; la fila del repo en la barra lateral va justa a 38 pt. | `SidebarRepoRow.swift` |
+| F9-9 | Tamaños a mano fuera de tokens: código de dispositivo 26 pt, "!" 10 pt, `cornerRadius: 2` (x2). | `ConnectAccountSheet.swift`, `ConflictFileRow.swift`, `GraphColumnView.swift`, `UncommittedRow.swift` |
+| F9-x | El botón de búsqueda de la barra se ve oscuro en modo claro. | `ShellToolbar.swift` |
+
+### Lote 4 · Higiene y tests
+
+**Hecho (2026-10-12, misma rama).** Suite 958/958, 0 warnings. Notas:
+- P2-13, P4-3a, P5a-7 y P5b-2 ya habían quedado resueltos en los lotes 1 y 2.
+- P4-1 decidido: fuera el parámetro `activeProfileId` del selector. Una cuenta enlazada al perfil activo ya gana en el resolver, así que el selector solo aparece cuando ninguna lo está y ese valor por defecto nunca se aplicaría.
+- P5b-6 decidido: fuera la guarda redundante. Dentro de un mismo arranque cada copia se escribe en el Keychain nuevo antes de borrar la antigua, así que no hacía falta una segunda comprobación entre arranques.
+- P5b-10 no se cambia: es una llamada `git` más, solo cuando `origin` no se reconoce, y quitarla obligaba a cambiar la API de `PullRequestStore` y sus tests.
+- P5a-11 resuelto en general: `TemporaryDirectories` borra al salir del proceso de test los directorios que se crean, incluidos los de `GitTestRepo`. Antes cada pasada dejaba unos 200 en la carpeta temporal (había 4.223 acumulados); ahora solo quedan los plists de `TestDefaults`, que cfprefsd vuelve a escribir.
+- P3-10: el test pone `credential.helper` vacío en el repo, lo que anula los helpers de la configuración global del desarrollador.
+- F8-T3: `runClone` probado de punta a punta contra el servidor HTTP de test (ahora admite modo anónimo).
+- F9-7: `SymbolGlyph` sustituye las 12 copias (y a `IconButtonGlyph`). F9-8: fuera `StatusBadge` (sin uso) y `detailPanelWidth`; `refreshPalette` pasa a `refreshColors`.
+
+| # | Menor | Dónde |
+|---|---|---|
+| P2-13 | Tests: reinicio tras cancelar el device flow; validador con `.cancelled`; llamador cancelado durante una renovación compartida. | `gitForgeTests/Core/Accounts/` |
+| P3-10 | `GitCredentialIntegrationTests.noAccount` usa la config global de git del desarrollador. | test |
+| P4-1 | El selector recibe `activeProfileId: nil`. Pendiente de decisión: conectarlo o quitarlo. | `RequestSheets.swift` |
+| P4-3a | `AddInstanceSheet` crea modelos desechables (`model ?? …`). | `AddInstanceSheet.swift` |
+| P5a-6 | Docs y textos antiguos en `PullRequestStore` ("read the token", "no token configured", "Load the list first."). | `PullRequestStore.swift` |
+| P5a-7 | Closure `activeProfileId` duplicada. | `AppState.swift` |
+| P5a-9 | Los fixtures sugieren GitLab bajo subruta, que no está soportado. | tests de `RemoteHost`/`HostingInstance` |
+| P5a-11 | Tests que dejan directorios temporales. | `AccountPullRequestAuthTests`, `GitCredentialsWiringTests` |
+| P5b-2 | Sin test del contador de generación de "My repos". | `RemoteRepoListModelTests` |
+| P5b-6 | Guarda redundante `migrateLegacyTokens && migratedLegacyTokens`. Pendiente de decisión. | `AccountStore.swift` |
+| P5b-10 | Dos `remote get-url` por carga con un remoto no reconocido. | `PullRequestStore.swift` |
+| F8-T1/T3 | Tests: fuzzy con emoji y caracteres combinados; `runClone` con perfil y toast. | tests |
+| F9-7 | Glifo de símbolo repetido unas 12 veces, con tamaños mágicos. | componentes |
+| F9-8 | Restos: `detailPanelWidth`, doc de `controlHeight`, `StatusBadge` sin uso, doc de `CommandPaletteItem`, `refreshPalette`. | varios |
+| F9-10 | Bitácora: #87 en la fila de F7 y falta #81. | `BITACORA.md` |
+
+### Lote 5 · A02-bis (capa Git)
+
+**Hecho (2026-10-12, misma rama).** Suite 980/980, 0 warnings. Notas:
+- `ARG_MAX`: stage, unstage, discard y descartar conflictos pasan las rutas en tandas de 128 KB (`GitCLI.pathBatches`). Probado con 3.000 rutas (~600 KB).
+- `diff.suppressBlankEmpty`: cada git lleva `-c diff.suppressBlankEmpty=false`, y además `DiffParser` toma una línea vacía dentro del recuento del hunk como contexto.
+- `pull.rebase`: `merges`, `interactive` y los sinónimos booleanos de git (`yes`, `on`, `1`…) se leen bien; un valor desconocido queda sin estrategia en vez de "merge".
+- Identidad con `-`: no era un fallo. `git config` deja de leer opciones tras la clave (comprobado con git 2.54); queda un test de regresión.
+- `--no-optional-locks`: revisado sin cambios. Sigue solo en lecturas en segundo plano (poller y Welcome); no hay indicios de contención con `index.lock` en el repo activo, y ponerlo ahí impediría que `git status` refresque el índice.
+- P3-1: el push se dirige y se firma como lo haría git: remoto por `branch.<b>.pushRemote` → `remote.pushDefault` → `branch.<b>.remote`, y la URL de `pushurl` (`get-url --push`).
+
+Los cuatro puntos de "Hallazgos diferidos" del principio (`ARG_MAX`, `diff.suppressBlankEmpty`, `pull.rebase` e identidad con `-`, `--no-optional-locks`), más:
+
+| # | Menor | Dónde |
+|---|---|---|
+| P3-1 | El push firma con `branch.<b>.remote` y la URL de fetch; git usa `pushRemote`/`remote.pushDefault` y `pushurl`. | `GitCLI+Remote.swift`, `RepositoryViewModel+Remote.swift` |

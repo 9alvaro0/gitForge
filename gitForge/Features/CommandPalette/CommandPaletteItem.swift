@@ -1,6 +1,6 @@
 import Foundation
 
-/// Single row in the command palette. Kind drives icon + tag color.
+/// Single row in the command palette. `kind` decides its group.
 struct CommandPaletteItem: Identifiable, Hashable {
     enum Kind: String, Hashable {
         case repo

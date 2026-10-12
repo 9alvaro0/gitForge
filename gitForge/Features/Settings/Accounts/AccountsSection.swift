@@ -27,6 +27,11 @@ struct AccountsSection: View {
                 if index > 0 { SettingsDivider() }
                 instanceBlock(block)
             }
+            let otherTrusted = AccountsSettingsModel.otherTrustedHosts(trustedHosts, instances: store.instances)
+            if !otherTrusted.isEmpty {
+                SettingsDivider()
+                otherTrustedBlock(otherTrusted)
+            }
             SettingsDivider()
             HStack(spacing: Spacing.s8) {
                 GFButton(title: "Connect account…", style: .primary, size: .small) {
@@ -53,6 +58,23 @@ struct AccountsSection: View {
             Text(block.accounts.isEmpty ? "The instance is removed from gitForge."
                  : "Its \(block.accounts.count) account(s) are disconnected too.")
         }
+    }
+
+    private func otherTrustedBlock(_ hosts: [String]) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
+            Text("Other trusted certificates").textRole(.body, weight: .semibold).foregroundStyle(theme.colors.textPrimary)
+            ForEach(hosts, id: \.self) { host in
+                HStack(spacing: Spacing.s8) {
+                    MonoText(host, dim: true)
+                    Spacer()
+                    GFButton(title: "Stop trusting", size: .small) {
+                        RemoteHostTrust.shared.revoke(host)
+                        trustedHosts = Set(RemoteHostTrust.shared.trustedHosts())
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.s12).padding(.vertical, Spacing.s8)
     }
 
     @ViewBuilder
@@ -83,6 +105,7 @@ struct AccountsSection: View {
                 } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
                 .help("Instance options")
+                .accessibilityLabel("Instance options")
             }
             .padding(.horizontal, Spacing.s12).padding(.vertical, Spacing.s8)
 
@@ -128,12 +151,12 @@ struct AccountsSection: View {
                 }
                 Button("Test connection") { test(row) }
                 Menu("Link to profile") {
-                    Button { store.linkAccount(row.id, toProfile: nil) } label: {
-                        checked("None", row.linkedProfileId == nil)
+                    MenuCheckItem("None", isChecked: row.linkedProfileId == nil) {
+                        store.linkAccount(row.id, toProfile: nil)
                     }
                     ForEach(appState.profiles.profiles) { profile in
-                        Button { store.linkAccount(row.id, toProfile: profile.id) } label: {
-                            checked(profile.name, row.linkedProfileId == profile.id)
+                        MenuCheckItem(profile.name, isChecked: row.linkedProfileId == profile.id) {
+                            store.linkAccount(row.id, toProfile: profile.id)
                         }
                     }
                 }
@@ -142,14 +165,10 @@ struct AccountsSection: View {
             } label: { Image(systemName: "ellipsis") }
             .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
             .help("Account options")
+            .accessibilityLabel("Account options")
         }
         .padding(.horizontal, Spacing.s12).padding(.vertical, Spacing.s8)
         .overlay(alignment: .top) { Rectangle().fill(theme.colors.separator).frame(height: 1) }
-    }
-
-    @ViewBuilder
-    private func checked(_ title: String, _ isOn: Bool) -> some View {
-        if isOn { Label(title, systemImage: "checkmark") } else { Text(title) }
     }
 
     private func statusPill(_ row: AccountRowModel) -> some View {
@@ -207,9 +226,10 @@ struct AccountsSection: View {
 }
 
 /// Avatar from the account's URL, or its initials.
-private struct AccountAvatar: View {
+struct AccountAvatar: View {
     let initials: String
     let url: URL?
+    var size: CGFloat = 26
     @State private var image: NSImage?
     @Environment(\.appTheme) private var theme
 
@@ -222,7 +242,7 @@ private struct AccountAvatar: View {
                 Text(initials).textRole(.caption, weight: .bold).foregroundStyle(theme.colors.textSecondary)
             }
         }
-        .frame(width: 26, height: 26)
+        .frame(width: size, height: size)
         .task(id: url) {
             guard let url else { return }
             image = await AvatarLoader.shared.image(for: url)

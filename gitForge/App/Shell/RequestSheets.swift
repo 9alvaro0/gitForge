@@ -3,7 +3,8 @@ import SwiftUI
 /// The request-driven sheets other screens raise: Connect account, Add
 /// instance and Choose an account. macOS shows one sheet per window at a
 /// time, so whoever is frontmost presents them: the shell normally, the
-/// clone sheet while it's open (`enabled` switches the shell's off).
+/// clone sheet while it's open (`enabled` switches the shell's off), and
+/// Connect / Add instance for the chooser while they're up.
 private struct RequestSheets: ViewModifier {
     let enabled: Bool
     @Environment(AppState.self) private var appState
@@ -16,20 +17,37 @@ private struct RequestSheets: ViewModifier {
             .sheet(item: binding(\.addInstanceRequest)) { request in
                 AddInstanceSheet(request: request)
             }
-            .sheet(item: Binding(get: { enabled ? appState.accountChooser.request : nil }, set: { _ in })) { request in
-                ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil) {
-                    appState.accountChooser.answer($0, for: request.id)
-                }
-                // The sheet went away some other way: that's a Cancel (ignored
-                // if it was already answered).
-                .onDisappear { appState.accountChooser.answer(nil, for: request.id) }
-            }
+            // Connect account and Add instance present the chooser
+            // themselves while they're up (a push started meanwhile).
+            .accountChooserSheet(enabled: enabled && appState.ui.connectAccountRequest == nil
+                                              && appState.ui.addInstanceRequest == nil)
     }
 
     private func binding<T: Identifiable>(_ keyPath: ReferenceWritableKeyPath<WorkspaceUI, T?>) -> Binding<T?> {
         let ui = appState.ui
         return Binding(get: { enabled ? ui[keyPath: keyPath] : nil },
                        set: { if enabled { ui[keyPath: keyPath] = $0 } })
+    }
+}
+
+/// "Choose an account" for a remote operation waiting on the user. Only the
+/// frontmost sheet host may enable it: macOS shows one sheet per window
+/// level, and a request nobody can present leaves the operation hanging.
+private struct AccountChooserSheet: ViewModifier {
+    let enabled: Bool
+    @Environment(AppState.self) private var appState
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: Binding(get: { enabled ? appState.accountChooser.request : nil }, set: { _ in })) { request in
+                ChooseAccountSheet(request: request, profiles: appState.profiles.profiles,
+                                   providerLabel: appState.accounts.instance(forHost: request.remote.host)?.kind.label) {
+                    appState.accountChooser.answer($0, for: request.id)
+                }
+                // The sheet went away some other way: that's a Cancel (ignored
+                // if it was already answered).
+                .onDisappear { appState.accountChooser.answer(nil, for: request.id) }
+            }
     }
 }
 
@@ -56,6 +74,10 @@ private struct ErrorAlert: ViewModifier {
 extension View {
     func requestSheets(enabled: Bool = true) -> some View {
         modifier(RequestSheets(enabled: enabled))
+    }
+
+    func accountChooserSheet(enabled: Bool = true) -> some View {
+        modifier(AccountChooserSheet(enabled: enabled))
     }
 
     func errorAlert(enabled: Bool = true) -> some View {

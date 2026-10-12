@@ -9,7 +9,7 @@ struct ConflictManualEditTests {
     private static let conflicted = "a\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> b\nz\n"
 
     private static func makeStore() throws -> (ConflictStore, URL) {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-manual-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-manual")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try conflicted.write(to: dir.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
         return (ConflictStore(repositoryURL: dir), dir)

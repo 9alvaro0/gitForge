@@ -12,7 +12,7 @@ struct AccountValidatorTests {
 
     private func makeStore(clientIds: OAuthClientIDs = .none) -> (AccountStore, InMemoryAccountSecretStore) {
         let secrets = InMemoryAccountSecretStore()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-validator-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-validator")
         return (AccountStore(directory: dir, secrets: secrets, clientIds: clientIds), secrets)
     }
 
@@ -63,6 +63,16 @@ struct AccountValidatorTests {
         #expect(store.accounts[0].lastValidatedAt == Self.now)
     }
 
+    @Test("A token rejected after its expiry date needs attention as expired, not revoked")
+    func expiredToken() async throws {
+        let (store, _) = makeStore()
+        let account = HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, login: "tanuki-test",
+                                     method: .personalToken, expiresAt: Self.now - Self.hour, status: .ok)
+        try store.addAccount(account, secret: AccountSecret(accessToken: "test-pat"))
+        await validator(store, FakeAuthClient(validate: { _ in throw HostingAuthError.unauthorized })).validateDueAccounts()
+        #expect(store.accounts[0].status == .needsAttention(.expired))
+    }
+
     @Test("Missing scopes mark it missingScopes")
     func missingScopes() async throws {
         let (store, _) = makeStore()
@@ -84,7 +94,7 @@ struct AccountValidatorTests {
 
     @Test("A 403 that isn't about scopes, TLS or a 5xx leave the account as it was")
     func untouchedByOtherFailures() async throws {
-        for failure in [HostingAuthError.server(403), .tls("bad"), .server(502)] {
+        for failure in [HostingAuthError.server(403), .tls("bad"), .server(502), .cancelled] {
             let (store, _) = makeStore()
             _ = try addCopied(store)
             await validator(store, FakeAuthClient(validate: { _ in throw failure })).validateDueAccounts()

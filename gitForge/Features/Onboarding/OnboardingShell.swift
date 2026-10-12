@@ -20,19 +20,22 @@ struct OnboardingShell<Content: View>: View {
             OnboardingRail(currentStep: currentStep)
                 .frame(width: 280)
                 .padding(Spacing.s8)
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Spacing.s24) {
-                        header
-                        content()
+            GeometryReader { column in
+                let gutter = LayoutMetrics.onboardingGutter(columnWidth: column.size.width)
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: Spacing.s24) {
+                            header
+                            content()
+                        }
+                        .frame(maxWidth: 1000, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, gutter)
+                        .padding(.top, LayoutMetrics.onboardingTop)
+                        .padding(.bottom, Spacing.s24)
                     }
-                    .frame(maxWidth: 1000, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Spacing.s48)
-                    .padding(.top, 72)
-                    .padding(.bottom, Spacing.s24)
+                    footer(gutter: gutter)
                 }
-                footer
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -57,7 +60,7 @@ struct OnboardingShell<Content: View>: View {
 
     /// `Back` is hidden on the first step, `Skip` on the mandatory ones, and
     /// the primary button on the terminal step (it closes through its cards).
-    private var footer: some View {
+    private func footer(gutter: CGFloat) -> some View {
         HStack(spacing: Spacing.s12) {
             if currentStep.canGoBack {
                 GFButton(title: "Back", action: onBack)
@@ -78,7 +81,7 @@ struct OnboardingShell<Content: View>: View {
                          action: onPrimary)
             }
         }
-        .padding(.horizontal, Spacing.s48)
+        .padding(.horizontal, gutter)
         .padding(.vertical, Spacing.s20)
     }
 }

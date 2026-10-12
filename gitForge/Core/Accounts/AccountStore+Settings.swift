@@ -7,4 +7,11 @@ extension AccountStore {
         account.linkedProfileId = profileId
         updateAccount(account)
     }
+
+    /// A deleted profile: accounts linked to it stop pointing at it.
+    func unlinkProfile(_ profileId: UUID) {
+        for account in accounts where account.linkedProfileId == profileId {
+            linkAccount(account.id, toProfile: nil)
+        }
+    }
 }

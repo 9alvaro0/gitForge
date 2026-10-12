@@ -49,7 +49,7 @@ struct WelcomeView: View {
                     Task { await appState.presentOpenRepositoryPanel() }
                 }
                 bigButton("Clone a repository…", symbol: "square.and.arrow.down", shortcut: "⌥⌘C", prominent: true) {
-                    appState.ui.cloneRequest = CloneRequest()
+                    appState.ui.requestClone()
                 }
             }
             .frame(maxWidth: 360)

@@ -7,7 +7,7 @@ import Testing
 struct OAuthClientIDsTests {
 
     private static func tempDir() -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-clientids-\(UUID().uuidString)")
+        TemporaryDirectories.make("gitForge-clientids")
     }
 
     @Test("Info.plist values: set, empty, unexpanded or missing")

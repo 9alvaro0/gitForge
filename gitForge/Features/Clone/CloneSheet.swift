@@ -13,10 +13,10 @@ struct CloneSheet: View {
 
     @AppStorage("gitForge.clone.lastParentDir") private var lastParentDir: String = ""
     @State private var model: CloneSheetModel?
-    @State private var source: Source = .url
+    @State private var source: CloneRequest.Source = .url
     @State private var started = false
 
-    enum Source: Hashable { case url, github, gitlab }
+    private typealias Source = CloneRequest.Source
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
@@ -77,6 +77,7 @@ struct CloneSheet: View {
                     .overlay(alignment: .trailing) { probeBadge(model.probe).padding(.trailing, Spacing.s8) }
                     .task(id: model.url) { await model.urlChanged() }
                     .accessibilityLabel("Repository URL")
+                    .accessibilityValue(Self.probeDescription(model.probe).map { "\(model.url), \($0)" } ?? model.url)
                 if let summary = model.remoteSummary {
                     Text(summary).textRole(.caption).foregroundStyle(theme.colors.textSecondary)
                 } else if let suggestion = RemoteHost.suggestedInstance(forRemoteURL: model.url,
@@ -160,8 +161,19 @@ struct CloneSheet: View {
         }
     }
 
+    /// The badge's text, for VoiceOver (the badge sits in an overlay of
+    /// the field and isn't read on its own).
+    nonisolated static func probeDescription(_ state: CloneSheetModel.ProbeState) -> String? {
+        switch state {
+        case .idle: nil
+        case .checking: "Checking…"
+        case .done(.reachable): "Reachable"
+        case .done(.unreachable(let failure)): reason(failure)
+        }
+    }
+
     /// A short reason for "Can't reach".
-    static func reason(_ failure: RemoteFailure?) -> String {
+    nonisolated static func reason(_ failure: RemoteFailure?) -> String {
         switch failure {
         case .authenticationHTTPS, .authenticationSSH, .accountRejected: "Can't reach · credentials"
         case .network: "Can't reach · offline"
@@ -189,9 +201,12 @@ struct CloneSheet: View {
         guard model == nil else { return }
         let credentials = appState.gitCredentials
         let parent = lastParentDir.isEmpty ? ("~/Developer" as NSString).expandingTildeInPath : lastParentDir
+        let profiles = appState.profiles
         let made = CloneSheetModel(store: appState.accounts, parentDirectory: parent,
-                                   probe: { url in await RemoteProbe.run(url: url, credentials: credentials) })
+                                   probe: { url in await RemoteProbe.run(url: url, credentials: credentials) },
+                                   profileExists: { id in profiles.profiles.contains { $0.id == id } })
         if let initial = request.initialURL { made.url = initial }
+        source = request.source
         model = made
     }
 

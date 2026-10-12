@@ -11,7 +11,8 @@ struct GitProcessCredentialTests {
     func makeWithCredential() {
         let process = GitProcess.make(arguments: ["fetch", "--all"], workingDirectory: FileManager.default.temporaryDirectory,
                                       credential: Self.credential)
-        #expect(process.arguments == ["git", "-c", "core.quotePath=false", "-c", "core.precomposeUnicode=true"]
+        #expect(process.arguments == ["git", "-c", "core.quotePath=false", "-c", "core.precomposeUnicode=true",
+                                      "-c", "diff.suppressBlankEmpty=false"]
                 + Self.credential.configArguments + ["fetch", "--all"])
         #expect(process.environment?["GITFORGE_CRED_USER"] == "oauth2")
         #expect(process.environment?["GITFORGE_CRED_PASS"] == "test-secret-value-2")
@@ -21,7 +22,8 @@ struct GitProcessCredentialTests {
     @Test("Without a credential nothing is added")
     func makeWithout() {
         let process = GitProcess.make(arguments: ["fetch"], workingDirectory: FileManager.default.temporaryDirectory)
-        #expect(process.arguments == ["git", "-c", "core.quotePath=false", "-c", "core.precomposeUnicode=true", "fetch"])
+        #expect(process.arguments == ["git", "-c", "core.quotePath=false", "-c", "core.precomposeUnicode=true",
+                                      "-c", "diff.suppressBlankEmpty=false", "fetch"])
         #expect(process.environment?["GITFORGE_CRED_PASS"] == nil)
     }
 

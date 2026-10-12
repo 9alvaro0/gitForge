@@ -175,4 +175,74 @@ struct TokenRefresherTests {
             try await refresher.accessToken(for: self.account, on: Self.instance)
         }
     }
+
+    @Test("The Keychain refuses the refreshed pair: kept in memory and saved on a later read")
+    func keepsUnsavedSecret() async throws {
+        let (refresher, secrets, client) = setup(expiresIn: 120)
+        secrets.failWrites = true
+        #expect(try await refresher.accessToken(for: account, on: Self.instance) == "access-2")
+        #expect(secrets.read(account.id)?.accessToken == "access-1")
+        // The single-use refresh token isn't spent again.
+        #expect(try await refresher.accessToken(for: account, on: Self.instance) == "access-2")
+        #expect(client.refreshCalls == ["refresh-1"])
+
+        secrets.failWrites = false
+        _ = try await refresher.accessToken(for: account, on: Self.instance)
+        #expect(secrets.read(account.id)?.refreshToken == "refresh-2")
+    }
+
+    @Test("Reconnected while a refresh runs: the new connection is kept")
+    func reconnectDuringRefresh() async throws {
+        let gate = AsyncGate()
+        let (refresher, secrets, _) = setup(expiresIn: 120, refresh: { _ in
+            await gate.wait()
+            return Self.grant(2)
+        })
+        let account = self.account
+        let pending = Task { try await refresher.accessToken(for: account, on: Self.instance) }
+        await gate.waiting()
+        let reconnected = AccountSecret(accessToken: "access-new", refreshToken: "refresh-new",
+                                        accessTokenExpiresAt: Self.now + 7200)
+        try secrets.write(reconnected, for: account.id)
+        gate.open()
+        #expect(try await pending.value == "access-new")
+        #expect(secrets.read(account.id) == reconnected)
+    }
+
+    @Test("Reconnected while a refresh is rejected: the account isn't marked expired")
+    func reconnectDuringRejectedRefresh() async throws {
+        let gate = AsyncGate()
+        let rejected = LockedList<UUID>()
+        let (refresher, secrets, _) = setup(expiresIn: 120, refresh: { _ in
+            await gate.wait()
+            throw HostingAuthError.refreshRejected
+        }, rejected: rejected)
+        let account = self.account
+        let pending = Task { try await refresher.accessToken(for: account, on: Self.instance) }
+        await gate.waiting()
+        try secrets.write(AccountSecret(accessToken: "access-new", refreshToken: "refresh-new",
+                                        accessTokenExpiresAt: Self.now + 7200), for: account.id)
+        gate.open()
+        #expect(try await pending.value == "access-new")
+        #expect(rejected.values.isEmpty)
+    }
+
+    @Test("A caller cancelled during a shared refresh doesn't spoil it for the others")
+    func cancelledCallerDuringSharedRefresh() async throws {
+        let gate = AsyncGate()
+        let (refresher, secrets, client) = setup(expiresIn: 120, refresh: { _ in
+            await gate.wait()
+            return Self.grant(2)
+        })
+        let account = self.account
+        let first = Task { try await refresher.accessToken(for: account, on: Self.instance) }
+        await gate.waiting()
+        let second = Task { try await refresher.accessToken(for: account, on: Self.instance) }
+        first.cancel()
+        gate.open()
+        #expect(try await second.value == "access-2")
+        _ = try? await first.value
+        #expect(client.refreshCalls == ["refresh-1"])
+        #expect(secrets.read(account.id)?.refreshToken == "refresh-2")
+    }
 }

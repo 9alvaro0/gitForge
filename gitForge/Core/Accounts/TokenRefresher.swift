@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Keeps OAuth access tokens usable (spec §5.3): refreshes when under 5
 /// minutes are left and, after a 401, once more before giving up.
@@ -14,6 +15,12 @@ actor TokenRefresher {
     private let now: @Sendable () -> Date
     private let onRefreshRejected: @Sendable (UUID) async -> Void
     private var inFlight: [UUID: Task<AccountSecret, Error>] = [:]
+    /// Refreshed secrets the Keychain refused to save, with the refresh
+    /// token they replaced. GitLab's refresh token works once, so losing the
+    /// new pair would leave the account expired; the write is retried on the
+    /// next read.
+    private var unsaved: [UUID: (secret: AccountSecret, replacedRefreshToken: String)] = [:]
+    private static let logger = Logger(subsystem: "com.warwarelabs.gitForge", category: "accounts")
 
     /// `onRefreshRejected`: the server refused the refresh token; the app
     /// marks the account `needsAttention(.expired)`.
@@ -36,7 +43,7 @@ actor TokenRefresher {
     /// A usable access token for `account`, refreshed first if it's about
     /// to expire.
     func accessToken(for account: HostingAccount, on instance: HostingInstance) async throws -> String {
-        guard let secret = secrets.read(account.id) else { throw HostingAuthError.missingSecret }
+        guard let secret = read(account.id) else { throw HostingAuthError.missingSecret }
         guard Self.needsRefresh(secret, now: now()) else { return secret.accessToken }
         return try await refresh(account.id, on: instance, replacing: secret.accessToken).accessToken
     }
@@ -53,7 +60,7 @@ actor TokenRefresher {
         do {
             return try await operation(token)
         } catch let error where isRejection(error) {
-            guard secrets.read(account.id)?.refreshToken != nil else { throw error }
+            guard read(account.id)?.refreshToken != nil else { throw error }
             let fresh = try await refresh(account.id, on: instance, replacing: token)
             return try await operation(fresh.accessToken)
         }
@@ -64,7 +71,7 @@ actor TokenRefresher {
     /// that can't refresh throw `unauthorized`.
     func refreshAfterRejection(for account: HostingAccount, on instance: HostingInstance,
                                rejected: String) async throws -> String {
-        guard secrets.read(account.id)?.refreshToken != nil else { throw HostingAuthError.unauthorized }
+        guard read(account.id)?.refreshToken != nil else { throw HostingAuthError.unauthorized }
         return try await refresh(account.id, on: instance, replacing: rejected).accessToken
     }
 
@@ -72,29 +79,62 @@ actor TokenRefresher {
     /// replaced by another caller's refresh gets the current secret.
     private func refresh(_ id: UUID, on instance: HostingInstance, replacing stale: String) async throws -> AccountSecret {
         if let running = inFlight[id] { return try await running.value }
-        guard let current = secrets.read(id) else { throw HostingAuthError.missingSecret }
+        guard let current = read(id) else { throw HostingAuthError.missingSecret }
         if current.accessToken != stale, !Self.needsRefresh(current, now: now()) { return current }
         guard let refreshToken = current.refreshToken else { throw HostingAuthError.refreshRejected }
         guard let clientId = instance.oauthClientId, !clientId.isEmpty else { throw HostingAuthError.oauthUnavailable }
 
         let client = makeClient(instance)
-        let secrets = self.secrets
         let now = self.now
-        let onRejected = self.onRefreshRejected
         let task = Task<AccountSecret, Error> {
-            do {
-                let grant = try await client.refresh(clientId: clientId, refreshToken: refreshToken)
-                var fresh = grant.secret(now: now())
-                if fresh.refreshToken == nil { fresh.refreshToken = refreshToken }
-                try secrets.write(fresh, for: id)
-                return fresh
-            } catch HostingAuthError.refreshRejected {
-                await onRejected(id)
-                throw HostingAuthError.refreshRejected
-            }
+            let grant = try await client.refresh(clientId: clientId, refreshToken: refreshToken)
+            var fresh = grant.secret(now: now())
+            if fresh.refreshToken == nil { fresh.refreshToken = refreshToken }
+            return fresh
         }
         inFlight[id] = task
         defer { inFlight[id] = nil }
-        return try await task.value
+        do {
+            let fresh = try await task.value
+            // Reconnected while the refresh ran: the new connection wins.
+            if let reconnected = reconnection(of: id, since: refreshToken) { return reconnected }
+            save(fresh, for: id, replacing: refreshToken)
+            return fresh
+        } catch HostingAuthError.refreshRejected {
+            if let reconnected = reconnection(of: id, since: refreshToken) { return reconnected }
+            await onRefreshRejected(id)
+            throw HostingAuthError.refreshRejected
+        }
+    }
+
+    /// The account's secret: one the Keychain refused (saved now if it can
+    /// be), unless the account was reconnected since.
+    private func read(_ id: UUID) -> AccountSecret? {
+        let stored = secrets.read(id)
+        guard let pending = unsaved[id] else { return stored }
+        guard stored == nil || stored?.refreshToken == pending.replacedRefreshToken else {
+            unsaved[id] = nil
+            return stored
+        }
+        if (try? secrets.write(pending.secret, for: id)) != nil { unsaved[id] = nil }
+        return pending.secret
+    }
+
+    /// The secret saved for `id` after a reconnect, if it no longer carries
+    /// `refreshToken` (the one a running refresh used).
+    private func reconnection(of id: UUID, since refreshToken: String) -> AccountSecret? {
+        guard let stored = secrets.read(id), stored.refreshToken != refreshToken else { return nil }
+        unsaved[id] = nil
+        return stored
+    }
+
+    private func save(_ fresh: AccountSecret, for id: UUID, replacing refreshToken: String) {
+        do {
+            try secrets.write(fresh, for: id)
+            unsaved[id] = nil
+        } catch {
+            Self.logger.error("Couldn't save the refreshed token for \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public); keeping it in memory")
+            unsaved[id] = (fresh, refreshToken)
+        }
     }
 }
