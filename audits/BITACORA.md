@@ -494,7 +494,7 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 
 | Función | Artboard | Fase | Nota |
 |---|---|---|---|
-| Contadores +N −M por fichero en la lista de Changes | `Changes` | F4 | `git status` no los da; haría falta un `diff --numstat` por refresco. |
+| ~~Contadores +N −M por fichero en la lista de Changes~~ | `Changes` | F4 | Hecho (2026-10-12): dos `diff --numstat -z` (index y worktree) en paralelo con cada `git status`; sin contador para untracked y binarios. |
 | ~~Stash de los ficheros seleccionados~~ | `Changes` | F4 | Hecho (2026-10-12): botón Stash en la barra de selección; las rutas van por `--pathspec-from-file`. |
 | ~~Atajo ⌘↵ para hacer commit~~ | `Changes` | F4 | Hecho (2026-10-12). |
 | ~~Campo "Filter files" en la toolbar de Changes~~ | `Changes` | F4 | Hecho (2026-10-12): filtra por ruta (y ruta original en renombres); las acciones por lote solo alcanzan lo visible. |

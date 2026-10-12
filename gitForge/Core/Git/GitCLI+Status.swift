@@ -17,6 +17,38 @@ extension GitCLI {
         return WorkingCopyStatus(files: Self.parseStatus(result.stdout))
     }
 
+    /// Per-file `+N −M` of the index against HEAD (`staged`) or of the
+    /// worktree against the index, keyed by path (a rename's new path).
+    /// Binary files are left out. `-M` matches status's rename detection.
+    func lineCounts(staged: Bool) async throws -> [String: DiffStats] {
+        let side = staged ? ["--cached"] : []
+        let result = try await run(["diff"] + side + ["--numstat", "-z", "-M"] + Self.diffOutputFlags)
+        return Self.parseNumstat(result.stdout)
+    }
+
+    /// `--numstat -z` records: `add\tdel\tpath\0`, or for a rename
+    /// `add\tdel\t\0old\0new\0`. Binary files report `-\t-`.
+    nonisolated static func parseNumstat(_ stdout: String) -> [String: DiffStats] {
+        let fields = stdout.split(separator: "\0", omittingEmptySubsequences: false).map(String.init)
+        var counts: [String: DiffStats] = [:]
+        var i = 0
+        while i < fields.count {
+            let parts = fields[i].split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false)
+            i += 1
+            guard parts.count == 3 else { continue }
+            var path = String(parts[2])
+            if path.isEmpty {
+                // Rename: old and new path follow as their own fields.
+                guard i + 1 < fields.count else { break }
+                path = fields[i + 1]
+                i += 2
+            }
+            guard let additions = Int(parts[0]), let deletions = Int(parts[1]) else { continue }
+            counts[path] = DiffStats(additions: additions, deletions: deletions)
+        }
+        return counts
+    }
+
     static func parseStatus(_ stdout: String) -> [WorkingCopyFile] {
         // Records separated by NUL (porcelain v2 + -z). For renamed/copied
         // entries (type 2) the path and origPath are themselves separated by

@@ -11,6 +11,10 @@ import Observation
 final class WorkingCopyStore {
     // MARK: Status
     var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
+    /// `+N −M` per path for the Staged rows (index vs HEAD) and the Unstaged
+    /// rows (worktree vs index). Untracked and binary files have none.
+    var stagedLineCounts: [String: DiffStats] = [:]
+    var unstagedLineCounts: [String: DiffStats] = [:]
     /// Paths the user ticked in the Changes column for a batch stage/unstage.
     /// Separate from `selectedWorkingCopyFile` (which drives the diff pane)
     /// so the user can keep one file visible in the diff while ticking a
@@ -84,6 +88,8 @@ final class WorkingCopyStore {
     /// Drops the status and diff when the session stops.
     func purge() {
         status = WorkingCopyStatus(files: [])
+        stagedLineCounts = [:]
+        unstagedLineCounts = [:]
         selectedFilePaths = []
         workingCopyDiff = []
     }
@@ -106,9 +112,16 @@ final class WorkingCopyStore {
             }
         }
         do {
+            // The counts are decoration: a failure leaves them empty rather
+            // than failing the refresh.
+            async let staged = try? cli.lineCounts(staged: true)
+            async let unstaged = try? cli.lineCounts(staged: false)
             let snapshot = try await cli.status()
+            let (stagedCounts, unstagedCounts) = await (staged, unstaged)
             guard gen == statusGen else { return }
             status = snapshot
+            stagedLineCounts = stagedCounts ?? [:]
+            unstagedLineCounts = unstagedCounts ?? [:]
             // Prune the diff-pane selection if the file no longer appears in
             // status (e.g. discarded, deleted) so the pane doesn't keep
             // showing a stale diff for a vanished file.

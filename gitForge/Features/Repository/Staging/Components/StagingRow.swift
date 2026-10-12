@@ -4,6 +4,8 @@ import AppKit
 struct StagingRow: View {
     let file: WorkingCopyFile
     @Bindable var viewModel: RepositoryViewModel
+    /// `+N −M` of this row's side (staged or unstaged), when git reports it.
+    var lineCounts: DiffStats? = nil
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
     /// Drives a per-row confirmation when the user picks "Discard changes"
@@ -30,6 +32,9 @@ struct StagingRow: View {
                 StatusTag(kind: StatusTag.Kind(workingFile: file.displayStatus))
                 pathView
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if let lineCounts, !lineCounts.isEmpty {
+                    countsView(lineCounts)
+                }
             }
             .padding(.leading, Spacing.s8)
             .padding(.trailing, Spacing.s12)
@@ -39,7 +44,7 @@ struct StagingRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(statusDescription): \(file.path)")
+        .accessibilityLabel(accessibilityText)
         .onHover { hovering = $0 }
         .simultaneousGesture(
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
@@ -124,6 +129,26 @@ struct StagingRow: View {
         let side = file.isStaged ? "Staged" : "Unstaged"
         let status = file.isStaged ? file.stagedStatus : file.unstagedStatus
         return "\(side) \(status.spokenName)"
+    }
+
+    private var accessibilityText: String {
+        let base = "\(statusDescription): \(file.path)"
+        guard let lineCounts, !lineCounts.isEmpty else { return base }
+        return "\(base), \(lineCounts.additions) additions, \(lineCounts.deletions) deletions"
+    }
+
+    private func countsView(_ counts: DiffStats) -> some View {
+        HStack(spacing: Spacing.s4) {
+            if counts.additions > 0 {
+                Text("+\(counts.additions)").foregroundStyle(theme.colors.add)
+            }
+            if counts.deletions > 0 {
+                Text("−\(counts.deletions)").foregroundStyle(theme.colors.del)
+            }
+        }
+        .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+        .lineLimit(1)
+        .fixedSize()
     }
 
     @ViewBuilder

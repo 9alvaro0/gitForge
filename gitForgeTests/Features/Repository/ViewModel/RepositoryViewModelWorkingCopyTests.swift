@@ -124,3 +124,23 @@ struct RepositoryViewModelPrefillFromHeadTests {
         #expect(vm.workingCopy.commitBody == "still typing")
     }
 }
+
+@Suite("WorkingCopyStore — line counts", .serialized)
+@MainActor
+struct WorkingCopyLineCountsTests {
+
+    @Test("refreshStatus fills the staged and unstaged counts")
+    func refreshFillsCounts() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["a.txt": "a\n", "b.txt": "b\n"])
+            try repo.write("a\nmore\n", to: "a.txt")
+            try repo.git("add", "a.txt")
+            try repo.write("", to: "b.txt")
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.workingCopy.refreshStatus()
+        #expect(vm.workingCopy.stagedLineCounts == ["a.txt": DiffStats(additions: 1, deletions: 0)])
+        #expect(vm.workingCopy.unstagedLineCounts == ["b.txt": DiffStats(additions: 0, deletions: 1)])
+    }
+}
