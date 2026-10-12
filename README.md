@@ -12,7 +12,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 
 - **History** — interactive commit graph (branches, tags, stashes as dashed lanes), commit detail with per-file diffs, unified or side-by-side, syntax highlighted
 - **Changes** — stage / unstage / discard / stash by file (with batch selection and a file filter), commit and amend
-- **Branches & tags** — create, checkout, rename, delete, move a branch tip; drag a branch onto a commit or another branch to move / merge / rebase; create, push and delete tags
+- **Branches & tags** — create, checkout, rename, delete, push any local branch, move a branch tip; see which branches are merged and how each compares with `main`; drag a branch onto a commit or another branch to move / merge / rebase; create, push and delete tags
 - **Stashes** — stash (optionally with untracked files), apply, pop, drop, browse a stash's files and diffs
 - **Conflicts** — visual resolver for merge / rebase / cherry-pick / revert / stash conflicts: pick ours / theirs / both per hunk, or resolve whole files
 - **Remotes** — fetch, pull (merge / rebase / fast-forward only), push, force-push with lease, optional background auto-fetch, categorised errors (auth, network, rejected, protected branch…)

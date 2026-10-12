@@ -12,6 +12,8 @@ struct BranchRow: View {
     let currentBranchName: String?
     /// Local branches usable as merge destinations.
     let availableTargets: [GitRef]
+    /// HEAD already contains this branch's tip.
+    var isMerged: Bool = false
     let isSelected: Bool
     let onSelect: () -> Void
     let actions: BranchActions
@@ -102,6 +104,14 @@ struct BranchRow: View {
                     .padding(.horizontal, Spacing.s4)
                     .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.accentFill))
             }
+            if isMerged {
+                Text("merged")
+                    .textRole(.caption, weight: .semibold)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .padding(.horizontal, Spacing.s4)
+                    .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.fillControl))
+                    .help("Already merged into \(currentBranchName ?? "HEAD")")
+            }
         }
         .padding(.trailing, Spacing.s8)
     }
@@ -136,6 +146,7 @@ struct BranchRow: View {
     private var spokenLabel: String {
         var parts = [ref.displayName]
         if isCurrent { parts.append("current branch") }
+        if isMerged { parts.append("merged") }
         if let ahead = ref.ahead, ahead > 0 { parts.append("\(ahead) ahead") }
         if let behind = ref.behind, behind > 0 { parts.append("\(behind) behind") }
         if ref.upstreamGone { parts.append("upstream gone") }
@@ -155,6 +166,9 @@ struct BranchRow: View {
         } else {
             if !isCurrent {
                 Button("Check out") { actions.checkout(ref) }
+            }
+            if ref.isLocalBranch {
+                Button("Push") { actions.push(ref) }
             }
             Menu("Merge \(ref.displayName) into…") {
                 if let current = currentBranchName, ref.name != current {

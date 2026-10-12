@@ -1,11 +1,15 @@
 import SwiftUI
 
 /// Right-hand panel for the selected branch or tag: what it tracks, how far
-/// it is from its upstream, its tip commit, and the actions that exist today.
+/// it is from its upstream and from the trunk, its tip commit, and actions.
 struct BranchInspector: View {
     let ref: GitRef
     let currentBranchName: String?
     let actions: BranchActions
+    /// `RepositoryViewModel.comparison(of:)`; nil leaves the section out.
+    var loadComparison: (GitRef) async -> BranchComparison? = { _ in nil }
+
+    @State private var comparison: BranchComparison?
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
@@ -25,11 +29,19 @@ struct BranchInspector: View {
                 }
             }
             lastCommit
+            if let comparison {
+                trunkSection(comparison)
+            }
             Spacer(minLength: 0)
             actionButtons
         }
         .padding(Spacing.s16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // `ref` carries its tip, so a moved branch reloads too.
+        .task(id: ref) {
+            comparison = nil
+            comparison = await loadComparison(ref)
+        }
     }
 
     // MARK: Header
@@ -110,6 +122,52 @@ struct BranchInspector: View {
         }
     }
 
+    // MARK: Trunk
+
+    /// "Compared with main": how far apart they are, and the branch's
+    /// newest commits the trunk doesn't have.
+    private func trunkSection(_ comparison: BranchComparison) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
+            Text("Compared with \(comparison.trunk)")
+                .textRole(.caption, weight: .semibold)
+                .foregroundStyle(theme.colors.textQuaternary)
+            Text(trunkSummary(comparison))
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textSecondary)
+            if !comparison.commitsNotInTrunk.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.s4) {
+                    ForEach(comparison.commitsNotInTrunk) { commit in
+                        HStack(alignment: .firstTextBaseline, spacing: Spacing.s8) {
+                            Text(commit.shortSha)
+                                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                                .foregroundStyle(theme.colors.textTertiary)
+                            Text(commit.subject)
+                                .textRole(.callout)
+                                .foregroundStyle(theme.colors.textPrimary)
+                                .lineLimit(1)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                    let hidden = comparison.ahead - comparison.commitsNotInTrunk.count
+                    if hidden > 0 {
+                        Text("and \(hidden) more")
+                            .textRole(.caption)
+                            .foregroundStyle(theme.colors.textTertiary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func trunkSummary(_ c: BranchComparison) -> String {
+        switch (c.ahead, c.behind) {
+        case (0, 0): return "Same commit as \(c.trunk)"
+        case (0, let behind): return "Fully in \(c.trunk) · \(behind) behind"
+        case (let ahead, 0): return "\(ahead) not in \(c.trunk) · up to date with it"
+        case (let ahead, let behind): return "\(ahead) not in \(c.trunk) · \(behind) behind"
+        }
+    }
+
     // MARK: Actions
 
     @ViewBuilder
@@ -130,6 +188,8 @@ struct BranchInspector: View {
                         .help("Rebase \(current) onto \(ref.displayName)")
                 }
                 if ref.isLocalBranch {
+                    GFButton(title: "Push", fullWidth: true) { actions.push(ref) }
+                        .help(ref.upstream.map { "Push to \($0)" } ?? "Push and set its upstream")
                     GFButton(title: "Rename…", fullWidth: true) { actions.rename(ref) }
                     if !isCurrent {
                         GFButton(title: "Delete branch…", style: .destructive, fullWidth: true) { actions.delete(ref) }
