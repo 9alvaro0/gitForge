@@ -92,10 +92,12 @@ struct CommandPaletteView: View {
                                 .accessibilityAddTraits(.isHeader)
                             ForEach(section.rows) { row in
                                 let index = rows.firstIndex { $0.id == row.id } ?? 0
-                                PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == selectedIndex)
-                                    .id(row.id)
-                                    .onHover { if $0 { selectedIndex = index } }
-                                    .onTapGesture { onPick(row.item) }
+                                Button { onPick(row.item) } label: {
+                                    PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == selectedIndex)
+                                }
+                                .buttonStyle(.plain)
+                                .id(row.id)
+                                .onHover { if $0 { selectedIndex = index } }
                             }
                         }
                     }
@@ -103,12 +105,18 @@ struct CommandPaletteView: View {
                     .padding(.top, Spacing.s4)
                     .padding(.bottom, Spacing.s8)
                 }
-                .frame(maxHeight: 420)
+                .frame(height: min(Self.listHeight(sections), 420))
                 .onChange(of: selectedIndex) { _, index in
                     if let id = rows[safe: index]?.id { proxy.scrollTo(id) }
                 }
             }
         }
+    }
+
+    /// The results' height, so the panel hugs a short list: 40 per row,
+    /// 28 per group title, plus the list's padding.
+    static func listHeight(_ sections: [CommandPaletteSections.Section]) -> CGFloat {
+        CGFloat(sections.reduce(0) { $0 + $1.rows.count }) * 40 + CGFloat(sections.count) * 28 + Spacing.s12
     }
 
     private var footer: some View {
@@ -174,7 +182,7 @@ private struct PaletteRow: View {
         .contentShape(.rect)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(row.item.label), \(groupTitle)")
-        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     /// Matched letters in Semibold and underlined in the accent — never

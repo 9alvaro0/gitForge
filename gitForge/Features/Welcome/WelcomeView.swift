@@ -12,11 +12,12 @@ struct WelcomeView: View {
     var body: some View {
         HStack(spacing: 0) {
             actions
-                .frame(minWidth: 340, idealWidth: 480, maxWidth: 560, maxHeight: .infinity, alignment: .topLeading)
+                .frame(minWidth: 340, idealWidth: 400, maxWidth: 520, maxHeight: .infinity, alignment: .topLeading)
             Divider().overlay(theme.colors.separator)
             recentPanel
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(theme.colors.bgElevated)
+                .layoutPriority(1)
         }
         .background(theme.colors.bgContent)
         .task(id: appState.catalog.repositories.map(\.url)) {
@@ -29,14 +30,18 @@ struct WelcomeView: View {
     private var actions: some View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
             Spacer(minLength: Spacing.s48)
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
+            Image(systemName: "arrow.triangle.branch")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(theme.colors.accentOnFill)
                 .frame(width: 88, height: 88)
+                .background(RoundedRectangle(cornerRadius: Radius.panel).fill(theme.colors.accentFill))
+                .shadow(color: theme.colors.accent.opacity(0.35), radius: 20, y: 12)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.s4) {
                 Text("gitForge").textRole(.largeTitle)
                 Text("Version \(Self.version) · A native Git client for macOS")
                     .textRole(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(theme.colors.textSecondary)
             }
             VStack(spacing: Spacing.s8) {
@@ -52,7 +57,7 @@ struct WelcomeView: View {
             Spacer()
             footer
         }
-        .padding(.horizontal, Spacing.s48)
+        .padding(.horizontal, Spacing.s32)
         .padding(.bottom, Spacing.s32)
     }
 
@@ -67,6 +72,7 @@ struct WelcomeView: View {
                     .accessibilityHidden(true)
                 Text(title)
                     .textRole(.body, weight: .semibold)
+                    .lineLimit(1)
                     .foregroundStyle(prominent ? theme.colors.accent : theme.colors.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(shortcut)

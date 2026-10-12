@@ -111,4 +111,17 @@ struct CloneSheetModelTests {
         m.destination = NSTemporaryDirectory() + "gitforge-new-\(UUID().uuidString)"
         #expect(m.destinationHint == nil)
     }
+
+    @Test("A new URL shows Checking… right away, never the previous URL's result")
+    func noStaleResult() async {
+        let m = model(store())
+        m.url = "https://github.com/octo/one.git"
+        await m.urlChanged()
+        #expect(m.probe == .done(.reachable(defaultBranch: "main")))
+        m.url = "https://github.com/octo/two.git"
+        let pending = Task { await m.urlChanged() }
+        await Task.yield()
+        #expect(m.probe == .checking)
+        await pending.value
+    }
 }
