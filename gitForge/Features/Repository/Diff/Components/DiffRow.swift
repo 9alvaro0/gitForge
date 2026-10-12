@@ -7,6 +7,11 @@ struct DiffRow: View {
     /// Pre-tokenised attributed string for this line. When present its
     /// embedded colours win; plain runs fall back to the syntax `plain`.
     let attributed: AttributedString?
+    /// Picked for a line-level stage / unstage / discard.
+    var isSelected = false
+    /// Toggles the pick; nil where lines can't be picked (context lines,
+    /// diffs without hunk actions).
+    var onToggle: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
@@ -26,6 +31,33 @@ struct DiffRow: View {
         }
         .frame(maxWidth: .infinity, minHeight: theme.density.metrics.diffLine, alignment: .leading)
         .background(DiffTint.row(line.kind, colors: theme.colors))
+        .overlay {
+            if isSelected { theme.colors.accentSoft.allowsHitTesting(false) }
+        }
+        .overlay(alignment: .leading) {
+            if isSelected {
+                Rectangle().fill(theme.colors.accent).frame(width: 3).allowsHitTesting(false)
+            }
+        }
+        .modifier(DiffRowPick(isSelected: isSelected, onToggle: onToggle))
+    }
+}
+
+/// Click to pick a changed line, with the matching VoiceOver traits.
+private struct DiffRowPick: ViewModifier {
+    let isSelected: Bool
+    let onToggle: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onToggle {
+            content
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onToggle)
+                .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+                .accessibilityHint("Select this line to stage, unstage or discard it alone")
+        } else {
+            content
+        }
     }
 }
 

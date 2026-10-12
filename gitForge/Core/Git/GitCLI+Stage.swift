@@ -85,6 +85,22 @@ extension GitCLI {
         }
     }
 
+    /// Applies a patch built by `HunkPatch` — to the index (`cached`) or the
+    /// worktree, forward or `reverse`. The patch goes through a temporary
+    /// file; `--recount` lets a partial-line patch carry approximate counts.
+    func apply(patch: String, cached: Bool, reverse: Bool) async throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gitForge-hunk-\(UUID().uuidString).patch")
+        try Data(patch.utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        var args = ["apply", "--recount", "--whitespace=nowarn"]
+        if cached { args.append("--cached") }
+        if reverse { args.append("--reverse") }
+        if HunkPatch.hasNoContext(patch) { args.append("--unidiff-zero") }
+        args += [Self.endOfOptions, file.path(percentEncoded: false)]
+        try await run(args)
+    }
+
     /// `signOff` adds the `Signed-off-by:` trailer (`--signoff`).
     func commit(subject: String, body: String? = nil, amend: Bool = false, signOff: Bool = false) async throws {
         var args: [String] = ["commit"]

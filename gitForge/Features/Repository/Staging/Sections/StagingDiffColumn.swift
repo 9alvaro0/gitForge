@@ -14,12 +14,15 @@ struct StagingDiffColumn: View {
             if let file = viewModel.workingCopy.selectedWorkingCopyFile {
                 DiffPane(
                     file: file.path,
-                    status: StatusTag.Kind(workingFile: file.displayStatus),
+                    // The badge of the part on show, not always the staged one.
+                    status: StatusTag.Kind(workingFile: viewModel.workingCopy.diffSide(for: file) == .staged
+                                           ? file.stagedStatus : file.unstagedStatus),
                     hunks: viewModel.workingCopy.workingCopyDiff,
                     loading: viewModel.workingCopy.loadingWorkingCopyDiff,
                     emptyState: viewModel.workingCopy.workingCopyDiffEmptyState,
                     onOpenInEditor: { openInEditor(file: file) },
                     onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
+                    hunkActions: .workingCopy(viewModel, file: file),
                     viewMode: $diffMode
                 )
             } else if hasFiles {

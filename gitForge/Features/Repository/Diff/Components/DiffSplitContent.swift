@@ -7,6 +7,8 @@ struct DiffSplitContent: View {
     let hunks: [DiffHunk]
     /// `hunk.id → line.id → AttributedString` from the parent's tokenisation.
     let highlighted: [Int: [Int: AttributedString]]
+    /// Hunk-level actions; picking single lines is a unified-view feature.
+    var headerControls: (DiffHunk) -> DiffHunkHeader.Controls? = { _ in nil }
 
     @Environment(\.appTheme) private var theme
 
@@ -22,7 +24,7 @@ struct DiffSplitContent: View {
                 // SwiftUI logs "the ID … is used by multiple child views").
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(hunks) { hunk in
-                        DiffHunkHeader(hunk: hunk)
+                        DiffHunkHeader(hunk: hunk, controls: headerControls(hunk))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]

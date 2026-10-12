@@ -9,6 +9,11 @@ struct DiffUnifiedContent: View {
     let hunks: [DiffHunk]
     /// `hunk.id → line.id → AttributedString` from the parent's tokenisation.
     let highlighted: [Int: [Int: AttributedString]]
+    /// `hunk.id → picked line ids`, and the hunk actions per header; empty
+    /// / nil outside Changes.
+    var selectedLines: [Int: Set<Int>] = [:]
+    var onToggleLine: ((DiffHunk, DiffLine) -> Void)? = nil
+    var headerControls: (DiffHunk) -> DiffHunkHeader.Controls? = { _ in nil }
 
     @Environment(\.appPreferences) private var preferences
 
@@ -29,11 +34,14 @@ struct DiffUnifiedContent: View {
                 // used by multiple child views".
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(hunks) { hunk in
-                        DiffHunkHeader(hunk: hunk)
+                        DiffHunkHeader(hunk: hunk, controls: headerControls(hunk))
                             .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
+                        let picked = selectedLines[hunk.id] ?? []
                         ForEach(hunk.lines) { line in
-                            DiffRow(line: line, attributed: table?[line.id])
+                            DiffRow(line: line, attributed: table?[line.id],
+                                    isSelected: picked.contains(line.id),
+                                    onToggle: toggle(line, in: hunk))
                                 .id("h-\(hunk.id)-l-\(line.id)")
                         }
                     }
@@ -42,6 +50,14 @@ struct DiffUnifiedContent: View {
                        minHeight: geo.size.height, alignment: .topLeading)
             }
         }
+    }
+}
+
+extension DiffUnifiedContent {
+    /// Only added and removed lines can be picked.
+    private func toggle(_ line: DiffLine, in hunk: DiffHunk) -> (() -> Void)? {
+        guard let onToggleLine, line.kind == .added || line.kind == .removed else { return nil }
+        return { onToggleLine(hunk, line) }
     }
 }
 

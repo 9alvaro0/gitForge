@@ -34,6 +34,7 @@ struct StagingFilesColumn: View {
                 allLabel: "Stage all",
                 onAll: { Task { await viewModel.stage(unstaged) } },
                 moveTitle: "Stage",
+                side: .unstaged,
                 onMove: { Task { await viewModel.stageSelected() } },
                 lineCounts: viewModel.workingCopy.unstagedLineCounts
             )
@@ -44,6 +45,7 @@ struct StagingFilesColumn: View {
                 allLabel: "Unstage all",
                 onAll: { Task { await viewModel.unstage(staged) } },
                 moveTitle: "Unstage",
+                side: .staged,
                 onMove: { Task { await viewModel.unstageSelected() } },
                 lineCounts: viewModel.workingCopy.stagedLineCounts
             )
@@ -58,6 +60,7 @@ struct StagingFilesColumn: View {
                          allLabel: String,
                          onAll: @escaping () -> Void,
                          moveTitle: String,
+                         side: WorkingCopySide,
                          onMove: @escaping () -> Void,
                          lineCounts: [String: DiffStats]) -> some View {
         let selection = StagingSectionSelection(paths: files.map(\.path), selected: viewModel.workingCopy.selectedFilePaths)
@@ -79,7 +82,7 @@ struct StagingFilesColumn: View {
                     .frame(height: theme.density.metrics.rowList)
             } else {
                 ForEach(files) { f in
-                    StagingRow(file: f, viewModel: viewModel, lineCounts: lineCounts[f.path])
+                    StagingRow(file: f, viewModel: viewModel, side: side, lineCounts: lineCounts[f.path])
                 }
             }
             if selection != .empty {
