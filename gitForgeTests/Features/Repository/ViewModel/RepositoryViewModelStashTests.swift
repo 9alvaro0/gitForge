@@ -85,3 +85,40 @@ struct RepositoryViewModelStashTests {
         #expect(repo.read("conf.txt") == "from-head\n")
     }
 }
+
+@Suite("RepositoryViewModel — stash of selected files", .serialized)
+@MainActor
+struct RepositoryViewModelStashSelectedTests {
+
+    @Test("Stashes only the picked files and refreshes the working copy")
+    func stashesPickedFiles() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["a.txt": "a\n", "b.txt": "b\n"])
+            try repo.write("a2\n", to: "a.txt")
+            try repo.write("b2\n", to: "b.txt")
+            try repo.write("new\n", to: "new.txt")
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.workingCopy.refreshStatus()
+        let picked = vm.workingCopy.status.files.filter { $0.path != "b.txt" }
+
+        #expect(await vm.stash(picked))
+
+        #expect(vm.workingCopy.status.files.map(\.path) == ["b.txt"])
+        #expect(vm.stashes.count == 1)
+        #expect(vm.commitError == nil)
+    }
+
+    @Test("Refused while another operation runs, and with nothing picked")
+    func guards() async {
+        let url = URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")
+        let vm = RepositoryViewModel(repository: Repository(url: url))
+        let file = WorkingCopyFile(path: "a.txt", stagedStatus: .unmodified,
+                                   unstagedStatus: .modified, originalPath: nil)
+        #expect(await vm.stash([]) == false)
+        vm.isMutating = true
+        #expect(await vm.stash([file]) == false)
+        #expect(vm.commitError == nil)
+    }
+}

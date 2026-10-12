@@ -155,10 +155,12 @@ struct StagingCommitBox: View {
             style: .primary,
             size: .large,
             disabled: !canCommit,
-            fullWidth: true
+            fullWidth: true,
+            shortcut: KeyboardShortcut(.return, modifiers: .command)
         ) {
             requestCommit(push: false)
         }
+        .help("Commit (⌘↩)")
     }
 
     private var moreMenu: some View {

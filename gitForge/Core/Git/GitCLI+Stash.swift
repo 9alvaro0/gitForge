@@ -105,13 +105,27 @@ extension GitCLI {
         output.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
     }
 
-    func stashPush(message: String? = nil, includeUntracked: Bool = true) async throws {
+    /// `paths`: stash only these (index and worktree changes alike). They go
+    /// through a NUL-separated pathspec file rather than argv: a stash can't
+    /// be split into batches like `add`, and a large selection would hit
+    /// `ARG_MAX`.
+    func stashPush(message: String? = nil, includeUntracked: Bool = true,
+                   paths: [String]? = nil) async throws {
         var args = ["stash", "push"]
         if includeUntracked { args.append("--include-untracked") }
         if let message, !message.isEmpty {
             args.append("-m")
             args.append(message)
         }
+        guard let paths else {
+            try await run(args)
+            return
+        }
+        let pathspec = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gitForge-stash-\(UUID().uuidString)")
+        try Data(paths.map { $0 + "\0" }.joined().utf8).write(to: pathspec)
+        defer { try? FileManager.default.removeItem(at: pathspec) }
+        args += ["--pathspec-from-file=\(pathspec.path(percentEncoded: false))", "--pathspec-file-nul"]
         try await run(args)
     }
 

@@ -13,6 +13,7 @@ struct GFButton: View {
     var disabled: Bool = false
     /// Stretches the button (background included) to the available width.
     var fullWidth: Bool = false
+    var shortcut: KeyboardShortcut? = nil
     let action: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -39,6 +40,7 @@ struct GFButton: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
+        .keyboardShortcut(shortcut)
         .disabled(disabled)
         .onHover { hovering = $0 }
     }

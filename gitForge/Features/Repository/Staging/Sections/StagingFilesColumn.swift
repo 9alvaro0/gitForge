@@ -7,6 +7,8 @@ struct StagingFilesColumn: View {
     let staged: [WorkingCopyFile]
     let unstaged: [WorkingCopyFile]
     let statusLoading: Bool
+    /// The toolbar filter is hiding files: empty sections say "No matches".
+    var isFiltering = false
 
     @Environment(\.appTheme) private var theme
 
@@ -28,7 +30,7 @@ struct StagingFilesColumn: View {
             section(
                 title: "Unstaged",
                 files: unstaged,
-                emptyText: "No unstaged changes",
+                emptyText: isFiltering ? "No matches" : "No unstaged changes",
                 allLabel: "Stage all",
                 onAll: { Task { await viewModel.stage(unstaged) } },
                 moveTitle: "Stage",
@@ -37,7 +39,7 @@ struct StagingFilesColumn: View {
             section(
                 title: "Staged",
                 files: staged,
-                emptyText: "Nothing staged",
+                emptyText: isFiltering ? "No matches" : "Nothing staged",
                 allLabel: "Unstage all",
                 onAll: { Task { await viewModel.unstage(staged) } },
                 moveTitle: "Unstage",
@@ -82,6 +84,14 @@ struct StagingFilesColumn: View {
                     count: selection.count(of: files.count),
                     moveTitle: moveTitle,
                     onMove: onMove,
+                    onStash: {
+                        let ticked = files.filter { viewModel.workingCopy.selectedFilePaths.contains($0.path) }
+                        Task {
+                            if await viewModel.stash(ticked) {
+                                viewModel.workingCopy.deselect(ticked)
+                            }
+                        }
+                    },
                     onDiscard: {
                         let ticked = files.filter { viewModel.workingCopy.selectedFilePaths.contains($0.path) }
                         Task {

@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// Appears under a section while some of its files are ticked: how many,
-/// the section's move action (Stage / Unstage) and a confirmed Discard.
+/// the section's move action (Stage / Unstage), Stash and a confirmed Discard.
 struct StagingBatchBar: View {
     let count: Int
     let moveTitle: String
     let onMove: () -> Void
+    let onStash: () -> Void
     let onDiscard: () -> Void
     var disabled: Bool = false
 
@@ -19,6 +20,8 @@ struct StagingBatchBar: View {
                 .foregroundStyle(theme.colors.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
             GFButton(title: moveTitle, style: .primary, size: .small, disabled: disabled, action: onMove)
+            GFButton(title: "Stash", size: .small, disabled: disabled, action: onStash)
+                .help(count == 1 ? "Stash this file’s changes" : "Stash these files’ changes")
             GFButton(title: "Discard…", style: .destructive, size: .small, disabled: disabled) {
                 confirmingDiscard = true
             }
@@ -45,7 +48,7 @@ struct StagingBatchBar: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    StagingBatchBar(count: 2, moveTitle: "Stage", onMove: {}, onDiscard: {})
+    StagingBatchBar(count: 2, moveTitle: "Stage", onMove: {}, onStash: {}, onDiscard: {})
         .padding()
         .frame(width: 440)
         .background(theme.colors.bgContent)
