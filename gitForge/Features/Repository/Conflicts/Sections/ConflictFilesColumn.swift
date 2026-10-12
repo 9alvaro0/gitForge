@@ -63,7 +63,7 @@ struct ConflictFilesColumn: View {
     /// Bridges to `[WorkingCopyFile]` so the unmerged-aware discard path on
     /// the view-model can be reused.
     private func workingCopyFile(for file: ConflictFile) -> [WorkingCopyFile] {
-        guard let match = viewModel.status.files.first(where: { $0.path == file.path }) else {
+        guard let match = viewModel.workingCopy.status.files.first(where: { $0.path == file.path }) else {
             return []
         }
         return [match]

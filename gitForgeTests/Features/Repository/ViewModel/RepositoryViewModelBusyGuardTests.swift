@@ -21,7 +21,7 @@ struct RepositoryViewModelBusyGuardTests {
     func commitBailsWhenBusy() async {
         let vm = Self.makeVM()
         vm.isMutating = true
-        vm.commitSubject = "subject"
+        vm.workingCopy.commitSubject = "subject"
         let ok = await vm.commit()
         #expect(ok == false)
         // The guard returns before touching commitError — distinguish from
@@ -34,7 +34,7 @@ struct RepositoryViewModelBusyGuardTests {
         let vm = Self.makeVM()
         // Pretend there's something to stash, otherwise the .nothingToStash
         // guard fires first.
-        vm.status = WorkingCopyStatus(files: [
+        vm.workingCopy.status = WorkingCopyStatus(files: [
             WorkingCopyFile(path: "f.txt", stagedStatus: .modified, unstagedStatus: .unmodified, originalPath: nil)
         ])
         vm.isMutating = true

@@ -25,7 +25,7 @@ struct RepositoryViewModelAmendGuardTests {
     @Test("amendWouldRewritePublishedHistory is false without upstream")
     func falseWithoutUpstream() {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         vm.upstream = nil
         vm.aheadCount = 0
         #expect(vm.amendWouldRewritePublishedHistory == false)
@@ -34,7 +34,7 @@ struct RepositoryViewModelAmendGuardTests {
     @Test("amendWouldRewritePublishedHistory is false when ahead of upstream")
     func falseWhenAhead() {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         vm.upstream = "origin/main"
         vm.aheadCount = 1
         #expect(vm.amendWouldRewritePublishedHistory == false)
@@ -43,7 +43,7 @@ struct RepositoryViewModelAmendGuardTests {
     @Test("amendWouldRewritePublishedHistory is true when amending HEAD that's on the remote")
     func trueWhenAmendingPublishedHead() {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         vm.upstream = "origin/main"
         vm.aheadCount = 0
         #expect(vm.amendWouldRewritePublishedHistory == true)
@@ -52,10 +52,10 @@ struct RepositoryViewModelAmendGuardTests {
     @Test("commit() refuses to amend a published commit without confirmation")
     func commitBlocksUnconfirmedAmend() async {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         vm.upstream = "origin/main"
         vm.aheadCount = 0
-        vm.commitSubject = "rewrite"
+        vm.workingCopy.commitSubject = "rewrite"
         let ok = await vm.commit()
         #expect(ok == false)
         #expect(vm.commitError?.contains("already on the remote") == true)
@@ -64,10 +64,10 @@ struct RepositoryViewModelAmendGuardTests {
     @Test("commit() guard fires after subject/staged checks, not before")
     func commitGuardOrderEmptySubjectFirst() async {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         vm.upstream = "origin/main"
         vm.aheadCount = 0
-        vm.commitSubject = "   " // empty after trim
+        vm.workingCopy.commitSubject = "   " // empty after trim
         let ok = await vm.commit()
         #expect(ok == false)
         // Should be the subject error, not the amend-guard error.
@@ -77,10 +77,10 @@ struct RepositoryViewModelAmendGuardTests {
     @Test("commit() with confirmedAmendOfPublished: true bypasses the guard (still fails on bogus cli)")
     func commitWithConfirmationBypassesGuard() async {
         let vm = Self.makeVM()
-        vm.amendMode = true
+        vm.workingCopy.amendMode = true
         vm.upstream = "origin/main"
         vm.aheadCount = 0
-        vm.commitSubject = "rewrite"
+        vm.workingCopy.commitSubject = "rewrite"
         let ok = await vm.commit(confirmedAmendOfPublished: true)
         // The guard didn't fire; failure (if any) comes from the cli call on
         // a bogus working dir — and the error message must NOT be the guard's.

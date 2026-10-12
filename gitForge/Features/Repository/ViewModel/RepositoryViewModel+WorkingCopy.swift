@@ -1,37 +1,6 @@
 import Foundation
 
 extension RepositoryViewModel {
-    /// Reads `git status` and applies the result. Gen-token gated because
-    /// this is the highest-traffic refresh in the VM — overlapping calls
-    /// would otherwise flicker the spinner off mid-flight (older `defer`
-    /// firing while a fresher call is still awaiting) and leak stale
-    /// `status` / selection-prune writes.
-    func refreshStatus() async {
-        statusGen &+= 1
-        let gen = statusGen
-        isLoadingStatus = true
-        defer {
-            if gen == statusGen {
-                isLoadingStatus = false
-                hasLoadedStatusOnce = true
-            }
-        }
-        do {
-            let snapshot = try await cli.status()
-            guard gen == statusGen else { return }
-            status = snapshot
-            // Prune the diff-pane selection if the file no longer appears in
-            // status (e.g. discarded, deleted) so the pane doesn't keep
-            // showing a stale diff for a vanished file.
-            if let selected = selectedWorkingCopyFile,
-               !status.files.contains(where: { $0.path == selected.path }) {
-                selectedWorkingCopyFile = nil
-            }
-        } catch {
-            // Underlying `git status` failure is already logged by GitCLI.
-        }
-    }
-
     func stage(_ files: [WorkingCopyFile]) async {
         // Use `allPaths` so renames (staged or unstaged-detected) carry both
         // the new and old paths into a single `git add` invocation. Without
@@ -67,51 +36,22 @@ extension RepositoryViewModel {
 
     // MARK: Bulk selection
 
-    /// Toggle a single file's membership in the batch-selection set.
-    func toggleSelection(_ file: WorkingCopyFile) {
-        if selectedFilePaths.contains(file.path) {
-            selectedFilePaths.remove(file.path)
-        } else {
-            selectedFilePaths.insert(file.path)
-        }
-    }
-
-    /// Tick or untick a whole section at once (the select-all checkbox).
-    func setSelection(_ files: [WorkingCopyFile], selected: Bool) {
-        if selected {
-            selectedFilePaths.formUnion(files.map(\.path))
-        } else {
-            deselect(files)
-        }
-    }
-
-    /// Drop every selection that comes from `files`. Used after a batch
-    /// stage/unstage so the ticks don't reappear on a fresh section the rows
-    /// just moved into.
-    func deselect(_ files: [WorkingCopyFile]) {
-        for f in files { selectedFilePaths.remove(f.path) }
-    }
-
     /// Stage every selected file that's currently unstaged. Clears their
     /// selection on success — they're moving sections, so keeping the tick
     /// would re-pre-select them in the Staged column.
     func stageSelected() async {
-        let toStage = status.files.filter {
-            selectedFilePaths.contains($0.path) && !$0.isStaged
-        }
+        let toStage = workingCopy.selectedUnstagedFiles
         guard !toStage.isEmpty else { return }
         await stage(toStage)
-        deselect(toStage)
+        workingCopy.deselect(toStage)
     }
 
     /// Unstage every selected file that's currently staged.
     func unstageSelected() async {
-        let toUnstage = status.files.filter {
-            selectedFilePaths.contains($0.path) && $0.isStaged
-        }
+        let toUnstage = workingCopy.selectedStagedFiles
         guard !toUnstage.isEmpty else { return }
         await unstage(toUnstage)
-        deselect(toUnstage)
+        workingCopy.deselect(toUnstage)
     }
 
     func runStageOperation(_ block: () async throws -> Void) async {
@@ -120,30 +60,30 @@ extension RepositoryViewModel {
         defer { isMutating = false }
         do {
             try await block()
-            await refreshStatus()
+            await workingCopy.refreshStatus()
         } catch {
             commitError = error.userMessage
             // Multi-step ops (discardChanges) may have committed half their work
             // to disk before throwing — refresh so the UI mirrors actual state.
-            await refreshStatus()
+            await workingCopy.refreshStatus()
         }
     }
 
     /// True when amending would rewrite a commit that's already on the upstream
     /// (and therefore visible to collaborators / would force-push on next push).
     var amendWouldRewritePublishedHistory: Bool {
-        amendMode && upstream != nil && aheadCount == 0
+        workingCopy.amendMode && upstream != nil && aheadCount == 0
     }
 
     func commit(confirmedAmendOfPublished: Bool = false) async -> Bool {
         guard !isMutating else { return false }
         commitError = nil
-        let subject = commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
+        let subject = workingCopy.commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !subject.isEmpty else {
             commitError = "Commit subject cannot be empty"
             return false
         }
-        guard amendMode || status.hasStagedChanges else {
+        guard workingCopy.amendMode || workingCopy.status.hasStagedChanges else {
             commitError = "Nothing staged to commit"
             return false
         }
@@ -151,17 +91,16 @@ extension RepositoryViewModel {
             commitError = "HEAD is already on the remote — amending rewrites public history. Confirm to force-push afterwards."
             return false
         }
+        let body = workingCopy.commitBody
         isMutating = true
         defer { isMutating = false }
         do {
             try await cli.commit(
                 subject: subject,
-                body: commitBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : commitBody,
-                amend: amendMode
+                body: body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : body,
+                amend: workingCopy.amendMode
             )
-            commitSubject = ""
-            commitBody = ""
-            amendMode = false
+            workingCopy.resetComposer()
             // Single shared cluster — same helper used by +Operations /
             // +Pulls / +Stash / +Remote. Conflicts read is wasted after a
             // clean commit but harmless and keeps the refresh shape
@@ -171,28 +110,6 @@ extension RepositoryViewModel {
         } catch {
             commitError = error.userMessage
             return false
-        }
-    }
-
-    func prefillFromHead() async {
-        do {
-            let result = try await cli.run(["log", "-1", "HEAD", "--format=%B"])
-            // A `false → true → false` toggle on `amendMode` clears
-            // subject/body via the off-branch of the didSet. If this
-            // prefill resumes after that, writing HEAD's message back
-            // would look like the user re-armed amend. Bail when the
-            // toggle has flipped off underneath us.
-            guard amendMode else { return }
-            let message = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let firstNewline = message.firstIndex(of: "\n") {
-                commitSubject = String(message[..<firstNewline])
-                commitBody = String(message[message.index(after: firstNewline)...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                commitSubject = message
-                commitBody = ""
-            }
-        } catch {
-            // Underlying `git log` failure is already logged by GitCLI.
         }
     }
 }

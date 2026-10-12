@@ -10,104 +10,10 @@ final class RepositoryViewModel {
     let repository: Repository
     let cli: GitCLI
 
-    // MARK: Log
-    var commits: [Commit] = [] {
-        // `uniquingKeysWith: { _, new in new }` instead of
-        // `uniqueKeysWithValues:` — the latter traps on duplicate ids, and a
-        // duplicate would only happen if the `--skip` invariant in
-        // `loadedRawCount` ever leaks. Don't crash the app on a leak.
-        didSet {
-            commitsById = Dictionary(commits.map { ($0.id, $0) },
-                                     uniquingKeysWith: { _, new in new })
-        }
-    }
-    /// Mirror of `commits` keyed by id, kept in sync by `commits.didSet`.
-    private(set) var commitsById: [Commit.ID: Commit] = [:]
-    var isLoadingInitial = false
-    var isLoadingMore = false
-    var hasMore = true
-    var loadError: String?
-    /// Raw commits produced by `git log` for the current scope, *before*
-    /// `dropStashInternals` shrinks `commits`. Used as `--skip` so the next
-    /// page can't overlap with what's already loaded.
-    var loadedRawCount: Int = 0
-    /// Drives the History skeleton. Kept separate from `isLoadingInitial`
-    /// because two overlapping checkouts could trap the placeholder when
-    /// the boolean alone was the trigger.
-    var hasLoadedLogForCurrentScope = false
-    /// Bumped at the start of every log op (initial / reload / pagination /
-    /// reveal). Each op snapshots it on entry and drops its writes if the
-    /// token moved while it was awaiting — keeps a slow `git log` from
-    /// stomping a fresher reload.
-    var logGen: UInt64 = 0
-
-    var selectedCommitId: Commit.ID? {
-        didSet {
-            guard oldValue != selectedCommitId else { return }
-            // Invalidate in-flight diff loads from the previous commit.
-            commitFileDiffGen &+= 1
-            selectedCommitFile = nil
-            commitFileDiff = []
-            commitFileDiffEmptyState = .empty
-            loadingCommitFileDiff = false
-            guard
-                let id = selectedCommitId,
-                let commit = commitsById[id]
-            else { return }
-            track { [weak self] in await self?.selectFirstFile(for: commit) }
-        }
-    }
-
-    // MARK: Detail
-    private(set) var detailCache: [String: CommitDetail] = [:]
-    /// Insertion order of `detailCache` keys; trimmed FIFO when the cap is
-    /// exceeded so a long browsing session can't grow the cache forever.
-    private var detailCacheOrder: [String] = []
-    private static let detailCacheCap = 200
-    /// Tasks currently fetching a `CommitDetail`, keyed by sha. Lets multiple
-    /// concurrent callers (e.g. row click + `selectFirstFile`) coalesce onto
-    /// a single CLI invocation instead of duplicating work.
-    private var inFlightDetails: [String: Task<CommitDetail?, Never>] = [:]
-    private(set) var loadingDetailFor: String?
-
-    func cacheDetail(_ detail: CommitDetail, for sha: String) {
-        if detailCache[sha] == nil {
-            detailCacheOrder.append(sha)
-        }
-        detailCache[sha] = detail
-        while detailCacheOrder.count > Self.detailCacheCap {
-            let oldest = detailCacheOrder.removeFirst()
-            detailCache.removeValue(forKey: oldest)
-        }
-    }
-
-    func setInFlightDetail(_ task: Task<CommitDetail?, Never>?, for sha: String) {
-        if let task {
-            inFlightDetails[sha] = task
-        } else {
-            inFlightDetails.removeValue(forKey: sha)
-        }
-    }
-
-    func inFlightDetail(for sha: String) -> Task<CommitDetail?, Never>? {
-        inFlightDetails[sha]
-    }
-
-    func setLoadingDetail(_ sha: String?) {
-        loadingDetailFor = sha
-    }
-
-    /// Re-checks `selectedCommitId` after the await so a slow detail load
-    /// can't auto-select a file in a commit the user already left.
-    private func selectFirstFile(for commit: Commit) async {
-        let loaded = await detail(for: commit)
-        guard
-            selectedCommitId == commit.id,
-            selectedCommitFile == nil,
-            let path = loaded?.files.first?.path
-        else { return }
-        selectedCommitFile = path
-    }
+    /// Log, graph, commit detail and the selected commit's file diff.
+    let history: HistoryStore
+    /// Status, batch selection, the open file's diff and the commit composer.
+    let workingCopy: WorkingCopyStore
 
     // MARK: Refs / branches / stashes
     var refs: [GitRef] = [] {
@@ -146,33 +52,7 @@ final class RepositoryViewModel {
     /// so already-merged branches don't open redundant lanes in the graph.
     var unmergedLocalBranchRefs: [String] = []
 
-    // MARK: Graph
-    var graphLayouts: [GraphRowLayout] = []
-    var graphMaxLanes: Int = 1
-    /// Bumped at the start of every `recomputeGraph()` call. The layout work
-    /// now runs off-actor (50k commits would otherwise stutter the scroll on
-    /// page load); the post-await guard drops stale results when the user
-    /// scrolls fast enough to enqueue multiple page loads.
-    var graphLayoutGen: UInt64 = 0
-
-    // MARK: Working copy
-    var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
-    /// Paths the user ticked in the Changes column for a batch stage/unstage.
-    /// Separate from `selectedWorkingCopyFile` (which drives the diff pane)
-    /// so the user can keep one file visible in the diff while ticking a
-    /// disjoint set for staging.
-    var selectedFilePaths: Set<String> = []
-    var isLoadingStatus = false
-    /// Distinguishes "never loaded" from "loaded and clean" so the Changes
-    /// view doesn't briefly flash "Working tree is clean" on first paint.
-    var hasLoadedStatusOnce = false
-    /// Bumped at the start of every `refreshStatus()` call. The status
-    /// loader is the highest-traffic refresh in the VM (watcher, every
-    /// stage/unstage/discard, every integration op, manual refresh, …)
-    /// so two overlapping calls are common; the post-await guard keeps
-    /// the older one from stomping fresh `status` and from flipping the
-    /// spinner off while the fresher call is still mid-flight.
-    var statusGen: UInt64 = 0
+    // MARK: Mutations
     /// Set while a mutating local op (commit, stash apply/drop, reset, cherry-pick,
     /// revert, discard, branch/tag delete) is in flight. Backs the disabled
     /// state of UI buttons so a double-click can't enqueue two of the same op
@@ -186,66 +66,8 @@ final class RepositoryViewModel {
             if isMutating { watcher?.suspend() } else { watcher?.resume() }
         }
     }
-    var commitSubject: String = ""
-    var commitBody: String = ""
-    var amendMode: Bool = false {
-        didSet {
-            guard oldValue != amendMode else { return }
-            if amendMode {
-                track { [weak self] in await self?.prefillFromHead() }
-            } else {
-                commitSubject = ""
-                commitBody = ""
-            }
-        }
-    }
+    /// Last failed local operation, shown under the commit composer.
     var commitError: String?
-
-    // MARK: Diffs
-    var selectedCommitFile: String? {
-        didSet {
-            guard oldValue != selectedCommitFile else { return }
-            // Bump even on nil so an in-flight load can't write back over
-            // the now-empty pane.
-            commitFileDiffGen &+= 1
-            if let path = selectedCommitFile, let commit = selectedCommit {
-                track { [weak self] in await self?.loadCommitFileDiff(sha: commit.sha, path: path) }
-            } else {
-                // No new loader will take over the flag.
-                loadingCommitFileDiff = false
-            }
-        }
-    }
-    var commitFileDiff: [DiffHunk] = []
-    /// Why the diff is empty (binary, rename-only, …) so the pane can show
-    /// something better than a catch-all "No changes".
-    var commitFileDiffEmptyState: DiffEmptyState = .empty
-    var loadingCommitFileDiff = false
-    /// Selection-change token. Bumped by the didSets that own this pane
-    /// (`selectedCommitId`, `selectedCommitFile`); loaders snapshot it on
-    /// entry and drop their write-back if it moves while they're awaiting.
-    var commitFileDiffGen: UInt64 = 0
-
-    var selectedWorkingCopyFile: WorkingCopyFile? {
-        didSet {
-            guard oldValue != selectedWorkingCopyFile else { return }
-            workingCopyDiffGen &+= 1
-            if let file = selectedWorkingCopyFile {
-                track { [weak self] in await self?.loadWorkingCopyDiff(file: file) }
-            } else {
-                workingCopyDiff = []
-                workingCopyDiffEmptyState = .empty
-                loadingWorkingCopyDiff = false
-            }
-        }
-    }
-    var workingCopyDiff: [DiffHunk] = []
-    /// Counterpart to `commitFileDiffEmptyState` for the Changes view.
-    var workingCopyDiffEmptyState: DiffEmptyState = .empty
-    var loadingWorkingCopyDiff = false
-    /// Counterpart to `commitFileDiffGen` for the working-copy diff pane.
-    var workingCopyDiffGen: UInt64 = 0
-
 
     // MARK: Remote
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
@@ -301,23 +123,10 @@ final class RepositoryViewModel {
     // MARK: Reactivity
     private var watcher: RepositoryWatcher?
     private let autoFetcher = AutoFetcher()
-    /// Tasks the VM itself spawns from `didSet` reactions (amend prefill,
-    /// commit / working-copy diff loads, etc.). Stored so `stopReactivity()`
-    /// can cancel them — otherwise a slow `git log` lookup keeps the
-    /// previous VM alive for seconds after the user opened another repo.
-    private(set) var ownedTasks: [UUID: Task<Void, Never>] = [:]
-
-    /// Runs `operation` as a VM-owned task. Each task removes itself when it
-    /// finishes, so the registry only ever holds in-flight work. (The old
-    /// array pruned on `isCancelled`, which is never true for a task that
-    /// simply completed — it grew by one entry per selection click.)
-    func track(_ operation: @escaping @MainActor () async -> Void) {
-        let id = UUID()
-        ownedTasks[id] = Task { [weak self] in
-            await operation()
-            self?.ownedTasks[id] = nil
-        }
-    }
+    /// Tasks the session's stores spawn from `didSet` reactions (amend
+    /// prefill, commit / working-copy diff loads…). `stopReactivity()`
+    /// cancels them all.
+    let tasks: OwnedTasks
 
     /// `credentials`: signs network git commands with the repo's hosting
     /// account (`AppState` passes the account provider).
@@ -339,6 +148,11 @@ final class RepositoryViewModel {
         }
         self.stashDetail = StashDetailStore(cli: cli)
         self.conflicts = ConflictStore(repositoryURL: repository.url)
+        let tasks = OwnedTasks()
+        self.tasks = tasks
+        self.history = HistoryStore(cli: cli, tasks: tasks)
+        self.workingCopy = WorkingCopyStore(cli: cli, repositoryURL: repository.url, tasks: tasks)
+        history.refsSource = self
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -358,11 +172,10 @@ final class RepositoryViewModel {
         watcher = nil
         autoFetcher.stop()
         // Cancel any internal tasks we own — without this, a half-finished
-        // `prefillFromHead` or `loadCommitFileDiff` would keep `self` alive
-        // (and its commits/graphLayouts/detailCache in memory) for as long
-        // as it takes the underlying git subprocess to drain.
-        for task in ownedTasks.values { task.cancel() }
-        ownedTasks.removeAll()
+        // `prefillFromHead` or `loadCommitFileDiff` would keep the stores
+        // alive (and their commits/graphLayouts/detailCache in memory) for
+        // as long as it takes the underlying git subprocess to drain.
+        tasks.cancelAll()
         purgeCaches()
     }
 
@@ -371,19 +184,12 @@ final class RepositoryViewModel {
     /// graphs / diffs / file lists once the user moves to another repo. The
     /// next `loadInitial` reseeds everything.
     private func purgeCaches() {
-        commits = []
-        commitsById = [:]
-        graphLayouts = []
-        detailCache.removeAll()
-        inFlightDetails.removeAll()
+        history.purge()
+        workingCopy.purge()
         refs = []
         refsBySha = [:]
         stashes = []
         unmergedLocalBranchRefs = []
-        status = WorkingCopyStatus(files: [])
-        selectedFilePaths = []
-        commitFileDiff = []
-        workingCopyDiff = []
         stashDetail.close()
         conflicts.clear()
         pullRequests.reset()
@@ -422,7 +228,7 @@ final class RepositoryViewModel {
     private func refreshFromExternalChange() async {
         let previousBranch = currentBranchName
         let previousTips = localBranchTips
-        async let statusTask: Void = refreshStatus()
+        async let statusTask: Void = workingCopy.refreshStatus()
         async let refsTask: Void = loadRefs()
         async let conflictTask: Void = loadConflictState()
         async let identityTask: Void = refreshIdentity()
@@ -434,15 +240,9 @@ final class RepositoryViewModel {
         // external edit / discard repaints the right pane immediately. Without
         // this the file row updates but the diff stays on the previous
         // snapshot until the user re-selects.
-        if let selected = selectedWorkingCopyFile,
-           // Only re-fetch if the file is still in the status set; otherwise
-           // the file was cleaned up and the selection will be pruned by
-           // refreshStatus itself.
-           status.files.contains(where: { $0.path == selected.path }) {
-            await loadWorkingCopyDiff(file: selected)
-        }
+        await workingCopy.reloadSelectedDiff()
         if currentBranchName != previousBranch || localBranchTips != previousTips {
-            await reloadLog()
+            await history.reloadLog()
         }
     }
 
@@ -477,11 +277,6 @@ final class RepositoryViewModel {
             return false
         }
     }
-
-    // MARK: Computed views
-
-    var selectedCommit: Commit? {
-        guard let id = selectedCommitId else { return nil }
-        return commitsById[id]
-    }
 }
+
+extension RepositoryViewModel: HistoryRefsSource {}

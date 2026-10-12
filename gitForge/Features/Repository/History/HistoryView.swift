@@ -73,13 +73,13 @@ struct HistoryView: View {
         // pass to the table share the same closure (and the same single
         // O(n) walk over commits when search is active).
         let matcher = searchMatcher
-        let matchCount = matcher.map { fn in viewModel.commits.lazy.filter(fn).count }
-            ?? viewModel.commits.count
+        let matchCount = matcher.map { fn in viewModel.history.commits.lazy.filter(fn).count }
+            ?? viewModel.history.commits.count
 
         return VStack(spacing: 0) {
             HistoryFiltersBar(
                 search: $search,
-                totalCount: viewModel.commits.count,
+                totalCount: viewModel.history.commits.count,
                 matchCount: matchCount
             )
             GeometryReader { geo in
@@ -132,7 +132,7 @@ struct HistoryView: View {
         } message: {
             Text("HEAD will detach from any branch. New commits won't belong to a branch — create one first if you plan to keep them.")
         }
-        .onChange(of: viewModel.status.isClean) { _, clean in
+        .onChange(of: viewModel.workingCopy.status.isClean) { _, clean in
             // Working tree just went clean (e.g. user committed everything) —
             // the pinned row vanishes from the table, so drop the selection
             // too instead of leaving the detail panel pointing at a row that
@@ -152,18 +152,18 @@ struct HistoryView: View {
 
     private func tableColumn(matcher: ((Commit) -> Bool)?) -> some View {
         ZStack(alignment: .bottom) {
-            if viewModel.commits.isEmpty && !viewModel.hasLoadedLogForCurrentScope {
+            if viewModel.history.commits.isEmpty && !viewModel.history.hasLoadedLogForCurrentScope {
                 HistorySkeleton()
             } else {
                 CommitGraphTable(
-                    commits: viewModel.commits,
-                    layouts: viewModel.graphLayouts,
-                    maxLanes: viewModel.graphMaxLanes,
+                    commits: viewModel.history.commits,
+                    layouts: viewModel.history.graphLayouts,
+                    maxLanes: viewModel.history.graphMaxLanes,
                     refsBySha: viewModel.refsBySha,
                     currentBranch: viewModel.currentBranchName,
                     headSha: viewModel.headSha,
-                    selectedSha: viewModel.selectedCommitId,
-                    workingCopyDirty: !viewModel.status.isClean,
+                    selectedSha: viewModel.history.selectedCommitId,
+                    workingCopyDirty: !viewModel.workingCopy.status.isClean,
                     uncommittedSelected: isUncommittedSelected,
                     columns: columns,
                     isMatch: matcher,
@@ -171,14 +171,14 @@ struct HistoryView: View {
                     onUncommittedSelect: { selectUncommitted() },
                     onDoubleClick: { sha in handleDoubleClick(sha) },
                     onAppear: { commit in
-                        Task { await viewModel.loadMoreIfNeeded(currentItem: commit) }
+                        Task { await viewModel.history.loadMoreIfNeeded(currentItem: commit) }
                     },
                     onBranchDrop: { dropped, context in
                         resolveDrop(dropped, context: context)
                     }
                 )
             }
-            if viewModel.isLoadingMore && !viewModel.commits.isEmpty {
+            if viewModel.history.isLoadingMore && !viewModel.history.commits.isEmpty {
                 LoadingMoreFooter()
             }
         }
@@ -199,21 +199,21 @@ struct HistoryView: View {
     private var diffPaneContent: some View {
         if isUncommittedSelected {
             DiffPane(
-                file: viewModel.selectedWorkingCopyFile?.path,
-                status: viewModel.selectedWorkingCopyFile.map { StatusTag.Kind(workingFile: $0.displayStatus) },
-                hunks: viewModel.workingCopyDiff,
-                loading: viewModel.loadingWorkingCopyDiff,
-                emptyState: viewModel.workingCopyDiffEmptyState,
+                file: viewModel.workingCopy.selectedWorkingCopyFile?.path,
+                status: viewModel.workingCopy.selectedWorkingCopyFile.map { StatusTag.Kind(workingFile: $0.displayStatus) },
+                hunks: viewModel.workingCopy.workingCopyDiff,
+                loading: viewModel.workingCopy.loadingWorkingCopyDiff,
+                emptyState: viewModel.workingCopy.workingCopyDiffEmptyState,
                 onClose: { setDiffPaneCollapsed(true) },
                 viewMode: diffMode
             )
         } else {
             DiffPane(
-                file: viewModel.selectedCommitFile,
+                file: viewModel.history.selectedCommitFile,
                 status: selectedCommitFileStatus,
-                hunks: viewModel.commitFileDiff,
-                loading: viewModel.loadingCommitFileDiff,
-                emptyState: viewModel.commitFileDiffEmptyState,
+                hunks: viewModel.history.commitFileDiff,
+                loading: viewModel.history.loadingCommitFileDiff,
+                emptyState: viewModel.history.commitFileDiffEmptyState,
                 onClose: { setDiffPaneCollapsed(true) },
                 viewMode: diffMode
             )
@@ -222,9 +222,9 @@ struct HistoryView: View {
 
     /// Badge for the commit file in the diff header, once the detail is loaded.
     private var selectedCommitFileStatus: StatusTag.Kind? {
-        guard let sha = viewModel.selectedCommit?.sha,
-              let path = viewModel.selectedCommitFile,
-              let file = viewModel.detailCache[sha]?.files.first(where: { $0.path == path }) else { return nil }
+        guard let sha = viewModel.history.selectedCommit?.sha,
+              let path = viewModel.history.selectedCommitFile,
+              let file = viewModel.history.detailCache[sha]?.files.first(where: { $0.path == path }) else { return nil }
         return StatusTag.Kind(commitFile: file.status)
     }
 
@@ -254,7 +254,7 @@ struct HistoryView: View {
     }
 
     private var hasInspectorSelection: Bool {
-        isUncommittedSelected || viewModel.selectedCommit != nil
+        isUncommittedSelected || viewModel.history.selectedCommit != nil
     }
 
     @ViewBuilder
@@ -267,7 +267,7 @@ struct HistoryView: View {
                 )
                 .padding(Spacing.s16)
             }
-        } else if let commit = viewModel.selectedCommit {
+        } else if let commit = viewModel.history.selectedCommit {
             ScrollView {
                 CommitDetailColumn(
                     commit: commit,
@@ -296,7 +296,7 @@ struct HistoryView: View {
     /// any row should always reveal its diff without a second action.
     private func selectCommit(_ sha: String) {
         if isUncommittedSelected { isUncommittedSelected = false }
-        viewModel.selectedCommitId = sha
+        viewModel.history.selectedCommitId = sha
         revealDiffPane()
     }
 
@@ -305,12 +305,12 @@ struct HistoryView: View {
     /// bottom diff pane switch to working-copy mode, picks the first
     /// changed file when nothing is selected yet, and reveals the diff pane.
     private func selectUncommitted() {
-        viewModel.selectedCommitId = nil
+        viewModel.history.selectedCommitId = nil
         isUncommittedSelected = true
-        if viewModel.selectedWorkingCopyFile == nil {
-            let firstFile = viewModel.status.stagedFiles.first
-                ?? viewModel.status.unstagedFiles.first
-            viewModel.selectedWorkingCopyFile = firstFile
+        if viewModel.workingCopy.selectedWorkingCopyFile == nil {
+            let firstFile = viewModel.workingCopy.status.stagedFiles.first
+                ?? viewModel.workingCopy.status.unstagedFiles.first
+            viewModel.workingCopy.selectedWorkingCopyFile = firstFile
         }
         revealDiffPane()
     }
@@ -404,8 +404,8 @@ struct HistoryView: View {
     @Previewable @State var theme = AppTheme()
     let vm: RepositoryViewModel = {
         let v = RepositoryViewModel.preview
-        v.commits = []
-        v.isLoadingInitial = true
+        v.history.commits = []
+        v.history.isLoadingInitial = true
         return v
     }()
     HistoryView(viewModel: vm)

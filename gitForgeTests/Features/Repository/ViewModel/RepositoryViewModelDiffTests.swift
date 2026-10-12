@@ -2,17 +2,17 @@ import Foundation
 import Testing
 @testable import gitForge
 
-@Suite("RepositoryViewModel.synthesizeAddDiff")
+@Suite("WorkingCopyStore.synthesizeAddDiff")
 struct SynthesizeAddDiffTests {
 
     @Test("Empty input emits an empty string")
     func emptyInput() {
-        #expect(RepositoryViewModel.synthesizeAddDiff(text: "") == "")
+        #expect(WorkingCopyStore.synthesizeAddDiff(text: "") == "")
     }
 
     @Test("Single line without trailing newline appends the no-newline marker")
     func singleLineNoNewline() {
-        let out = RepositoryViewModel.synthesizeAddDiff(text: "hello")
+        let out = WorkingCopyStore.synthesizeAddDiff(text: "hello")
         #expect(out.hasPrefix("@@ -0,0 +1,1 @@\n"))
         #expect(out.contains("+hello\n"))
         #expect(out.hasSuffix("\\ No newline at end of file\n"))
@@ -20,19 +20,19 @@ struct SynthesizeAddDiffTests {
 
     @Test("Single line with trailing newline omits the no-newline marker")
     func singleLineWithNewline() {
-        let out = RepositoryViewModel.synthesizeAddDiff(text: "hello\n")
+        let out = WorkingCopyStore.synthesizeAddDiff(text: "hello\n")
         #expect(out == "@@ -0,0 +1,1 @@\n+hello\n")
     }
 
     @Test("Multi-line input keeps each line as a + line")
     func multiLine() {
-        let out = RepositoryViewModel.synthesizeAddDiff(text: "a\nb\nc\n")
+        let out = WorkingCopyStore.synthesizeAddDiff(text: "a\nb\nc\n")
         #expect(out == "@@ -0,0 +1,3 @@\n+a\n+b\n+c\n")
     }
 
     @Test("Multi-line without trailing newline appends the marker")
     func multiLineNoTrailingNewline() {
-        let out = RepositoryViewModel.synthesizeAddDiff(text: "a\nb")
+        let out = WorkingCopyStore.synthesizeAddDiff(text: "a\nb")
         #expect(out.hasPrefix("@@ -0,0 +1,2 @@\n"))
         #expect(out.contains("+a\n+b"))
         #expect(out.hasSuffix("\\ No newline at end of file\n"))
@@ -114,8 +114,8 @@ struct RepositoryViewModelDetailCacheTests {
     func storesEntries() {
         let vm = Self.makeVM()
         let detail = Self.makeDetail(sha: "aaa")
-        vm.cacheDetail(detail, for: "aaa")
-        #expect(vm.detailCache["aaa"] == detail)
+        vm.history.cacheDetail(detail, for: "aaa")
+        #expect(vm.history.detailCache["aaa"] == detail)
     }
 
     @Test("cacheDetail re-inserting the same sha doesn't duplicate the order entry")
@@ -123,9 +123,9 @@ struct RepositoryViewModelDetailCacheTests {
         let vm = Self.makeVM()
         let d1 = Self.makeDetail(sha: "aaa")
         let d2 = Self.makeDetail(sha: "aaa")  // same sha, would be the same in production
-        vm.cacheDetail(d1, for: "aaa")
-        vm.cacheDetail(d2, for: "aaa")
-        #expect(vm.detailCache.count == 1)
+        vm.history.cacheDetail(d1, for: "aaa")
+        vm.history.cacheDetail(d2, for: "aaa")
+        #expect(vm.history.detailCache.count == 1)
     }
 
     @Test("cacheDetail evicts oldest entries when the cap is exceeded")
@@ -133,12 +133,12 @@ struct RepositoryViewModelDetailCacheTests {
         let vm = Self.makeVM()
         // The cap is 200; insert 210 entries and verify the first 10 are gone.
         for i in 0..<210 {
-            vm.cacheDetail(Self.makeDetail(sha: "sha-\(i)"), for: "sha-\(i)")
+            vm.history.cacheDetail(Self.makeDetail(sha: "sha-\(i)"), for: "sha-\(i)")
         }
-        #expect(vm.detailCache.count == 200)
-        #expect(vm.detailCache["sha-0"] == nil)
-        #expect(vm.detailCache["sha-9"] == nil)
-        #expect(vm.detailCache["sha-10"] != nil)
-        #expect(vm.detailCache["sha-209"] != nil)
+        #expect(vm.history.detailCache.count == 200)
+        #expect(vm.history.detailCache["sha-0"] == nil)
+        #expect(vm.history.detailCache["sha-9"] == nil)
+        #expect(vm.history.detailCache["sha-10"] != nil)
+        #expect(vm.history.detailCache["sha-209"] != nil)
     }
 }
