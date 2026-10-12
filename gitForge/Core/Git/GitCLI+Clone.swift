@@ -67,6 +67,7 @@ extension GitCLI {
     static func clone(url: String,
                       destination: URL,
                       branch: String? = nil,
+                      options: CloneOptions = CloneOptions(),
                       credentials: GitCredentialProvider? = nil,
                       onProgress: (@Sendable (CloneProgress) -> Void)? = nil) async throws {
         let safeURL = try CloneURLValidator.validate(url)
@@ -83,6 +84,7 @@ extension GitCLI {
         }()
         var args: [String] = ["clone", "--progress"]
         if let safeBranch { args += ["--branch", safeBranch] }
+        args += options.arguments
         args.append(endOfOptions)
         args += [safeURL, destination.path(percentEncoded: false)]
 
@@ -225,5 +227,37 @@ extension GitCLI {
         }
         guard sawPercent, let value = Double(digits) else { return nil }
         return CloneProgress(stage: stage, percent: min(max(value / 100, 0), 1))
+    }
+}
+
+extension GitCLI {
+    /// `git init` in `directory` unless it already has its own `.git`.
+    /// Returns whether a repository was created. A folder inside another
+    /// repository's worktree still gets its own: that's what was asked for.
+    static func initRepository(at directory: URL) async throws -> Bool {
+        let dotGit = directory.appendingPathComponent(".git").path(percentEncoded: false)
+        guard !FileManager.default.fileExists(atPath: dotGit) else { return false }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try await GitCLI(workingDirectory: directory).run(["init"])
+        return true
+    }
+}
+
+/// Optional `git clone` flags from the Clone sheet.
+nonisolated struct CloneOptions: Equatable, Sendable {
+    /// Only the latest commit (`--depth 1`, which implies a single branch).
+    var shallow = false
+    /// Also clone submodules (`--recurse-submodules`), shallow too when
+    /// `shallow` is on.
+    var submodules = false
+
+    var arguments: [String] {
+        var args: [String] = []
+        if shallow { args += ["--depth", "1"] }
+        if submodules {
+            args.append("--recurse-submodules")
+            if shallow { args.append("--shallow-submodules") }
+        }
+        return args
     }
 }

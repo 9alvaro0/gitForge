@@ -104,4 +104,26 @@ struct GitCredentialIntegrationTests {
                                credentials: StaticCredentials(credential: credential(server)))
         #expect(FileManager.default.fileExists(atPath: destination.appendingPathComponent("README.md").path))
     }
+
+    @Test("A shallow clone fetches only the latest commit")
+    func shallowClone() async throws {
+        let server = try await makeServer()
+        defer { server.stop() }
+        let bare = try server.makeBareRepo("deep.git")
+        let seed = try GitTestRepo()
+        defer { seed.remove() }
+        try seed.commit("one", files: ["f.txt": "1\n"])
+        try seed.commit("two", files: ["f.txt": "2\n"])
+        try seed.git("push", "-q", bare.path, "main")
+        let destination = TemporaryDirectories.make("gitForge-clone")
+        defer { try? FileManager.default.removeItem(at: destination) }
+
+        try await GitCLI.clone(url: server.url("deep.git"), destination: destination,
+                               options: CloneOptions(shallow: true),
+                               credentials: StaticCredentials(credential: credential(server)))
+
+        let cloned = GitCLI(workingDirectory: destination)
+        let count = try await cloned.run(["rev-list", "--count", "HEAD"]).stdout
+        #expect(count.trimmingCharacters(in: .whitespacesAndNewlines) == "1")
+    }
 }

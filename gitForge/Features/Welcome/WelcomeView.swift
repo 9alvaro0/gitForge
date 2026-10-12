@@ -51,6 +51,9 @@ struct WelcomeView: View {
                 bigButton("Clone a repository…", symbol: "square.and.arrow.down", shortcut: "⌥⌘C", prominent: true) {
                     appState.ui.requestClone()
                 }
+                bigButton("New repository…", symbol: "plus.rectangle.on.folder", shortcut: "⌥⌘N", prominent: false) {
+                    Task { await appState.presentNewRepositoryPanel() }
+                }
             }
             .frame(maxWidth: 360)
             .padding(.top, Spacing.s16)
