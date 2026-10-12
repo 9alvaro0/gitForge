@@ -187,6 +187,9 @@ struct BranchesView: View {
                 refs: scopedRefs,
                 currentBranchName: currentBranchName,
                 availableTargets: viewModel.localBranches,
+                mergedNames: MergedBranches.names(localBranches: viewModel.localBranches,
+                                                  unmergedRefs: viewModel.unmergedLocalBranchRefs,
+                                                  currentBranch: currentBranchName),
                 selectedID: $selectedID,
                 actions: actions
             )
@@ -196,7 +199,8 @@ struct BranchesView: View {
     @ViewBuilder
     private var inspector: some View {
         if let ref = inspectedRef {
-            BranchInspector(ref: ref, currentBranchName: currentBranchName, actions: actions)
+            BranchInspector(ref: ref, currentBranchName: currentBranchName, actions: actions,
+                            loadComparison: { await viewModel.comparison(of: $0) })
         } else {
             EmptyState(symbol: scope == .tags ? "tag" : "arrow.triangle.branch",
                        title: scope == .tags ? "Select a tag" : "Select a branch",
@@ -211,6 +215,7 @@ struct BranchesView: View {
     private var actions: BranchActions {
         BranchActions(
             checkout: handleCheckout,
+            push: { ref in Task { await runPush(ref) } },
             merge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
             rebase: { rebaseTarget = $0 },
             rename: { renameTarget = $0; renameDraft = $0.name },
@@ -224,6 +229,11 @@ struct BranchesView: View {
 
     private func handleCheckout(_ ref: GitRef) {
         Task { _ = await viewModel.checkoutBranch(ref) }
+    }
+
+    /// Failures surface through `remoteFailure`, like the toolbar's Push.
+    private func runPush(_ ref: GitRef) async {
+        if await viewModel.pushBranch(ref) { toast("Pushed \(ref.name)", kind: .ok) }
     }
 
     private func runMerge(request: MergeRequest) async {

@@ -7,6 +7,8 @@ struct BranchTable: View {
     let refs: [GitRef]
     let currentBranchName: String?
     let availableTargets: [GitRef]
+    /// Local branch names HEAD already contains (`MergedBranches`).
+    var mergedNames: Set<String> = []
     @Binding var selectedID: String?
     let actions: BranchActions
 
@@ -57,6 +59,7 @@ struct BranchTable: View {
                 layout: layout,
                 currentBranchName: currentBranchName,
                 availableTargets: availableTargets,
+                isMerged: ref.isLocalBranch && mergedNames.contains(ref.name),
                 isSelected: selectedID == ref.id,
                 onSelect: { selectedID = ref.id },
                 actions: actions

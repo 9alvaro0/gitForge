@@ -23,6 +23,19 @@ nonisolated enum BranchScope: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// Local branches whose tip HEAD already contains — the table's "merged"
+/// badge. `unmergedRefs` is the session's `for-each-ref --no-merged HEAD`
+/// (`refs/heads/…`), so this costs no git call. The current branch is left
+/// out: it trivially contains itself.
+nonisolated enum MergedBranches {
+    static func names(localBranches: [GitRef], unmergedRefs: [String], currentBranch: String?) -> Set<String> {
+        let unmerged = Set(unmergedRefs)
+        return Set(localBranches.lazy
+            .filter { $0.name != currentBranch && !unmerged.contains($0.fullRefName) }
+            .map(\.name))
+    }
+}
+
 /// Colour of a branch's lane glyph in the table. Only HEAD and the pinned
 /// trunks get a lane colour: those match the graph by rule (spec §4.5).
 /// Any other branch's graph colour depends on the layout, so the table

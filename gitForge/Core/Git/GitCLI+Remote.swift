@@ -90,6 +90,25 @@ extension GitCLI {
         try await runNetwork(args, remote: remote)
     }
 
+    /// Pushes a local branch that needn't be checked out. Without
+    /// `setUpstream` it goes to the branch it tracks (`branch.<b>.merge`)
+    /// when `remote` is its tracking remote, else to a same-named branch —
+    /// what `git push` does for the current branch.
+    func pushBranch(_ branch: String, remote: String, setUpstream: Bool) async throws {
+        var args = ["push"]
+        if setUpstream { args.append("--set-upstream") }
+        args.append(Self.endOfOptions)
+        args.append(remote)
+        var refspec = "refs/heads/\(branch)"
+        if !setUpstream,
+           await configValue("branch.\(branch).remote") == remote,
+           let merge = await configValue("branch.\(branch).merge") {
+            refspec += ":\(merge)"
+        }
+        args.append(refspec)
+        try await runNetwork(args, remote: remote)
+    }
+
     func upstreamName() async -> String? {
         do {
             let result = try await run(["rev-parse", "--abbrev-ref", "@{upstream}"])
