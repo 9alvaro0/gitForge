@@ -78,6 +78,21 @@ struct GitCLICredentialRoutingTests {
         #expect(hasRef(work, "refs/remotes/upstream/main"))
     }
 
+    @Test("A remote with skipFetchAll is left out of the per-remote runs, as fetch --all does")
+    func fetchAllSkipsSkipFetchAll() async throws {
+        let (work, origin, upstream) = try makeRepos()
+        try work.git("config", "remote.upstream.skipFetchAll", "true")
+        let recorder = RecordingCredentials(accounts: [origin.url.path: UUID(), upstream.url.path: UUID()])
+        try await GitCLI(workingDirectory: work.url, credentials: recorder).fetchAll()
+        #expect(recorder.signedRemotes == ["origin"])
+    }
+
+    @Test("skipFetchAll lines: only true values, names with dots kept whole")
+    func skipFetchAllParsing() {
+        let output = "remote.upstream.skipfetchall true\nremote.my.fork.skipfetchall true\nremote.origin.skipfetchall false\n"
+        #expect(GitCLI.skipFetchAllRemotes(output) == ["upstream", "my.fork"])
+    }
+
     @Test("A remote that needs a choice is fetched on its own, so the sheet can show")
     func fetchAllNeedsChoice() async throws {
         let (work, _, upstream) = try makeRepos()

@@ -13,7 +13,19 @@ struct AddInstanceSheet: View {
     @State private var showAdvanced = false
 
     var body: some View {
-        let model = model ?? AddInstanceModel(store: appState.accounts, kind: request.kind, url: request.url)
+        Group {
+            if let model {
+                form(model)
+            } else {
+                Color.clear.frame(width: 460, height: 160)
+            }
+        }
+        .onAppear {
+            if model == nil { model = AddInstanceModel(store: appState.accounts, kind: request.kind, url: request.url) }
+        }
+    }
+
+    private func form(_ model: AddInstanceModel) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s12) {
             Text("Add instance").textRole(.title)
             Picker("Type", selection: Bindable(model).kind) {
@@ -37,7 +49,6 @@ struct AddInstanceSheet: View {
         }
         .padding(Spacing.s16)
         .frame(width: 460)
-        .onAppear { if self.model == nil { self.model = model } }
         .onChange(of: model.state) { _, state in
             switch state {
             case .needsTrust(let host): trustHost = host
@@ -51,8 +62,14 @@ struct AddInstanceSheet: View {
     @ViewBuilder
     private func status(_ state: AddInstanceModel.State) -> some View {
         switch state {
-        case .editing, .needsTrust:
+        case .editing:
             EmptyView()
+        case .needsTrust(let host):
+            HStack(spacing: Spacing.s8) {
+                Text("macOS doesn't trust \(host)'s certificate.").textRole(.callout).foregroundStyle(theme.colors.warn)
+                Button("Review Certificate…") { trustHost = host }
+                    .buttonStyle(.link)
+            }
         case .verifying:
             HStack(spacing: Spacing.s6) { ProgressView().controlSize(.small); Text("Checking the API…").textRole(.callout) }
         case .failed(let message):

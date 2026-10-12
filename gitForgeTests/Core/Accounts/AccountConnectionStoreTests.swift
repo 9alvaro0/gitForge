@@ -42,6 +42,14 @@ struct AccountConnectionStoreTests {
         #expect(AccountStatusPolicy.reason(for: .tls("bad")) == nil)
         #expect(AccountStatusPolicy.reason(for: .server(502)) == nil)
         #expect(AccountStatusPolicy.reason(for: .missingSecret) == nil)
+        #expect(AccountStatusPolicy.reason(for: .oauthUnavailable) == .expired)
+    }
+
+    @Test("A rejected token past its known expiry expired; otherwise it was revoked")
+    func rejectionReasons() {
+        #expect(AccountStatusPolicy.reason(for: .unauthorized, expiresAt: Self.now - 1, now: Self.now) == .expired)
+        #expect(AccountStatusPolicy.reason(for: .unauthorized, expiresAt: Self.now + Self.day, now: Self.now) == .revoked)
+        #expect(AccountStatusPolicy.reason(for: .unauthorized, expiresAt: nil, now: Self.now) == .revoked)
     }
 
     // MARK: connectAccount

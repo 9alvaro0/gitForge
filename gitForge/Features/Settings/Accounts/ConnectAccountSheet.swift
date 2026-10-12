@@ -28,7 +28,7 @@ struct ConnectAccountSheet: View {
             model = ConnectAccountModel(store: appState.accounts, connector: appState.accountConnector,
                                         instanceId: instanceId, replacing: request.replacing)
         }
-        .onDisappear { model?.cancel() }
+        .onDisappear { model?.close() }
         .sheet(isPresented: $addingInstance) {
             AddInstanceSheet { instance in model?.instanceId = instance.id }
         }

@@ -177,6 +177,48 @@ struct AccountConnectorTests {
         #expect(store.accounts.isEmpty)
     }
 
+    @Test("Restarted after a cancel: the first run never touches the new one")
+    func deviceFlowRestart() async throws {
+        let (server, store, connector, instance) = try stubbed(.github)
+        server.on("POST", "/login/device/code", fixture: "oauth-device-code-github")
+        server.on("POST", "/login/oauth/access_token", fixture: "oauth-pending")
+        let flow = try #require(connector.deviceFlow(on: instance))
+        flow.start()
+        await waitUntil { waiting(flow) }
+        flow.cancel()
+        flow.start()
+        await waitUntil { waiting(flow) }
+        try await Task.sleep(for: .milliseconds(100))
+        guard case .waitingForUser = flow.state else {
+            Issue.record("Expected waitingForUser, got \(flow.state)")
+            return
+        }
+        #expect(flow.isRunning)
+        #expect(store.accounts.isEmpty)
+    }
+
+    @Test("A session dropped without cancel stops polling and saves nothing")
+    func deviceFlowDropped() async throws {
+        let (server, store, connector, instance) = try stubbed(.github)
+        server.on("POST", "/login/device/code", fixture: "oauth-device-code-github")
+        server.on("POST", "/login/oauth/access_token", fixture: "oauth-pending")
+        var flow = connector.deviceFlow(on: instance)
+        weak var dropped = flow
+        flow?.start()
+        await waitUntil { flow.map { waiting($0) } ?? false }
+        flow = nil
+        await waitUntil { dropped == nil }
+        #expect(dropped == nil)
+
+        server.on("POST", "/login/oauth/access_token", fixture: "github-token-granted")
+        server.on("GET", "/api/v3/user", headers: ["X-OAuth-Scopes": "repo, read:org, workflow"], fixture: "github-user")
+        try await Task.sleep(for: .milliseconds(100))
+        let polls = server.requests("POST", "/login/oauth/access_token").count
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(server.requests("POST", "/login/oauth/access_token").count == polls)
+        #expect(store.accounts.isEmpty)
+    }
+
     @Test("Declined in the browser: failed with accessDenied, nothing saved")
     func deviceFlowDenied() async throws {
         let (server, store, connector, instance) = try stubbed(.github)

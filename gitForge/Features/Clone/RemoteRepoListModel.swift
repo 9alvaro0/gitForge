@@ -170,15 +170,19 @@ final class RemoteRepoListModel {
         }
     }
 
-    /// A rejected token marks the account and offers to reconnect it; any
-    /// other failure is shown as it is.
+    /// A rejected token marks the account and offers to reconnect it, as
+    /// does a token that can't be read or refreshed; any other failure is
+    /// shown as it is.
     private func handle(_ error: any Error, _ account: HostingAccount) {
-        let rejected = (error as? PullRequestFetchError) == .unauthorized
-            || (error as? HostingAuthError) == .unauthorized
+        let authError = error as? HostingAuthError
+        let rejected = (error as? PullRequestFetchError) == .unauthorized || authError == .unauthorized
         if rejected {
-            store.markNeedsAttention(account.id, .revoked)
+            store.markNeedsAttention(account.id, AccountStatusPolicy.rejectionReason(expiresAt: account.expiresAt))
+        } else if authError == .oauthUnavailable {
+            store.markNeedsAttention(account.id, .expired)
         }
-        if rejected || (error as? HostingAuthError) == .refreshRejected {
+        let reconnect: [HostingAuthError] = [.refreshRejected, .missingSecret, .oauthUnavailable]
+        if rejected || authError.map({ reconnect.contains($0) }) == true {
             repos = []
             hasMore = false
             state = .needsAccount(instanceId: account.instanceId, replacing: account.id)

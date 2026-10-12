@@ -27,4 +27,25 @@ struct AccountToastActionTests {
         #expect(AccountToastAction.action(for: .missingScope("workflow"), instances: [], accounts: [])?.route == .openAccounts)
         #expect(AccountToastAction.action(for: .network, instances: [], accounts: []) == nil)
     }
+
+    @Test("Two copied accounts without a login: the one that needs attention is reconnected")
+    func twoCopies() {
+        let good = HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, method: .personalToken, status: .ok)
+        let failing = HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, method: .personalToken,
+                                     status: .needsAttention(.revoked))
+        let action = AccountToastAction.action(for: .accountRejected(account: "gitlab.com", host: "gitlab.com"),
+                                               instances: HostingInstance.builtIns, accounts: [good, failing])
+        #expect(action?.route == .reconnectAccount(instanceId: HostingInstance.gitLabDotCom.id, accountId: failing.id))
+    }
+
+    @Test("No account to pin it on: opens Accounts instead of connecting a duplicate")
+    func noMatch() {
+        let first = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "a", method: .oauth, status: .ok)
+        let second = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "b", method: .oauth, status: .ok)
+        for accounts in [[], [first, second]] {
+            let action = AccountToastAction.action(for: .accountRejected(account: "gone", host: "github.com"),
+                                                   instances: HostingInstance.builtIns, accounts: accounts)
+            #expect(action?.route == .openAccounts)
+        }
+    }
 }
