@@ -178,7 +178,7 @@ struct BranchesView: View {
     @ViewBuilder
     private var table: some View {
         if hasActiveFilter && scopedRefs.isEmpty {
-            EmptyState(icon: .search, title: "Nothing matches “\(filter)”") {
+            EmptyState(symbol: "magnifyingglass", title: "Nothing matches “\(filter)”") {
                 GFButton(title: "Clear filter", size: .small) { filter = "" }
             }
         } else {
@@ -198,7 +198,7 @@ struct BranchesView: View {
         if let ref = inspectedRef {
             BranchInspector(ref: ref, currentBranchName: currentBranchName, actions: actions)
         } else {
-            EmptyState(icon: scope == .tags ? .tag : .branch,
+            EmptyState(symbol: scope == .tags ? "tag" : "arrow.triangle.branch",
                        title: scope == .tags ? "Select a tag" : "Select a branch",
                        subtitle: "Its upstream, last commit and actions show here.")
         }

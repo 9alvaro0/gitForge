@@ -277,10 +277,10 @@ struct HistoryView: View {
                 .padding(Spacing.s16)
             }
         } else {
-            EmptyState(icon: .graph, title: "Select a commit",
+            EmptyState(symbol: "clock.arrow.circlepath", title: "Select a commit",
                        subtitle: "Its detail and changes appear here.") { EmptyView() }
                 .overlay(alignment: .topTrailing) {
-                    IconButton(.x, accessibilityLabel: "Hide commit detail") {
+                    IconButton(symbol: "xmark", accessibilityLabel: "Hide commit detail") {
                         setDetailColumnCollapsed(true)
                     }
                     .help("Hide commit detail")

@@ -23,23 +23,38 @@ struct IconButton<Content: View>: View {
     }
 }
 
-extension IconButton where Content == GFIcon {
-    init(_ kind: GFIconKind, size: CGFloat = 14, accessibilityLabel: String, action: @escaping () -> Void) {
+/// SF Symbol glyph sized like the old icon box (symbols fill more of their
+/// point size than the previous line glyphs, hence the 0.8 scale).
+struct IconButtonGlyph: View {
+    let symbol: String
+    let size: CGFloat
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.8, weight: .medium))
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+extension IconButton where Content == IconButtonGlyph {
+    /// `symbol` is an SF Symbol name.
+    init(symbol: String, size: CGFloat = 14, accessibilityLabel: String, action: @escaping () -> Void) {
         self.action = action
         self.accessibilityLabel = accessibilityLabel
-        self.content = { GFIcon(kind: kind, size: size) }
+        self.content = { IconButtonGlyph(symbol: symbol, size: size) }
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    HStack(spacing: DesignTokens.Spacing.sm) {
-        IconButton(.more, accessibilityLabel: "More") {}
-        IconButton(.copy, accessibilityLabel: "Copy") {}
-        IconButton(.search, accessibilityLabel: "Search") {}
-        IconButton(.ext, accessibilityLabel: "Open externally") {}
+    HStack(spacing: Spacing.s6) {
+        IconButton(symbol: "ellipsis", accessibilityLabel: "More") {}
+        IconButton(symbol: "doc.on.doc", accessibilityLabel: "Copy") {}
+        IconButton(symbol: "magnifyingglass", accessibilityLabel: "Search") {}
+        IconButton(symbol: "arrow.up.right.square", accessibilityLabel: "Open externally") {}
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

@@ -12,7 +12,7 @@ struct PullsTokenMissingSection: View {
     var body: some View {
         let provider = host?.provider.label ?? "hosting"
         EmptyState(
-            icon: .pr,
+            symbol: "arrow.triangle.pull",
             title: reconnect ? "Reconnect your \(provider) account" : "Connect a \(provider) account",
             subtitle: reconnect
                 ? "The account's token was rejected. Sign in again to list \(nounPlural)."

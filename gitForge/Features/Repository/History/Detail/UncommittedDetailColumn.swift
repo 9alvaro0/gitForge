@@ -44,7 +44,7 @@ struct UncommittedDetailColumn: View {
                 .foregroundStyle(theme.palette.fg1)
             Spacer()
             if let onClose {
-                IconButton(.x, accessibilityLabel: "Hide uncommitted detail", action: onClose)
+                IconButton(symbol: "xmark", accessibilityLabel: "Hide uncommitted detail", action: onClose)
                     .help("Hide uncommitted detail")
             }
         }

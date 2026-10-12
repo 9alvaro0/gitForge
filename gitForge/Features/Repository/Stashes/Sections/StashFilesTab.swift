@@ -19,7 +19,7 @@ struct StashFilesTab: View {
             if store.isLoading {
                 placeholderList
             } else {
-                EmptyState(icon: .diff, title: "No files changed")
+                EmptyState(symbol: "square.and.pencil", title: "No files changed")
             }
         } else {
             // Files over the diff, as in the commit inspector: side by side
