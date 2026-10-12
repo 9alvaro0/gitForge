@@ -14,7 +14,11 @@ struct SidebarNavItem: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: Spacing.s8) {
-                GFIcon(kind: section.icon, size: 16, stroke: isActive ? theme.colors.accent : theme.colors.textTertiary)
+                Image(systemName: section.symbol)
+                    .font(.system(size: 16 * 0.8, weight: .medium))
+                    .foregroundStyle(isActive ? theme.colors.accent : theme.colors.textTertiary)
+                    .frame(width: 16, height: 16)
+                    .accessibilityHidden(true)
                 Text(section.label)
                     .textRole(.body, weight: isActive ? .semibold : .regular)
                     .foregroundStyle(isActive ? theme.colors.accent : theme.colors.textPrimary)

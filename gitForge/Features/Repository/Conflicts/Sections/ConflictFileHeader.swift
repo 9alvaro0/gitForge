@@ -48,7 +48,7 @@ struct ConflictFileHeader: View {
                         .help("Resolve the whole file with ours and mark it resolved")
                     ConflictSideButton(side: .theirs, title: "Take theirs", action: onTakeTheirs)
                         .help("Resolve the whole file with theirs and mark it resolved")
-                    IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
+                    IconButton(symbol: "arrow.up.right.square", accessibilityLabel: "Open in editor", action: onOpenInEditor)
                         .help("Open in editor")
                     GFButton(title: "Mark resolved", style: .primary,
                              disabled: !canMarkResolved, action: onMarkResolved)

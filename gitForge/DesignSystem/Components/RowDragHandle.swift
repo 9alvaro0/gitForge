@@ -14,11 +14,11 @@ struct RowDragHandle: View {
 
     var body: some View {
         Color.clear
-            .frame(height: DesignTokens.Spacing.md)
+            .frame(height: Spacing.s8)
             .overlay(
                 Rectangle()
-                    .fill(theme.palette.lineStrong)
-                    .frame(height: DesignTokens.Stroke.regular)
+                    .fill(theme.colors.strokeControl)
+                    .frame(height: 1)
                     .allowsHitTesting(false)
             )
             .contentShape(.rect)
@@ -49,8 +49,8 @@ struct RowDragHandle: View {
             .accessibilityValue("\(Int(height)) points")
             .accessibilityAdjustableAction { direction in
                 switch direction {
-                case .increment: height = min(height + DesignTokens.Resize.step, maxHeight)
-                case .decrement: height = max(height - DesignTokens.Resize.step, minHeight)
+                case .increment: height = min(height + LayoutMetrics.resizeStep, maxHeight)
+                case .decrement: height = max(height - LayoutMetrics.resizeStep, minHeight)
                 @unknown default: return
                 }
                 onCommit()
@@ -61,25 +61,25 @@ struct RowDragHandle: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var bottomHeight: CGFloat = 160
-    VStack(spacing: DesignTokens.Spacing.none) {
+    VStack(spacing: 0) {
         Rectangle()
-            .fill(theme.palette.bg2)
+            .fill(theme.colors.bgContent)
             .overlay(
                 Text("Top pane (flex)")
-                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg2)
+                    .textRole(.monoSmall)
+                    .foregroundStyle(theme.colors.textSecondary)
             )
         RowDragHandle(height: $bottomHeight, minHeight: 80, maxHeight: 360)
         Rectangle()
-            .fill(theme.palette.bg3)
+            .fill(theme.colors.fillControl)
             .frame(height: bottomHeight)
             .overlay(
                 Text("Bottom pane — drag the divider (h=\(Int(bottomHeight)))")
-                    .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg2)
+                    .textRole(.monoSmall)
+                    .foregroundStyle(theme.colors.textSecondary)
             )
     }
     .frame(width: 600, height: 400)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

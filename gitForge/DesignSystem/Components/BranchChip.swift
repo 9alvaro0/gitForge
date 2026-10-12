@@ -19,7 +19,7 @@ struct BranchChip: View {
 
     var body: some View {
         HStack(spacing: Spacing.s4) {
-            GFIcon(kind: iconKind, size: 11, stroke: foreground)
+            glyph(symbol)
             Text(name)
                 .textRole(tag ? .monoSmall : .caption, weight: .semibold)
                 .lineLimit(1)
@@ -29,7 +29,7 @@ struct BranchChip: View {
                 Rectangle()
                     .fill(foreground.opacity(0.35))
                     .frame(width: 1, height: 10)
-                GFIcon(kind: .cloud, size: 11, stroke: foreground)
+                glyph("cloud")
             }
         }
         .padding(.horizontal, Spacing.s6)
@@ -43,10 +43,18 @@ struct BranchChip: View {
 
     /// Local → monitor, remote → cloud, tag → tag. Origin reads at a glance
     /// without the `origin/` prefix. HEAD keeps the local glyph.
-    private var iconKind: GFIconKind {
-        if tag    { return .tag }
-        if remote { return .cloud }
-        return .desktop
+    private var symbol: String {
+        if tag    { return "tag" }
+        if remote { return "cloud" }
+        return "desktopcomputer"
+    }
+
+    private func glyph(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 11 * 0.8, weight: .medium))
+            .foregroundStyle(foreground)
+            .frame(width: 11, height: 11)
+            .accessibilityHidden(true)
     }
 
     // Redesign spec §5 (RefChip). The per-lane tint of local chips arrives
@@ -68,13 +76,13 @@ struct BranchChip: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+    VStack(alignment: .leading, spacing: Spacing.s8) {
         BranchChip(name: "feat/commit-graph", current: true)
         BranchChip(name: "main")
         BranchChip(name: "origin/main", remote: true)
         BranchChip(name: "v2.3.1", tag: true)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

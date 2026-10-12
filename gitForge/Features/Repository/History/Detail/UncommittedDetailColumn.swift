@@ -19,16 +19,16 @@ struct UncommittedDetailColumn: View {
     private var totalCount: Int { staged.count + unstaged.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             header
             Text("Working tree changes not yet committed.")
-                .font(AppFont.sans(FontSize.mdPlus))
-                .foregroundStyle(theme.palette.fg3)
+                .textRole(.body)
+                .foregroundStyle(theme.colors.textTertiary)
             if totalCount == 0 {
                 Text("No changes")
-                    .font(AppFont.sans(FontSize.md))
+                    .textRole(.callout)
                     .italic()
-                    .foregroundStyle(theme.palette.fg3)
+                    .foregroundStyle(theme.colors.textTertiary)
             } else {
                 fileSection(title: "STAGED", count: staged.count, files: staged)
                 fileSection(title: "UNSTAGED", count: unstaged.count, files: unstaged)
@@ -37,14 +37,18 @@ struct UncommittedDetailColumn: View {
     }
 
     private var header: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
-            GFIcon(kind: .diff, size: 14, stroke: theme.palette.fg1)
+        HStack(spacing: Spacing.s8) {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 11.2, weight: .medium))
+                .foregroundStyle(theme.colors.textPrimary)
+                .frame(width: 14, height: 14)
+                .accessibilityHidden(true)
             Text("Uncommitted changes")
-                .font(AppFont.sans(FontSize.lg))
-                .foregroundStyle(theme.palette.fg1)
+                .textRole(.body)
+                .foregroundStyle(theme.colors.textPrimary)
             Spacer()
             if let onClose {
-                IconButton(.x, accessibilityLabel: "Hide uncommitted detail", action: onClose)
+                IconButton(symbol: "xmark", accessibilityLabel: "Hide uncommitted detail", action: onClose)
                     .help("Hide uncommitted detail")
             }
         }
@@ -52,23 +56,23 @@ struct UncommittedDetailColumn: View {
 
     @ViewBuilder
     private func fileSection(title: String, count: Int, files: [WorkingCopyFile]) -> some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
             HStack {
                 Text(title)
-                    .font(.system(size: FontSize.sm, weight: .semibold))
+                    .textRole(.caption, weight: .semibold)
                     .tracking(0.8)
-                    .foregroundStyle(theme.palette.fg3)
+                    .foregroundStyle(theme.colors.textTertiary)
                 Text("\(count)")
-                    .font(.system(size: FontSize.sm))
-                    .foregroundStyle(theme.palette.fg3)
+                    .textRole(.caption)
+                    .foregroundStyle(theme.colors.textTertiary)
             }
             if files.isEmpty {
                 Text("Nothing \(title.lowercased())")
-                    .font(AppFont.sans(FontSize.md))
+                    .textRole(.callout)
                     .italic()
-                    .foregroundStyle(theme.palette.fg3)
+                    .foregroundStyle(theme.colors.textTertiary)
             } else {
-                LazyVStack(spacing: DesignTokens.Spacing.hairline) {
+                LazyVStack(spacing: 1) {
                     ForEach(files) { file in
                         WorkingCopyMiniRow(
                             file: file,
@@ -94,19 +98,19 @@ private struct WorkingCopyMiniRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: Spacing.s8) {
                 StatusTag(kind: StatusTag.Kind(workingFile: file.isStaged ? file.stagedStatus : file.unstagedStatus))
                 Text(file.path)
-                    .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                    .foregroundStyle(theme.palette.fg1)
+                    .textRole(.mono)
+                    .foregroundStyle(theme.colors.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.head)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .padding(.vertical, DesignTokens.Spacing.sm)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.sm).fill(isActive ? theme.palette.bg3 : .clear))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.sm))
+            .padding(.horizontal, Spacing.s8)
+            .padding(.vertical, Spacing.s6)
+            .background(RoundedRectangle(cornerRadius: Radius.chip).fill(isActive ? theme.colors.fillControl : .clear))
+            .contentShape(.rect(cornerRadius: Radius.chip))
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -133,7 +137,7 @@ private struct WorkingCopyMiniRow: View {
     UncommittedDetailColumn(viewModel: .preview)
         .previewAppState(.preview)
         .padding()
-        .frame(width: DesignTokens.Detail.panelWidth, height: 720)
-        .background(theme.palette.bg1)
+        .frame(width: LayoutMetrics.detailPanelWidth, height: 720)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

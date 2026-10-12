@@ -23,7 +23,7 @@ struct SkeletonModifier: ViewModifier {
                 .phaseAnimator(reduceMotion ? [0.7] : [0.45, 1.0]) { view, phase in
                     view.opacity(phase)
                 } animation: { _ in
-                    DesignTokens.Motion.slow
+                    Motion.slow
                 }
                 // The placeholder is built from realistic *fake* rows; without
                 // this VoiceOver reads the dummy text as if it were content.
@@ -49,37 +49,37 @@ extension View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var loading = true
 
-    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+    VStack(alignment: .leading, spacing: Spacing.s12) {
         Toggle("Loading", isOn: $loading)
             .toggleStyle(.switch)
-            .padding(.horizontal, DesignTokens.Spacing.xxxxl)
+            .padding(.horizontal, Spacing.s20)
 
-        VStack(spacing: DesignTokens.Spacing.md) {
+        VStack(spacing: Spacing.s8) {
             ForEach(0..<5, id: \.self) { _ in
-                HStack(spacing: DesignTokens.Spacing.xl) {
+                HStack(spacing: Spacing.s12) {
                     Text("OPEN")
-                        .font(AppFont.mono(FontSize.xxs, weight: .bold, family: theme.monoFont))
-                        .padding(.horizontal, DesignTokens.Spacing.sm).padding(.vertical, DesignTokens.Spacing.xxs)
-                        .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xs).fill(theme.palette.bg3))
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        .textRole(.monoSmall, weight: .bold)
+                        .padding(.horizontal, Spacing.s6).padding(.vertical, Spacing.s2)
+                        .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.fillControl))
+                    VStack(alignment: .leading, spacing: Spacing.s4) {
                         Text("Add merge request integration")
-                            .font(AppFont.sans(FontSize.lg, weight: .medium))
-                            .foregroundStyle(theme.palette.fg1)
+                            .textRole(.body, weight: .medium)
+                            .foregroundStyle(theme.colors.textPrimary)
                         Text("@author · feat/branch-name → main · 2h ago")
-                            .font(AppFont.sans(FontSize.md))
-                            .foregroundStyle(theme.palette.fg3)
+                            .textRole(.callout)
+                            .foregroundStyle(theme.colors.textTertiary)
                     }
                     Spacer()
                 }
-                .padding(.horizontal, DesignTokens.Spacing.xxl).padding(.vertical, DesignTokens.Spacing.lg)
-                .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(theme.palette.bg1))
-                .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).stroke(theme.palette.line, lineWidth: DesignTokens.Stroke.regular))
+                .padding(.horizontal, Spacing.s16).padding(.vertical, Spacing.s12)
+                .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(theme.colors.bgElevated))
+                .overlay(RoundedRectangle(cornerRadius: Radius.controlSmall).stroke(theme.colors.separator, lineWidth: 1))
             }
         }
-        .padding(DesignTokens.Spacing.xxxxl)
+        .padding(Spacing.s20)
         .skeleton(loading)
     }
     .frame(width: 640, height: 360)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

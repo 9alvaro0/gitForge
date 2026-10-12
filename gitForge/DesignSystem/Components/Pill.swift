@@ -56,7 +56,7 @@ struct StatusPills: View {
 
 #Preview("Pill kinds") {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+    VStack(alignment: .leading, spacing: Spacing.s8) {
         HStack {
             Pill(text: "↑5", kind: .up)
             Pill(text: "↓3", kind: .down)
@@ -66,7 +66,7 @@ struct StatusPills: View {
         StatusPills(ahead: 7, behind: 1, dirty: 3)
         StatusPills(ahead: 0, behind: 0, dirty: 0)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

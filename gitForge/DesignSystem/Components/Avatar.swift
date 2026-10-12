@@ -12,9 +12,19 @@ struct Avatar: View {
         self.size = size
         let parts = name.split(separator: " ")
         self.initials = parts.prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
-        let lanes = ThemePalette.lanePalette
+        let lanes = Self.colors
         self.background = lanes[Self.paletteIndex(seed: colorSeed ?? name, count: lanes.count)]
     }
+
+    /// Avatar backgrounds; fixed so an author keeps their colour.
+    static let colors: [Color] = [
+        Color(hex: 0x7c5cff),
+        Color(hex: 0xff7e6b),
+        Color(hex: 0x56b497),
+        Color(hex: 0xdda44b),
+        Color(hex: 0x5da4ff),
+        Color(hex: 0xc976d9),
+    ]
 
     /// Stable palette slot for `seed`.
     static func paletteIndex(seed: String, count: Int) -> Int {

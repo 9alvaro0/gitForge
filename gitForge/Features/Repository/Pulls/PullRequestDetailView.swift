@@ -109,7 +109,7 @@ struct PullRequestDetailView: View {
     private var content: some View {
         Group {
             if let error = store.detailError, store.detail == nil {
-                EmptyState(icon: .warn, title: "Couldn't load detail", subtitle: error) {
+                EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load detail", subtitle: error) {
                     GFButton(title: "Retry") { Task { await store.loadDetail() } }
                 }
             } else {

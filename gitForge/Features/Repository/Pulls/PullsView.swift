@@ -74,7 +74,7 @@ struct PullsView: View {
                     if store.selected != nil {
                         PullRequestDetailView(store: store, integrateLocally: integrateLocally, checkoutBranch: checkoutBranch)
                     } else {
-                        EmptyState(icon: .pr, title: "Select a \(singularNoun)")
+                        EmptyState(symbol: "arrow.triangle.pull", title: "Select a \(singularNoun)")
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -113,7 +113,7 @@ struct PullsView: View {
             if store.scope == .closed && !store.closedLoaded {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                EmptyState(icon: .pr, title: emptyTitle)
+                EmptyState(symbol: "arrow.triangle.pull", title: emptyTitle)
             }
         } else {
             ScrollView {

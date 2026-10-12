@@ -19,29 +19,29 @@ struct SidebarRepoRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: DesignTokens.Spacing.lg) {
+            HStack(spacing: Spacing.s12) {
                 RepoMark(letter: String(org.prefix(1)))
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.hairline) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(repository.name)
-                        .font(AppFont.sans(FontSize.md, weight: .medium))
-                        .foregroundStyle(theme.palette.fg1)
+                        .textRole(.body, weight: .medium)
+                        .foregroundStyle(theme.colors.textPrimary)
                         .lineLimit(1)
                     if let branch {
                         Text(branch)
-                            .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
-                            .foregroundStyle(theme.palette.fg3)
+                            .textRole(.monoSmall)
+                            .foregroundStyle(theme.colors.textTertiary)
                             .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 StatusPills(ahead: ahead, behind: behind, dirty: dirty, loaded: loaded)
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .padding(.vertical, DesignTokens.Spacing.sm)
-            .frame(height: DesignTokens.Sidebar.repoRow)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.md).fill(rowBackground))
-            .contentShape(.rect(cornerRadius: DesignTokens.Radius.md))
-            .padding(.horizontal, DesignTokens.Spacing.sm)
+            .padding(.horizontal, Spacing.s8)
+            .padding(.vertical, Spacing.s6)
+            .frame(height: LayoutMetrics.sidebarRepoRow)
+            .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowBackground))
+            .contentShape(.rect(cornerRadius: Radius.row))
+            .padding(.horizontal, Spacing.s6)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -60,16 +60,18 @@ struct SidebarRepoRow: View {
         }
     }
 
+    /// Current: `accentSoft`, like a selected list row (spec §5); hover:
+    /// `fillHover`, so hovering never looks stronger than the current repo.
     private var rowBackground: Color {
-        if isCurrent { return theme.palette.bg4 }
-        return hovering ? theme.palette.bg3 : .clear
+        if isCurrent { return theme.colors.accentSoft }
+        return hovering ? theme.colors.fillHover : .clear
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     let samples = Repository.previewSamples
-    VStack(spacing: DesignTokens.Spacing.hairline) {
+    VStack(spacing: 1) {
         ForEach(samples) { repo in
             let isCurrent = repo.id == samples.first?.id
             let status: RepoStatusSnapshot = isCurrent ? .previewActive : .previewClean
@@ -84,7 +86,7 @@ struct SidebarRepoRow: View {
         }
     }
     .frame(width: 256)
-    .padding(.vertical, DesignTokens.Spacing.sm)
-    .background(theme.palette.bg1)
+    .padding(.vertical, Spacing.s6)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

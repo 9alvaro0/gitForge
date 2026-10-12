@@ -30,7 +30,7 @@ struct PullsContentSection: View {
         } else if store.host == nil {
             if let suggestion = store.suggestedInstance {
                 EmptyState(
-                    icon: .pr,
+                    symbol: "arrow.triangle.pull",
                     title: "\(suggestion.host) isn't added yet",
                     subtitle: "It looks like a \(suggestion.kind.label) server. Add it as an instance to see its \(nounPlural)."
                 ) {
@@ -40,7 +40,7 @@ struct PullsContentSection: View {
                 }
             } else {
                 EmptyState(
-                    icon: .pr,
+                    symbol: "arrow.triangle.pull",
                     title: "No supported remote detected",
                     subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts."
                 )
@@ -58,7 +58,7 @@ struct PullsContentSection: View {
     }
 
     private func errorState(message: String) -> some View {
-        EmptyState(icon: .warn, title: "Couldn't load", subtitle: message) {
+        EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load", subtitle: message) {
             HStack(spacing: Spacing.s8) {
                 if isTLSError(message), let host = store.host {
                     GFButton(title: "Trust \(host.host)…", style: .primary) {

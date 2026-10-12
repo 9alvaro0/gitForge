@@ -11,7 +11,7 @@ struct PullRequestCommitsTab: View {
             if loading {
                 placeholderList
             } else {
-                EmptyState(icon: .graph, title: "No commits")
+                EmptyState(symbol: "clock.arrow.circlepath", title: "No commits")
             }
         } else {
             ScrollView {
