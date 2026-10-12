@@ -18,10 +18,10 @@ struct CollapsedPaneStrip: View {
     var body: some View {
         Button(action: action) {
             content
-                .background(theme.palette.bg1)
+                .background(theme.colors.bgElevated)
                 .overlay(alignment: edge) {
                     Rectangle()
-                        .fill(theme.palette.lineStrong)
+                        .fill(theme.colors.strokeControl)
                         .frame(width: edgeWidth, height: edgeHeight)
                 }
                 .contentShape(.rect)
@@ -34,21 +34,33 @@ struct CollapsedPaneStrip: View {
     private var content: some View {
         switch kind {
         case .diff:
-            HStack(spacing: DesignTokens.Spacing.md) {
-                GFIcon(kind: .diff, size: 12, stroke: theme.palette.fg2)
+            HStack(spacing: Spacing.s8) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 9.6, weight: .medium))
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .frame(width: 12, height: 12)
+                    .accessibilityHidden(true)
                 Text("Show diff pane")
-                    .font(AppFont.sans(FontSize.md))
-                    .foregroundStyle(theme.palette.fg2)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
                 Spacer(minLength: 0)
-                GFIcon(kind: .arrowU, size: 11, stroke: theme.palette.fg3)
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 8.8, weight: .medium))
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: 11, height: 11)
+                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, DesignTokens.Spacing.xxl)
+            .padding(.horizontal, Spacing.s12)
             .frame(height: 30)
             .frame(maxWidth: .infinity)
         case .detail:
-            VStack(spacing: DesignTokens.Spacing.none) {
-                GFIcon(kind: .diamond, size: 13, stroke: theme.palette.fg2)
-                    .padding(.top, DesignTokens.Spacing.xxl)
+            VStack(spacing: 0) {
+                Image(systemName: "diamond")
+                    .font(.system(size: 10.4, weight: .medium))
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .frame(width: 13, height: 13)
+                    .accessibilityHidden(true)
+                    .padding(.top, Spacing.s12)
                 Spacer(minLength: 0)
             }
             .frame(width: 32)
@@ -63,10 +75,10 @@ struct CollapsedPaneStrip: View {
         }
     }
     private var edgeWidth: CGFloat? {
-        kind == .detail ? DesignTokens.Stroke.regular : nil
+        kind == .detail ? 1 : nil
     }
     private var edgeHeight: CGFloat? {
-        kind == .diff ? DesignTokens.Stroke.regular : nil
+        kind == .diff ? 1 : nil
     }
     private var helpText: String {
         switch kind {

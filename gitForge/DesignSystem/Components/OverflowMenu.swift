@@ -15,11 +15,14 @@ struct OverflowMenu<Content: View>: View {
             content()
         } label: {
             ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.sm)
-                    .fill(hovering ? theme.palette.bg3 : .clear)
-                GFIcon(kind: .more, size: 14, stroke: hovering ? theme.palette.fg1 : theme.palette.fg3)
+                RoundedRectangle(cornerRadius: Radius.controlSmall)
+                    .fill(hovering ? theme.colors.fillHover : .clear)
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14 * 0.8, weight: .medium))
+                    .foregroundStyle(hovering ? theme.colors.textPrimary : theme.colors.textTertiary)
+                    .accessibilityHidden(true)
             }
-            .frame(width: DesignTokens.IconSize.huge, height: DesignTokens.IconSize.huge)
+            .frame(width: 26, height: 26)
             .contentShape(.rect)
         }
         .menuStyle(.button)
@@ -33,16 +36,16 @@ struct OverflowMenu<Content: View>: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    HStack(spacing: DesignTokens.Spacing.md) {
+    HStack(spacing: Spacing.s8) {
         OverflowMenu {
             Button("Checkout") {}
             Button("Rename…") {}
             Divider()
             Button("Delete…", role: .destructive) {}
         }
-        Text("← click").foregroundStyle(theme.palette.fg3)
+        Text("← click").foregroundStyle(theme.colors.textTertiary)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg1)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

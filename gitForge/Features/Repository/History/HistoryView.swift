@@ -116,7 +116,7 @@ struct HistoryView: View {
                     .transition(.opacity)
             }
         }
-        .animation(DesignTokens.Motion.fast, value: dropTracker.intent)
+        .animation(Motion.fast, value: dropTracker.intent)
         .environment(\.branchDropTracker, dropTracker)
         .navigationTitle("History")
         .confirmationDialog(detachedCheckoutTitle,
@@ -188,7 +188,7 @@ struct HistoryView: View {
     /// Widest the inspector may be so the table keeps `minTableWidth`
     /// (the handle's own width included).
     private func inspectorCap(available: CGFloat) -> CGFloat {
-        let handle = DesignTokens.Spacing.md
+        let handle = Spacing.s8
         return min(Self.maxDetailWidth, max(Self.minDetailWidth, available - Self.minTableWidth - handle))
     }
 
@@ -277,10 +277,10 @@ struct HistoryView: View {
                 .padding(Spacing.s16)
             }
         } else {
-            EmptyState(icon: .graph, title: "Select a commit",
+            EmptyState(symbol: "clock.arrow.circlepath", title: "Select a commit",
                        subtitle: "Its detail and changes appear here.") { EmptyView() }
                 .overlay(alignment: .topTrailing) {
-                    IconButton(.x, accessibilityLabel: "Hide commit detail") {
+                    IconButton(symbol: "xmark", accessibilityLabel: "Hide commit detail") {
                         setDetailColumnCollapsed(true)
                     }
                     .help("Hide commit detail")
@@ -328,7 +328,7 @@ struct HistoryView: View {
             defaultHeight: Self.defaultDiffHeight
         )
         if revealed != diffPaneHeight {
-            withAnimation(DesignTokens.Motion.standard) {
+            withAnimation(Motion.standard) {
                 diffPaneHeight = revealed
             }
         }
@@ -356,12 +356,12 @@ struct HistoryView: View {
     }
 
     private func setDiffPaneCollapsed(_ collapsed: Bool) {
-        withAnimation(DesignTokens.Motion.standard) { diffPaneCollapsed = collapsed }
+        withAnimation(Motion.standard) { diffPaneCollapsed = collapsed }
         UserDefaults.standard.set(collapsed, forKey: Self.diffCollapsedKey)
     }
 
     private func setDetailColumnCollapsed(_ collapsed: Bool) {
-        withAnimation(DesignTokens.Motion.standard) { detailColumnCollapsed = collapsed }
+        withAnimation(Motion.standard) { detailColumnCollapsed = collapsed }
         UserDefaults.standard.set(collapsed, forKey: Self.detailCollapsedKey)
     }
 

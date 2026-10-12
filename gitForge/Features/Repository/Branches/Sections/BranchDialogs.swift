@@ -107,12 +107,12 @@ struct BranchDialogs: ViewModifier {
             rebaseTarget = GitRef.previewSamples.first
         }
         Text("Click a button to surface the corresponding confirmation dialog.")
-            .font(AppFont.sans(FontSize.sm))
-            .foregroundStyle(theme.palette.fg3)
+            .textRole(.callout)
+            .foregroundStyle(theme.colors.textTertiary)
     }
     .padding(24)
     .frame(width: 360, height: 200)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .modifier(BranchDialogs(
         deleteTarget: $deleteTarget,
         mergeRequest: $mergeRequest,

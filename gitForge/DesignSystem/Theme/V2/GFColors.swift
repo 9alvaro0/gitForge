@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// v2 colour tokens (redesign spec §4.1), read through `theme.colors`.
-/// Coexists with the v1 `ThemePalette` until phase F9 removes it.
 struct GFColors: Equatable, Sendable {
     var bgWindow: Color
     var bgContent: Color

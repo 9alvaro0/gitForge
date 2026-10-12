@@ -41,7 +41,7 @@ struct ConflictHunksColumn: View {
             .onKeyPress(.downArrow) {
                 guard let next = Self.advanceFocus(from: focusedHunkIndex, by: +1, count: hunks.count) else { return .ignored }
                 focusedHunkIndex = next
-                withAnimation(DesignTokens.Motion.standard) {
+                withAnimation(Motion.standard) {
                     proxy.scrollTo("hunk-\(next)", anchor: .center)
                 }
                 return .handled
@@ -49,7 +49,7 @@ struct ConflictHunksColumn: View {
             .onKeyPress(.upArrow) {
                 guard let prev = Self.advanceFocus(from: focusedHunkIndex, by: -1, count: hunks.count) else { return .ignored }
                 focusedHunkIndex = prev
-                withAnimation(DesignTokens.Motion.standard) {
+                withAnimation(Motion.standard) {
                     proxy.scrollTo("hunk-\(prev)", anchor: .center)
                 }
                 return .handled
@@ -63,7 +63,7 @@ struct ConflictHunksColumn: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 guard let target else { return }
-                withAnimation(DesignTokens.Motion.standard) {
+                withAnimation(Motion.standard) {
                     proxy.scrollTo("hunk-\(target)", anchor: .top)
                 }
                 scrollTarget = nil

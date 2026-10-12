@@ -46,19 +46,21 @@ struct FlowLayout: Layout {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    FlowLayout(spacing: DesignTokens.Spacing.sm) {
+    FlowLayout(spacing: Spacing.s6) {
         ForEach(["v2.3.1", "v2.3.0", "v2.2.4", "v2.2.3", "v2.2.2", "v2.2.1", "v2.1.0", "v2.0.0"], id: \.self) { tag in
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                GFIcon(kind: .diamond, size: 10, stroke: theme.palette.mod)
-                Text(tag).font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
+            HStack(spacing: Spacing.s6) {
+                Image(systemName: "diamond")
+                    .font(.system(size: 10 * 0.8, weight: .medium))
+                    .accessibilityHidden(true)
+                Text(tag).textRole(.monoSmall)
             }
-            .foregroundStyle(theme.palette.mod)
-            .padding(.horizontal, DesignTokens.Spacing.lg).padding(.vertical, DesignTokens.Spacing.xs)
-            .background(RoundedRectangle(cornerRadius: DesignTokens.Radius.xl).fill(theme.palette.mod.opacity(DesignTokens.Opacity.subtle)))
+            .foregroundStyle(theme.colors.mod)
+            .padding(.horizontal, Spacing.s12).padding(.vertical, Spacing.s4)
+            .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.mod.opacity(0.10)))
         }
     }
     .frame(width: 460)
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

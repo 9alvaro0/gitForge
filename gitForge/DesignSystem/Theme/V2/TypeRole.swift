@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// v2 semantic type roles (redesign spec §4.2). SF Pro for text, the user's
-/// code font for the two mono roles. Replaces `FontSize` in phase F9.
+/// code font for the two mono roles.
 nonisolated enum TypeRole: CaseIterable, Sendable {
     case largeTitle
     case title
@@ -84,11 +84,13 @@ nonisolated enum TypeRole: CaseIterable, Sendable {
 }
 
 extension AppFont {
-    /// Font for a v2 type role.
-    static func font(_ role: TypeRole, weight: Font.Weight? = nil, monoFamily: MonoFontFamily = .systemMono) -> Font {
+    /// Font for a v2 type role. `monospaced` sets a sans role's size in the
+    /// code font (a ref name or a count shown large).
+    static func font(_ role: TypeRole, weight: Font.Weight? = nil, monoFamily: MonoFontFamily = .systemMono,
+                     monospaced: Bool = false) -> Font {
         let resolvedWeight = weight ?? role.weight
-        if role.isMono {
-            return mono(role.size, weight: resolvedWeight, family: monoFamily)
+        if role.isMono || monospaced {
+            return codeFace(role.size, weight: resolvedWeight, family: monoFamily)
         }
         return .system(size: role.size, weight: resolvedWeight)
     }
@@ -101,10 +103,16 @@ private struct TextRoleModifier: ViewModifier {
     @Environment(\.appTheme) private var theme
 
     func body(content: Content) -> some View {
-        content
+        let styled = content
             .font(AppFont.font(role, weight: weight, monoFamily: theme.monoFont))
-            .tracking(role.tracking)
             .lineSpacing(role.lineSpacing(over: role.naturalLineHeight(monoFamily: theme.monoFont)))
+        // Only when the role has its own: a 0 here would override a
+        // `.tracking` the caller adds (uppercase section labels).
+        if role.tracking == 0 {
+            styled
+        } else {
+            styled.tracking(role.tracking)
+        }
     }
 }
 

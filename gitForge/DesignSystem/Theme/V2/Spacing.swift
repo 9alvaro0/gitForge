@@ -1,7 +1,6 @@
 import CoreGraphics
 
-/// v2 spacing scale in points (redesign spec §4.3). Replaces
-/// `DesignTokens.Spacing` in phase F9.
+/// v2 spacing scale in points (redesign spec §4.3).
 nonisolated enum Spacing {
     static let s2: CGFloat = 2
     static let s4: CGFloat = 4
@@ -16,7 +15,6 @@ nonisolated enum Spacing {
 }
 
 /// v2 corner radii (redesign spec §4.4). Capsules use `Capsule()`.
-/// Replaces `DesignTokens.Radius` in phase F9.
 nonisolated enum Radius {
     /// A/M/D badges, kbd.
     static let badge: CGFloat = 4

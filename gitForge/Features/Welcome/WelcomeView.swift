@@ -133,7 +133,7 @@ struct WelcomeView: View {
                     .accessibilityLabel("Filter recent repositories")
             }
             if appState.catalog.repositories.isEmpty {
-                EmptyState(icon: .folder, title: "No recent repositories",
+                EmptyState(symbol: "folder", title: "No recent repositories",
                            subtitle: "Repositories you open or clone show up here.")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

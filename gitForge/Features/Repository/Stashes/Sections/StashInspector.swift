@@ -78,7 +78,7 @@ struct StashInspector: View {
     @ViewBuilder
     private var content: some View {
         if let error = store.error, store.detail == nil {
-            EmptyState(icon: .warn, title: "Couldn't load stash", subtitle: error) {
+            EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load stash", subtitle: error) {
                 GFButton(title: "Retry") { Task { await store.load() } }
             }
         } else {

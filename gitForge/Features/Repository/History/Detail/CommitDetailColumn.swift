@@ -27,7 +27,7 @@ struct CommitDetailColumn: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if let onClose {
-                        IconButton(.x, accessibilityLabel: "Hide commit detail", action: onClose)
+                        IconButton(symbol: "xmark", accessibilityLabel: "Hide commit detail", action: onClose)
                             .help("Hide commit detail")
                     }
                 }

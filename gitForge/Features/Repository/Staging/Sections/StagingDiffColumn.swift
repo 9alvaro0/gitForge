@@ -22,12 +22,12 @@ struct StagingDiffColumn: View {
                     viewMode: $diffMode
                 )
             } else if hasFiles {
-                EmptyState(icon: .diff, title: "Pick a file to see the diff",
+                EmptyState(symbol: "square.and.pencil", title: "Pick a file to see the diff",
                            subtitle: "Selection drives the right-hand pane.") { EmptyView() }
             } else if statusLoading {
                 DiffPane(file: nil, hunks: [], loading: true, viewMode: $diffMode)
             } else {
-                EmptyState(icon: .check, title: "Working tree is clean",
+                EmptyState(symbol: "checkmark", title: "Working tree is clean",
                            subtitle: "No changes to stage.") { EmptyView() }
             }
         }

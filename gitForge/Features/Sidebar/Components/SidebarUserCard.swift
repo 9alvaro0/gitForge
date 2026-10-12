@@ -192,8 +192,8 @@ struct SidebarUserCard: View {
         onManageProfiles: {}
     )
     .frame(width: 256)
-    .padding(.vertical, DesignTokens.Spacing.xl)
-    .background(theme.palette.bg1)
+    .padding(.vertical, Spacing.s12)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }
 
@@ -212,8 +212,8 @@ struct SidebarUserCard: View {
         onManageProfiles: {}
     )
     .frame(width: 256)
-    .padding(.vertical, DesignTokens.Spacing.xl)
-    .background(theme.palette.bg1)
+    .padding(.vertical, Spacing.s12)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }
 
@@ -232,8 +232,8 @@ struct SidebarUserCard: View {
         onManageProfiles: {}
     )
     .frame(width: 256)
-    .padding(.vertical, DesignTokens.Spacing.xl)
-    .background(theme.palette.bg1)
+    .padding(.vertical, Spacing.s12)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }
 
@@ -252,7 +252,7 @@ struct SidebarUserCard: View {
         onManageProfiles: {}
     )
     .frame(width: 256)
-    .padding(.vertical, DesignTokens.Spacing.xl)
-    .background(theme.palette.bg1)
+    .padding(.vertical, Spacing.s12)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

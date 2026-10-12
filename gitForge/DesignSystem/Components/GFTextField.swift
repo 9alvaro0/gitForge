@@ -35,11 +35,11 @@ struct GFTextField: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var text: String = "feat/commit-graph"
-    VStack(spacing: DesignTokens.Spacing.lg) {
+    VStack(spacing: Spacing.s12) {
         GFTextField(placeholder: "Filter…", text: $text).frame(width: 300)
         GFTextField(placeholder: "Empty placeholder", text: .constant("")).frame(width: 300)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }
