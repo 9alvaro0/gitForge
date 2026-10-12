@@ -41,7 +41,7 @@ struct ShellView: View {
                     case .reconnectAccount(let instanceId, let accountId):
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: accountId)
                     case .openAccounts:
-                        appState.ui.workspaceSection = .settings
+                        appState.ui.openSettings(at: .accounts)
                     }
                 })
                     .padding(.bottom, Spacing.s16)

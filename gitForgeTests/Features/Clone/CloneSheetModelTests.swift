@@ -148,4 +148,12 @@ struct CloneSheetModelTests {
         #expect(m.probe == .checking)
         await pending.value
     }
+
+    @Test("VoiceOver hears the reachability badge's text")
+    func probeDescription() {
+        #expect(CloneSheet.probeDescription(.idle) == nil)
+        #expect(CloneSheet.probeDescription(.checking) == "Checking…")
+        #expect(CloneSheet.probeDescription(.done(.reachable(defaultBranch: "main"))) == "Reachable")
+        #expect(CloneSheet.probeDescription(.done(.unreachable(.network))) == "Can't reach · offline")
+    }
 }

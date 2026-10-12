@@ -106,18 +106,8 @@ struct SidebarUserCard: View {
         if menuEnabled, !profiles.isEmpty {
             Section("Switch profile") {
                 ForEach(profiles) { profile in
-                    Button {
+                    MenuCheckItem(profile.name, subtitle: profile.userEmail, isChecked: profile.id == activeProfileId) {
                         onApplyProfile(profile)
-                    } label: {
-                        HStack {
-                            Text(profile.name)
-                            Spacer()
-                            Text(profile.userEmail)
-                                .foregroundStyle(.secondary)
-                            if profile.id == activeProfileId {
-                                Image(systemName: "checkmark")
-                            }
-                        }
                     }
                 }
             }
@@ -152,14 +142,10 @@ struct SidebarUserCard: View {
     private func hostingButton(_ section: RepoAccountSection, _ entry: RepoAccountSection.Entry) -> some View {
         switch entry {
         case .automatic(let label, let checked), .account(_, let label, let checked):
-            Button { onHostingEntry(section, entry) } label: {
-                if checked { Label(label, systemImage: "checkmark") } else { Text(label) }
-            }
+            MenuCheckItem(label, isChecked: checked) { onHostingEntry(section, entry) }
         case .system(let checked):
             Divider()
-            Button { onHostingEntry(section, entry) } label: {
-                if checked { Label("Use system credentials", systemImage: "checkmark") } else { Text("Use system credentials") }
-            }
+            MenuCheckItem("Use system credentials", isChecked: checked) { onHostingEntry(section, entry) }
         case .connect:
             Button("Connect account…") { onHostingEntry(section, entry) }
         }

@@ -18,7 +18,7 @@ struct UncommittedRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: GraphMetrics.squareMarkRadius)
                 .strokeBorder(theme.colors.mod, style: StrokeStyle(lineWidth: 1.5, dash: [2.5, 2]))
                 .frame(width: 9, height: 9)
                 .padding(.leading, theme.density.metrics.graph.firstLaneX - 4.5)
