@@ -21,11 +21,11 @@ struct CommitActionsSection: View {
     @State private var newTagMessage: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
             Text("ACTIONS")
-                .font(.system(size: FontSize.sm, weight: .semibold))
+                .textRole(.caption, weight: .semibold)
                 .tracking(0.8)
-                .foregroundStyle(theme.palette.fg3)
+                .foregroundStyle(theme.colors.textTertiary)
             actionGrid
             resetMenu
         }
@@ -90,20 +90,20 @@ struct CommitActionsSection: View {
     private var actionGrid: some View {
         LazyVGrid(
             columns: [
-                GridItem(.flexible(), spacing: DesignTokens.Spacing.sm),
-                GridItem(.flexible(), spacing: DesignTokens.Spacing.sm)
+                GridItem(.flexible(), spacing: Spacing.s6),
+                GridItem(.flexible(), spacing: Spacing.s6)
             ],
-            spacing: DesignTokens.Spacing.sm
+            spacing: Spacing.s6
         ) {
             CommitActionButton(
-                icon: .branch, title: "Branch",
+                icon: "arrow.triangle.branch", title: "Branch",
                 tooltip: "Create a new branch starting at \(commit.shortSha)."
             ) {
                 newBranchName = ""
                 newBranchSheet = true
             }
             CommitActionButton(
-                icon: .tag, title: "Tag",
+                icon: "tag", title: "Tag",
                 tooltip: "Create a tag pointing at \(commit.shortSha)."
             ) {
                 newTagName = ""
@@ -111,13 +111,13 @@ struct CommitActionsSection: View {
                 newTagSheet = true
             }
             CommitActionButton(
-                icon: .plus, title: "Cherry-pick",
+                icon: "plus", title: "Cherry-pick",
                 tooltip: "Replay this commit on top of the current branch."
             ) {
                 cherryPickConfirm = true
             }
             CommitActionButton(
-                icon: .arrowU, title: "Revert",
+                icon: "arrow.up", title: "Revert",
                 tooltip: "Create a new commit that undoes the changes from \(commit.shortSha)."
             ) {
                 revertConfirm = true
@@ -132,7 +132,7 @@ struct CommitActionsSection: View {
             }
         } label: {
             CommitActionButtonLabel(
-                icon: .warn,
+                icon: "exclamationmark.triangle",
                 title: "Reset to here",
                 destructive: true,
                 trailingChevron: true
@@ -210,6 +210,6 @@ struct CommitActionsSection: View {
         .previewAppState(.preview)
         .padding()
         .frame(width: 380)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

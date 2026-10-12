@@ -48,19 +48,19 @@ struct CommitFilesSection: View {
     ]
 
     private var placeholder: some View {
-        LazyVStack(spacing: DesignTokens.Spacing.hairline) {
+        LazyVStack(spacing: 1) {
             ForEach(0..<4, id: \.self) { index in
-                HStack(spacing: DesignTokens.Spacing.md) {
+                HStack(spacing: Spacing.s8) {
                     StatusTag(kind: .modified)
                     Text(Self.placeholderPaths[index % Self.placeholderPaths.count])
-                        .font(AppFont.mono(FontSize.smPlus, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg2)
+                        .textRole(.mono)
+                        .foregroundStyle(theme.colors.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.head)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.vertical, DesignTokens.Spacing.sm)
+                .padding(.horizontal, Spacing.s8)
+                .padding(.vertical, Spacing.s6)
             }
         }
         .skeleton(true)
@@ -147,6 +147,6 @@ private struct FileMiniRow: View {
     CommitFilesSection(commit: .preview, viewModel: .preview)
         .padding()
         .frame(width: 380)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

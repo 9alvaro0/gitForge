@@ -9,9 +9,9 @@ struct CommitBranchSheet: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xl) {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
             Text("New branch from \(commitShortSha)")
-                .font(AppFont.sans(FontSize.xl, weight: .semibold))
+                .textRole(.headline)
             GFTextField(placeholder: "feat/awesome", text: $name)
             HStack {
                 GFButton(title: "Cancel", action: onCancel)
@@ -20,9 +20,9 @@ struct CommitBranchSheet: View {
                          disabled: name.isEmpty, action: onConfirm)
             }
         }
-        .padding(DesignTokens.Spacing.huge)
+        .padding(Spacing.s20)
         .frame(width: 380)
-        .background(theme.palette.bg1)
+        .background(theme.colors.bgElevated)
         .appTheme(theme)
     }
 }

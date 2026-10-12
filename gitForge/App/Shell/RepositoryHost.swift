@@ -17,14 +17,14 @@ struct RepositoryHost: View {
                 ContentRouter(viewModel: viewModel)
                     .id(repository.url)
             } else {
-                VStack(spacing: DesignTokens.Spacing.lg) {
+                VStack(spacing: Spacing.s12) {
                     ProgressView().controlSize(.regular)
                     Text("Opening \(repository.url.lastPathComponent)…")
-                        .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
-                        .foregroundStyle(theme.palette.fg3)
+                        .textRole(.mono)
+                        .foregroundStyle(theme.colors.textTertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.palette.bg2)
+                .background(theme.colors.bgContent)
             }
         }
         .task(id: repository.url) {

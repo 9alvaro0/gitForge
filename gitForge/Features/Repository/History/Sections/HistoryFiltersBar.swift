@@ -9,7 +9,7 @@ struct HistoryFiltersBar: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.lg) {
+        HStack(spacing: Spacing.s12) {
             GFTextField(placeholder: "Search subject, author, sha…", text: $search)
                 .frame(maxWidth: 320)
                 .focused($searchFocused)
@@ -23,10 +23,10 @@ struct HistoryFiltersBar: View {
             Spacer()
             MonoText(summary, dim: true)
         }
-        .padding(.horizontal, DesignTokens.Spacing.xxxxl)
-        .padding(.vertical, DesignTokens.Spacing.md)
-        .background(theme.palette.bg2)
-        .overlay(alignment: .bottom) { Rectangle().fill(theme.palette.line).frame(height: DesignTokens.Stroke.regular) }
+        .padding(.horizontal, Spacing.s16)
+        .padding(.vertical, Spacing.s8)
+        .background(theme.colors.bgContent)
+        .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.separator).frame(height: 1) }
         // Hidden ⌘F shortcut in the History toolbar's responder chain — when
         // History is on screen, ⌘F focuses this search field. Lives inside
         // HistoryFiltersBar so the shortcut is automatically scoped to when

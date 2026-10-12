@@ -24,15 +24,15 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var icon: GFIconKind {
+    var symbol: String {
         switch self {
-        case .history:  return .graph
-        case .changes:  return .diff
-        case .branches: return .branch
-        case .stashes:  return .stash
-        case .pulls:    return .pr
-        case .conflict: return .conflict
-        case .settings: return .settings
+        case .history:  return "clock.arrow.circlepath"
+        case .changes:  return "square.and.pencil"
+        case .branches: return "arrow.triangle.branch"
+        case .stashes:  return "tray.full"
+        case .pulls:    return "arrow.triangle.pull"
+        case .conflict: return "exclamationmark.triangle"
+        case .settings: return "gearshape"
         }
     }
 

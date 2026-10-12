@@ -21,7 +21,7 @@ struct CommitRowChips: View {
     @State private var showHiddenRefs = false
 
     var body: some View {
-        HStack(spacing: DesignTokens.Spacing.xs) {
+        HStack(spacing: Spacing.s4) {
             ForEach(visibleRefs) { ref in
                 chipView(for: ref)
             }
@@ -124,19 +124,19 @@ struct CommitRowChips: View {
             showHiddenRefs.toggle()
         } label: {
             Text("+\(count)")
-                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
-                .foregroundStyle(theme.palette.fg3)
-                .padding(.horizontal, DesignTokens.Spacing.sm)
-                .padding(.vertical, DesignTokens.Spacing.hairline)
+                .textRole(.monoSmall)
+                .foregroundStyle(theme.colors.textTertiary)
+                .padding(.horizontal, Spacing.s6)
+                .padding(.vertical, 1)
                 .background(
-                    RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
-                        .fill(showHiddenRefs ? theme.palette.bg4 : theme.palette.bg3)
+                    RoundedRectangle(cornerRadius: Radius.chip)
+                        .fill(showHiddenRefs ? theme.colors.fillHover : theme.colors.fillControl)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: DesignTokens.Radius.chip)
-                        .stroke(theme.palette.lineStrong, lineWidth: DesignTokens.Stroke.regular)
+                    RoundedRectangle(cornerRadius: Radius.chip)
+                        .stroke(theme.colors.strokeControl, lineWidth: 1)
                 )
-                .contentShape(.rect(cornerRadius: DesignTokens.Radius.chip))
+                .contentShape(.rect(cornerRadius: Radius.chip))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -148,11 +148,11 @@ struct CommitRowChips: View {
     }
 
     private var hiddenRefsPopover: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.s6) {
             Text("\(hiddenRefs.count) more")
-                .font(AppFont.sans(FontSize.sm, weight: .semibold))
+                .textRole(.caption, weight: .semibold)
                 .tracking(0.5)
-                .foregroundStyle(theme.palette.fg3)
+                .foregroundStyle(theme.colors.textTertiary)
             ForEach(hiddenRefs) { ref in
                 BranchChip(
                     name: ref.displayName,
@@ -163,8 +163,8 @@ struct CommitRowChips: View {
                 )
             }
         }
-        .padding(DesignTokens.Spacing.xl)
-        .background(theme.palette.bg2)
+        .padding(Spacing.s12)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
     }
 }
@@ -181,6 +181,6 @@ struct CommitRowChips: View {
     }
     .padding()
     .frame(width: 320)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

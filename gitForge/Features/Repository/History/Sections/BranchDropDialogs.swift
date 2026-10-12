@@ -160,7 +160,7 @@ struct BranchDropDialogs: ViewModifier {
     }
     .padding(24)
     .frame(width: 360, height: 220)
-    .background(theme.palette.bg2)
+    .background(theme.colors.bgContent)
     .modifier(BranchDropDialogs(
         moveRequest: $moveReq,
         resetRequest: $resetReq,
