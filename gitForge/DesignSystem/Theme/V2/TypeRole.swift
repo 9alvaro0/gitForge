@@ -103,10 +103,16 @@ private struct TextRoleModifier: ViewModifier {
     @Environment(\.appTheme) private var theme
 
     func body(content: Content) -> some View {
-        content
+        let styled = content
             .font(AppFont.font(role, weight: weight, monoFamily: theme.monoFont))
-            .tracking(role.tracking)
             .lineSpacing(role.lineSpacing(over: role.naturalLineHeight(monoFamily: theme.monoFont)))
+        // Only when the role has its own: a 0 here would override a
+        // `.tracking` the caller adds (uppercase section labels).
+        if role.tracking == 0 {
+            styled
+        } else {
+            styled.tracking(role.tracking)
+        }
     }
 }
 

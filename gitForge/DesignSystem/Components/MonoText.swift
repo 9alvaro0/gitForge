@@ -3,27 +3,26 @@ import SwiftUI
 /// `.gf-mono` — monospace text with theme-aware font, dim variant.
 struct MonoText: View {
     let text: String
-    var size: CGFloat?
     var weight: Font.Weight = .regular
     var dim: Bool = false
     var color: Color?
 
     @Environment(\.appTheme) private var theme
 
-    init(_ text: String, size: CGFloat? = nil, weight: Font.Weight = .regular, dim: Bool = false, color: Color? = nil) {
+    init(_ text: String, weight: Font.Weight = .regular, dim: Bool = false, color: Color? = nil) {
         self.text = text
-        self.size = size
         self.weight = weight
         self.dim = dim
         self.color = color
     }
 
-    /// The requested size (or the density's mono size) snaps to the nearest
-    /// mono role.
+    /// Mono role per density: 12 pt regular, 11 pt compact.
+    static func role(for density: Density) -> TypeRole {
+        density == .compact ? .monoSmall : .mono
+    }
+
     private var font: Font {
-        let target = size ?? theme.density.monoFontSize
-        let role: TypeRole = target >= (TypeRole.mono.size + TypeRole.monoSmall.size) / 2 ? .mono : .monoSmall
-        return AppFont.font(role, weight: weight, monoFamily: theme.monoFont)
+        AppFont.font(Self.role(for: theme.density), weight: weight, monoFamily: theme.monoFont)
     }
 
     var body: some View {

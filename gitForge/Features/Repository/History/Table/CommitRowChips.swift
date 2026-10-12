@@ -128,10 +128,10 @@ struct CommitRowChips: View {
                 .foregroundStyle(theme.colors.textTertiary)
                 .padding(.horizontal, Spacing.s6)
                 .padding(.vertical, 1)
-                .background(
-                    RoundedRectangle(cornerRadius: Radius.chip)
-                        .fill(showHiddenRefs ? theme.colors.fillHover : theme.colors.fillControl)
-                )
+                .background(RoundedRectangle(cornerRadius: Radius.chip).fill(theme.colors.fillControl))
+                // Open: an extra layer over the rest fill, so it reads stronger.
+                .background(RoundedRectangle(cornerRadius: Radius.chip)
+                    .fill(showHiddenRefs ? theme.colors.fillHover : .clear))
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.chip)
                         .stroke(theme.colors.strokeControl, lineWidth: 1)
