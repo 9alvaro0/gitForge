@@ -120,7 +120,8 @@ extension GitCLI {
     func diff(sha: String, file: String) async throws -> String {
         let context = "-U\(GitPreferences.diffContextLines)"
         let result = try await run(["show", "--format=", "--diff-merges=first-parent", context]
-                                   + Self.diffOutputFlags + [Self.endOfOptions, sha, "--", file])
+                                   + Self.diffOutputFlags + GitPreferences.diffWhitespaceArgs
+                                   + [Self.endOfOptions, sha, "--", file])
         return result.stdout
     }
 }

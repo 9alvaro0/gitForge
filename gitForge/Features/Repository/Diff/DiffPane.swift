@@ -16,6 +16,9 @@ struct DiffPane: View {
     /// Optional handler for the close icon button. When `nil` the button is
     /// hidden — only History needs to collapse the diff pane.
     var onClose: (() -> Void)? = nil
+    /// Re-reads the diff when Hide whitespace flips. When `nil` the option
+    /// isn't offered: the diff doesn't come from git (pull requests).
+    var onWhitespaceChange: (() -> Void)? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split
@@ -30,6 +33,7 @@ struct DiffPane: View {
     @Binding var viewMode: ViewMode
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.appPreferences) private var preferences
 
     /// `hunk.id → line.id → AttributedString`. While empty, rows fall back
     /// to plain `Text(content)` — kind-based foreground colouring carries
@@ -43,6 +47,7 @@ struct DiffPane: View {
                 status: status,
                 stats: loading || hunks.isEmpty ? nil : DiffStats(hunks: hunks),
                 viewMode: $viewMode,
+                canHideWhitespace: onWhitespaceChange != nil,
                 onOpenInEditor: onOpenInEditor,
                 onClose: onClose
             )
@@ -51,6 +56,7 @@ struct DiffPane: View {
         }
         .background(theme.colors.bgCode)
         .task(id: tokenizeKey) { await tokenizeHunks() }
+        .onChange(of: preferences.diffIgnoreWhitespace) { onWhitespaceChange?() }
     }
 
     @ViewBuilder

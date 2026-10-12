@@ -47,6 +47,15 @@ final class WorkingCopyStore {
         }
     }
 
+    /// Adds `Signed-off-by:` to commits. Remembered per repository: it's a
+    /// project's rule (DCO), not a personal habit.
+    var signOff: Bool {
+        didSet {
+            guard oldValue != signOff else { return }
+            defaults.set(signOff, forKey: signOffKey)
+        }
+    }
+
     // MARK: Diff
     var selectedWorkingCopyFile: WorkingCopyFile? {
         didSet {
@@ -78,11 +87,20 @@ final class WorkingCopyStore {
     private let cli: GitCLI
     private let repositoryURL: URL
     private let tasks: OwnedTasks
+    private let defaults: UserDefaults
 
-    init(cli: GitCLI, repositoryURL: URL, tasks: OwnedTasks) {
+    init(cli: GitCLI, repositoryURL: URL, tasks: OwnedTasks, defaults: UserDefaults = .standard) {
         self.cli = cli
         self.repositoryURL = repositoryURL
         self.tasks = tasks
+        self.defaults = defaults
+        signOff = defaults.bool(forKey: Self.signOffKey(for: repositoryURL))
+    }
+
+    private var signOffKey: String { Self.signOffKey(for: repositoryURL) }
+
+    static func signOffKey(for repositoryURL: URL) -> String {
+        "gitForge.signOff.\(repositoryURL.standardizedFileURL.path(percentEncoded: false))"
     }
 
     /// Drops the status and diff when the session stops.
@@ -236,7 +254,7 @@ final class WorkingCopyStore {
             guard gen == workingCopyDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             workingCopyDiff = hunks
-            workingCopyDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
+            workingCopyDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw, ignoringWhitespace: GitPreferences.diffIgnoreWhitespace) : .empty
         } catch {
             guard gen == workingCopyDiffGen else { return }
             workingCopyDiff = []
