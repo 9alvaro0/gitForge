@@ -13,7 +13,7 @@ struct PullRequestFilesTab: View {
             if loading {
                 placeholderList
             } else {
-                EmptyState(icon: .diff, title: "No files changed")
+                EmptyState(symbol: "square.and.pencil", title: "No files changed")
             }
         } else {
             // Files over the diff: next to the PR list the detail is too

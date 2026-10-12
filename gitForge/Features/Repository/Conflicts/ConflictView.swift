@@ -11,7 +11,7 @@ struct ConflictView: View {
             if viewModel.mergeState.isInProgress {
                 resolverShell
             } else {
-                EmptyState(icon: .check, title: "No merge in progress",
+                EmptyState(symbol: "checkmark", title: "No merge in progress",
                            subtitle: "Conflicts will show up here when a merge or rebase pauses.")
                     .background(theme.colors.bgContent)
                     .navigationTitle("Conflicts")
@@ -86,10 +86,10 @@ struct ConflictView: View {
                 }
             }
         } else if conflicts.selectedPath != nil {
-            EmptyState(icon: .check, title: "No conflicts left in this file",
+            EmptyState(symbol: "checkmark", title: "No conflicts left in this file",
                        subtitle: "Pick another file on the left, or continue when every file is resolved.")
         } else {
-            EmptyState(icon: .conflict, title: "Pick a conflicted file")
+            EmptyState(symbol: "exclamationmark.triangle", title: "Pick a conflicted file")
         }
     }
 

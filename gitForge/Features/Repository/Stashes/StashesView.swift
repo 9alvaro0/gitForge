@@ -31,7 +31,7 @@ struct StashesView: View {
         Group {
             if viewModel.stashes.isEmpty {
                 EmptyState(
-                    icon: .stash,
+                    symbol: "tray.full",
                     title: "No stashes",
                     subtitle: hasDirtyChanges
                         ? "Use \u{201C}Stash changes…\u{201D} to park your work in progress."
@@ -120,7 +120,7 @@ struct StashesView: View {
                 onDrop: { dropTarget = stash }
             )
         } else {
-            EmptyState(icon: .stash, title: "Select a stash")
+            EmptyState(symbol: "tray.full", title: "Select a stash")
         }
     }
 

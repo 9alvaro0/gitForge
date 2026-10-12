@@ -29,11 +29,11 @@ struct DiffHeader: View {
             )
             .fixedSize()
             if let onOpenInEditor {
-                IconButton(.ext, accessibilityLabel: "Open in editor", action: onOpenInEditor)
+                IconButton(symbol: "arrow.up.right.square", accessibilityLabel: "Open in editor", action: onOpenInEditor)
                     .help("Open in editor")
             }
             if let onClose {
-                IconButton(.x, accessibilityLabel: "Hide diff pane", action: onClose)
+                IconButton(symbol: "xmark", accessibilityLabel: "Hide diff pane", action: onClose)
                     .help("Hide diff pane")
             }
         }

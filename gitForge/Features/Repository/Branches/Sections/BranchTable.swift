@@ -20,7 +20,7 @@ struct BranchTable: View {
                 BranchTableHeader(scope: scope, layout: layout)
                 let rows = BranchFlatRowBuilder.build(refs: refs, collapsedFolders: collapsedFolders)
                 if rows.isEmpty {
-                    EmptyState(icon: scope == .tags ? .tag : .branch, title: emptyTitle)
+                    EmptyState(symbol: scope == .tags ? "tag" : "arrow.triangle.branch", title: emptyTitle)
                 } else {
                     ScrollView {
                         // Lazy so a repo with thousands of remotes doesn't

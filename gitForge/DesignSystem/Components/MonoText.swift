@@ -18,21 +18,29 @@ struct MonoText: View {
         self.color = color
     }
 
+    /// The requested size (or the density's mono size) snaps to the nearest
+    /// mono role.
+    private var font: Font {
+        let target = size ?? theme.density.monoFontSize
+        let role: TypeRole = target >= (TypeRole.mono.size + TypeRole.monoSmall.size) / 2 ? .mono : .monoSmall
+        return AppFont.font(role, weight: weight, monoFamily: theme.monoFont)
+    }
+
     var body: some View {
         Text(text)
-            .font(AppFont.mono(size ?? theme.density.monoFontSize, weight: weight, family: theme.monoFont))
+            .font(font)
             .foregroundStyle(color ?? (dim ? theme.colors.textTertiary : theme.colors.textSecondary))
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+    VStack(alignment: .leading, spacing: Spacing.s6) {
         MonoText("a4f3c12 · feat/commit-graph")
         MonoText("just now", dim: true)
-        MonoText("12.5px", weight: .semibold, color: theme.palette.accent)
+        MonoText("12.5px", weight: .semibold, color: theme.colors.accent)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

@@ -7,16 +7,16 @@ struct DiffEmptyContent: View {
     let state: DiffEmptyState
 
     var body: some View {
-        EmptyState(icon: icon, title: copy.title, subtitle: copy.subtitle)
+        EmptyState(symbol: symbol, title: copy.title, subtitle: copy.subtitle)
     }
 
-    private var icon: GFIconKind {
+    private var symbol: String {
         switch state {
-        case .empty: .check
-        case .binary, .untrackedBinary: .square
-        case .renameOnly: .ext
-        case .modeChange: .settings
-        case .submoduleUpdate: .folder
+        case .empty: "checkmark"
+        case .binary, .untrackedBinary: "square"
+        case .renameOnly: "arrow.up.right.square"
+        case .modeChange: "gearshape"
+        case .submoduleUpdate: "folder"
         }
     }
 

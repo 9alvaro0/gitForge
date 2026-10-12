@@ -66,12 +66,12 @@ struct SegmentedControl<Value: Hashable>: View {
 #Preview {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var selection: String = "all"
-    VStack(spacing: DesignTokens.Spacing.xl) {
+    VStack(spacing: Spacing.s12) {
         SegmentedControl<String>([("all", "All"), ("local", "Local"), ("remote", "Remote"), ("tags", "Tags")],
                                   selection: $selection)
-        Text("Selected: \(selection)").foregroundStyle(theme.palette.fg2)
+        Text("Selected: \(selection)").foregroundStyle(theme.colors.textSecondary)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

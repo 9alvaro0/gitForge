@@ -27,11 +27,11 @@ struct ColumnDragHandle: View {
         // its sibling Text views. Setting only `.frame(width:)` lets the
         // height stay flexible, so the handle never bloats the row.
         Color.clear
-            .frame(width: DesignTokens.Spacing.md)
+            .frame(width: Spacing.s8)
             .overlay(
                 Rectangle()
-                    .fill(dividerColor ?? theme.palette.line)
-                    .frame(width: DesignTokens.Stroke.regular)
+                    .fill(dividerColor ?? theme.colors.separator)
+                    .frame(width: 1)
                     .allowsHitTesting(false)
             )
             .contentShape(.rect)
@@ -80,29 +80,29 @@ struct ColumnDragHandle: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var w1: CGFloat = 200
     @Previewable @State var w2: CGFloat = 120
-    VStack(spacing: DesignTokens.Spacing.none) {
-        HStack(spacing: DesignTokens.Spacing.none) {
+    VStack(spacing: 0) {
+        HStack(spacing: 0) {
             Text("ALPHA")
-                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
+                .textRole(.monoSmall)
                 .frame(width: w1, alignment: .leading)
             ColumnDragHandle(width: $w1, minWidth: 80, maxWidth: 400)
             Text("BETA")
-                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
+                .textRole(.monoSmall)
                 .frame(width: w2, alignment: .leading)
             ColumnDragHandle(width: $w2, minWidth: 60, maxWidth: 300)
             Text("GAMMA")
-                .font(AppFont.mono(FontSize.xs, family: theme.monoFont))
+                .textRole(.monoSmall)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, DesignTokens.Spacing.md)
-        .background(theme.palette.bg2)
+        .padding(.vertical, Spacing.s8)
+        .background(theme.colors.bgContent)
         Divider()
         Text("Drag the dividers — w1=\(Int(w1)), w2=\(Int(w2))")
-            .font(AppFont.mono(FontSize.sm, family: theme.monoFont))
+            .textRole(.monoSmall)
             .padding()
         Spacer()
     }
     .frame(width: 700, height: 200)
-    .background(theme.palette.bg1)
+    .background(theme.colors.bgElevated)
     .appTheme(theme)
 }

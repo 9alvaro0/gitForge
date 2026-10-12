@@ -43,7 +43,7 @@ struct StatusTag: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    HStack(spacing: DesignTokens.Spacing.md) {
+    HStack(spacing: Spacing.s8) {
         StatusTag(kind: .added)
         StatusTag(kind: .modified)
         StatusTag(kind: .deleted)
@@ -54,7 +54,7 @@ struct StatusTag: View {
         StatusTag(kind: .unmerged)
         StatusTag(kind: .ignored)
     }
-    .padding(DesignTokens.Spacing.huge)
-    .background(theme.palette.bg2)
+    .padding(Spacing.s20)
+    .background(theme.colors.bgContent)
     .appTheme(theme)
 }

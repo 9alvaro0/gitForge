@@ -37,6 +37,6 @@ struct DetailTabBar<Tab: DetailTab>: View {
     @Previewable @State var tab: PullRequestDetailView.Tab = .overview
     DetailTabBar(tab: $tab, loading: true)
         .frame(width: 1100)
-        .background(theme.palette.bg2)
+        .background(theme.colors.bgContent)
         .appTheme(theme)
 }
