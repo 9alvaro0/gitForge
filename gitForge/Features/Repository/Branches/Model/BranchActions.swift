@@ -4,6 +4,8 @@ import Foundation
 /// `BranchesView` so rows and inspector don't each take a dozen closures.
 struct BranchActions {
     let checkout: (GitRef) -> Void
+    /// Local branches only, checked out or not.
+    let push: (GitRef) -> Void
     /// `target == nil` merges into the current branch.
     let merge: (GitRef, GitRef?) -> Void
     let rebase: (GitRef) -> Void
@@ -13,7 +15,7 @@ struct BranchActions {
     let deleteTag: (GitRef) -> Void
 
     static let none = BranchActions(
-        checkout: { _ in }, merge: { _, _ in }, rebase: { _ in }, rename: { _ in },
+        checkout: { _ in }, push: { _ in }, merge: { _, _ in }, rebase: { _ in }, rename: { _ in },
         delete: { _ in }, pushTag: { _ in }, deleteTag: { _ in }
     )
 }
