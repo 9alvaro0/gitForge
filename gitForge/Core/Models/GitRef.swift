@@ -41,6 +41,16 @@ nonisolated struct GitRef: Sendable, Equatable, Identifiable, Hashable {
         }
     }
 
+    /// Unambiguous name for git commands (`refs/heads/main`), so a branch
+    /// can't be mistaken for a same-named tag or path.
+    var fullRefName: String {
+        switch kind {
+        case .localBranch: "refs/heads/\(name)"
+        case .remoteBranch: "refs/remotes/\(name)"
+        case .tag: "refs/tags/\(name)"
+        }
+    }
+
     var isLocalBranch: Bool {
         if case .localBranch = kind { return true } else { return false }
     }
