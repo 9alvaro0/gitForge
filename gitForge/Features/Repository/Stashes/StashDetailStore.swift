@@ -102,7 +102,7 @@ final class StashDetailStore {
             let raw = try await cli.stashFileDiff(sha: stash.sha, path: path, untracked: isUntracked)
             guard gen == fileDiffGen else { return }
             fileDiff = DiffParser.parse(raw)
-            fileDiffEmptyState = fileDiff.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
+            fileDiffEmptyState = fileDiff.isEmpty ? DiffEmptyState.classifying(raw: raw, ignoringWhitespace: GitPreferences.diffIgnoreWhitespace) : .empty
         } catch {
             guard gen == fileDiffGen else { return }
             fileDiff = []

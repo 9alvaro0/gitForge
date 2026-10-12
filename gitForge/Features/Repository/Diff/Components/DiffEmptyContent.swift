@@ -17,6 +17,7 @@ struct DiffEmptyContent: View {
         case .renameOnly: "arrow.up.right.square"
         case .modeChange: "gearshape"
         case .submoduleUpdate: "folder"
+        case .whitespaceOnly: "eye.slash"
         }
     }
 
@@ -35,6 +36,8 @@ struct DiffEmptyContent: View {
             return ("File mode changed", "\(from) → \(to). The contents are unchanged.")
         case .submoduleUpdate(let from, let to):
             return ("Submodule updated", "\(from.prefix(7)) → \(to.prefix(7))")
+        case .whitespaceOnly:
+            return ("Only whitespace changed", "Turn off Hide whitespace in the diff options to see it.")
         }
     }
 }

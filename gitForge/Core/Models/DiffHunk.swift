@@ -30,6 +30,8 @@ nonisolated enum DiffEmptyState: Sendable, Equatable {
     case modeChange(from: String, to: String)
     /// A submodule's recorded commit moved.
     case submoduleUpdate(from: String, to: String)
+    /// Whitespace is ignored (`-w`) and nothing else changed.
+    case whitespaceOnly
 }
 
 nonisolated extension DiffEmptyState {
@@ -37,7 +39,12 @@ nonisolated extension DiffEmptyState {
     /// "renamed", "mode changed"… instead of a misleading "No changes".
     /// Delegates to `DiffParser.parseSummary`; `GIT binary patch` (emitted
     /// with `--binary`) is the one marker it doesn't cover.
-    static func classifying(raw: String) -> DiffEmptyState {
+    /// `ignoringWhitespace`: the diff ran with `-w`, so an empty output for
+    /// a file known to have changed means only whitespace did.
+    static func classifying(raw: String, ignoringWhitespace: Bool = false) -> DiffEmptyState {
+        if ignoringWhitespace, raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return .whitespaceOnly
+        }
         switch DiffParser.parseSummary(raw) {
         case .binary:
             return .binary

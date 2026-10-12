@@ -501,6 +501,8 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | ~~Badge "merged" en la tabla de ramas~~ | `Branches` | F5 | Hecho (2026-10-12): ramas locales que HEAD ya contiene, a partir del `--no-merged HEAD` que ya se lee para el grafo (sin llamadas nuevas). |
 | ~~"Commits not in main" y ahead/behind contra main en el inspector~~ | `Branches` | F5 | Hecho (2026-10-12): contra `main` local, o `master`; `rev-list --count` y los 5 commits más nuevos al seleccionar la rama. |
 | ~~Arrastre entre filas de la tabla de Branches~~ | `Branches` | F5 | Hecho (2026-10-12): soltar una rama local sobre otra pregunta merge o rebase, con el mismo diálogo (`MergeRebaseDialog`) y HUD que History. |
+| ~~Sign-off en el composer~~ | `Changes` | spec §2 | Hecho (2026-10-12): interruptor junto a Amend, `--signoff`, recordado por repositorio. Firma verificada y CI en el detalle de commit siguen fuera. |
+| ~~Wrap lines y Hide whitespace~~ | `CommitDetail` | spec §2 | Hecho (2026-10-12): menú de opciones en la cabecera del diff; Hide whitespace pasa `-w` y no se ofrece en PRs (su diff no sale de git). "Show N hidden lines" sigue fuera. |
 | Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
 | ~~Push de una rama que no es la actual desde el inspector~~ | `Branches` | F5 | Hecho (2026-10-12): inspector y menú contextual; al remoto que usaría git y a su upstream (con otro nombre incluido), fijándolo si no lo tiene. |
 

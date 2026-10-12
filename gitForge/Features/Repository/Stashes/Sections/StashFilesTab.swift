@@ -34,6 +34,10 @@ struct StashFilesTab: View {
                     hunks: store.fileDiff,
                     loading: store.isLoadingFileDiff,
                     emptyState: store.fileDiffEmptyState,
+                    onWhitespaceChange: {
+                        guard let path = store.selectedFile else { return }
+                        Task { await store.loadFileDiff(at: path) }
+                    },
                     viewMode: $diffMode
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
