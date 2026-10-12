@@ -19,7 +19,10 @@ struct StagingCommitBox: View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
             authorChip
             messageField
-            amendToggle
+            HStack(spacing: Spacing.s16) {
+                amendToggle
+                signOffToggle
+            }
             HStack(spacing: Spacing.s8) {
                 commitButton
                 moreMenu
@@ -139,6 +142,22 @@ struct StagingCommitBox: View {
         }
         .disabled(viewModel.headSha == nil || viewModel.isMutating)
         .help("Replace the last commit with the staged changes and this message")
+    }
+
+    /// Same switch-then-label shape as Amend. Remembered per repository.
+    private var signOffToggle: some View {
+        HStack(spacing: Spacing.s6) {
+            Toggle("Sign-off", isOn: Bindable(viewModel.workingCopy).signOff)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+            Text("Sign-off")
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textSecondary)
+                .accessibilityHidden(true)
+        }
+        .disabled(viewModel.isMutating)
+        .help("Add a Signed-off-by line with your identity (git commit --signoff)")
     }
 
     // MARK: Commit

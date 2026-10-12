@@ -16,6 +16,7 @@ nonisolated enum GitPreferences {
         static let stashIncludeUntracked = "appTheme.stashIncludeUntracked"
         static let commitPageSize = "appTheme.commitPageSize"
         static let gitTimeout = "appTheme.gitTimeout"
+        static let diffIgnoreWhitespace = "appTheme.diffIgnoreWhitespace"
     }
 
     static let diffContextRange = 0...100
@@ -30,6 +31,16 @@ nonisolated enum GitPreferences {
     /// `git diff -U<n>` context lines.
     static var diffContextLines: Int {
         clamped(Keys.diffContext, default: defaultDiffContextLines, to: diffContextRange)
+    }
+
+    /// Whether diffs pass `-w` (ignore whitespace). Off by default.
+    static var diffIgnoreWhitespace: Bool {
+        UserDefaults.standard.object(forKey: Keys.diffIgnoreWhitespace) as? Bool ?? false
+    }
+
+    /// Extra `git diff` / `git show` flags for the whitespace setting.
+    static var diffWhitespaceArgs: [String] {
+        diffIgnoreWhitespace ? ["-w"] : []
     }
 
     /// Whether quick stashes pass `--include-untracked`.

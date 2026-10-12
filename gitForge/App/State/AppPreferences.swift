@@ -22,6 +22,11 @@ final class AppPreferences {
     var diffWrapLongLines: Bool {
         didSet { defaults.set(diffWrapLongLines, forKey: Keys.diffWrap) }
     }
+    /// When `true`, git diffs ignore whitespace (`-w`). Toggled from the
+    /// diff header's options menu; read by the git layer at call time.
+    var diffIgnoreWhitespace: Bool {
+        didSet { defaults.set(diffIgnoreWhitespace, forKey: GitPreferences.Keys.diffIgnoreWhitespace) }
+    }
     /// How history / pulls / branches surface dates: relative ("2h ago") or
     /// absolute ("2026-05-09 14:32").
     var dateDisplayMode: DateDisplayMode {
@@ -60,6 +65,7 @@ final class AppPreferences {
         defaultDiffMode = defaults.string(forKey: Keys.diffMode)
             .flatMap(DiffPane.ViewMode.init(rawValue:)) ?? .unified
         diffWrapLongLines = defaults.object(forKey: Keys.diffWrap) as? Bool ?? false
+        diffIgnoreWhitespace = defaults.object(forKey: GitPreferences.Keys.diffIgnoreWhitespace) as? Bool ?? false
         dateDisplayMode = defaults.string(forKey: Keys.dateMode)
             .flatMap(DateDisplayMode.init(rawValue:)) ?? .relative
         confirmForcePush = defaults.object(forKey: Keys.confirmForcePush) as? Bool ?? true

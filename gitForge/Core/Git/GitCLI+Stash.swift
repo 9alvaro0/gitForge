@@ -150,8 +150,9 @@ extension GitCLI {
     func stashFileDiff(sha: String, path: String, untracked: Bool = false) async throws -> String {
         let ref = sha
         let args: [String] = untracked
-            ? ["show", "--format="] + Self.diffOutputFlags + [Self.endOfOptions, "\(ref)^3", "--", path]
-            : ["diff"] + Self.diffOutputFlags + ["\(ref)^", ref, "--", path]
+            ? ["show", "--format="] + Self.diffOutputFlags + GitPreferences.diffWhitespaceArgs
+                + [Self.endOfOptions, "\(ref)^3", "--", path]
+            : ["diff"] + Self.diffOutputFlags + GitPreferences.diffWhitespaceArgs + ["\(ref)^", ref, "--", path]
         return try await run(args).stdout
     }
 

@@ -19,6 +19,7 @@ struct StagingDiffColumn: View {
                     loading: viewModel.workingCopy.loadingWorkingCopyDiff,
                     emptyState: viewModel.workingCopy.workingCopyDiffEmptyState,
                     onOpenInEditor: { openInEditor(file: file) },
+                    onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
                     viewMode: $diffMode
                 )
             } else if hasFiles {
