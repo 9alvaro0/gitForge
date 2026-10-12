@@ -82,23 +82,7 @@ struct BranchDropDialogs: ViewModifier {
                 • Hard: every commit and uncommitted change after the target is DISCARDED. Recoverable only via `git reflog` for a limited time.
                 """)
             }
-            .confirmationDialog(
-                mergeRebaseTitle,
-                isPresented: mergeRebaseBinding,
-                titleVisibility: .visible
-            ) {
-                Button("Merge \(mergeRebaseRequest?.source.displayName ?? "") into \(mergeRebaseRequest?.target.displayName ?? "")") {
-                    if let r = mergeRebaseRequest { onMerge(r) }
-                    mergeRebaseRequest = nil
-                }
-                Button("Rebase \(mergeRebaseRequest?.source.displayName ?? "") onto \(mergeRebaseRequest?.target.displayName ?? "")") {
-                    if let r = mergeRebaseRequest { onRebase(r) }
-                    mergeRebaseRequest = nil
-                }
-                Button("Cancel", role: .cancel) { mergeRebaseRequest = nil }
-            } message: {
-                Text(Self.mergeRebaseMessage(for: mergeRebaseRequest))
-            }
+            .modifier(MergeRebaseDialog(request: $mergeRebaseRequest, onMerge: onMerge, onRebase: onRebase))
     }
 
     private var moveBinding: Binding<Bool> {
@@ -106,9 +90,6 @@ struct BranchDropDialogs: ViewModifier {
     }
     private var resetBinding: Binding<Bool> {
         Binding(get: { resetRequest != nil }, set: { if !$0 { resetRequest = nil } })
-    }
-    private var mergeRebaseBinding: Binding<Bool> {
-        Binding(get: { mergeRebaseRequest != nil }, set: { if !$0 { mergeRebaseRequest = nil } })
     }
 
     private var moveTitle: String {
@@ -120,16 +101,44 @@ struct BranchDropDialogs: ViewModifier {
         guard let r = resetRequest else { return "" }
         return "Reset \(r.branchName) to \(r.targetShortSha)?"
     }
+}
 
-    private var mergeRebaseTitle: String {
-        guard let r = mergeRebaseRequest else { return "" }
+/// "Merge X into Y, or rebase X onto Y?" after one branch is dropped on
+/// another: a chip in History or a row in Branches.
+struct MergeRebaseDialog: ViewModifier {
+    @Binding var request: MergeRebaseRequest?
+    let onMerge: (MergeRebaseRequest) -> Void
+    let onRebase: (MergeRebaseRequest) -> Void
+
+    func body(content: Content) -> some View {
+        content.confirmationDialog(title, isPresented: isPresented, titleVisibility: .visible) {
+            Button("Merge \(request?.source.displayName ?? "") into \(request?.target.displayName ?? "")") {
+                if let r = request { onMerge(r) }
+                request = nil
+            }
+            Button("Rebase \(request?.source.displayName ?? "") onto \(request?.target.displayName ?? "")") {
+                if let r = request { onRebase(r) }
+                request = nil
+            }
+            Button("Cancel", role: .cancel) { request = nil }
+        } message: {
+            Text(Self.message(for: request))
+        }
+    }
+
+    private var isPresented: Binding<Bool> {
+        Binding(get: { request != nil }, set: { if !$0 { request = nil } })
+    }
+
+    private var title: String {
+        guard let r = request else { return "" }
         return "\(r.source.displayName) → \(r.target.displayName)"
     }
 
     /// Spell out both paths so the user knows what each button does. Rebase
     /// rewrites commits — flag it explicitly so the difference vs Merge is
     /// visible before the button is pressed.
-    static func mergeRebaseMessage(for request: MergeRebaseRequest?) -> String {
+    static func message(for request: MergeRebaseRequest?) -> String {
         guard let r = request else { return "" }
         return """
         Merge: replays \(r.source.displayName) into \(r.target.displayName) as a new merge commit. History is preserved.

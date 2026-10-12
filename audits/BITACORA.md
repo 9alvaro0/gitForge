@@ -500,7 +500,7 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | ~~Campo "Filter files" en la toolbar de Changes~~ | `Changes` | F4 | Hecho (2026-10-12): filtra por ruta (y ruta original en renombres); las acciones por lote solo alcanzan lo visible. |
 | ~~Badge "merged" en la tabla de ramas~~ | `Branches` | F5 | Hecho (2026-10-12): ramas locales que HEAD ya contiene, a partir del `--no-merged HEAD` que ya se lee para el grafo (sin llamadas nuevas). |
 | ~~"Commits not in main" y ahead/behind contra main en el inspector~~ | `Branches` | F5 | Hecho (2026-10-12): contra `main` local, o `master`; `rev-list --count` y los 5 commits más nuevos al seleccionar la rama. |
-| Arrastre entre filas de la tabla de Branches | `Branches` | F5 | Hoy el arrastre de ramas solo existe en History. |
+| ~~Arrastre entre filas de la tabla de Branches~~ | `Branches` | F5 | Hecho (2026-10-12): soltar una rama local sobre otra pregunta merge o rebase, con el mismo diálogo (`MergeRebaseDialog`) y HUD que History. |
 | Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
 | ~~Push de una rama que no es la actual desde el inspector~~ | `Branches` | F5 | Hecho (2026-10-12): inspector y menú contextual; al remoto que usaría git y a su upstream (con otro nombre incluido), fijándolo si no lo tiene. |
 
