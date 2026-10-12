@@ -116,7 +116,7 @@ struct HistoryView: View {
                     .transition(.opacity)
             }
         }
-        .animation(DesignTokens.Motion.fast, value: dropTracker.intent)
+        .animation(Motion.fast, value: dropTracker.intent)
         .environment(\.branchDropTracker, dropTracker)
         .navigationTitle("History")
         .confirmationDialog(detachedCheckoutTitle,
@@ -328,7 +328,7 @@ struct HistoryView: View {
             defaultHeight: Self.defaultDiffHeight
         )
         if revealed != diffPaneHeight {
-            withAnimation(DesignTokens.Motion.standard) {
+            withAnimation(Motion.standard) {
                 diffPaneHeight = revealed
             }
         }
@@ -356,12 +356,12 @@ struct HistoryView: View {
     }
 
     private func setDiffPaneCollapsed(_ collapsed: Bool) {
-        withAnimation(DesignTokens.Motion.standard) { diffPaneCollapsed = collapsed }
+        withAnimation(Motion.standard) { diffPaneCollapsed = collapsed }
         UserDefaults.standard.set(collapsed, forKey: Self.diffCollapsedKey)
     }
 
     private func setDetailColumnCollapsed(_ collapsed: Bool) {
-        withAnimation(DesignTokens.Motion.standard) { detailColumnCollapsed = collapsed }
+        withAnimation(Motion.standard) { detailColumnCollapsed = collapsed }
         UserDefaults.standard.set(collapsed, forKey: Self.detailCollapsedKey)
     }
 

@@ -49,8 +49,8 @@ struct RowDragHandle: View {
             .accessibilityValue("\(Int(height)) points")
             .accessibilityAdjustableAction { direction in
                 switch direction {
-                case .increment: height = min(height + DesignTokens.Resize.step, maxHeight)
-                case .decrement: height = max(height - DesignTokens.Resize.step, minHeight)
+                case .increment: height = min(height + LayoutMetrics.resizeStep, maxHeight)
+                case .decrement: height = max(height - LayoutMetrics.resizeStep, minHeight)
                 @unknown default: return
                 }
                 onCommit()

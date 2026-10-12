@@ -67,8 +67,8 @@ struct ColumnDragHandle: View {
             .accessibilityValue("\(Int(width)) points")
             .accessibilityAdjustableAction { direction in
                 switch direction {
-                case .increment: width = min(width + DesignTokens.Resize.step, maxWidth)
-                case .decrement: width = max(width - DesignTokens.Resize.step, minWidth)
+                case .increment: width = min(width + LayoutMetrics.resizeStep, maxWidth)
+                case .decrement: width = max(width - LayoutMetrics.resizeStep, minWidth)
                 @unknown default: return
                 }
                 onCommit()

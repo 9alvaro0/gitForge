@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// v2 commit-graph lane colours (redesign spec §4.5). Theme-aware, unlike
-/// the v1 `GraphPalette`, and the HEAD branch always takes the accent.
+/// Commit-graph lane colours (redesign spec §4.5). Theme-aware, and the
+/// HEAD branch always takes the accent.
 /// `nonisolated` because the `Canvas` renderer runs off the main actor.
 nonisolated enum LaneColors {
     enum Lane: Int, CaseIterable, Sendable {
@@ -22,8 +22,8 @@ nonisolated enum LaneColors {
         }
     }
 
-    /// - Parameter priorityRank: trunk rank from the layout, as in
-    ///   `GraphPalette.color(branchId:priorityRank:)`: 0 main/master, 1 develop.
+    /// - Parameter priorityRank: trunk rank from the layout: 0 main/master,
+    ///   1 develop.
     static func assignment(branchId: Int, priorityRank: Int?, isHead: Bool, accent: AccentSwatch) -> Assignment {
         if isHead { return .accent }
         switch priorityRank {

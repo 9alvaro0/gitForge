@@ -3,7 +3,6 @@ import SwiftUI
 /// Header of a drill-in detail pane: a "← Back" row with trailing actions,
 /// the pane's own title block below, and the shared chrome (padding, fill,
 /// bottom rule). Stash and pull-request details used to duplicate it.
-/// Titles inside `content` use `DesignTokens.Detail.titleFontSize`.
 struct DetailHeader<Actions: View, Content: View>: View {
     let onBack: () -> Void
     @ViewBuilder let actions: Actions

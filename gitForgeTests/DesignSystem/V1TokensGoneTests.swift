@@ -16,8 +16,7 @@ struct V1TokensGoneTests {
             .appendingPathComponent("gitForge")
     }
 
-    @Test("No source file uses FontSize, DesignTokens, theme.palette, GFIcon or AppFont.sans/mono",
-          .disabled("until F9 task 4 removes the v1 design system"))
+    @Test("No source file uses FontSize, DesignTokens, theme.palette, GFIcon or AppFont.sans/mono")
     func noV1() throws {
         let enumerator = try #require(FileManager.default.enumerator(at: Self.sourceRoot, includingPropertiesForKeys: nil))
         var offenders: [String] = []
