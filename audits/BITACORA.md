@@ -11,7 +11,7 @@ Cada auditoría tiene un alcance acotado, se registra aquí con fecha, hallazgos
 | A02 | Capa Git (`GitCLI`): spawn de procesos, parsing, errores, inyección de argumentos | Hecha (2026-10-08) |
 | A03 | Concurrencia y ciclo de vida (Tasks, cancelación, watchers, auto-fetch) | Hecha (2026-10-08) |
 | A04 | Arquitectura y estado (`RepositoryViewModel` + 15 extensiones, `AppState`, acoplamiento, código muerto) | Hecha (2026-10-08): descomposición fases 1-3; fases 4-5 en A04-bis |
-| A02-bis | Puntos menores de la capa Git (ver diferidos) | Pendiente |
+| A02-bis | Puntos menores de la capa Git (ver diferidos) | Hecha (2026-10-12), lote 5 de "Menores diferidos" |
 | A04-bis | Descomposición fases 4-5: `HistoryStore` y `WorkingCopyStore` (requiere diseñar cómo comparten refs y estado de sesión) | Pendiente |
 | A05 | Seguridad (tokens, Keychain, confianza TLS, Sparkle, scripts de release) | Hecha (2026-10-08) |
 | A06 | Rendimiento de UI (grafo, tablas, diffs grandes, re-renders) | Hecha (2026-10-08) |
@@ -650,6 +650,14 @@ Recogidos el 2026-10-12. Las revisiones finales de cada fase dejaban "menores an
 | F9-10 | Bitácora: #87 en la fila de F7 y falta #81. | `BITACORA.md` |
 
 ### Lote 5 · A02-bis (capa Git)
+
+**Hecho (2026-10-12, misma rama).** Suite 980/980, 0 warnings. Notas:
+- `ARG_MAX`: stage, unstage, discard y descartar conflictos pasan las rutas en tandas de 128 KB (`GitCLI.pathBatches`). Probado con 3.000 rutas (~600 KB).
+- `diff.suppressBlankEmpty`: cada git lleva `-c diff.suppressBlankEmpty=false`, y además `DiffParser` toma una línea vacía dentro del recuento del hunk como contexto.
+- `pull.rebase`: `merges`, `interactive` y los sinónimos booleanos de git (`yes`, `on`, `1`…) se leen bien; un valor desconocido queda sin estrategia en vez de "merge".
+- Identidad con `-`: no era un fallo. `git config` deja de leer opciones tras la clave (comprobado con git 2.54); queda un test de regresión.
+- `--no-optional-locks`: revisado sin cambios. Sigue solo en lecturas en segundo plano (poller y Welcome); no hay indicios de contención con `index.lock` en el repo activo, y ponerlo ahí impediría que `git status` refresque el índice.
+- P3-1: el push se dirige y se firma como lo haría git: remoto por `branch.<b>.pushRemote` → `remote.pushDefault` → `branch.<b>.remote`, y la URL de `pushurl` (`get-url --push`).
 
 Los cuatro puntos de "Hallazgos diferidos" del principio (`ARG_MAX`, `diff.suppressBlankEmpty`, `pull.rebase` e identidad con `-`, `--no-optional-locks`), más:
 
