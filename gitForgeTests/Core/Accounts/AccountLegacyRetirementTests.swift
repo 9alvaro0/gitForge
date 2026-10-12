@@ -43,7 +43,7 @@ private final class RemovableLegacy: LegacyTokenStore, @unchecked Sendable {
 struct AccountLegacyRetirementTests {
 
     private static func store(_ secrets: InMemoryAccountSecretStore = .init()) -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-retire-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-retire")
         return AccountStore(directory: dir, secrets: secrets)
     }
 

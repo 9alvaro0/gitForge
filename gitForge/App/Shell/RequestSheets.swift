@@ -40,7 +40,7 @@ private struct AccountChooserSheet: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: Binding(get: { enabled ? appState.accountChooser.request : nil }, set: { _ in })) { request in
-                ChooseAccountSheet(request: request, profiles: appState.profiles.profiles, activeProfileId: nil,
+                ChooseAccountSheet(request: request, profiles: appState.profiles.profiles,
                                    providerLabel: appState.accounts.instance(forHost: request.remote.host)?.kind.label) {
                     appState.accountChooser.answer($0, for: request.id)
                 }

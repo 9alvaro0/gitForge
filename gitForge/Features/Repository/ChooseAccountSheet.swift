@@ -4,7 +4,6 @@ import SwiftUI
 struct ChooseAccountSheet: View {
     let request: AccountChooser.Request
     let profiles: [GitProfile]
-    let activeProfileId: UUID?
     /// "GitHub" / "GitLab" for the remote's instance; `nil` when unknown.
     var providerLabel: String?
     let onAnswer: (RepoAccountChoice?) -> Void
@@ -51,10 +50,10 @@ struct ChooseAccountSheet: View {
         }
         .padding(Spacing.s16)
         .frame(width: 440)
-        .onAppear {
-            let linked = request.remote.candidates.first { $0.linkedProfileId != nil && $0.linkedProfileId == activeProfileId }
-            selection = (linked ?? request.remote.candidates.first).map { .account($0.id) }
-        }
+        // No default from the active profile (spec §5.5): an account linked
+        // to it already wins in the resolver, so the chooser only shows when
+        // none is.
+        .onAppear { selection = request.remote.candidates.first.map { .account($0.id) } }
     }
 
     private func detail(_ account: HostingAccount) -> String {

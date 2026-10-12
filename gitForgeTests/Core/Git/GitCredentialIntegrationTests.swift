@@ -85,6 +85,9 @@ struct GitCredentialIntegrationTests {
         defer { server.stop() }
         let work = try workRepo(server)
         defer { work.remove() }
+        // An empty helper resets the list: the developer's own helpers
+        // (osxkeychain, a GUI one like GCM) are never asked.
+        try work.git("config", "credential.helper", "")
         let cli = GitCLI(workingDirectory: work.url, credentials: StaticCredentials(credential: nil))
         await #expect(throws: GitError.self) { try await cli.fetchAll() }
         #expect(!server.authorizations.isEmpty)
@@ -95,7 +98,7 @@ struct GitCredentialIntegrationTests {
     func cloneWithCredential() async throws {
         let server = try await makeServer()
         defer { server.stop() }
-        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-clone-\(UUID().uuidString)")
+        let destination = TemporaryDirectories.make("gitForge-clone")
         defer { try? FileManager.default.removeItem(at: destination) }
         try await GitCLI.clone(url: server.url("app.git"), destination: destination,
                                credentials: StaticCredentials(credential: credential(server)))

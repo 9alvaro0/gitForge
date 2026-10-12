@@ -22,7 +22,7 @@ private struct FakeLegacy: LegacyTokenSource {
 struct AccountMigrationTests {
 
     private static func store(_ secrets: InMemoryAccountSecretStore = .init()) -> AccountStore {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-mig-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-mig")
         return AccountStore(directory: dir, secrets: secrets)
     }
 

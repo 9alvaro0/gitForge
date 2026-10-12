@@ -515,14 +515,16 @@ Rediseño visual completo a la dirección A+ ("Native Refined") del canvas "gitF
 | F0 | Tokens v2: `TypeRole`, `Spacing`, `Radius`, `GFColors` (4 variantes), acento derivado, `GraphMetrics`, densidades (adiós a `comfy`) | #78 |
 | F1 | Shell: `NavigationSplitView` con sidebar flotante, toolbar nativa con vidrio, sin barra de estado | #79 |
 | F2 | Componentes de `DesignSystem` restyleados | #80 |
+| — | Tests: suites de `UserDefaults` aisladas (dejaban plists) | #81 |
 | F3 | History, grafo e inspector del commit | #82 |
 | F4 | Changes y diff, con Amend y selección por lotes | #83 |
 | F5 | Branches, tags y stashes | #84 |
 | F6 | Conflicts (con "Both · theirs first", siguiente conflicto y resultado editable) | #85 |
-| F7 | Pull requests (Open/Mine/Closed, CI por fila, Checks por job, aprobaciones) | #86, #87, #88 |
+| F7 | Pull requests (Open/Mine/Closed, CI por fila, Checks por job, aprobaciones) | #86, #88 |
+| — | Barra lateral: las filas ya no se ven a través de la tarjeta de perfil | #87 |
 | — | Conexiones con proveedores (cuentas, OAuth, git por HTTPS, PRs y clonado sobre cuentas), proyecto intercalado | #89–#95 |
 | F8 | ⌘K fuzzy y agrupado, Clone como hoja (con comprobación de alcance y perfil), Welcome con estado de los recientes, onboarding con paso Appearance, Settings | #96 |
-| F9 | Limpieza: fuera el sistema visual v1 (`FontSize`, `DesignTokens` de espaciado y radios, `ThemePalette`, `GraphPalette`, `GFIcon`, Inter Tight) y test guardián `V1TokensGoneTests` | (este PR) |
+| F9 | Limpieza: fuera el sistema visual v1 (`FontSize`, `DesignTokens` de espaciado y radios, `ThemePalette`, `GraphPalette`, `GFIcon`, Inter Tight) y test guardián `V1TokensGoneTests` | #97 |
 
 **Decisiones que atan a futuro:**
 - Todo el estilo sale de `TypeRole`, `Spacing`, `Radius`, `theme.colors` y SF Symbols. `V1TokensGoneTests` falla si vuelve a entrar v1.
@@ -618,6 +620,16 @@ Recogidos el 2026-10-12. Las revisiones finales de cada fase dejaban "menores an
 | F9-x | El botón de búsqueda de la barra se ve oscuro en modo claro. | `ShellToolbar.swift` |
 
 ### Lote 4 · Higiene y tests
+
+**Hecho (2026-10-12, misma rama).** Suite 958/958, 0 warnings. Notas:
+- P2-13, P4-3a, P5a-7 y P5b-2 ya habían quedado resueltos en los lotes 1 y 2.
+- P4-1 decidido: fuera el parámetro `activeProfileId` del selector. Una cuenta enlazada al perfil activo ya gana en el resolver, así que el selector solo aparece cuando ninguna lo está y ese valor por defecto nunca se aplicaría.
+- P5b-6 decidido: fuera la guarda redundante. Dentro de un mismo arranque cada copia se escribe en el Keychain nuevo antes de borrar la antigua, así que no hacía falta una segunda comprobación entre arranques.
+- P5b-10 no se cambia: es una llamada `git` más, solo cuando `origin` no se reconoce, y quitarla obligaba a cambiar la API de `PullRequestStore` y sus tests.
+- P5a-11 resuelto en general: `TemporaryDirectories` borra al salir del proceso de test los directorios que se crean, incluidos los de `GitTestRepo`. Antes cada pasada dejaba unos 200 en la carpeta temporal (había 4.223 acumulados); ahora solo quedan los plists de `TestDefaults`, que cfprefsd vuelve a escribir.
+- P3-10: el test pone `credential.helper` vacío en el repo, lo que anula los helpers de la configuración global del desarrollador.
+- F8-T3: `runClone` probado de punta a punta contra el servidor HTTP de test (ahora admite modo anónimo).
+- F9-7: `SymbolGlyph` sustituye las 12 copias (y a `IconButtonGlyph`). F9-8: fuera `StatusBadge` (sin uso) y `detailPanelWidth`; `refreshPalette` pasa a `refreshColors`.
 
 | # | Menor | Dónde |
 |---|---|---|

@@ -9,11 +9,11 @@ import Observation
 final class AppTheme {
     var mode: ThemeMode {
         didSet {
-            persist(); refreshPalette()
+            persist(); refreshColors()
         }
     }
     var accent: Color {
-        didSet { persistAccent(); refreshPalette() }
+        didSet { persistAccent(); refreshColors() }
     }
     var density: Density {
         didSet { persistDensity() }
@@ -25,12 +25,12 @@ final class AppTheme {
     /// sync via `.onChange(of: \.colorScheme)`. Read by `effectiveMode` so
     /// `.system` resolves to the right palette without forcing a scheme.
     var systemColorScheme: ColorScheme = .dark {
-        didSet { if mode == .system { refreshPalette() } }
+        didSet { if mode == .system { refreshColors() } }
     }
     /// System "Increase contrast" accessibility setting, synced by the shell
     /// like `systemColorScheme`.
     var increasedContrast = false {
-        didSet { if increasedContrast != oldValue { refreshPalette() } }
+        didSet { if increasedContrast != oldValue { refreshColors() } }
     }
 
     /// `mode` after collapsing `.system` to whatever the OS reports. Use
@@ -44,7 +44,6 @@ final class AppTheme {
     var variant: ThemeVariant {
         ThemeVariant(isDark: effectiveMode == .dark, highContrast: increasedContrast)
     }
-
 
     /// Colour tokens (redesign spec §4.1).
     private(set) var colors: GFColors = .make(.dark, accent: .violet)
@@ -73,10 +72,10 @@ final class AppTheme {
         self.accent = savedAccent
         self.density = savedDensity
         self.monoFont = savedMono
-        refreshPalette()
+        refreshColors()
     }
 
-    private func refreshPalette() {
+    private func refreshColors() {
         colors = .make(variant, accent: accentSwatch)
     }
 

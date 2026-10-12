@@ -49,9 +49,7 @@ struct FlowLayout: Layout {
     FlowLayout(spacing: Spacing.s6) {
         ForEach(["v2.3.1", "v2.3.0", "v2.2.4", "v2.2.3", "v2.2.2", "v2.2.1", "v2.1.0", "v2.0.0"], id: \.self) { tag in
             HStack(spacing: Spacing.s6) {
-                Image(systemName: "diamond")
-                    .font(.system(size: 10 * 0.8, weight: .medium))
-                    .accessibilityHidden(true)
+                SymbolGlyph("diamond", size: 10, framed: false)
                 Text(tag).textRole(.monoSmall)
             }
             .foregroundStyle(theme.colors.mod)

@@ -22,7 +22,7 @@ struct ActiveProfileLookupTests {
 
     @Test("An existing repo: the profile matching its identity")
     func existingRepo() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-work-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-work")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
         #expect(await lookup().profileId(forRepoAt: dir.path(percentEncoded: false)) == work.id)

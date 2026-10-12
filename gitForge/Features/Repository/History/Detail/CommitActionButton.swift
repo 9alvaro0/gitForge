@@ -36,21 +36,15 @@ struct CommitActionButtonLabel: View {
 
     var body: some View {
         HStack(spacing: Spacing.s8) {
-            Image(systemName: icon)
-                .font(.system(size: 13 * 0.8, weight: .medium))
+            SymbolGlyph(icon, size: 13)
                 .foregroundStyle(foreground)
-                .frame(width: 13, height: 13)
-                .accessibilityHidden(true)
             Text(title)
                 .textRole(.callout)
                 .foregroundStyle(foreground)
             Spacer(minLength: 0)
             if trailingChevron {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11 * 0.8, weight: .medium))
+                SymbolGlyph("chevron.down", size: 11)
                     .foregroundStyle(theme.colors.textTertiary)
-                    .frame(width: 11, height: 11)
-                    .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, Spacing.s12)

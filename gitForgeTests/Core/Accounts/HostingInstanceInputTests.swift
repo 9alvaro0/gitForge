@@ -25,8 +25,8 @@ struct HostingInstanceInputTests {
     @Test("An API URL override must be HTTPS")
     func apiOverride() throws {
         let instance = try HostingInstance.make(kind: .gitlab, url: "git.empresa.com",
-                                                apiBaseURL: "https://git.empresa.com/gitlab/api/v4").get()
-        #expect(instance.apiBaseURL.absoluteString == "https://git.empresa.com/gitlab/api/v4")
+                                                apiBaseURL: "https://git.empresa.com:8443/api/v4").get()
+        #expect(instance.apiBaseURL.absoluteString == "https://git.empresa.com:8443/api/v4")
         #expect(HostingInstance.make(kind: .gitlab, url: "git.empresa.com", apiBaseURL: "http://git.empresa.com/api/v4")
                 == .failure(.invalidAPIURL("http://git.empresa.com/api/v4")))
         #expect(HostingInstance.make(kind: .gitlab, url: "git.empresa.com", apiBaseURL: "nonsense")

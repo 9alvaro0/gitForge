@@ -56,4 +56,32 @@ struct AppStateCloneProfileTests {
         #expect(!(await app.applyCloneProfile(UUID())))
         #expect(app.ui.activeToast?.kind == .warn)
     }
+
+    @Test("A whole clone: the repo opens with the profile picked in the sheet, and the toast says Cloned")
+    func runCloneEndToEnd() async throws {
+        let server = try GitHTTPTestServer()
+        try await server.start()
+        defer { server.stop() }
+        let bare = try server.makeBareRepo("app.git")
+        let seed = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["README.md": "hello\n"])
+            try repo.git("push", "-q", bare.path, "main")
+        }
+        defer { seed.remove() }
+
+        let app = AppState.isolated()
+        let work = GitProfile(name: "Work", userName: "Test Worker", userEmail: "worker@example.test")
+        app.profiles.add(work)
+        let destination = TemporaryDirectories.make("gitForge-runclone").appendingPathComponent("app")
+        app.startClone(url: server.url("app.git"), path: destination.path(percentEncoded: false), branch: nil,
+                       profileId: work.id)
+        await waitUntil(timeout: .seconds(20)) { app.ui.activeToast != nil || app.ui.presentedError != nil }
+
+        #expect(app.ui.presentedError == nil)
+        #expect(app.ui.activeToast?.message == "Cloned app")
+        #expect(app.catalog.activeRepository?.url.lastPathComponent == "app")
+        let identity = await GitCLI(workingDirectory: destination).currentIdentity()
+        #expect(identity.email == "worker@example.test")
+        #expect(identity.isLocal)
+    }
 }

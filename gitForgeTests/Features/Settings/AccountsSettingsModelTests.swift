@@ -74,7 +74,7 @@ struct AccountsSettingsModelTests {
 
     @Test("Linking to a profile and setting a self-hosted client id persist; built-ins keep theirs")
     func storeOperations() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gitForge-settings-\(UUID().uuidString)")
+        let dir = TemporaryDirectories.make("gitForge-settings")
         let secrets = InMemoryAccountSecretStore()
         let store = AccountStore(directory: dir, secrets: secrets, clientIds: OAuthClientIDs(gitHub: "gh", gitLab: nil))
         try store.addInstance(Self.work)
