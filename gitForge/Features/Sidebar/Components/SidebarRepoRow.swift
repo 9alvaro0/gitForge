@@ -38,7 +38,7 @@ struct SidebarRepoRow: View {
             }
             .padding(.horizontal, Spacing.s8)
             .padding(.vertical, Spacing.s6)
-            .frame(height: DesignTokens.Sidebar.repoRow)
+            .frame(height: LayoutMetrics.sidebarRepoRow)
             .background(RoundedRectangle(cornerRadius: Radius.row).fill(rowBackground))
             .contentShape(.rect(cornerRadius: Radius.row))
             .padding(.horizontal, Spacing.s6)

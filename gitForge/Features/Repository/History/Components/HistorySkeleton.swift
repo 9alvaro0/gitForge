@@ -62,7 +62,7 @@ struct HistorySkeleton: View {
         }
         .padding(.horizontal, Spacing.s12)
         .padding(.vertical, Spacing.s6)
-        .frame(height: DesignTokens.Control.height)
+        .frame(height: LayoutMetrics.controlHeight)
         .overlay(alignment: .bottom) { Rectangle().fill(theme.colors.separator).frame(height: 1) }
     }
 }

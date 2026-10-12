@@ -53,7 +53,7 @@ struct ChipDropModifier: ViewModifier {
                     .padding(-2)
                     .opacity(hovered ? 1 : 0)
             }
-            .animation(DesignTokens.Motion.fast, value: hovered)
+            .animation(Motion.fast, value: hovered)
             .dropDestination(for: DraggedBranch.self) { items, _ in
                 guard let dropped = items.first else { return false }
                 // Dropping a branch on its own chip is a no-op.

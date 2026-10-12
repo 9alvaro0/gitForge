@@ -23,7 +23,7 @@ struct SkeletonModifier: ViewModifier {
                 .phaseAnimator(reduceMotion ? [0.7] : [0.45, 1.0]) { view, phase in
                     view.opacity(phase)
                 } animation: { _ in
-                    DesignTokens.Motion.slow
+                    Motion.slow
                 }
                 // The placeholder is built from realistic *fake* rows; without
                 // this VoiceOver reads the dummy text as if it were content.

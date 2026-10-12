@@ -82,7 +82,7 @@ struct ConflictView: View {
                             onDiscardEdits: { conflicts.discardManualEdit() }
                         )
                     }
-                    .animation(DesignTokens.Motion.standard, value: manual)
+                    .animation(Motion.standard, value: manual)
                 }
             }
         } else if conflicts.selectedPath != nil {

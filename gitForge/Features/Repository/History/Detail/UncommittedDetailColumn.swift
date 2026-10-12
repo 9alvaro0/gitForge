@@ -137,7 +137,7 @@ private struct WorkingCopyMiniRow: View {
     UncommittedDetailColumn(viewModel: .preview)
         .previewAppState(.preview)
         .padding()
-        .frame(width: DesignTokens.Detail.panelWidth, height: 720)
+        .frame(width: LayoutMetrics.detailPanelWidth, height: 720)
         .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

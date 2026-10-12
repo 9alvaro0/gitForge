@@ -2,7 +2,7 @@ import SwiftUI
 import Observation
 
 /// How the app looks: appearance mode, accent, density, mono font and the
-/// resolved palette. One instance lives in `WorkspaceUI` and is injected via
+/// resolved colours. One instance lives in `WorkspaceUI` and is injected via
 /// `\.appTheme`. Behaviour preferences live in `AppPreferences`.
 @Observable
 @MainActor
@@ -45,10 +45,8 @@ final class AppTheme {
         ThemeVariant(isDark: effectiveMode == .dark, highContrast: increasedContrast)
     }
 
-    private(set) var palette: ThemePalette = .dark
 
-    /// v2 colour tokens (redesign spec §4.1). Replaces `palette` once every
-    /// screen has migrated (phase F9).
+    /// Colour tokens (redesign spec §4.1).
     private(set) var colors: GFColors = .make(.dark, accent: .violet)
 
     /// The v2 swatch the stored accent maps to.
@@ -79,7 +77,6 @@ final class AppTheme {
     }
 
     private func refreshPalette() {
-        palette = ThemePalette.palette(for: effectiveMode, accent: accent, highContrast: increasedContrast)
         colors = .make(variant, accent: accentSwatch)
     }
 

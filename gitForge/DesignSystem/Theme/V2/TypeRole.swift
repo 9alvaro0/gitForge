@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// v2 semantic type roles (redesign spec §4.2). SF Pro for text, the user's
-/// code font for the two mono roles. Replaces `FontSize` in phase F9.
+/// code font for the two mono roles.
 nonisolated enum TypeRole: CaseIterable, Sendable {
     case largeTitle
     case title
@@ -90,7 +90,7 @@ extension AppFont {
                      monospaced: Bool = false) -> Font {
         let resolvedWeight = weight ?? role.weight
         if role.isMono || monospaced {
-            return mono(role.size, weight: resolvedWeight, family: monoFamily)
+            return codeFace(role.size, weight: resolvedWeight, family: monoFamily)
         }
         return .system(size: role.size, weight: resolvedWeight)
     }
