@@ -403,6 +403,13 @@ final class HistoryStore {
         selectedCommitFile = path
     }
 
+    /// Re-reads the open file's diff, e.g. after the whitespace option flips.
+    func reloadCommitFileDiff() async {
+        guard let path = selectedCommitFile, let commit = selectedCommit else { return }
+        commitFileDiffGen &+= 1
+        await loadCommitFileDiff(sha: commit.sha, path: path)
+    }
+
     func loadCommitFileDiff(sha: String, path: String) async {
         // Snapshot the selection token. If the user moves on while we await
         // on the CLI, the token will fall behind and we drop the write-back
@@ -418,7 +425,7 @@ final class HistoryStore {
             guard gen == commitFileDiffGen else { return }
             let hunks = DiffParser.parse(raw)
             commitFileDiff = hunks
-            commitFileDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw) : .empty
+            commitFileDiffEmptyState = hunks.isEmpty ? DiffEmptyState.classifying(raw: raw, ignoringWhitespace: GitPreferences.diffIgnoreWhitespace) : .empty
         } catch {
             guard gen == commitFileDiffGen else { return }
             commitFileDiff = []

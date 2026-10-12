@@ -205,6 +205,7 @@ struct HistoryView: View {
                 loading: viewModel.workingCopy.loadingWorkingCopyDiff,
                 emptyState: viewModel.workingCopy.workingCopyDiffEmptyState,
                 onClose: { setDiffPaneCollapsed(true) },
+                onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
                 viewMode: diffMode
             )
         } else {
@@ -215,6 +216,7 @@ struct HistoryView: View {
                 loading: viewModel.history.loadingCommitFileDiff,
                 emptyState: viewModel.history.commitFileDiffEmptyState,
                 onClose: { setDiffPaneCollapsed(true) },
+                onWhitespaceChange: { Task { await viewModel.history.reloadCommitFileDiff() } },
                 viewMode: diffMode
             )
         }

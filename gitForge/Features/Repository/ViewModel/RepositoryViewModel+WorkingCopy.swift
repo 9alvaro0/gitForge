@@ -98,7 +98,8 @@ extension RepositoryViewModel {
             try await cli.commit(
                 subject: subject,
                 body: body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : body,
-                amend: workingCopy.amendMode
+                amend: workingCopy.amendMode,
+                signOff: workingCopy.signOff
             )
             workingCopy.resetComposer()
             // Single shared cluster — same helper used by +Operations /

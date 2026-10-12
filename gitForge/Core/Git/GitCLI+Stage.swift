@@ -85,9 +85,11 @@ extension GitCLI {
         }
     }
 
-    func commit(subject: String, body: String? = nil, amend: Bool = false) async throws {
+    /// `signOff` adds the `Signed-off-by:` trailer (`--signoff`).
+    func commit(subject: String, body: String? = nil, amend: Bool = false, signOff: Bool = false) async throws {
         var args: [String] = ["commit"]
         if amend { args.append("--amend") }
+        if signOff { args.append("--signoff") }
         args.append("-m")
         args.append(subject)
         if let body, !body.isEmpty {
