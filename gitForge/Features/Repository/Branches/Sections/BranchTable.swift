@@ -11,6 +11,8 @@ struct BranchTable: View {
     var mergedNames: Set<String> = []
     @Binding var selectedID: String?
     let actions: BranchActions
+    /// A local branch dropped on another one's row: (dropped, target).
+    var onBranchDrop: ((DraggedBranch, GitRef) -> Void)? = nil
 
     @State private var collapsedFolders: Set<String> = []
     @Environment(\.appTheme) private var theme
@@ -62,7 +64,8 @@ struct BranchTable: View {
                 isMerged: ref.isLocalBranch && mergedNames.contains(ref.name),
                 isSelected: selectedID == ref.id,
                 onSelect: { selectedID = ref.id },
-                actions: actions
+                actions: actions,
+                onBranchDrop: onBranchDrop.map { drop -> (DraggedBranch) -> Void in { drop($0, ref) } }
             )
         case .folder(let path, let name, let leafCount):
             BranchFolderRow(

@@ -18,6 +18,10 @@ struct BranchesView: View {
     @State private var mergeRequest: MergeRequest?
     @State private var rebaseTarget: GitRef?
     @State private var deleteTargetTag: GitRef?
+    /// One branch row dropped on another.
+    @State private var mergeRebaseRequest: MergeRebaseRequest?
+    /// Drop target under a dragged branch, shown in the intent HUD.
+    @State private var dropTracker = BranchDropTracker()
 
     @Environment(AppState.self) private var appState
     @Environment(WorkspaceUI.self) private var ui
@@ -63,6 +67,15 @@ struct BranchesView: View {
         content
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.colors.bgContent)
+        .overlay(alignment: .bottom) {
+            if let intent = dropTracker.intent {
+                BranchDropHUD(intent: intent)
+                    .padding(.bottom, Spacing.s16)
+                    .transition(.opacity)
+            }
+        }
+        .animation(Motion.fast, value: dropTracker.intent)
+        .environment(\.branchDropTracker, dropTracker)
         .navigationTitle("Branches & Tags")
         .searchable(text: $filter, placement: .toolbar, prompt: "Filter")
         .toolbar {
@@ -134,6 +147,11 @@ struct BranchesView: View {
             confirmRebase: { ref in Task { await runRebase(ref: ref) } },
             confirmDeleteTag: { ref, alsoRemote in Task { await runDeleteTag(ref, alsoOnRemote: alsoRemote) } }
         ))
+        .modifier(MergeRebaseDialog(
+            request: $mergeRebaseRequest,
+            onMerge: { req in Task { await runDroppedMerge(req) } },
+            onRebase: { req in Task { await runDroppedRebase(req) } }
+        ))
     }
 
     // MARK: Layout
@@ -191,7 +209,8 @@ struct BranchesView: View {
                                                   unmergedRefs: viewModel.unmergedLocalBranchRefs,
                                                   currentBranch: currentBranchName),
                 selectedID: $selectedID,
-                actions: actions
+                actions: actions,
+                onBranchDrop: { dropped, target in handleDrop(dropped, on: target) }
             )
         }
     }
@@ -234,6 +253,27 @@ struct BranchesView: View {
     /// Failures surface through `remoteFailure`, like the toolbar's Push.
     private func runPush(_ ref: GitRef) async {
         if await viewModel.pushBranch(ref) { toast("Pushed \(ref.name)", kind: .ok) }
+    }
+
+    /// Same semantics as a chip dropped on a chip in History: merge the
+    /// dragged branch into the target, or rebase it onto the target.
+    private func handleDrop(_ dropped: DraggedBranch, on target: GitRef) {
+        dropTracker.clear()
+        guard target.isLocalBranch, dropped.name != target.name,
+              let source = viewModel.localBranches.first(where: { $0.name == dropped.name }) else { return }
+        mergeRebaseRequest = MergeRebaseRequest(source: source, target: target)
+    }
+
+    private func runDroppedMerge(_ request: MergeRebaseRequest) async {
+        report(await viewModel.mergeBranch(source: request.source, into: request.target),
+               success: "Merged \(request.source.displayName) into \(request.target.displayName)",
+               conflicts: "Merge has conflicts — resolve to continue")
+    }
+
+    private func runDroppedRebase(_ request: MergeRebaseRequest) async {
+        report(await viewModel.rebase(request.source, onto: request.target),
+               success: "Rebased \(request.source.displayName) onto \(request.target.displayName)",
+               conflicts: "Rebase has conflicts — resolve to continue")
     }
 
     private func runMerge(request: MergeRequest) async {
