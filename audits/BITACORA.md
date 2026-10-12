@@ -495,9 +495,9 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | Función | Artboard | Fase | Nota |
 |---|---|---|---|
 | Contadores +N −M por fichero en la lista de Changes | `Changes` | F4 | `git status` no los da; haría falta un `diff --numstat` por refresco. |
-| Stash de los ficheros seleccionados | `Changes` | F4 | `stashPush` no recibe rutas (`git stash push -- <paths>`). |
-| Atajo ⌘↵ para hacer commit | `Changes` | F4 | |
-| Campo "Filter files" en la toolbar de Changes | `Changes` | F4 | |
+| ~~Stash de los ficheros seleccionados~~ | `Changes` | F4 | Hecho (2026-10-12): botón Stash en la barra de selección; las rutas van por `--pathspec-from-file`. |
+| ~~Atajo ⌘↵ para hacer commit~~ | `Changes` | F4 | Hecho (2026-10-12). |
+| ~~Campo "Filter files" en la toolbar de Changes~~ | `Changes` | F4 | Hecho (2026-10-12): filtra por ruta (y ruta original en renombres); las acciones por lote solo alcanzan lo visible. |
 | Badge "merged" en la tabla de ramas | `Branches` | F5 | Haría falta `git branch --merged` por refresco. |
 | "Commits not in main" y ahead/behind contra main en el inspector | `Branches` | F5 | Consultas nuevas (`rev-list`/`log`) por rama seleccionada. |
 | Arrastre entre filas de la tabla de Branches | `Branches` | F5 | Hoy el arrastre de ramas solo existe en History. |

@@ -8,6 +8,9 @@ struct StagingView: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
     @State private var diffModeOverride: DiffPane.ViewMode?
+    /// Toolbar "Filter files". Lists, select-all and batch actions work on
+    /// the visible files; the commit button and Discard all on everything.
+    @State private var fileFilter = ""
     @State private var filesWidth: CGFloat = {
         let stored = UserDefaults.standard.double(forKey: StagingView.filesWidthKey)
         let resolved = stored > 0 ? CGFloat(stored) : StagingView.defaultFilesWidth
@@ -29,6 +32,8 @@ struct StagingView: View {
 
     private var staged: [WorkingCopyFile]   { viewModel.workingCopy.status.stagedFiles }
     private var unstaged: [WorkingCopyFile] { viewModel.workingCopy.status.unstagedFiles }
+    private var visibleStaged: [WorkingCopyFile]   { StagingFileFilter.apply(staged, query: fileFilter) }
+    private var visibleUnstaged: [WorkingCopyFile] { StagingFileFilter.apply(unstaged, query: fileFilter) }
 
     /// True only until the first refreshStatus() lands for this repo VM.
     /// Subsequent refreshes (watcher pulses, post-stage reloads…) keep the real
@@ -72,6 +77,13 @@ struct StagingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.colors.bgContent)
         .navigationTitle("Changes")
+        .searchable(text: $fileFilter, placement: .toolbar, prompt: "Filter files")
+        .onChange(of: fileFilter) {
+            // Ticks stay within what's on screen, so a batch action never
+            // reaches a file the filter hides.
+            let visible = Set((visibleStaged + visibleUnstaged).map(\.path))
+            viewModel.workingCopy.selectedFilePaths.formIntersection(visible)
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { Task { _ = await viewModel.stashAll() } } label: {
@@ -110,9 +122,10 @@ struct StagingView: View {
         VStack(spacing: 0) {
             StagingFilesColumn(
                 viewModel: viewModel,
-                staged: staged,
-                unstaged: unstaged,
-                statusLoading: statusLoading
+                staged: visibleStaged,
+                unstaged: visibleUnstaged,
+                statusLoading: statusLoading,
+                isFiltering: !fileFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
             StagingCommitBox(viewModel: viewModel, stagedCount: staged.count)
         }

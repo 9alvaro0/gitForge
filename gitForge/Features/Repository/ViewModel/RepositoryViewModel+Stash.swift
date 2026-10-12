@@ -21,6 +21,32 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Stashes only `files` (their staged and unstaged changes alike) — the
+    /// Changes batch bar. Untracked files are included when any is picked:
+    /// the user chose them, whatever the stash-all preference says. Failures
+    /// land in `commitError`, like the other batch actions.
+    @discardableResult
+    func stash(_ files: [WorkingCopyFile]) async -> Bool {
+        guard !isMutating else { return false }
+        let paths = files.flatMap(\.allPaths)
+        guard !paths.isEmpty else { return false }
+        commitError = nil
+        isMutating = true
+        defer { isMutating = false }
+        do {
+            let includeUntracked = GitPreferences.stashIncludeUntracked || files.contains(where: \.isUntracked)
+            try await cli.stashPush(includeUntracked: includeUntracked, paths: paths)
+            await refreshAfterIntegration()
+            return true
+        } catch {
+            commitError = error.userMessage
+            // A failed push may still have changed nothing or everything —
+            // mirror what's on disk.
+            await workingCopy.refreshStatus()
+            return false
+        }
+    }
+
     /// Apply (and optionally drop) a stash. Returns an `IntegrationOutcome` so
     /// the view can route conflicts to the resolver UI an  d surface friendly
     /// messages for the common pre-flight abort cases (dirty worktree).
