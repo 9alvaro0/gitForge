@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// One recent repository on Welcome (artboard `Welcome`): initials tile,
-/// name and path, branch, state and when it was last opened.
+/// name, branch and path, state and when it was last opened.
 struct RecentRepositoryRow: View {
     let repo: Repository
     let state: RecentState?
@@ -25,19 +25,24 @@ struct RecentRepositoryRow: View {
                     Text(repo.name)
                         .textRole(.body, weight: .semibold)
                         .foregroundStyle(theme.colors.textPrimary)
-                    Text(repo.path)
-                        .textRole(.monoSmall)
-                        .foregroundStyle(theme.colors.textSecondary)
                         .lineLimit(1)
-                        .truncationMode(.middle)
+                    HStack(spacing: Spacing.s6) {
+                        if !branch.isEmpty {
+                            Label(branch, systemImage: "arrow.triangle.branch")
+                                .labelStyle(.titleAndIcon)
+                                .textRole(.monoSmall)
+                                .foregroundStyle(theme.colors.textPrimary)
+                                .lineLimit(1)
+                                .layoutPriority(1)
+                        }
+                        Text(repo.path)
+                            .textRole(.monoSmall)
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Text(branch)
-                    .textRole(.monoSmall)
-                    .foregroundStyle(theme.colors.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: 180, alignment: .leading)
+                .frame(minWidth: 140, maxWidth: .infinity, alignment: .leading)
                 Text(statusText)
                     .textRole(.caption, weight: statusIsNotable ? .semibold : .regular)
                     .foregroundStyle(statusColor)

@@ -62,9 +62,10 @@ final class CloneSheetModel {
             probe = .idle
             return
         }
+        // The previous URL's result must not show for this one.
+        probe = .checking
         try? await Task.sleep(for: debounce)
         guard gen == generation, !Task.isCancelled else { return }
-        probe = .checking
         let result = await runProbe(target)
         guard gen == generation, !Task.isCancelled else { return }
         probe = .done(result)
