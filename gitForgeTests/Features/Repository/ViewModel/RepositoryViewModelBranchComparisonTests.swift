@@ -48,7 +48,7 @@ struct RepositoryViewModelBranchComparisonTests {
         await vm.loadRefs()
         #expect(vm.trunkBranch?.name == "master")
 
-        try repo.git("branch", "-m", "master", "trunk")
+        try await repo.gitAsync("branch", "-m", "master", "trunk")
         await vm.loadRefs()
         #expect(vm.trunkBranch == nil)
         #expect(await vm.comparison(of: try localRef("topic", in: vm)) == nil)
@@ -56,42 +56,72 @@ struct RepositoryViewModelBranchComparisonTests {
 
     @Test("Pushes a branch that isn't checked out and sets its upstream")
     func pushesOtherBranch() async throws {
-        let remote = try GitTestRepo(bare: true)
-        let repo = try GitTestRepo()
+        let remote = try await GitTestRepo.make(bare: true)
+        let remotePath = remote.url.path(percentEncoded: false)
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("base", files: ["f.txt": "0\n"])
+            try repo.git("remote", "add", "origin", remotePath)
+            try repo.git("branch", "feature")
+        }
         defer { remote.remove(); repo.remove() }
-        try repo.commit("base", files: ["f.txt": "0\n"])
-        try repo.git("remote", "add", "origin", remote.url.path(percentEncoded: false))
-        try repo.git("branch", "feature")
         let vm = RepositoryViewModel(repository: Repository(url: repo.url))
         await vm.loadRefs()
 
         #expect(await vm.pushBranch(try localRef("feature", in: vm)))
         #expect(vm.remoteFailure == nil)
-        #expect(try remote.git("branch", "--list", "feature").contains("feature"))
-        #expect(try repo.git("config", "--get", "branch.feature.merge")
+        #expect(try await remote.gitAsync("branch", "--list", "feature").contains("feature"))
+        #expect(try await repo.gitAsync("config", "--get", "branch.feature.merge")
             .trimmingCharacters(in: .whitespacesAndNewlines) == "refs/heads/feature")
         #expect(try localRef("feature", in: vm).upstream == "origin/feature")
     }
 
     @Test("A tracked branch goes to its upstream, even under another name")
     func pushesToTrackedName() async throws {
-        let remote = try GitTestRepo(bare: true)
-        let repo = try GitTestRepo()
+        let remote = try await GitTestRepo.make(bare: true)
+        let remotePath = remote.url.path(percentEncoded: false)
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("base", files: ["f.txt": "0\n"])
+            try repo.git("remote", "add", "origin", remotePath)
+            try repo.git("push", "-q", "origin", "main:remote-name")
+            try repo.git("fetch", "-q", "origin")
+            try repo.git("branch", "--track", "local-name", "origin/remote-name")
+            try repo.git("checkout", "-q", "local-name")
+            try repo.commit("more", files: ["f.txt": "1\n"])
+            try repo.git("checkout", "-q", "main")
+        }
         defer { remote.remove(); repo.remove() }
-        try repo.commit("base", files: ["f.txt": "0\n"])
-        try repo.git("remote", "add", "origin", remote.url.path(percentEncoded: false))
-        try repo.git("push", "-q", "origin", "main:remote-name")
-        try repo.git("fetch", "-q", "origin")
-        try repo.git("branch", "--track", "local-name", "origin/remote-name")
-        try repo.git("checkout", "-q", "local-name")
-        try repo.commit("more", files: ["f.txt": "1\n"])
-        try repo.git("checkout", "-q", "main")
         let vm = RepositoryViewModel(repository: Repository(url: repo.url))
         await vm.loadRefs()
 
         #expect(await vm.pushBranch(try localRef("local-name", in: vm)))
-        let local = try repo.git("rev-parse", "local-name")
-        #expect(try remote.git("rev-parse", "remote-name") == local)
-        #expect(try remote.git("branch", "--list", "local-name").isEmpty)
+        let local = try await repo.gitAsync("rev-parse", "local-name")
+        #expect(try await remote.gitAsync("rev-parse", "remote-name") == local)
+        #expect(try await remote.gitAsync("branch", "--list", "local-name").isEmpty)
+    }
+}
+
+@Suite("RepositoryViewModel — rebase one branch onto another", .serialized)
+@MainActor
+struct RepositoryViewModelRebaseBranchTests {
+
+    @Test("A branch that isn't checked out is checked out, then rebased")
+    func rebasesOtherBranch() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("base", files: ["f.txt": "0\n"])
+            try repo.git("checkout", "-q", "-b", "feature")
+            try repo.commit("feature work", files: ["a.txt": "1\n"])
+            try repo.git("checkout", "-q", "main")
+            try repo.commit("main work", files: ["f.txt": "1\n"])
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        let feature = try #require(vm.localBranches.first { $0.name == "feature" })
+        let main = try #require(vm.localBranches.first { $0.name == "main" })
+
+        #expect(await vm.rebase(feature, onto: main) == .clean)
+        #expect(vm.currentBranchName == "feature")
+        let parent = try await repo.gitAsync("rev-parse", "feature^")
+        #expect(try await parent == repo.gitAsync("rev-parse", "main"))
     }
 }

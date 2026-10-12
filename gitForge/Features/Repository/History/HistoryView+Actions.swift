@@ -118,17 +118,8 @@ extension HistoryView {
     func runRebase(_ request: MergeRebaseRequest) {
         Task {
             // Drop semantics: dragging X onto Y rebases X onto Y (X gets
-            // replayed on top of Y). `rebaseOnto` rebases the CURRENT branch,
-            // so we have to be on `source` first.
-            if request.source.name != viewModel.currentBranchName {
-                if case .failure(let err) = await viewModel.checkoutBranch(request.source) {
-                    appState.ui.activeToast = ToastMessage(
-                        message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                        kind: .error)
-                    return
-                }
-            }
-            let outcome = await viewModel.rebaseOnto(request.target)
+            // replayed on top of Y).
+            let outcome = await viewModel.rebase(request.source, onto: request.target)
             appState.ui.emitToast(
                 for: outcome,
                 success: "Rebased \(request.source.displayName) onto \(request.target.displayName)",
