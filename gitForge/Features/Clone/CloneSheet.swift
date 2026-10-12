@@ -71,7 +71,7 @@ struct CloneSheet: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Spacing.s16) {
             field("Repository URL") {
-                TextField("https://github.com/owner/repo.git", text: $model.url)
+                TextField("Paste an HTTPS or SSH repository URL", text: $model.url)
                     .textFieldStyle(.roundedBorder)
                     .textRole(.mono)
                     .overlay(alignment: .trailing) { probeBadge(model.probe).padding(.trailing, Spacing.s8) }
