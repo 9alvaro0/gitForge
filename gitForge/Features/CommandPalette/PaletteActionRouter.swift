@@ -25,6 +25,23 @@ struct PaletteActionRouter {
             appState.ui.requestClone()
         case .selectSection(let section):
             appState.ui.workspaceSection = section
+        case .revealCommit(let sha):
+            appState.ui.workspaceSection = .history
+            appState.catalog.activeViewModel?.history.selectedCommitId = sha
+        case .revealBranch(let ref):
+            appState.ui.workspaceSection = .history
+            if let vm = appState.catalog.activeViewModel, !vm.history.revealInHistory(ref) {
+                appState.ui.activeToast = ToastMessage(
+                    message: "“\(ref.name)” isn’t in the loaded history",
+                    kind: .warn
+                )
+            }
+        case .revealFile(let path):
+            appState.ui.workspaceSection = .changes
+            if let workingCopy = appState.catalog.activeViewModel?.workingCopy,
+               let file = workingCopy.status.files.first(where: { $0.path == path }) {
+                workingCopy.select(file, side: file.isUnstaged ? .unstaged : .staged)
+            }
         case .fetch:
             runRemote(label: "Fetched") { vm in await vm.fetch() }
         case .pull:

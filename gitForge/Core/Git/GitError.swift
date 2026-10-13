@@ -23,6 +23,7 @@ extension GitError: LocalizedError {
         case .launchFailed(let reason):
             return "Failed to launch git: \(reason)"
         case .commandFailed(let args, let exitCode, let stderr):
+            if let message = Self.localChangesMessage(stderr: stderr) { return message }
             // Redact both sides — a `https://user:token@host` URL can land in
             // argv (clone) and in git's stderr ("unable to access ..."), and
             // this string ends up in user-visible alerts and shared logs.
@@ -36,5 +37,27 @@ extension GitError: LocalizedError {
             let capMB = cap / 1_048_576
             return "Output exceeded \(capMB) MB (read \(consumedMB) MB) and was terminated. The diff or log is too large for the UI — narrow the range or run from terminal."
         }
+    }
+}
+
+extension GitError {
+    /// git refusing to run over uncommitted work (checkout, merge, pull,
+    /// rebase), said plainly with the files in the way instead of the raw
+    /// command and stderr. Keeps "would be overwritten" so callers that
+    /// match on it still do.
+    static func localChangesMessage(stderr: String) -> String? {
+        if stderr.contains("cannot rebase: You have unstaged changes")
+            || stderr.contains("cannot rebase: Your index contains uncommitted changes") {
+            return "You have uncommitted changes. Commit, stash or discard them before rebasing."
+        }
+        guard stderr.contains("would be overwritten by") else { return nil }
+        let files = stderr.split(separator: "\n")
+            .filter { $0.hasPrefix("\t") }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        let list = files.isEmpty ? "" : " (\(files.prefix(3).joined(separator: ", "))\(files.count > 3 ? ", …" : ""))"
+        let untracked = stderr.contains("untracked working tree files")
+        return untracked
+            ? "Untracked files would be overwritten\(list). Move or delete them, or commit them first."
+            : "Your local changes would be overwritten\(list). Commit, stash or discard them first."
     }
 }

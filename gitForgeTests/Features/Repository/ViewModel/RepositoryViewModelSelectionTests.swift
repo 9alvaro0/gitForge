@@ -57,6 +57,29 @@ struct RepositoryViewModelStagingSelectionTests {
         #expect(vm.workingCopy.selectedFilePaths.contains("b.txt") == false, "target file should be cleared after batch")
     }
 
+    @Test("A partially staged file counts as both unstaged and staged")
+    func partiallyStagedIsOnBothSides() {
+        let vm = Self.makeVM()
+        // a.txt has changes on both sides, so it's listed under Unstaged too.
+        vm.workingCopy.status = WorkingCopyStatus(files: [
+            Self.file("a.txt", staged: .modified, unstaged: .modified),
+            Self.file("b.txt", staged: .modified, unstaged: .unmodified),
+        ])
+        vm.workingCopy.selectedFilePaths = ["a.txt", "b.txt"]
+        #expect(vm.workingCopy.selectedUnstagedFiles.map(\.path) == ["a.txt"])
+        #expect(vm.workingCopy.selectedStagedFiles.map(\.path) == ["a.txt", "b.txt"])
+    }
+
+    @Test("A conflicted file is listed once, under Unstaged")
+    func conflictedIsNotStaged() {
+        let conflicted = Self.file("c.txt", staged: .unmerged, unstaged: .unmerged)
+        #expect(!conflicted.isStaged)
+        #expect(conflicted.isUnstaged)
+        let status = WorkingCopyStatus(files: [conflicted, Self.file("a.txt", staged: .modified, unstaged: .unmodified)])
+        #expect(status.stagedFiles.map(\.path) == ["a.txt"])
+        #expect(status.unstagedFiles.map(\.path) == ["c.txt"])
+    }
+
     @Test("unstageSelected ignores selected files that are not staged")
     func unstageSelectedOnlyConsidersStaged() async {
         let vm = Self.makeVM()

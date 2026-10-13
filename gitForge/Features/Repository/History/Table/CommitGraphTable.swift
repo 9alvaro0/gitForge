@@ -72,14 +72,24 @@ struct CommitGraphTable: View {
             ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
             : 0
     }
-    /// Smallest the GRAPH gutter can ever shrink to without clipping lanes.
-    /// Grows with the number of simultaneously alive lanes so a wide history
-    /// (e.g. many parallel `release/*` branches) is never cramped, and floors
-    /// at the column's static minimum so the user can still drag it tighter
-    /// than 110 when the history is single-lane.
-    private var dynamicGraphMin: CGFloat {
+    /// Share of the table the lanes alone can claim. With many parallel
+    /// branches the full gutter pushed Description to its floor and the
+    /// table into horizontal scrolling; past this the outer lanes clip, and
+    /// dragging the handle still widens the column.
+    nonisolated static let maxAutomaticGraphShare: CGFloat = 0.35
+
+    /// Smallest the GRAPH gutter can shrink to. Grows with the number of
+    /// simultaneously alive lanes, up to `maxAutomaticGraphShare` of
+    /// `viewport`, and floors at the column's static minimum so the user can
+    /// still drag it tighter than 110 when the history is single-lane.
+    private func dynamicGraphMin(viewport: CGFloat) -> CGFloat {
         let metricsOnly = GraphStyle(metrics: theme.density.metrics.graph)
-        return max(columns.minWidth("graph"), metricsOnly.gutterWidth(lanes: maxLanes))
+        return Self.graphMinWidth(lanesWidth: metricsOnly.gutterWidth(lanes: maxLanes),
+                                  viewport: viewport, columnMin: columns.minWidth("graph"))
+    }
+
+    nonisolated static func graphMinWidth(lanesWidth: CGFloat, viewport: CGFloat, columnMin: CGFloat) -> CGFloat {
+        max(columnMin, min(lanesWidth, viewport * maxAutomaticGraphShare))
     }
 
     /// v2 graph look (spec §4.5). Built once per render in `body`.
@@ -95,10 +105,10 @@ struct CommitGraphTable: View {
     }
 
     /// Effective rendered width of the GRAPH gutter. Honors the user's stored
-    /// preference but bumps up to `dynamicGraphMin` so lanes never overflow
-    /// into the next column when commits arrive.
-    private var graphGutterWidth: CGFloat {
-        max(columns.width("graph"), dynamicGraphMin)
+    /// preference but bumps up to `dynamicGraphMin` so lanes don't get cut
+    /// when commits arrive.
+    private func graphGutterWidth(viewport: CGFloat) -> CGFloat {
+        max(columns.width("graph"), dynamicGraphMin(viewport: viewport))
     }
 
     /// Custom binding for the GRAPH handle that mirrors `graphGutterWidth` —
@@ -106,8 +116,7 @@ struct CommitGraphTable: View {
     /// the gutter actually is, and writes back through the same clamp so a
     /// drag-left below `dynamicGraphMin` snaps the stored value to the floor
     /// instead of silently sliding under it.
-    private var graphHandleBinding: Binding<CGFloat> {
-        let dynMin = dynamicGraphMin
+    private func graphHandleBinding(dynMin: CGFloat) -> Binding<CGFloat> {
         let stored = columns.binding(for: "graph")
         return Binding(
             get: { max(stored.wrappedValue, dynMin) },
@@ -116,12 +125,14 @@ struct CommitGraphTable: View {
     }
 
     var body: some View {
-        // Resolve the derived widths once per render, not once per row.
-        let gutterWidth = graphGutterWidth
         let style = makeGraphStyle()
         return GeometryReader { geo in
+            // Resolve the derived widths once per render, not once per row.
+            let viewport = geo.size.width - Self.legacyScrollerWidth
+            let graphMin = dynamicGraphMin(viewport: viewport)
+            let gutterWidth = graphGutterWidth(viewport: viewport)
             let layout = HistoryTableLayout(
-                viewport: geo.size.width - Self.legacyScrollerWidth,
+                viewport: viewport,
                 graph: gutterWidth,
                 author: columns.width("author"),
                 date: columns.width("when"),
@@ -165,8 +176,8 @@ struct CommitGraphTable: View {
                         } header: {
                             CommitTableHeader(
                                 layout: layout,
-                                graphHandle: graphHandleBinding,
-                                graphMinWidth: dynamicGraphMin,
+                                graphHandle: graphHandleBinding(dynMin: graphMin),
+                                graphMinWidth: graphMin,
                                 columns: columns
                             )
                         }

@@ -234,9 +234,10 @@ final class WorkingCopyStore {
         for f in files { selectedFilePaths.remove(f.path) }
     }
 
-    /// Selected files that are currently unstaged.
+    /// Selected files with unstaged changes, including partially staged ones
+    /// (they're listed under Unstaged too).
     var selectedUnstagedFiles: [WorkingCopyFile] {
-        status.files.filter { selectedFilePaths.contains($0.path) && !$0.isStaged }
+        status.files.filter { selectedFilePaths.contains($0.path) && $0.isUnstaged }
     }
 
     /// Selected files that are currently staged.
@@ -293,8 +294,10 @@ final class WorkingCopyStore {
                 return
             }
             let raw: String
-            if side == .staged {
-                raw = try await cli.diffStaged(file: file.path)
+            if file.isUnmerged {
+                raw = try await cli.diffAgainstHead(file: file.path)
+            } else if side == .staged {
+                raw = try await cli.diffStaged(file: file.path, originalPath: file.originalPath)
             } else {
                 raw = try await cli.diffUnstaged(file: file.path)
             }

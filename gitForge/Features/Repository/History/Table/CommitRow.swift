@@ -28,6 +28,9 @@ struct CommitRow: View {
         HStack(spacing: 0) {
             graphGutter
                 .frame(width: tableLayout.graph, alignment: .leading)
+                // Lanes past a capped gutter clip instead of drawing over
+                // Description.
+                .clipped()
             gap
             HStack(spacing: Spacing.s6) {
                 CommitRowChips(

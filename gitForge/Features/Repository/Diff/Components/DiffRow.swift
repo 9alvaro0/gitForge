@@ -55,6 +55,8 @@ private struct DiffRowPick: ViewModifier {
                 .onTapGesture(perform: onToggle)
                 .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
                 .accessibilityHint("Select this line to stage, unstage or discard it alone")
+                // A tap gesture alone doesn't answer VoiceOver's press.
+                .accessibilityAction { onToggle() }
         } else {
             content
         }
