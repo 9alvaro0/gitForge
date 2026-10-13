@@ -68,13 +68,25 @@ extension GitCLI {
         async let filesResult = run(["diff-tree", "--no-commit-id", "--name-status", "-r",
                                      "--root", "--diff-merges=first-parent"]
                                     + Self.diffOutputFlags + [Self.endOfOptions, commit.sha])
+        async let signature = signature(of: commit.sha)
         let body = try await bodyResult
         let files = try await filesResult
         return CommitDetail(
             commit: commit,
             fullMessage: body.stdout,
-            files: Self.parseNameStatus(files.stdout)
+            files: Self.parseNameStatus(files.stdout),
+            signature: await signature
         )
+    }
+
+    /// The commit's signature checked with the user's keyring / allowed
+    /// signers. Best effort: a missing or broken gpg must not hide the
+    /// rest of the detail, so failures read as unsigned.
+    func signature(of sha: String) async -> CommitSignature? {
+        guard let result = try? await run(["log", "-1", "--format=%G?%x1f%GS%x1f%GK", Self.endOfOptions, sha]) else {
+            return nil
+        }
+        return CommitSignature.parse(result.stdout)
     }
 
     static func parseNameStatus(_ stdout: String) -> [CommitFileChange] {

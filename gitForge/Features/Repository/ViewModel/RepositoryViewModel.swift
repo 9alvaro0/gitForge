@@ -141,6 +141,10 @@ final class RepositoryViewModel {
                                                  auth: { host, rejected in
                                                      await pullRequestAuth.access(host: host, repoPath: repoPath, rejected: rejected)
                                                  },
+                                                 silentAuth: { host, rejected in
+                                                     await pullRequestAuth.access(host: host, repoPath: repoPath,
+                                                                                  rejected: rejected, interactive: false)
+                                                 },
                                                  resolveHost: { await pullRequestAuth.remoteHost(cli) },
                                                  suggestInstance: { await pullRequestAuth.suggestedInstance(cli) })
         } else {

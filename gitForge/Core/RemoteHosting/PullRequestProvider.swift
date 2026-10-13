@@ -43,6 +43,10 @@ protocol PullRequestProvider: Sendable {
     /// GitLab jobs of the MR's latest pipeline).
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck]
 
+    /// CI jobs of any commit (History's commit detail): GitHub check runs
+    /// and statuses, the jobs of GitLab's latest pipeline for that SHA.
+    func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck]
+
     /// Fetch the full detail (description, reviewers, labels, CI status…)
     /// for a single PR/MR identified by its number.
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail

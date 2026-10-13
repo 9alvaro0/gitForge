@@ -78,3 +78,21 @@ Prepara antes un repo de pruebas con:
       brillantes.
 - [ ] La ✕ de la cápsula quita el focus; "Focus" está desactivado sin
       commit seleccionado.
+
+## Firma y CI en el detalle del commit
+- [ ] Commit firmado con una clave del llavero (GPG) o de
+      `gpg.ssh.allowedSignersFile` (SSH): "Verified" en verde; el tooltip
+      muestra firmante y clave.
+- [ ] Firmado con una clave que no se puede comprobar: "Signed · can't
+      verify" en gris. Ojo: con gpg en Homebrew, una app abierta desde el
+      Finder puede no verlo en el PATH; anotar qué sale.
+- [ ] Commit sin firmar: no aparece nada.
+- [ ] Commit empujado a GitHub con Actions: "Passing / Failing · N checks";
+      al pulsar, popover con los checks y enlace a los logs.
+- [ ] Lo mismo en un repo de GitLab (último pipeline del commit).
+- [ ] Commit solo local o repo sin cuenta: sin línea de CI y sin pedir
+      cuenta. Con dos cuentas posibles sin elegir, no salta "Choose an
+      account" desde History.
+- [ ] Bajar con las flechas por History no lanza una petición por fila
+      (solo al pararse ~0,3 s).
+

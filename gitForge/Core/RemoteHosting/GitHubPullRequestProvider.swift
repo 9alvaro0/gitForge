@@ -66,6 +66,10 @@ struct GitHubPullRequestProvider: PullRequestProvider {
     /// statuses: the combined status alone misses every Actions job.
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] {
         guard let sha = pull.headSha else { return [] }
+        return try await fetchCommitChecks(host: host, sha: sha, token: token)
+    }
+
+    func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] {
         let base = "\(Self.base(for: host))/repos/\(host.slug)/commits/\(sha)"
         async let runs = RemoteAPI.send(Self.makeRequest(url: URL(string: "\(base)/check-runs?per_page=100"), token: token))
         async let statuses = RemoteAPI.send(Self.makeRequest(url: URL(string: "\(base)/status"), token: token))

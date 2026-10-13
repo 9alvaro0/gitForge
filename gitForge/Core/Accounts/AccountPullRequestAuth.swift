@@ -45,8 +45,11 @@ final class AccountPullRequestAuth {
     }
 
     /// `rejected`: the token that just got a 401, to refresh once.
+    /// `interactive: false` never shows "Choose an account": several
+    /// fitting accounts read as `.cancelled` (background lookups such as a
+    /// commit's CI in History).
     func access(host: RemoteHost, repoPath: String, remoteName: String = "origin",
-                rejected: String? = nil) async -> PullRequestAuthResult {
+                rejected: String? = nil, interactive: Bool = true) async -> PullRequestAuthResult {
         let instance = store.instance(forHost: host.host)
         let profile = await activeProfileId(repoPath)
         // The API has no "system" credential: a remote set to the system's
@@ -60,6 +63,7 @@ final class AccountPullRequestAuth {
                                                  accounts: store.accounts.filter(AccountGitCredentials.signs),
                                                  assignments: assignments)
         if case .ambiguous(let candidates) = resolution {
+            guard interactive else { return .cancelled }
             guard let chooseAccount else { return connect(instanceId: instance?.id) }
             let remote = AmbiguousRemote(repoPath: repoPath, remoteName: remoteName, host: host.host,
                                          ownerRepo: host.slug, candidates: candidates)
