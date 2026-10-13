@@ -18,6 +18,7 @@ struct CommitRowChips: View {
     var maxVisible: Int = 2
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.branchDropTracker) private var dropTracker
     @State private var showHiddenRefs = false
 
     var body: some View {
@@ -45,12 +46,12 @@ struct CommitRowChips: View {
         )
         if ref.isLocalBranch, let onBranchDrop {
             chip
-                .draggable(DraggedBranch(
-                    name: ref.name,
-                    isCurrent: isCurrent,
-                    isLocal: true,
-                    sourceSha: commitSha
-                )) {
+                // The payload closure runs when the drag starts: record the
+                // source for the HUD's graph preview.
+                .draggable({
+                    dropTracker?.beginDrag(name: ref.name, sha: commitSha)
+                    return DraggedBranch(name: ref.name, isCurrent: isCurrent, isLocal: true, sourceSha: commitSha)
+                }()) {
                     BranchDragGhost(name: ref.displayName, isCurrent: isCurrent)
                         .appTheme(theme)
                 }
