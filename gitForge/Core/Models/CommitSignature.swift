@@ -57,4 +57,14 @@ nonisolated struct CommitSignature: Sendable, Equatable {
         }
         return CommitSignature(status: status, signer: field(1), key: field(2))
     }
+
+    /// `parse(_:)`, corrected for a verifier git couldn't start (gpg not on
+    /// the app's `PATH`, an empty `gpg.ssh.program`): git still exits 0 but
+    /// reports an SSH signature as `B` and a GPG one as `N`. Its
+    /// "cannot run" / "cannot exec" on stderr means signed but unchecked.
+    static func parse(_ output: String, stderr: String) -> CommitSignature? {
+        let parsed = parse(output)
+        guard stderr.contains("cannot run") || stderr.contains("cannot exec") else { return parsed }
+        return CommitSignature(status: .unverifiable, signer: parsed?.signer, key: parsed?.key)
+    }
 }
