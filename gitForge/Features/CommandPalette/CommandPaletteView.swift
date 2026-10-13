@@ -5,17 +5,19 @@ import SwiftUI
 /// fuzzy results grouped by kind and the matched letters highlighted.
 struct CommandPaletteView: View {
     let items: [CommandPaletteItem]
-    var onPick: (CommandPaletteItem) -> Void
+    /// `keepOpen`: ⌘↵, run without closing the palette.
+    var onPick: (CommandPaletteItem, _ keepOpen: Bool) -> Void
     var onClose: () -> Void
 
     @State private var query: String = ""
+    @State private var scope: CommandPaletteScope = .all
     @State private var selectedIndex: Int = 0
     @State private var pointer = PointerIntent()
     @FocusState private var inputFocused: Bool
     @Environment(\.appTheme) private var theme
 
     private var sections: [CommandPaletteSections.Section] {
-        CommandPaletteSections.build(items: items, query: query)
+        CommandPaletteSections.build(items: items, query: query, scope: scope)
     }
 
     /// Rows in display order, for arrow-key navigation.
@@ -32,6 +34,7 @@ struct CommandPaletteView: View {
                 .accessibilityHidden(true)
             VStack(spacing: 0) {
                 inputRow
+                scopeBar
                 Divider().overlay(theme.colors.separator)
                 results(rows)
                 Divider().overlay(theme.colors.separator)
@@ -50,8 +53,8 @@ struct CommandPaletteView: View {
             pointer.reset(at: NSEvent.mouseLocation)
         }
         .onKeyPress(.escape) { onClose(); return .handled }
-        .onKeyPress(.return) {
-            if let row = rows[safe: selectedIndex] { onPick(row.item) }
+        .onKeyPress(keys: [.return], phases: .down) { press in
+            if let row = rows[safe: selectedIndex] { onPick(row.item, press.modifiers.contains(.command)) }
             return .handled
         }
         .onKeyPress(.upArrow) { selectedIndex = max(0, selectedIndex - 1); return .handled }
@@ -64,22 +67,70 @@ struct CommandPaletteView: View {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(theme.colors.textTertiary)
                 .accessibilityHidden(true)
-            TextField("Search actions, repositories, branches, commits, files…", text: $query)
+            TextField(placeholder, text: $query)
                 .textFieldStyle(.plain)
                 .textRole(.title, weight: .regular)
                 .foregroundStyle(theme.colors.textPrimary)
                 .focused($inputFocused)
                 .onChange(of: query) { _, _ in selectedIndex = 0 }
+                // On the field itself: the field editor would otherwise
+                // take ⇥ to move focus out of the palette.
+                .onKeyPress(keys: [.tab, Self.backTab]) { press in
+                    let backwards = press.key == Self.backTab || press.modifiers.contains(.shift)
+                    setScope(backwards ? scope.previous() : scope.next())
+                    return .handled
+                }
                 .accessibilityLabel("Command")
         }
         .padding(.horizontal, Spacing.s16)
         .frame(height: 56)
     }
 
+    /// The scopes as a segmented row: the current one filled, each one
+    /// clickable, ⇥ / ⇧⇥ to step.
+    private var scopeBar: some View {
+        HStack(spacing: Spacing.s4) {
+            ForEach(CommandPaletteScope.ordered, id: \.self) { option in
+                let isCurrent = option == scope
+                Button(option.title) { setScope(option) }
+                    .buttonStyle(.plain)
+                    .textRole(.caption, weight: isCurrent ? .semibold : .regular)
+                    .foregroundStyle(isCurrent ? theme.colors.accentOnFill : theme.colors.textSecondary)
+                    .padding(.horizontal, Spacing.s8)
+                    .frame(height: 22)
+                    .background(Capsule().fill(isCurrent ? theme.colors.accentFill : .clear))
+                    .contentShape(Capsule())
+                    .accessibilityAddTraits(isCurrent ? .isSelected : [])
+                    .accessibilityHint(option == .all ? "Search everything" : "Search only \(option.title)")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Spacing.s12)
+        .padding(.bottom, Spacing.s8)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Scope")
+    }
+
+    /// ⇧⇥ can arrive as its own character (U+0019) rather than ⇥ + shift.
+    private static let backTab = KeyEquivalent("\u{19}")
+
+    private var placeholder: String {
+        switch scope {
+        case .all: "Search actions, repositories, branches, commits, files…"
+        case .only(let kind): "Search \(kind.title.lowercased())…"
+        }
+    }
+
+    private func setScope(_ newScope: CommandPaletteScope) {
+        scope = newScope
+        selectedIndex = 0
+        inputFocused = true
+    }
+
     @ViewBuilder
     private func results(_ rows: [CommandPaletteSections.Row]) -> some View {
         if rows.isEmpty {
-            Text("No matches for “\(query)”")
+            Text(query.isEmpty ? "Nothing in \(scope.title)" : "No matches for “\(query)”")
                 .textRole(.body)
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(maxWidth: .infinity)
@@ -98,7 +149,7 @@ struct CommandPaletteView: View {
                                 .accessibilityAddTraits(.isHeader)
                             ForEach(section.rows) { row in
                                 let index = rows.firstIndex { $0.id == row.id } ?? 0
-                                Button { onPick(row.item) } label: {
+                                Button { onPick(row.item, false) } label: {
                                     PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == selectedIndex)
                                 }
                                 .buttonStyle(.plain)
@@ -133,6 +184,8 @@ struct CommandPaletteView: View {
         HStack(spacing: Spacing.s16) {
             hint("↑↓", "navigate")
             hint("↵", "run")
+            hint("⌘↵", "run without closing")
+            hint("⇥", "next scope")
             Spacer(minLength: 0)
             hint("esc", "close")
         }
@@ -243,7 +296,7 @@ nonisolated struct PointerIntent: Equatable {
     @Previewable @State var theme = AppTheme()
     CommandPaletteView(
         items: CommandPaletteItem.previewSamples,
-        onPick: { _ in },
+        onPick: { _, _ in },
         onClose: {}
     )
     .frame(width: 900, height: 640)

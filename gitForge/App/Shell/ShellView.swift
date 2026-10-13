@@ -102,8 +102,8 @@ struct ShellView: View {
             branches: appState.catalog.activeViewModel?.refs ?? [],
             commits: appState.catalog.activeViewModel?.history.commits ?? [],
             workingFiles: appState.catalog.activeViewModel?.workingCopy.status.files ?? [],
-            onPick: { action in
-                appState.ui.commandPaletteOpen = false
+            onPick: { action, keepOpen in
+                if !keepOpen { appState.ui.commandPaletteOpen = false }
                 router.route(action)
             },
             onClose: { appState.ui.commandPaletteOpen = false }

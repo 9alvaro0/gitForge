@@ -2,6 +2,12 @@ import Foundation
 
 /// Aggregates palette items from app + repository state.
 enum CommandPaletteBuilder {
+    /// Enough for a single-group scope to be worth searching; All still
+    /// shows a few per group (`CommandPaletteSections`).
+    static let commitLimit = 300
+    static let branchLimit = 300
+    static let fileLimit = 300
+
     @MainActor
     static func build(repositories: [Repository],
                       branches: [GitRef],
@@ -18,7 +24,7 @@ enum CommandPaletteBuilder {
             ))
         }
 
-        for c in commits.prefix(12) {
+        for c in commits.prefix(commitLimit) {
             items.append(CommandPaletteItem(
                 kind: .commit,
                 label: c.subject,
@@ -27,7 +33,7 @@ enum CommandPaletteBuilder {
             ))
         }
 
-        for b in branches.prefix(20) {
+        for b in branches.prefix(branchLimit) {
             items.append(CommandPaletteItem(
                 kind: .branch,
                 label: b.displayName,
@@ -36,7 +42,7 @@ enum CommandPaletteBuilder {
             ))
         }
 
-        for f in workingFiles.prefix(20) {
+        for f in workingFiles.prefix(fileLimit) {
             items.append(CommandPaletteItem(
                 kind: .file,
                 label: f.path,
