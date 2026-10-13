@@ -221,7 +221,8 @@ struct BranchesView: View {
     private var inspector: some View {
         if let ref = inspectedRef {
             BranchInspector(ref: ref, currentBranchName: currentBranchName, actions: actions,
-                            loadComparison: { await viewModel.comparison(of: $0) })
+                            loadComparison: { await viewModel.comparison(of: $0) },
+                            trunkTip: viewModel.trunkBranch?.targetSha)
         } else {
             EmptyState(symbol: scope == .tags ? "tag" : "arrow.triangle.branch",
                        title: scope == .tags ? "Select a tag" : "Select a branch",
@@ -249,7 +250,8 @@ struct BranchesView: View {
     // MARK: Handlers
 
     private func handleCheckout(_ ref: GitRef) {
-        Task { _ = await viewModel.checkoutBranch(ref) }
+        // A failed checkout (local changes in the way) used to say nothing.
+        Task { toast(await viewModel.checkoutBranch(ref), success: "Checked out \(ref.displayName)") }
     }
 
     /// Failures surface through `remoteFailure`, like the toolbar's Push.

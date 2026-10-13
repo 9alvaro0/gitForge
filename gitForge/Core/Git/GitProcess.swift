@@ -32,7 +32,8 @@ nonisolated enum GitProcess {
     static func make(arguments: [String],
                      workingDirectory: URL,
                      executablePath: String = "/usr/bin/env",
-                     credential: GitCredential? = nil) -> Process {
+                     credential: GitCredential? = nil,
+                     extraEnvironment: [String: String] = [:]) -> Process {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = [
@@ -46,6 +47,7 @@ nonisolated enum GitProcess {
         // The account's token: only in this child's environment, read by the
         // inline helper (`GitCredential`). Never logged.
         if let credential { environment.merge(credential.environment) { $1 } }
+        environment.merge(extraEnvironment) { $1 }
         process.environment = environment
         return process
     }

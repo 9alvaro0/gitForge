@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 extension GitCLI {
     func stashes() async throws -> [Stash] {
@@ -127,6 +128,77 @@ extension GitCLI {
         defer { try? FileManager.default.removeItem(at: pathspec) }
         args += ["--pathspec-from-file=\(pathspec.path(percentEncoded: false))", "--pathspec-file-nul"]
         try await run(args)
+        // Best effort: the paths are already stashed and cleared; failing
+        // here only leaves git's wider stash in place.
+        do {
+            try await narrowLatestStash(to: Set(paths))
+        } catch {
+            Self.logger.error("Couldn't narrow the stash to the selected paths: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// `git stash push -- <paths>` only clears those paths, but its index
+    /// commit records the whole index and its worktree commit is built on
+    /// top of it: other staged files land in the stash too (shown in
+    /// Stashes, and re-applied by a later pop). Rebuilds both commits as the
+    /// base plus only `paths`, and puts the result back as `stash@{0}` with
+    /// the same messages. Leaves the stash alone when nothing else was
+    /// staged.
+    private func narrowLatestStash(to paths: Set<String>) async throws {
+        let stash = try await run(["rev-parse", "--verify", "stash@{0}"]).stdout
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = "\(stash)^1"
+        let index = "\(stash)^2"
+        let untracked = try? await run(["rev-parse", "--verify", "--quiet", Self.endOfOptions, "\(stash)^3"]).stdout
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let narrowedIndex = try await overlayTree(on: base, from: index, paths: paths)
+        let narrowedWorktree = try await overlayTree(on: base, from: stash, paths: paths)
+        let indexTree = try await treeOf(index)
+        let worktreeTree = try await treeOf(stash)
+        guard narrowedIndex != indexTree || narrowedWorktree != worktreeTree else { return }
+
+        let message = try await run(["log", "-1", "--format=%B", Self.endOfOptions, stash]).stdout
+            .trimmingCharacters(in: .newlines)
+        let indexMessage = try await run(["log", "-1", "--format=%B", Self.endOfOptions, index]).stdout
+            .trimmingCharacters(in: .newlines)
+        let baseSha = try await run(["rev-parse", "--verify", base]).stdout
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let newIndex = try await run(["commit-tree", narrowedIndex, "-p", baseSha, "-m", indexMessage]).stdout
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        var parents = ["-p", baseSha, "-p", newIndex]
+        if let untracked, !untracked.isEmpty { parents += ["-p", untracked] }
+        let newStash = try await run(["commit-tree", narrowedWorktree] + parents + ["-m", message]).stdout
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // Store first, so a failure never loses the original.
+        try await run(["stash", "store", "-m", message, newStash])
+        try await run(["stash", "drop", "-q", "stash@{1}"])
+    }
+
+    /// Tree of `base` with those of `paths` that `source` changes taken from
+    /// `source`, built in a throwaway index.
+    private func overlayTree(on base: String, from source: String, paths: Set<String>) async throws -> String {
+        let scratch = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gitForge-narrow-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: scratch) }
+        let env = ["GIT_INDEX_FILE": scratch.appendingPathComponent("index").path(percentEncoded: false),
+                   "GIT_LITERAL_PATHSPECS": "1"]
+        try await run(["read-tree", base], environment: env)
+        let changed = try await run(["diff", "--name-only", "-z", "--no-renames", Self.endOfOptions, base, source])
+        let picked = Self.splitNul(changed.stdout).filter(paths.contains)
+        if !picked.isEmpty {
+            let pathspec = scratch.appendingPathComponent("pathspec")
+            try Data(picked.map { $0 + "\0" }.joined().utf8).write(to: pathspec)
+            try await run(["restore", "--staged", "--source=\(source)",
+                           "--pathspec-from-file=\(pathspec.path(percentEncoded: false))", "--pathspec-file-nul"],
+                          environment: env)
+        }
+        return try await run(["write-tree"], environment: env).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func treeOf(_ commit: String) async throws -> String {
+        try await run(["rev-parse", "--verify", "\(commit)^{tree}"]).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Files changed in stash `sha` compared to its first parent, plus any
