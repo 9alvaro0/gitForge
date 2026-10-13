@@ -57,6 +57,12 @@ final class WorkingCopyStore {
     }
 
     // MARK: Diff
+    /// Which part of the selected file the pane shows — it matters for a
+    /// file with both staged and unstaged changes. Set by `select(_:side:)`
+    /// from the Staged / Unstaged lists; `nil` shows the staged part when
+    /// there is one (History's uncommitted view).
+    private(set) var selectedSide: WorkingCopySide?
+
     var selectedWorkingCopyFile: WorkingCopyFile? {
         didSet {
             guard oldValue != selectedWorkingCopyFile else { return }
@@ -140,15 +146,41 @@ final class WorkingCopyStore {
             status = snapshot
             stagedLineCounts = stagedCounts ?? [:]
             unstagedLineCounts = unstagedCounts ?? [:]
-            // Prune the diff-pane selection if the file no longer appears in
-            // status (e.g. discarded, deleted) so the pane doesn't keep
-            // showing a stale diff for a vanished file.
-            if let selected = selectedWorkingCopyFile,
-               !status.files.contains(where: { $0.path == selected.path }) {
-                selectedWorkingCopyFile = nil
+            // Keep the diff-pane selection current: drop it when the file
+            // left the status set (discarded, deleted), and swap in the fresh
+            // entry when its state moved (a hunk staged, so it's now also
+            // staged) — the swap reloads the diff.
+            if let selected = selectedWorkingCopyFile {
+                let fresh = status.files.first { $0.path == selected.path }
+                if fresh != selected { selectedWorkingCopyFile = fresh }
             }
         } catch {
             // Underlying `git status` failure is already logged by GitCLI.
+        }
+    }
+
+    /// Opens `file` in the diff pane on `side`. Picking the other side of the
+    /// file that's already open reloads the diff, since the file itself
+    /// didn't change.
+    func select(_ file: WorkingCopyFile?, side: WorkingCopySide?) {
+        let sideChanged = side != selectedSide
+        selectedSide = side
+        if let file, file == selectedWorkingCopyFile {
+            guard sideChanged else { return }
+            workingCopyDiffGen &+= 1
+            tasks.track { [weak self] in await self?.loadWorkingCopyDiff(file: file) }
+        } else {
+            selectedWorkingCopyFile = file
+        }
+    }
+
+    /// The side the pane shows for `file`: the requested one while the file
+    /// still has changes there, otherwise whichever it has.
+    func diffSide(for file: WorkingCopyFile) -> WorkingCopySide {
+        switch selectedSide {
+        case .staged where file.isStaged: .staged
+        case .unstaged where file.isUnstaged: .unstaged
+        default: file.isStaged ? .staged : .unstaged
         }
     }
 
@@ -238,7 +270,8 @@ final class WorkingCopyStore {
             if gen == workingCopyDiffGen { loadingWorkingCopyDiff = false }
         }
         do {
-            if file.isUntracked && !file.isStaged {
+            let side = diffSide(for: file)
+            if file.isUntracked && side == .unstaged {
                 let synthesized = await synthesizeUntrackedDiff(path: file.path)
                 guard gen == workingCopyDiffGen else { return }
                 workingCopyDiff = DiffParser.parse(synthesized.raw)
@@ -246,7 +279,7 @@ final class WorkingCopyStore {
                 return
             }
             let raw: String
-            if file.isStaged {
+            if side == .staged {
                 raw = try await cli.diffStaged(file: file.path)
             } else {
                 raw = try await cli.diffUnstaged(file: file.path)
@@ -313,4 +346,10 @@ final class WorkingCopyStore {
         }
         return output
     }
+}
+
+/// The two parts of a working-copy file: its staged changes (index vs HEAD)
+/// and its unstaged ones (worktree vs index).
+nonisolated enum WorkingCopySide: Sendable, Equatable {
+    case staged, unstaged
 }

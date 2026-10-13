@@ -206,6 +206,9 @@ struct HistoryView: View {
                 emptyState: viewModel.workingCopy.workingCopyDiffEmptyState,
                 onClose: { setDiffPaneCollapsed(true) },
                 onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
+                hunkActions: viewModel.workingCopy.selectedWorkingCopyFile.flatMap {
+                    DiffHunkActions.workingCopy(viewModel, file: $0)
+                },
                 viewMode: diffMode
             )
         } else {
@@ -310,9 +313,12 @@ struct HistoryView: View {
         viewModel.history.selectedCommitId = nil
         isUncommittedSelected = true
         if viewModel.workingCopy.selectedWorkingCopyFile == nil {
-            let firstFile = viewModel.workingCopy.status.stagedFiles.first
-                ?? viewModel.workingCopy.status.unstagedFiles.first
-            viewModel.workingCopy.selectedWorkingCopyFile = firstFile
+            let status = viewModel.workingCopy.status
+            if let staged = status.stagedFiles.first {
+                viewModel.workingCopy.select(staged, side: .staged)
+            } else {
+                viewModel.workingCopy.select(status.unstagedFiles.first, side: .unstaged)
+            }
         }
         revealDiffPane()
     }
