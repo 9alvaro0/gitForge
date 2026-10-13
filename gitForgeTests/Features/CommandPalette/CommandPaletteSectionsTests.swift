@@ -44,4 +44,39 @@ struct CommandPaletteSectionsTests {
         #expect(actions.contains(.openRepository))
         #expect(actions.contains(.cloneRepository))
     }
+
+    // MARK: Scopes
+
+    @Test("A scope shows only its group, with up to 50 rows, browsing or searching")
+    func scoped() {
+        let items = (0..<60).map { Self.item(.branch, "feature/x\($0)") } + [Self.item(.command, "Fetch all")]
+        let browsing = CommandPaletteSections.build(items: items, query: "", scope: .only(.branch))
+        #expect(browsing.map(\.kind) == [.branch])
+        #expect(browsing[0].rows.count == CommandPaletteSections.scopedLimit)
+        let searching = CommandPaletteSections.build(items: items, query: "fx", scope: .only(.branch))
+        #expect(searching.map(\.kind) == [.branch])
+        #expect(searching[0].rows.count == CommandPaletteSections.scopedLimit)
+        #expect(CommandPaletteSections.build(items: items, query: "fetch", scope: .only(.branch)).isEmpty)
+    }
+
+    @Test("⇥ steps All → Actions → … → Files → All, ⇧⇥ goes back")
+    func scopeCycle() {
+        var scope = CommandPaletteScope.all
+        var seen: [String] = []
+        for _ in CommandPaletteScope.ordered {
+            scope = scope.next()
+            seen.append(scope.title)
+        }
+        #expect(seen == ["Actions", "Repositories", "Branches", "Commits", "Files", "All"])
+        #expect(CommandPaletteScope.all.previous() == .only(.file))
+        #expect(CommandPaletteScope.only(.command).previous() == .all)
+    }
+
+    @Test("⌘↵ keeps the palette open except for actions that open a panel or sheet")
+    func presentsUI() {
+        #expect(PaletteAction.openRepository.presentsUI)
+        #expect(PaletteAction.cloneRepository.presentsUI)
+        #expect(!PaletteAction.fetch.presentsUI)
+        #expect(!PaletteAction.selectSection(.history).presentsUI)
+    }
 }
