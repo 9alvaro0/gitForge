@@ -4,6 +4,11 @@ struct HistoryFiltersBar: View {
     @Binding var search: String
     let totalCount: Int
     let matchCount: Int
+    /// Focus mode: the focused branch or commit, `nil` when off.
+    var focusLabel: String? = nil
+    /// A commit is selected, so there's something to focus on.
+    var canFocus = false
+    var onToggleFocus: () -> Void = {}
 
     @Environment(\.appTheme) private var theme
     @FocusState private var searchFocused: Bool
@@ -20,6 +25,7 @@ struct HistoryFiltersBar: View {
                     }
                     return .ignored
                 }
+            focusButton
             Spacer()
             MonoText(summary, dim: true)
         }
@@ -40,8 +46,39 @@ struct HistoryFiltersBar: View {
         )
     }
 
+    /// "Focus" while off; the focused name with a close mark while on.
+    @ViewBuilder
+    private var focusButton: some View {
+        if let focusLabel {
+            Button(action: onToggleFocus) {
+                HStack(spacing: Spacing.s4) {
+                    Image(systemName: "scope")
+                    Text(focusLabel).lineLimit(1)
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                }
+                .textRole(.callout, weight: .semibold)
+                .foregroundStyle(theme.colors.accentOnFill)
+                .padding(.horizontal, Spacing.s8)
+                .frame(height: 24)
+                .background(Capsule().fill(theme.colors.accentFill))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Showing \(focusLabel)'s history only. Click to show everything.")
+            .accessibilityLabel("Focused on \(focusLabel)")
+            .accessibilityHint("Shows all commits again")
+        } else {
+            GFButton(title: "Focus", systemImage: "scope", size: .small, disabled: !canFocus,
+                     action: onToggleFocus)
+                .help("Dim every commit outside the selected commit's history")
+        }
+    }
+
     private var summary: String {
         let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty, let focusLabel {
+            return "\(matchCount) of \(totalCount) in \(focusLabel)"
+        }
         if trimmed.isEmpty {
             return "\(totalCount) commits"
         }

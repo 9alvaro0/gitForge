@@ -68,3 +68,13 @@ Prepara antes un repo de pruebas con:
       aparecen como contexto con los números de línea correctos.
 - [ ] En unified y en split; en Changes (staged y no), History y Stashes.
 - [ ] No aparece en el diff de un PR.
+
+## Focus mode del grafo
+- [ ] Seleccionar la punta de `feature` y pulsar "Focus": se atenúan los
+      commits que no son de su historia; la cápsula dice "feature".
+- [ ] Con focus activo, buscar: solo quedan brillantes los que cumplen las
+      dos cosas; el contador dice "N of M in feature" sin búsqueda.
+- [ ] Hacer scroll hasta cargar más commits: los ancestros nuevos salen
+      brillantes.
+- [ ] La ✕ de la cápsula quita el focus; "Focus" está desactivado sin
+      commit seleccionado.
