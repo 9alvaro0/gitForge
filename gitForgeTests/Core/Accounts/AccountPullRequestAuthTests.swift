@@ -121,4 +121,15 @@ struct AccountPullRequestAuthTests {
         try add(cancelling.store, login: "second", secret: AccountSecret(accessToken: "b"))
         #expect(await cancelling.auth.access(host: Self.github, repoPath: "/r/app") == .cancelled)
     }
+
+    @Test("Two accounts in a background lookup (History's CI line): no question, no stored choice")
+    func ambiguousNonInteractive() async throws {
+        let asked = LockedList<String>()
+        let s = setup(chooseAccount: { remote in asked.append(remote.host); return nil })
+        try add(s.store, login: "first", secret: AccountSecret(accessToken: "a"))
+        try add(s.store, login: "second", secret: AccountSecret(accessToken: "b"))
+        #expect(await s.auth.access(host: Self.github, repoPath: "/r/app", interactive: false) == .cancelled)
+        #expect(asked.values.isEmpty)
+        #expect(s.store.choice(repoPath: "/r/app", remoteName: "origin") == nil)
+    }
 }
