@@ -14,6 +14,11 @@ struct DiffUnifiedContent: View {
     var selectedLines: [Int: Set<Int>] = [:]
     var onToggleLine: ((DiffHunk, DiffLine) -> Void)? = nil
     var headerControls: (DiffHunk) -> DiffHunkHeader.Controls? = { _ in nil }
+    /// Hidden-context gaps (empty when the file's new side isn't loaded).
+    var gaps: [DiffGap] = []
+    var expandedGaps: Set<Int> = []
+    var fileLines: [String] = []
+    var onExpandGap: (Int) -> Void = { _ in }
 
     @Environment(\.appPreferences) private var preferences
 
@@ -33,7 +38,8 @@ struct DiffUnifiedContent: View {
                 // ID across multiple hunks and SwiftUI logs "the ID … is
                 // used by multiple child views".
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(hunks) { hunk in
+                    ForEach(Array(hunks.enumerated()), id: \.element.id) { index, hunk in
+                        gapSection(before: index)
                         DiffHunkHeader(hunk: hunk, controls: headerControls(hunk))
                             .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
@@ -45,6 +51,7 @@ struct DiffUnifiedContent: View {
                                 .id("h-\(hunk.id)-l-\(line.id)")
                         }
                     }
+                    gapSection(before: hunks.count)
                 }
                 .frame(minWidth: geo.size.width, maxWidth: wrap ? geo.size.width : nil,
                        minHeight: geo.size.height, alignment: .topLeading)
@@ -54,6 +61,15 @@ struct DiffUnifiedContent: View {
 }
 
 extension DiffUnifiedContent {
+    @ViewBuilder
+    private func gapSection(before index: Int) -> some View {
+        if let gap = gaps.first(where: { $0.beforeHunk == index }) {
+            DiffGapSection(gap: gap, isExpanded: expandedGaps.contains(gap.id), fileLines: fileLines,
+                           onExpand: { onExpandGap(gap.id) })
+                .id("g-\(gap.id)")
+        }
+    }
+
     /// Only added and removed lines can be picked.
     private func toggle(_ line: DiffLine, in hunk: DiffHunk) -> (() -> Void)? {
         guard let onToggleLine, line.kind == .added || line.kind == .removed else { return nil }

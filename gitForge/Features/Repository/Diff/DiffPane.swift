@@ -22,6 +22,9 @@ struct DiffPane: View {
     /// Stage / unstage / discard per hunk or picked lines (Changes). When
     /// `nil` the headers carry no buttons and lines can't be picked.
     var hunkActions: DiffHunkActions? = nil
+    /// Reads the new side of the file for "Show N hidden lines". When `nil`
+    /// (or it returns `nil`) no gap rows show.
+    var loadNewSide: (() async -> [String]?)? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split
@@ -47,6 +50,10 @@ struct DiffPane: View {
     @State private var selectedLines: [Int: Set<Int>] = [:]
     /// A discard waiting for confirmation.
     @State private var pendingDiscard: PendingDiscard?
+    /// New side of the file, loaded once the hunks are in.
+    @State private var fileLines: [String]?
+    /// Ids of the gaps the user opened.
+    @State private var expandedGaps: Set<Int> = []
 
     private struct PendingDiscard {
         let hunk: DiffHunk
@@ -70,6 +77,7 @@ struct DiffPane: View {
         .background(theme.colors.bgCode)
         .task(id: tokenizeKey) { await tokenizeHunks() }
         .onChange(of: selectionKey) { selectedLines = [:] }
+        .task(id: selectionKey) { await loadFileLines() }
         .confirmationDialog(discardTitle, isPresented: discardBinding, titleVisibility: .visible) {
             Button("Cancel", role: .cancel) { pendingDiscard = nil }
                 .keyboardShortcut(.defaultAction)
@@ -95,10 +103,14 @@ struct DiffPane: View {
                 DiffUnifiedContent(hunks: hunks, highlighted: highlighted,
                                    selectedLines: selectedLines,
                                    onToggleLine: lineToggle,
-                                   headerControls: { headerControls(for: $0) })
+                                   headerControls: { headerControls(for: $0) },
+                                   gaps: gaps, expandedGaps: expandedGaps, fileLines: fileLines ?? [],
+                                   onExpandGap: { expandedGaps.insert($0) })
             case .split:
                 DiffSplitContent(hunks: hunks, highlighted: highlighted,
-                                 headerControls: { headerControls(for: $0) })
+                                 headerControls: { headerControls(for: $0) },
+                                 gaps: gaps, expandedGaps: expandedGaps, fileLines: fileLines ?? [],
+                                 onExpandGap: { expandedGaps.insert($0) })
             }
         }
     }
@@ -108,6 +120,23 @@ struct DiffPane: View {
     /// Uses the effective mode so following the system appearance re-colours.
     private var tokenizeKey: String {
         "\(file ?? "")|\(hunks.map { "\($0.id):\($0.lines.count)" }.joined(separator: ","))|\(theme.effectiveMode.rawValue)"
+    }
+
+    // MARK: Hidden lines
+
+    private var gaps: [DiffGap] {
+        guard let fileLines else { return [] }
+        return DiffGaps.gaps(in: hunks, newLineCount: fileLines.count)
+    }
+
+    /// Fresh for every diff: the gaps and their ids belong to these hunks.
+    private func loadFileLines() async {
+        expandedGaps = []
+        fileLines = nil
+        guard let loadNewSide, !loading, !hunks.isEmpty else { return }
+        let lines = await loadNewSide()
+        if Task.isCancelled { return }
+        fileLines = lines
     }
 
     // MARK: Hunk actions
