@@ -259,7 +259,7 @@ Para cada pantalla, la referencia es su artboard. Solo se señalan los cambios d
 | Stashes | sin artboard propio; se derivan de `Branches` + `CommitDetail` + `EmptyState` | Lista e inspector con ficheros y diff. |
 | Conflicts | `Conflicts` | Ficheros en el sidebar con su estado, barra de progreso de hunks, ours/theirs con color y flecha (nunca solo el color), acciones por hunk y por fichero, y panel de resultado de solo lectura salvo que la edición ya exista. |
 | Pull requests | `PullRequest` | Lista con Open/Mine/Closed y detalle con reviewers, labels y checks, que ya existen. Banner "Merge blocked" solo con datos que ya tenemos. |
-| ⌘K | `CommandPalette` | Panel de vidrio con radio `panel`, resultados agrupados y pie con atajos. Sin scopes ni ⌘↵. |
+| ⌘K | `CommandPalette` | Panel de vidrio con radio `panel`, resultados agrupados y pie con atajos. Scopes (⇥) y ⌘↵ añadidos después de F9 (ver bitácora). |
 | Welcome + Clone | `Welcome` | Acciones Open y Clone con atajos, recientes, y sheet de clone con URL/GitHub/GitLab, comprobación de alcance, destino y perfil. Sin "New repository…", ni shallow, ni submódulos. |
 | Onboarding | `Onboarding` | Raíl de pasos, contenido y previsualización en vivo. El paso Appearance incluye apariencia, seguir alto contraste, acento, densidad y fuente de código. Los pasos son los que ya existen. |
 | Settings | sin artboard | Formulario nativo de macOS con los tokens v2 y la misma estructura de secciones de hoy. |

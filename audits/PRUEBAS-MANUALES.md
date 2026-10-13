@@ -96,3 +96,15 @@ Prepara antes un repo de pruebas con:
 - [ ] Bajar con las flechas por History no lanza una petición por fila
       (solo al pararse ~0,3 s).
 
+## Scopes de ⌘K
+- [ ] ⇥ pasa de All a Actions, Repositories, Branches, Commits, Files y
+      vuelve a All; ⇧⇥ va al revés. El foco sigue en el campo (no salta
+      fuera del panel).
+- [ ] Clic en un scope lo selecciona; el placeholder dice "Search
+      branches…", etc.
+- [ ] En Branches / Commits salen muchas más filas que en All (hasta 50),
+      y buscar encuentra ramas y commits más allá de los 20 / 12 de antes.
+- [ ] ⌘↵ sobre "Fetch all": se ejecuta (toast) y el palette sigue abierto.
+      ⌘↵ sobre "Open repository…" o "Clone repository…" sí lo cierra.
+- [ ] ↵ normal sigue cerrando.
+

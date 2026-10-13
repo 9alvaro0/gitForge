@@ -8,7 +8,8 @@ struct PaletteOverlay: View {
     let branches: [GitRef]
     let commits: [Commit]
     let workingFiles: [WorkingCopyFile]
-    let onPick: (PaletteAction) -> Void
+    /// `keepOpen`: ⌘↵ on an action that doesn't present a panel or sheet.
+    let onPick: (PaletteAction, _ keepOpen: Bool) -> Void
     let onClose: () -> Void
 
     var body: some View {
@@ -20,7 +21,7 @@ struct PaletteOverlay: View {
         )
         CommandPaletteView(
             items: items,
-            onPick: { onPick($0.action) },
+            onPick: { item, keepOpen in onPick(item.action, keepOpen && !item.action.presentsUI) },
             onClose: onClose
         )
     }
@@ -32,7 +33,7 @@ struct PaletteOverlay: View {
         branches: GitRef.previewSamples,
         commits: Commit.previewSamples,
         workingFiles: [],
-        onPick: { _ in },
+        onPick: { _, _ in },
         onClose: {}
     )
     .previewAppState(.previewWithActive)
