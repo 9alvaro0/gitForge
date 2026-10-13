@@ -18,6 +18,11 @@ private final class FakeProvider: PullRequestProvider, @unchecked Sendable {
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] {
         checksBySha[pull.headSha ?? ""] ?? []
     }
+    private(set) var commitCheckTokens: [String] = []
+    func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] {
+        commitCheckTokens.append(token)
+        return checksBySha[sha] ?? []
+    }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         PullRequestDetail(pull: open[0], descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [], mergeable: true, ciStatus: nil)
     }
@@ -106,5 +111,60 @@ struct PullRequestStoreScopeTests {
         await store.loadDetail()
         #expect(store.checks.count == 1)
         #expect(store.ciStatus(for: provider.open[0])?.state == .pending)
+    }
+
+    // MARK: Commit CI
+
+    @Test("A commit's checks come from the host and are reused within the TTL")
+    func commitChecksCached() async {
+        let provider = FakeProvider()
+        provider.checksBySha["abc"] = [Self.check(.passed), Self.check(.failed)]
+        let store = Self.makeStore(provider)
+        #expect(await store.commitChecks(sha: "abc")?.map(\.state) == [.passed, .failed])
+        #expect(await store.commitChecks(sha: "abc")?.count == 2)
+        #expect(provider.commitCheckTokens.count == 1)
+        _ = await store.commitChecks(sha: "abc", force: true)
+        #expect(provider.commitCheckTokens.count == 2)
+    }
+
+    @Test("Commit checks ask for a token without prompting, and never touch the list state")
+    func commitChecksSilentAuth() async {
+        let provider = FakeProvider()
+        provider.checksBySha["abc"] = [Self.check(.passed)]
+        var prompted = 0
+        let host = RemoteHost(provider: .github, host: "github.com", owner: "o", repo: "r")
+        let store = PullRequestStore(
+            cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
+            auth: { _, _ in prompted += 1; return .token("interactive") },
+            silentAuth: { _, _ in .token("silent") },
+            resolveHost: { host },
+            makeProvider: { _ in provider }
+        )
+        #expect(await store.commitChecks(sha: "abc")?.count == 1)
+        #expect(prompted == 0)
+        #expect(provider.commitCheckTokens == ["silent"])
+        #expect(store.host == nil)
+        #expect(!store.requiresToken)
+    }
+
+    @Test("No token without asking, or no recognised host: nothing to show")
+    func commitChecksUnavailable() async {
+        let provider = FakeProvider()
+        let host = RemoteHost(provider: .github, host: "github.com", owner: "o", repo: "r")
+        let noToken = PullRequestStore(
+            cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
+            silentAuth: { _, _ in .cancelled },
+            resolveHost: { host },
+            makeProvider: { _ in provider }
+        )
+        #expect(await noToken.commitChecks(sha: "abc") == nil)
+        let noHost = PullRequestStore(
+            cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
+            auth: { _, _ in .token("token") },
+            resolveHost: { nil },
+            makeProvider: { _ in provider }
+        )
+        #expect(await noHost.commitChecks(sha: "abc") == nil)
+        #expect(provider.commitCheckTokens.isEmpty)
     }
 }

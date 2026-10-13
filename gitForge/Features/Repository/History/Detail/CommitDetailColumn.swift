@@ -12,6 +12,9 @@ struct CommitDetailColumn: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
 
+    /// The selected commit's CI, `nil` until known or when the host has none.
+    @State private var checks: [CICheck]?
+
     private var detail: CommitDetail? { viewModel.history.detailCache[commit.sha] }
 
     /// Inspector header (redesign spec §6.2, History artboard): title,
@@ -33,6 +36,9 @@ struct CommitDetailColumn: View {
                 }
                 authorLine
                 parentLine
+                if CommitTrustLine.hasContent(signature: detail?.signature, checks: checks) {
+                    CommitTrustLine(signature: detail?.signature, checks: checks)
+                }
                 if let detail, !detail.bodyText.isEmpty {
                     Text(CommitMessage.reflow(detail.bodyText))
                         .textRole(.callout)
@@ -47,6 +53,15 @@ struct CommitDetailColumn: View {
         }
         .task(id: commit.sha) {
             _ = await viewModel.history.detail(for: commit)
+        }
+        .task(id: commit.sha) {
+            checks = nil
+            // Arrow-keying through History shouldn't fire a request per row.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            let loaded = await viewModel.pullRequests.commitChecks(sha: commit.sha)
+            guard !Task.isCancelled else { return }
+            checks = loaded
         }
     }
 
