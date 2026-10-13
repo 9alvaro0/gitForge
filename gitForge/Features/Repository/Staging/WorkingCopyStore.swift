@@ -193,6 +193,20 @@ final class WorkingCopyStore {
         await loadWorkingCopyDiff(file: selected)
     }
 
+    /// The new side of `file`'s open diff — the index for the staged part,
+    /// the file on disk for the unstaged one — for "Show N hidden lines".
+    func newSideLines(for file: WorkingCopyFile) async -> [String]? {
+        if diffSide(for: file) == .staged {
+            return await cli.fileLines(revision: "", path: file.path)
+        }
+        let url = repositoryURL.appendingPathComponent(file.path)
+        return await Task.detached {
+            guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]),
+                  data.count <= DiffGaps.maxFileBytes else { return nil }
+            return DiffGaps.splitLines(GitProcess.decode(data))
+        }.value
+    }
+
     // MARK: Bulk selection
 
     /// Toggle a single file's membership in the batch-selection set.

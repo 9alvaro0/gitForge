@@ -110,6 +110,14 @@ final class StashDetailStore {
         }
     }
 
+    /// `path` as the stash saved it, for "Show N hidden lines". `nil` for an
+    /// untracked file: its diff is the whole file already.
+    func newSideLines(path: String) async -> [String]? {
+        guard let stash = selected,
+              detail?.files.first(where: { $0.path == path })?.status != .untracked else { return nil }
+        return await cli.fileLines(revision: stash.sha, path: path)
+    }
+
     private func clearContent() {
         detail = nil
         error = nil

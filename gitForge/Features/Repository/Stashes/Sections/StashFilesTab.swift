@@ -38,6 +38,9 @@ struct StashFilesTab: View {
                         guard let path = store.selectedFile else { return }
                         Task { await store.loadFileDiff(at: path) }
                     },
+                    loadNewSide: store.selectedFile.map { path -> () async -> [String]? in
+                        { await store.newSideLines(path: path) }
+                    },
                     viewMode: $diffMode
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

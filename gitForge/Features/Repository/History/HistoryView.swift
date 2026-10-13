@@ -209,6 +209,9 @@ struct HistoryView: View {
                 hunkActions: viewModel.workingCopy.selectedWorkingCopyFile.flatMap {
                     DiffHunkActions.workingCopy(viewModel, file: $0)
                 },
+                loadNewSide: viewModel.workingCopy.selectedWorkingCopyFile.map { file -> () async -> [String]? in
+                    { await viewModel.workingCopy.newSideLines(for: file) }
+                },
                 viewMode: diffMode
             )
         } else {
@@ -220,9 +223,18 @@ struct HistoryView: View {
                 emptyState: viewModel.history.commitFileDiffEmptyState,
                 onClose: { setDiffPaneCollapsed(true) },
                 onWhitespaceChange: { Task { await viewModel.history.reloadCommitFileDiff() } },
+                loadNewSide: commitFileLoader,
                 viewMode: diffMode
             )
         }
+    }
+
+    /// The selected commit file's content at that commit, for hidden lines.
+    private var commitFileLoader: (() async -> [String]?)? {
+        guard let sha = viewModel.history.selectedCommit?.sha,
+              let path = viewModel.history.selectedCommitFile else { return nil }
+        let cli = viewModel.cli
+        return { await cli.fileLines(revision: sha, path: path) }
     }
 
     /// Badge for the commit file in the diff header, once the detail is loaded.
