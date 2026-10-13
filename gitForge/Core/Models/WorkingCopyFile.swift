@@ -70,7 +70,11 @@ nonisolated struct WorkingCopyFile: Sendable, Equatable, Identifiable, Hashable 
 
     var id: String { path }
 
-    var isStaged: Bool { stagedStatus != .unmodified && stagedStatus != .untracked && stagedStatus != .ignored }
+    /// A conflicted file isn't staged: it's listed once, under Unstaged, and
+    /// doesn't count toward the commit until it's resolved.
+    var isStaged: Bool {
+        stagedStatus != .unmodified && stagedStatus != .untracked && stagedStatus != .ignored && stagedStatus != .unmerged
+    }
     /// The side the file's badge shows: its staged change when there is one.
     var displayStatus: Status { isStaged ? stagedStatus : unstagedStatus }
     var isUnstaged: Bool { unstagedStatus != .unmodified && unstagedStatus != .ignored }
