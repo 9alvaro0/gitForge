@@ -488,6 +488,12 @@ Diez auditorías completadas y mergeadas (PR #68 a #76, más la de A10).
 
 ---
 
+## Pruebas manuales pendientes
+
+Lo que se ha hecho sin poder usarlo en la app se va apuntando en [`PRUEBAS-MANUALES.md`](PRUEBAS-MANUALES.md), para recorrerlo en un Mac.
+
+---
+
 ## Rediseño v2 — funciones candidatas a spec propia
 
 Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño (§2), no se pinta y se apunta aquí.
@@ -506,6 +512,7 @@ Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño
 | ~~Clone superficial y con submódulos, "New repository…"~~ | `Welcome` | spec §2 | Hecho (2026-10-12): casillas en la hoja de Clone (`--depth 1`, `--recurse-submodules`) y "New repository…" en Welcome y File (⌥⌘N), que hace `git init` y lo abre. |
 | ~~Stage / discard de hunk y de líneas~~ | `Changes` | spec §2 | Hecho (2026-10-12): botones en la cabecera de cada hunk (Stage / Unstage, Discard… con confirmación) y líneas que se marcan con un clic en la vista unificada. Parche de un hunk (`HunkPatch`, reglas de `add -p`) aplicado con `git apply --recount` al índice o al working tree. No se ofrece para untracked, en conflicto, renombrados ni con Hide whitespace. |
 | ~~"Show N hidden lines"~~ | `CommitDetail` | spec §2 | Hecho (2026-10-13): filas entre hunks, antes del primero y tras el último que despliegan el contexto oculto, leído del lado nuevo del fichero (índice, disco, `sha:path`). Vistas unificada y split; no en PRs. Hasta 2 MB por fichero. |
+| ~~Focus mode del grafo~~ | `History` | spec §2 | Hecho (2026-10-13): botón "Focus" en la barra de filtros; atenúa lo que no es historia del commit seleccionado (ancestros por padres en lo cargado, `CommitAncestry`), combinado con la búsqueda. |
 | Previsualización del grafo dentro del HUD de arrastre | `Branches` | F5 | Ya estaba fuera por la spec (§2). |
 | ~~Push de una rama que no es la actual desde el inspector~~ | `Branches` | F5 | Hecho (2026-10-12): inspector y menú contextual; al remoto que usaría git y a su upstream (con otro nombre incluido), fijándolo si no lo tiene. |
 

@@ -10,7 +10,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 
 ## Features
 
-- **History** — interactive commit graph (branches, tags, stashes as dashed lanes), commit detail with per-file diffs, unified or side-by-side, syntax highlighted; wrap lines, hide whitespace and expand hidden context lines
+- **History** — interactive commit graph (branches, tags, stashes as dashed lanes) with a focus mode for one branch's history, commit detail with per-file diffs, unified or side-by-side, syntax highlighted; wrap lines, hide whitespace and expand hidden context lines
 - **Changes** — stage / unstage / discard by file, hunk or selected lines; stash by file (with batch selection and a file filter); commit (optionally with sign-off) and amend
 - **Branches & tags** — create, checkout, rename, delete, push any local branch, move a branch tip; see which branches are merged and how each compares with `main`; drag a branch onto a commit or another branch to move / merge / rebase; create, push and delete tags
 - **Stashes** — stash (optionally with untracked files), apply, pop, drop, browse a stash's files and diffs

@@ -13,6 +13,8 @@ struct HistoryView: View {
     @Environment(AppState.self) var appState
 
     @State var search: String = ""
+    /// Focus mode: rows outside this commit's history are dimmed.
+    @State private var focus: HistoryFocus?
     /// Set when the user double-clicks a commit that no local branch points
     /// at. Drives the "checkout will be detached" confirmation dialog.
     @State var detachedCheckoutTarget: Commit?
@@ -72,7 +74,7 @@ struct HistoryView: View {
         // Build the search matcher once so the count below and the filter
         // pass to the table share the same closure (and the same single
         // O(n) walk over commits when search is active).
-        let matcher = searchMatcher
+        let matcher = combinedMatcher
         let matchCount = matcher.map { fn in viewModel.history.commits.lazy.filter(fn).count }
             ?? viewModel.history.commits.count
 
@@ -80,7 +82,10 @@ struct HistoryView: View {
             HistoryFiltersBar(
                 search: $search,
                 totalCount: viewModel.history.commits.count,
-                matchCount: matchCount
+                matchCount: matchCount,
+                focusLabel: focus?.label,
+                canFocus: viewModel.history.selectedCommit != nil,
+                onToggleFocus: toggleFocus
             )
             GeometryReader { geo in
                 HStack(spacing: 0) {
@@ -119,6 +124,8 @@ struct HistoryView: View {
         .animation(Motion.fast, value: dropTracker.intent)
         .environment(\.branchDropTracker, dropTracker)
         .navigationTitle("History")
+        // New pages bring more of the focused history; a reload may drop it.
+        .onChange(of: focusRefreshKey) { refreshFocus() }
         .confirmationDialog(detachedCheckoutTitle,
                             isPresented: detachedCheckoutBinding,
                             titleVisibility: .visible) {
@@ -401,6 +408,41 @@ struct HistoryView: View {
         }
     }
 
+    // MARK: Focus
+
+    /// Search and focus together: a row is bright only if it passes both.
+    private var combinedMatcher: ((Commit) -> Bool)? {
+        let search = searchMatcher
+        guard let members = focus?.members else { return search }
+        return { commit in members.contains(commit.sha) && (search?(commit) ?? true) }
+    }
+
+    private func toggleFocus() {
+        if focus != nil {
+            focus = nil
+        } else if let commit = viewModel.history.selectedCommit {
+            focus = HistoryFocus(sha: commit.sha, label: focusLabel(for: commit), members: [])
+            refreshFocus()
+        }
+    }
+
+    private func refreshFocus() {
+        guard let current = focus else { return }
+        let members = CommitAncestry.reachable(from: current.sha, in: viewModel.history.commits)
+        focus = members.isEmpty ? nil : HistoryFocus(sha: current.sha, label: current.label, members: members)
+    }
+
+    private var focusRefreshKey: String {
+        "\(viewModel.history.commits.count)|\(viewModel.history.commits.first?.sha ?? "")"
+    }
+
+    /// The local branch at the commit (the current one first), else its SHA.
+    private func focusLabel(for commit: Commit) -> String {
+        let locals = (viewModel.refsBySha[commit.sha] ?? []).filter(\.isLocalBranch)
+        let current = locals.first { $0.name == viewModel.currentBranchName }
+        return (current ?? locals.first)?.displayName ?? commit.shortSha
+    }
+
     private var detachedCheckoutBinding: Binding<Bool> {
         Binding(get: { detachedCheckoutTarget != nil },
                 set: { if !$0 { detachedCheckoutTarget = nil } })
@@ -410,6 +452,13 @@ struct HistoryView: View {
         guard let commit = detachedCheckoutTarget else { return "" }
         return "Checkout \(commit.shortSha)?"
     }
+}
+
+/// The commit History is focused on and its loaded history.
+private struct HistoryFocus: Equatable {
+    let sha: String
+    let label: String
+    let members: Set<String>
 }
 
 #Preview("Loaded") {
