@@ -114,3 +114,41 @@ extension RepositoryViewModel {
         }
     }
 }
+
+// MARK: Hunks
+
+extension RepositoryViewModel {
+    enum HunkAction: Sendable, Equatable {
+        /// Worktree change → index.
+        case stage
+        /// Index change → back to the worktree only.
+        case unstage
+        /// Worktree change → gone. Not undoable.
+        case discard
+    }
+
+    /// Whether the pane may offer hunk actions for `file`. They need a plain
+    /// text diff read from git with whitespace intact: untracked, unmerged
+    /// and renamed files go whole-file, and a `-w` diff's hunks don't match
+    /// the file.
+    func canApplyHunks(to file: WorkingCopyFile) -> Bool {
+        !file.isUntracked && !file.isUnmerged && file.originalPath == nil
+            && !GitPreferences.diffIgnoreWhitespace
+    }
+
+    /// Stages, unstages or discards `hunk` of `file` — or only the lines in
+    /// `lineIds` — then refreshes status and the open diff. Failures land in
+    /// `commitError`, like the whole-file actions.
+    func apply(_ action: HunkAction, hunk: DiffHunk, lineIds: Set<Int>? = nil, in file: WorkingCopyFile) async {
+        let reverse = action != .stage
+        guard canApplyHunks(to: file),
+              let patch = HunkPatch.make(path: file.path, hunk: hunk, selectedLineIds: lineIds, reverse: reverse)
+        else { return }
+        await runStageOperation {
+            try await self.cli.apply(patch: patch, cached: action != .discard, reverse: reverse)
+        }
+        // The file can stay in the same state (still modified on both sides),
+        // in which case the status refresh didn't reload its diff.
+        await workingCopy.reloadSelectedDiff()
+    }
+}

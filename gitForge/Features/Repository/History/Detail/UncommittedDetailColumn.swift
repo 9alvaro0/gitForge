@@ -30,8 +30,8 @@ struct UncommittedDetailColumn: View {
                     .italic()
                     .foregroundStyle(theme.colors.textTertiary)
             } else {
-                fileSection(title: "STAGED", count: staged.count, files: staged)
-                fileSection(title: "UNSTAGED", count: unstaged.count, files: unstaged)
+                fileSection(title: "STAGED", count: staged.count, files: staged, side: .staged)
+                fileSection(title: "UNSTAGED", count: unstaged.count, files: unstaged, side: .unstaged)
             }
         }
     }
@@ -52,7 +52,7 @@ struct UncommittedDetailColumn: View {
     }
 
     @ViewBuilder
-    private func fileSection(title: String, count: Int, files: [WorkingCopyFile]) -> some View {
+    private func fileSection(title: String, count: Int, files: [WorkingCopyFile], side: WorkingCopySide) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
             HStack {
                 Text(title)
@@ -75,8 +75,9 @@ struct UncommittedDetailColumn: View {
                             file: file,
                             absoluteURL: viewModel.repository.url.appendingPathComponent(file.path),
                             isActive: viewModel.workingCopy.selectedWorkingCopyFile?.id == file.id
+                                && viewModel.workingCopy.diffSide(for: file) == side
                         ) {
-                            viewModel.workingCopy.selectedWorkingCopyFile = file
+                            viewModel.workingCopy.select(file, side: side)
                         }
                     }
                 }

@@ -11,7 +11,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 ## Features
 
 - **History** — interactive commit graph (branches, tags, stashes as dashed lanes), commit detail with per-file diffs, unified or side-by-side, syntax highlighted; wrap lines and hide whitespace from the diff header
-- **Changes** — stage / unstage / discard / stash by file (with batch selection and a file filter), commit (optionally with sign-off) and amend
+- **Changes** — stage / unstage / discard by file, hunk or selected lines; stash by file (with batch selection and a file filter); commit (optionally with sign-off) and amend
 - **Branches & tags** — create, checkout, rename, delete, push any local branch, move a branch tip; see which branches are merged and how each compares with `main`; drag a branch onto a commit or another branch to move / merge / rebase; create, push and delete tags
 - **Stashes** — stash (optionally with untracked files), apply, pop, drop, browse a stash's files and diffs
 - **Conflicts** — visual resolver for merge / rebase / cherry-pick / revert / stash conflicts: pick ours / theirs / both per hunk, or resolve whole files
@@ -21,7 +21,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 - **Identity profiles** — switch the repo's `user.name` / `user.email` / signing key between saved profiles
 - Command palette, native menus and keyboard shortcuts; light / dark themes and accessibility support (VoiceOver, Increase Contrast, Reduce Motion)
 
-Not supported (yet): staging individual hunks or lines, interactive rebase, LFS, submodule management, creating or reviewing PRs.
+Not supported (yet): interactive rebase, LFS, submodule management, creating or reviewing PRs.
 
 ## Keyboard Shortcuts
 
