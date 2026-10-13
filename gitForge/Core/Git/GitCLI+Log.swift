@@ -86,7 +86,7 @@ extension GitCLI {
         guard let result = try? await run(["log", "-1", "--format=%G?%x1f%GS%x1f%GK", Self.endOfOptions, sha]) else {
             return nil
         }
-        return CommitSignature.parse(result.stdout)
+        return CommitSignature.parse(result.stdout, stderr: result.stderr)
     }
 
     static func parseNameStatus(_ stdout: String) -> [CommitFileChange] {
