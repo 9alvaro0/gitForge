@@ -488,6 +488,12 @@ Diez auditorías completadas y mergeadas (PR #68 a #76, más la de A10).
 
 ---
 
+## Pruebas manuales pendientes
+
+Lo que se ha hecho sin poder usarlo en la app se va apuntando en [`PRUEBAS-MANUALES.md`](PRUEBAS-MANUALES.md), para recorrerlo en un Mac.
+
+---
+
 ## Rediseño v2 — funciones candidatas a spec propia
 
 Lo que los artboards muestran y la app no hace hoy. Según la spec del rediseño (§2), no se pinta y se apunta aquí.
