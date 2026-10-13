@@ -53,4 +53,37 @@ struct WorkingCopySignOffTests {
             #expect(other.signOff == false)
         }
     }
+
+    @Test("A conflicted file diffs against HEAD, conflict markers included")
+    func conflictedFile() async throws {
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("init", files: ["a.txt": "base\n"])
+        try repo.git("checkout", "-q", "-b", "other")
+        try repo.commit("other", files: ["a.txt": "theirs\n"])
+        try repo.git("checkout", "-q", "main")
+        try repo.commit("main", files: ["a.txt": "ours\n"])
+        _ = try repo.git(["merge", "other"], allowFailure: true)
+
+        // Plain diff is a combined one the parser can't read.
+        #expect(DiffParser.parse(try await repo.cli.diffUnstaged(file: "a.txt")).isEmpty)
+        let hunks = DiffParser.parse(try await repo.cli.diffAgainstHead(file: "a.txt"))
+        let added = hunks.flatMap(\.lines).filter { $0.kind == .added }.map(\.content)
+        #expect(added.contains { $0.hasPrefix("<<<<<<<") })
+        #expect(added.contains("theirs"))
+    }
+
+    @Test("A staged rename diffs against its old path, not as a new file")
+    func stagedRename() async throws {
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("init", files: ["old.txt": "a\nb\nc\n"])
+        try repo.git("mv", "old.txt", "new.txt")
+        try repo.write("a\nb\nc\nd\n", to: "new.txt")
+        try repo.git("add", "new.txt")
+
+        let hunks = DiffParser.parse(try await repo.cli.diffStaged(file: "new.txt", originalPath: "old.txt"))
+        let added = hunks.flatMap(\.lines).filter { $0.kind == .added }.map(\.content)
+        #expect(added == ["d"])
+    }
 }

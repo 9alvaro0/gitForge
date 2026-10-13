@@ -6,9 +6,20 @@ extension GitCLI {
                       + [contextArg, "--", file]).stdout
     }
 
-    func diffStaged(file: String) async throws -> String {
-        try await run(["diff", "--cached"] + Self.diffOutputFlags + GitPreferences.diffWhitespaceArgs
+    /// A conflicted file against HEAD: plain `git diff` gives a combined
+    /// (`diff --cc`) diff the parser doesn't read, so the pane said "No
+    /// changes" over a file full of conflict markers.
+    func diffAgainstHead(file: String) async throws -> String {
+        try await run(["diff", "HEAD"] + Self.diffOutputFlags + GitPreferences.diffWhitespaceArgs
                       + [contextArg, "--", file]).stdout
+    }
+
+    /// `originalPath`: a staged rename's old path. Both have to be in the
+    /// pathspec for git to pair them; with the new one alone the whole file
+    /// read as added.
+    func diffStaged(file: String, originalPath: String? = nil) async throws -> String {
+        try await run(["diff", "--cached", "-M"] + Self.diffOutputFlags + GitPreferences.diffWhitespaceArgs
+                      + [contextArg, "--", file] + (originalPath.map { [$0] } ?? [])).stdout
     }
 
     /// The lines of `path` at `revision` (`""` reads the index), to expand a
