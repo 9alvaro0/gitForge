@@ -4,7 +4,8 @@ Lo que la CI no puede comprobar: todo esto compila y pasa los tests, pero
 nadie lo ha usado en la app. Se recorre en un Mac con la app compilada desde
 `main`. Marca cada punto al probarlo; si algo falla, anota qué viste.
 
-Prepara antes un repo de pruebas con:
+Prepara antes un repo de pruebas (`scripts/make-manual-test-repo.sh` lo
+crea en `~/gitforge-manual-test`) con:
 - un fichero con varios cambios separados (al menos dos hunks), parte en
   staged y parte sin preparar;
 - un fichero nuevo sin seguimiento;
