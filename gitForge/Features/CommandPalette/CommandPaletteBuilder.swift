@@ -29,7 +29,7 @@ enum CommandPaletteBuilder {
                 kind: .commit,
                 label: c.subject,
                 hint: c.shortSha,
-                action: .selectSection(.history)
+                action: .revealCommit(sha: c.sha)
             ))
         }
 
@@ -38,7 +38,7 @@ enum CommandPaletteBuilder {
                 kind: .branch,
                 label: b.displayName,
                 hint: branchHint(for: b),
-                action: .selectSection(.branches)
+                action: .revealBranch(b)
             ))
         }
 
@@ -47,7 +47,7 @@ enum CommandPaletteBuilder {
                 kind: .file,
                 label: f.path,
                 hint: f.unstagedStatus.displayLetter == " " ? f.stagedStatus.displayLetter : f.unstagedStatus.displayLetter,
-                action: .selectSection(.changes)
+                action: .revealFile(path: f.path)
             ))
         }
 

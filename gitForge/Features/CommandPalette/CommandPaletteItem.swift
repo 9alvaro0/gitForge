@@ -36,6 +36,12 @@ enum PaletteAction: Hashable {
     case openRepository
     case cloneRepository
     case selectSection(WorkspaceSection)
+    /// History, with this commit selected.
+    case revealCommit(sha: String)
+    /// History, with the branch's tip selected (as a sidebar click does).
+    case revealBranch(GitRef)
+    /// Changes, with this file's diff open.
+    case revealFile(path: String)
     case fetch
     case pull
     case push
