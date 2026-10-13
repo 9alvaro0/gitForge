@@ -43,4 +43,15 @@ struct GitCLICommitDetailTests {
         let raw = try await repo.cli.diff(sha: merge, file: "feature.txt")
         #expect(DiffParser.parse(raw).count == 1)
     }
+
+    @Test("An unsigned commit has no signature")
+    func unsignedCommit() async throws {
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        let sha = try repo.commit("root", files: ["a.txt": "a\n"])
+
+        let detail = try await repo.cli.commitDetail(for: try await commit(repo, sha))
+        #expect(detail.signature == nil)
+        #expect(await repo.cli.signature(of: sha) == nil)
+    }
 }

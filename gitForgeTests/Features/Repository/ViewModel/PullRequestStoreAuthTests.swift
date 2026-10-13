@@ -25,6 +25,7 @@ private final class AuthFakeProvider: PullRequestProvider, @unchecked Sendable {
     }
     func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String { "user-of-\(token)" }
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] { [] }
+    func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] { [] }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         detailTokens.append(token)
         if detailRejections > 0 { detailRejections -= 1; throw PullRequestFetchError.unauthorized }
