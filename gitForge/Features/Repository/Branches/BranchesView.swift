@@ -69,7 +69,9 @@ struct BranchesView: View {
         .background(theme.colors.bgContent)
         .overlay(alignment: .bottom) {
             if let intent = dropTracker.intent {
-                BranchDropHUD(intent: intent)
+                BranchDropHUD(intent: intent,
+                              preview: dropTracker.preview(in: viewModel.history.commits),
+                              sourceName: dropTracker.source?.name)
                     .padding(.bottom, Spacing.s16)
                     .transition(.opacity)
             }

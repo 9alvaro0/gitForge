@@ -22,8 +22,13 @@ struct BranchRowDragDrop: ViewModifier {
                         .opacity(hovered ? 1 : 0)
                 }
                 .animation(Motion.fast, value: hovered)
-                .draggable(DraggedBranch(name: ref.name, isCurrent: isCurrent, isLocal: true,
-                                         sourceSha: ref.targetSha)) {
+                // The payload closure runs when the drag starts: record the
+                // source for the HUD's graph preview.
+                .draggable({
+                    dropTracker?.beginDrag(name: ref.name, sha: ref.targetSha)
+                    return DraggedBranch(name: ref.name, isCurrent: isCurrent, isLocal: true,
+                                         sourceSha: ref.targetSha)
+                }()) {
                     BranchDragGhost(name: ref.displayName, isCurrent: isCurrent)
                         .appTheme(theme)
                 }
@@ -34,7 +39,7 @@ struct BranchRowDragDrop: ViewModifier {
                     return true
                 } isTargeted: { isOver in
                     hovered = isOver
-                    dropTracker?.hover(.branch(name: ref.name), isOver: isOver)
+                    dropTracker?.hover(.branch(name: ref.name), targetSha: ref.targetSha, isOver: isOver)
                 }
         } else {
             content

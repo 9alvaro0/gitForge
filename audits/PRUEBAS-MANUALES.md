@@ -108,3 +108,20 @@ Prepara antes un repo de pruebas con:
       ⌘↵ sobre "Open repository…" o "Clone repository…" sí lo cierra.
 - [ ] ↵ normal sigue cerrando.
 
+## Vista previa del grafo en el HUD de arrastre
+- [ ] En History, arrastrar el chip de `feature` sobre el de `main`: el HUD
+      muestra "Merge" y "Rebase" con su mini grafo y textos con los números
+      correctos (comprobar con `git rev-list --count main..feature`).
+- [ ] Si `main` no tiene nada nuevo: Merge dice "Fast-forwards…" y Rebase
+      "already on top".
+- [ ] Arrastrar `feature` sobre un commit anterior de su línea: "moves back N
+      commits"; sobre uno posterior: "moves forward"; sobre otra línea:
+      "leaves … and takes …".
+- [ ] Lo mismo en Branches & Tags (fila sobre fila).
+- [ ] Con una rama cuyo historial no está cargado (muy antigua): el HUD sale
+      sin mini grafo, como antes.
+- [ ] Al pasar de un destino a otro el grafo cambia; al soltar o cancelar
+      desaparece. Comprobar que el primer arrastre ya trae la vista previa
+      (si no, el payload no se evalúa al empezar y hay que buscar otro
+      gancho).
+

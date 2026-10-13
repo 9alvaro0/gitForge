@@ -38,19 +38,45 @@ nonisolated enum BranchDropIntent: Equatable, Sendable {
 @MainActor @Observable
 final class BranchDropTracker {
     private(set) var intent: BranchDropIntent?
+    /// The hovered target's commit, for the HUD's graph preview.
+    private(set) var targetSha: String?
+    /// The branch being dragged. SwiftUI hands the payload only to the
+    /// drop, so the drag sources record it when the drag starts.
+    private(set) var source: (name: String, sha: String)?
+
+    /// Called from the draggable payload's closure, which SwiftUI runs when
+    /// the drag begins.
+    func beginDrag(name: String, sha: String) {
+        source = (name, sha)
+    }
 
     /// Entering a target sets the intent; leaving clears it only if no other
     /// target took over in between (enter/leave events can arrive in either
     /// order when the cursor crosses from one row to the next).
-    func hover(_ target: BranchDropIntent, isOver: Bool) {
+    func hover(_ target: BranchDropIntent, targetSha: String? = nil, isOver: Bool) {
         if isOver {
             intent = target
+            self.targetSha = targetSha
         } else if intent == target {
             intent = nil
+            self.targetSha = nil
         }
     }
 
-    func clear() { intent = nil }
+    /// The graph preview for the current hover, on the loaded commits.
+    func preview(in commits: [Commit]) -> BranchDropPreview? {
+        guard let intent, let source, let targetSha, source.sha != targetSha else { return nil }
+        switch intent {
+        case .branch: return .integrate(source: source.sha, target: targetSha, in: commits)
+        case .commit: return .move(from: source.sha, to: targetSha, in: commits)
+        }
+    }
+
+    func clear() {
+        intent = nil
+        targetSha = nil
+        source = nil
+    }
 }
 
 extension EnvironmentValues {
