@@ -24,7 +24,7 @@ struct RowDropModifier: ViewModifier {
                 return true
             } isTargeted: { hovered in
                 isTargeted = hovered
-                dropTracker?.hover(intent, isOver: hovered)
+                dropTracker?.hover(intent, targetSha: targetSha, isOver: hovered)
             }
         } else {
             content
@@ -62,7 +62,7 @@ struct ChipDropModifier: ViewModifier {
                 return true
             } isTargeted: { isHovered in
                 hovered = isHovered
-                dropTracker?.hover(.branch(name: targetBranchName), isOver: isHovered)
+                dropTracker?.hover(.branch(name: targetBranchName), targetSha: targetSha, isOver: isHovered)
             }
     }
 }

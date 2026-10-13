@@ -4,10 +4,39 @@ import SwiftUI
 /// target: what the drop will do, and how to cancel.
 struct BranchDropHUD: View {
     let intent: BranchDropIntent
+    /// The graph after the drop, when the dragged branch and the target are
+    /// both in the loaded history.
+    var preview: BranchDropPreview? = nil
+    /// The dragged branch's name, for the preview's captions.
+    var sourceName: String? = nil
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.s12) {
+            summary
+            if let preview, let sourceName {
+                Divider().overlay(theme.colors.separator)
+                BranchDropGraphPreview(preview: preview, source: sourceName, target: targetName)
+            }
+        }
+        .padding(Spacing.s12)
+        .frame(maxWidth: preview == nil ? 420 : 520, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: Radius.popover))
+        .shadow(color: theme.colors.shadow, radius: 18, y: 8)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var targetName: String {
+        switch intent {
+        case .branch(let name): name
+        case .commit(let sha, _): sha
+        }
+    }
+
+    private var summary: some View {
         HStack(spacing: Spacing.s12) {
             Image(systemName: intent.systemImage)
                 .font(.system(size: 15, weight: .medium))
@@ -28,13 +57,6 @@ struct BranchDropHUD: View {
                     .foregroundStyle(theme.colors.textTertiary)
             }
         }
-        .padding(Spacing.s12)
-        .frame(maxWidth: 420, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: Radius.popover))
-        .shadow(color: theme.colors.shadow, radius: 18, y: 8)
-        .allowsHitTesting(false)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 
@@ -67,6 +89,9 @@ struct BranchDragGhost: View {
     VStack(spacing: 24) {
         BranchDragGhost(name: "feature/lane-legend", isCurrent: false)
         BranchDropHUD(intent: .branch(name: "main"))
+        BranchDropHUD(intent: .branch(name: "main"),
+                      preview: BranchDropPreview(kind: .integrate(sourceOnly: 3, targetOnly: 2)),
+                      sourceName: "feature/lane-legend")
         BranchDropHUD(intent: .commit(shortSha: "a3f9c21", subject: "Render lanes through Metal"))
     }
     .padding(40)
