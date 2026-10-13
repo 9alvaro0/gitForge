@@ -68,6 +68,9 @@ final class PullRequestStore {
     /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
     private let auth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
+    /// Same as `auth`, but never asks the user to pick an account. Used by
+    /// lookups the user didn't start from Pull requests (a commit's CI).
+    private let silentAuth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
     /// The token of the last successful list load, reused by Closed, CI and the detail.
     private var currentToken: String?
     private let resolveHost: @MainActor () async -> RemoteHost?
@@ -81,6 +84,15 @@ final class PullRequestStore {
     /// How many CI lookups run at once while filling the list.
     static let ciConcurrency = 6
 
+    // MARK: Commit CI
+    /// Checks per commit SHA for History's commit detail, with when they
+    /// were read: re-selecting a commit within `commitChecksTTL` reuses them.
+    private var commitChecksCache: [String: (checks: [CICheck], at: Date)] = [:]
+    /// Token for commit lookups when the list hasn't loaded one.
+    private var silentToken: String?
+    static let commitChecksTTL: TimeInterval = 60
+    static let commitChecksCacheCap = 64
+
     /// - Parameters:
     ///   - auth: the token for a host (the repo's account); defaults to "connect".
     ///   - resolveHost / suggestInstance / makeProvider: default to the repo's
@@ -88,10 +100,12 @@ final class PullRequestStore {
     ///     GitLab clients; tests pass fakes.
     init(cli: GitCLI,
          auth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
+         silentAuth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
          suggestInstance: (@MainActor () async -> InstanceSuggestion?)? = nil,
          makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) }) {
         self.auth = auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
+        self.silentAuth = silentAuth ?? auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
         self.suggestInstance = suggestInstance ?? { nil }
         self.makeProvider = makeProvider
@@ -364,6 +378,48 @@ final class PullRequestStore {
         if case .success(let value) = checks { self.checks = value }
     }
 
+    /// CI of one commit for History's detail, `nil` when there's nothing to
+    /// show: no recognised host, no token without asking, a commit the host
+    /// doesn't have, or the request failed. Never touches the list's state
+    /// (connect prompts, errors): this is a side lookup.
+    func commitChecks(sha: String, force: Bool = false) async -> [CICheck]? {
+        if !force, let cached = commitChecksCache[sha],
+           Date().timeIntervalSince(cached.at) < Self.commitChecksTTL {
+            return cached.checks
+        }
+        let resolvedHost: RemoteHost
+        if let host {
+            resolvedHost = host
+        } else if let found = await resolveHost() {
+            resolvedHost = found
+        } else {
+            return nil
+        }
+        let provider = makeProvider(resolvedHost)
+        func token(rejected: String? = nil) async -> String? {
+            if rejected == nil, let current = currentToken ?? silentToken { return current }
+            guard case .token(let value) = await silentAuth(resolvedHost, rejected) else { return nil }
+            silentToken = value
+            return value
+        }
+        guard let first = await token() else { return nil }
+        let checks: [CICheck]
+        do {
+            checks = try await provider.fetchCommitChecks(host: resolvedHost, sha: sha, token: first)
+        } catch PullRequestFetchError.unauthorized {
+            guard let fresh = await token(rejected: first),
+                  let retried = try? await provider.fetchCommitChecks(host: resolvedHost, sha: sha, token: fresh) else {
+                return nil
+            }
+            checks = retried
+        } catch {
+            return nil
+        }
+        if commitChecksCache.count >= Self.commitChecksCacheCap { commitChecksCache.removeAll() }
+        commitChecksCache[sha] = (checks, Date())
+        return checks
+    }
+
     /// Drops everything (repo switch / teardown) and cancels the detail load.
     func reset() {
         closeDetail()
@@ -383,6 +439,8 @@ final class PullRequestStore {
         connectInstanceId = nil
         reconnectAccountId = nil
         currentToken = nil
+        silentToken = nil
+        commitChecksCache = [:]
         lastLoadedAt = nil
     }
 

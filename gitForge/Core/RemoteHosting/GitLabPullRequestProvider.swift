@@ -51,6 +51,25 @@ struct GitLabPullRequestProvider: PullRequestProvider {
         let pipelines = try await RemoteAPI.send(Self.makeRequest(
             url: URL(string: "\(project)/merge_requests/\(pull.number)/pipelines?per_page=1"), token: token))
         guard let pipelineId = try Self.parseLatestPipelineId(pipelines) else { return [] }
+        return try await fetchJobs(project: project, pipelineId: pipelineId, token: token)
+    }
+
+    func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] {
+        let project = "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))"
+        guard var components = URLComponents(string: "\(project)/pipelines") else {
+            throw PullRequestFetchError.network("bad URL")
+        }
+        // Newest pipeline first: a re-run supersedes the earlier ones.
+        components.queryItems = [URLQueryItem(name: "sha", value: sha),
+                                 URLQueryItem(name: "order_by", value: "id"),
+                                 URLQueryItem(name: "sort", value: "desc"),
+                                 URLQueryItem(name: "per_page", value: "1")]
+        let pipelines = try await RemoteAPI.send(Self.makeRequest(url: components.url, token: token))
+        guard let pipelineId = try Self.parseLatestPipelineId(pipelines) else { return [] }
+        return try await fetchJobs(project: project, pipelineId: pipelineId, token: token)
+    }
+
+    private func fetchJobs(project: String, pipelineId: Int, token: String) async throws -> [CICheck] {
         let jobs = try await RemoteAPI.send(Self.makeRequest(
             url: URL(string: "\(project)/pipelines/\(pipelineId)/jobs?per_page=100"), token: token))
         return try Self.parseJobs(jobs)
