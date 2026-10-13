@@ -23,6 +23,7 @@ struct StagingDiffColumn: View {
                     onOpenInEditor: { openInEditor(file: file) },
                     onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
                     hunkActions: .workingCopy(viewModel, file: file),
+                    loadNewSide: { await viewModel.workingCopy.newSideLines(for: file) },
                     viewMode: $diffMode
                 )
             } else if hasFiles {

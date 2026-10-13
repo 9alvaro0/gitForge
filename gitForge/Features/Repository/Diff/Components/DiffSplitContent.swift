@@ -9,6 +9,11 @@ struct DiffSplitContent: View {
     let highlighted: [Int: [Int: AttributedString]]
     /// Hunk-level actions; picking single lines is a unified-view feature.
     var headerControls: (DiffHunk) -> DiffHunkHeader.Controls? = { _ in nil }
+    /// Hidden-context gaps, as in the unified view.
+    var gaps: [DiffGap] = []
+    var expandedGaps: Set<Int> = []
+    var fileLines: [String] = []
+    var onExpandGap: (Int) -> Void = { _ in }
 
     @Environment(\.appTheme) private var theme
 
@@ -23,7 +28,8 @@ struct DiffSplitContent: View {
                 // id so the LazyVStack sees globally-unique IDs (otherwise
                 // SwiftUI logs "the ID … is used by multiple child views").
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(hunks) { hunk in
+                    ForEach(Array(hunks.enumerated()), id: \.element.id) { index, hunk in
+                        gapSection(before: index)
                         DiffHunkHeader(hunk: hunk, controls: headerControls(hunk))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id("h-\(hunk.id)")
@@ -45,9 +51,21 @@ struct DiffSplitContent: View {
                             .id("h-\(hunk.id)-r-\(idx)")
                         }
                     }
+                    gapSection(before: hunks.count)
                 }
                 .frame(width: geo.size.width, alignment: .topLeading)
             }
+        }
+    }
+}
+
+extension DiffSplitContent {
+    @ViewBuilder
+    private func gapSection(before index: Int) -> some View {
+        if let gap = gaps.first(where: { $0.beforeHunk == index }) {
+            DiffGapSection(gap: gap, isExpanded: expandedGaps.contains(gap.id), fileLines: fileLines,
+                           split: true, onExpand: { onExpandGap(gap.id) })
+                .id("g-\(gap.id)")
         }
     }
 }
