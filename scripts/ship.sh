@@ -12,7 +12,7 @@
 #   7) gh release create
 #   8) update-appcast.sh (EdDSA-sign DMG, prepend <item>)
 #   9) Commit appcast
-#   10) Push commits + tag
+#   10) Push the appcast commit (the bump commit and tag go up before step 7)
 #
 # Usage:
 #   ./scripts/ship.sh <version> [--dry-run] [--skip-notes] [--skip-push] [--yes]
@@ -284,6 +284,18 @@ fi
 log "Tagging ${TAG}"
 run "git tag -a '${TAG}' -m 'gitForge ${VERSION}'"
 
+# gh release create refuses a tag that only exists locally, so the bump
+# commit and the tag go up before the release is created.
+if (( SKIP_PUSH )); then
+  warn "--skip-push set. Stopping before the GitHub Release, which needs the tag on origin. Remember:"
+  echo "    git push origin main && git push origin ${TAG}"
+  echo "    then gh release create, ./scripts/update-appcast.sh ${VERSION}, commit and push the appcast"
+  exit 0
+fi
+log "Pushing the bump commit and ${TAG}"
+run "git push origin main"
+run "git push origin '${TAG}'"
+
 # ---- 6. GitHub Release -----------------------------------------------------
 log "Creating GitHub Release ${TAG}"
 if (( DRY_RUN )); then
@@ -312,14 +324,8 @@ if ! (( DRY_RUN )); then
 fi
 
 # ---- 9. Push ---------------------------------------------------------------
-if (( SKIP_PUSH )); then
-  warn "--skip-push set. Not pushing to origin. Remember:"
-  echo "    git push origin main && git push origin ${TAG}"
-else
-  log "Pushing to origin (commits + tag)"
-  run "git push origin main"
-  run "git push origin '${TAG}'"
-fi
+log "Pushing the appcast commit"
+run "git push origin main"
 
 # ---- Done ------------------------------------------------------------------
 log "Shipped gitForge ${VERSION}"

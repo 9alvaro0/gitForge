@@ -104,9 +104,10 @@ fi
 
 # ---- Splice the item into the channel (after <language> tag) --------------
 TMP=$(mktemp)
-awk -v item="${ITEM_XML}" '
+# The item goes through the environment: BSD awk rejects newlines in -v values.
+ITEM="${ITEM_XML}" awk '
   /<\/channel>/ && !done {
-    print item
+    print ENVIRON["ITEM"]
     done = 1
   }
   { print }
