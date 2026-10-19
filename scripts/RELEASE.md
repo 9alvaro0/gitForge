@@ -58,15 +58,16 @@ This orchestrates: validate → bump `MARKETING_VERSION` and set `CURRENT_PROJEC
 same value (Sparkle compares the appcast's `sparkle:version` against
 `CFBundleVersion`) → generate release
 notes from `git log v{prev}..HEAD` (grouped into New / Fixes / Improvements)
-→ commit → `release.sh` → tag → `gh release create` → `update-appcast.sh`
-→ commit appcast → push commits + tag.
+→ commit → `release.sh` → tag → push commit + tag → `gh release create`
+→ `update-appcast.sh` → commit and push the appcast.
 
 Useful flags:
 
 - `--dry-run` — print every step without doing anything.
 - `--skip-notes` — skip auto-generation; expects `docs/releases/v<version>.html`
   to already exist (write notes by hand first).
-- `--skip-push` — stop before pushing to origin.
+- `--skip-push` — stop after tagging, before pushing to origin (the GitHub
+  Release needs the tag on origin, so it is skipped too).
 - `--yes` / `-y` — skip the interactive confirmation prompt.
 
 Preflight refuses to run if: not on `main`, working tree dirty, local out of
