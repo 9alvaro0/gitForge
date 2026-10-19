@@ -52,6 +52,14 @@ struct CommandPaletteView: View {
             selectedIndex = 0
             pointer.reset(at: NSEvent.mouseLocation)
         }
+        // With a list holding focus (a clicked History or Stashes row), the
+        // request in onAppear lands before the field can take it: typing
+        // went nowhere and the first ⇥ only moved focus in. Asking again
+        // once the panel is on screen makes it stick.
+        .task {
+            await Task.yield()
+            inputFocused = true
+        }
         .onKeyPress(.escape) { onClose(); return .handled }
         .onKeyPress(keys: [.return], phases: .down) { press in
             if let row = rows[safe: selectedIndex] { onPick(row.item, press.modifiers.contains(.command)) }
@@ -80,6 +88,8 @@ struct CommandPaletteView: View {
                     setScope(backwards ? scope.previous() : scope.next())
                     return .handled
                 }
+                // Same for ⎋, which the field editor turns into completion.
+                .onKeyPress(.escape) { onClose(); return .handled }
                 .accessibilityLabel("Command")
         }
         .padding(.horizontal, Spacing.s16)

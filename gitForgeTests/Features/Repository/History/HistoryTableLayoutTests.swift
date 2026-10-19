@@ -37,4 +37,19 @@ struct HistoryTableLayoutTests {
             + HistoryTableLayout.trailingPadding + 4 * HistoryTableLayout.gap
         #expect(layout.fixedWidth == 400 + chrome)
     }
+
+    @Test("Lanes widen the graph column only up to a share of the table")
+    func graphMinWidthCapped() {
+        // Few lanes: their width, over the column's own minimum.
+        #expect(CommitGraphTable.graphMinWidth(lanesWidth: 140, viewport: 900, columnMin: 110) == 140)
+        // Single lane: the column minimum.
+        #expect(CommitGraphTable.graphMinWidth(lanesWidth: 24, viewport: 900, columnMin: 110) == 110)
+        // Many lanes in a narrow table: capped, so Description keeps its room.
+        let capped = CommitGraphTable.graphMinWidth(lanesWidth: 400, viewport: 800, columnMin: 110)
+        #expect(capped == 800 * CommitGraphTable.maxAutomaticGraphShare)
+        let full = HistoryTableLayout(viewport: 800, graph: 400, author: 112, date: 92, commit: 64)
+        let layout = HistoryTableLayout(viewport: 800, graph: capped, author: 112, date: 92, commit: 64)
+        #expect(full.totalWidth > 800)
+        #expect(layout.totalWidth == 800)
+    }
 }

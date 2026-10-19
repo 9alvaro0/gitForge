@@ -71,13 +71,18 @@ struct CloneSheet: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Spacing.s16) {
             field("Repository URL") {
-                TextField("Paste an HTTPS or SSH repository URL", text: $model.url)
-                    .textFieldStyle(.roundedBorder)
-                    .textRole(.mono)
-                    .overlay(alignment: .trailing) { probeBadge(model.probe).padding(.trailing, Spacing.s8) }
-                    .task(id: model.url) { await model.urlChanged() }
-                    .accessibilityLabel("Repository URL")
-                    .accessibilityValue(Self.probeDescription(model.probe).map { "\(model.url), \($0)" } ?? model.url)
+                // Beside the field, not over it: a long URL ran under the badge.
+                HStack(spacing: Spacing.s8) {
+                    TextField("Paste an HTTPS or SSH repository URL", text: $model.url)
+                        .textFieldStyle(.roundedBorder)
+                        .textRole(.mono)
+                        .task(id: model.url) { await model.urlChanged() }
+                        .accessibilityLabel("Repository URL")
+                        .accessibilityValue(Self.probeDescription(model.probe).map { "\(model.url), \($0)" } ?? model.url)
+                    probeBadge(model.probe)
+                        .fixedSize()
+                        .accessibilityHidden(true)
+                }
                 if let summary = model.remoteSummary {
                     Text(summary).textRole(.caption).foregroundStyle(theme.colors.textSecondary)
                 } else if let suggestion = RemoteHost.suggestedInstance(forRemoteURL: model.url,
@@ -170,8 +175,8 @@ struct CloneSheet: View {
         }
     }
 
-    /// The badge's text, for VoiceOver (the badge sits in an overlay of
-    /// the field and isn't read on its own).
+    /// The badge's text, for VoiceOver: it's read with the field's value,
+    /// so the badge itself is hidden from it.
     nonisolated static func probeDescription(_ state: CloneSheetModel.ProbeState) -> String? {
         switch state {
         case .idle: nil

@@ -8,11 +8,19 @@ struct BranchInspector: View {
     let actions: BranchActions
     /// `RepositoryViewModel.comparison(of:)`; nil leaves the section out.
     var loadComparison: (GitRef) async -> BranchComparison? = { _ in nil }
+    /// The trunk's tip: a merge into the trunk changes the comparison while
+    /// `ref` stays the same.
+    var trunkTip: String? = nil
 
     @State private var comparison: BranchComparison?
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
+
+    private struct ComparisonKey: Equatable {
+        let ref: GitRef
+        let trunkTip: String?
+    }
 
     private var isCurrent: Bool { ref.isLocalBranch && ref.name == currentBranchName }
 
@@ -37,8 +45,9 @@ struct BranchInspector: View {
         }
         .padding(Spacing.s16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // `ref` carries its tip, so a moved branch reloads too.
-        .task(id: ref) {
+        // `ref` carries its tip, so a moved branch reloads too; so does a
+        // moved trunk.
+        .task(id: ComparisonKey(ref: ref, trunkTip: trunkTip)) {
             comparison = nil
             comparison = await loadComparison(ref)
         }
