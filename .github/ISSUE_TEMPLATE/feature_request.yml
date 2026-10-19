@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something gitForge should do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        gitForge is opinionated and focused. Check the "Not supported (yet)" list in the README and the open issues before suggesting something.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like
+      description: How you imagine it working. Mockups or references to other Git clients are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered

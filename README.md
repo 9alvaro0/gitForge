@@ -109,6 +109,10 @@ unsigned or tampered builds are rejected even if served from the right URL.
 
 Manual check: **Help → Check for Updates…**
 
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR, and report security issues privately as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

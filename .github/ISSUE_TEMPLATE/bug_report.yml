@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in gitForge doesn't work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please search the existing issues first.
+        Never paste tokens, passwords or private repository contents.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a repository with…
+        2. Click…
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: gitForge version
+      description: gitForge → About gitForge.
+      placeholder: "1.1.1"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+  - type: input
+    id: git-version
+    attributes:
+      label: git version
+      description: Output of `git --version`.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or extra context
+      description: Screenshots, the repository setup (submodules, LFS, a fork…) or anything else that helps.
