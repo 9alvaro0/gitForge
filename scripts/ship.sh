@@ -184,6 +184,20 @@ if [[ "${CURRENT_VERSION}" != "${VERSION}" ]]; then
   fi
 fi
 
+# Sparkle compares the appcast's sparkle:version against CFBundleVersion
+# (CURRENT_PROJECT_VERSION), so the build number must match the version
+# published there, or an installed build keeps being offered itself.
+log "Setting CURRENT_PROJECT_VERSION to ${VERSION}"
+if (( DRY_RUN )); then
+  printf '\033[1;90m[dry-run]\033[0m sed -i "" -E "s/CURRENT_PROJECT_VERSION = [^;]+;/CURRENT_PROJECT_VERSION = %s;/g" %s\n' \
+    "${VERSION}" "${PBXPROJ}"
+else
+  sed -i '' -E "s/CURRENT_PROJECT_VERSION = [^;]+;/CURRENT_PROJECT_VERSION = ${VERSION};/g" "${PBXPROJ}"
+  if grep -E "CURRENT_PROJECT_VERSION = " "${PBXPROJ}" | grep -vq "CURRENT_PROJECT_VERSION = ${VERSION};"; then
+    fail "Some CURRENT_PROJECT_VERSION entries were not set to ${VERSION}. Aborting."
+  fi
+fi
+
 # ---- 2. Generate release notes --------------------------------------------
 generate_notes() {
   local md_file="$1"
