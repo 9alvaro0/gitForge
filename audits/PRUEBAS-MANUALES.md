@@ -13,7 +13,8 @@ muchas ramas en paralelo la columna Graph de History se comía la tabla
 (la descripción casi no se veía). Ahora las lanes ocupan como mucho el 35 %
 de la tabla y las de más se recortan; arrastrando el borde se ensancha.
 
-Prepara antes un repo de pruebas con:
+Prepara antes un repo de pruebas (`scripts/make-manual-test-repo.sh` lo
+crea en `~/gitforge-manual-test`) con:
 - un fichero con varios cambios separados (al menos dos hunks), parte en
   staged y parte sin preparar;
 - un fichero nuevo sin seguimiento;
