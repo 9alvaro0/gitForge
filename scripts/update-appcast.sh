@@ -77,16 +77,18 @@ DOWNLOAD_URL="${DOWNLOAD_BASE_URL}/v${VERSION}/${APP_NAME}-${VERSION}.dmg"
 NOTES_PATH="docs/releases/v${VERSION}.html"
 NOTES_LINK_TAG=""
 if [[ -f "${NOTES_PATH}" ]]; then
-  NOTES_LINK_TAG="            <sparkle:releaseNotesLink>${NOTES_BASE_URL}/v${VERSION}.html</sparkle:releaseNotesLink>"
+  # Ends in a newline: $'\n' isn't expanded inside the here-doc below.
+  NOTES_LINK_TAG="            <sparkle:releaseNotesLink>${NOTES_BASE_URL}/v${VERSION}.html</sparkle:releaseNotesLink>"$'\n'
 else
   echo "Note: ${NOTES_PATH} not found — release notes link omitted."
 fi
 
 # ---- Compose <item> --------------------------------------------------------
-read -r -d '' ITEM_XML <<XML || true
+# IFS= keeps the first line's indentation.
+IFS= read -r -d '' ITEM_XML <<XML || true
         <item>
             <title>gitForge ${VERSION}</title>
-${NOTES_LINK_TAG:+${NOTES_LINK_TAG}$'\n'}            <pubDate>${PUB_DATE}</pubDate>
+${NOTES_LINK_TAG}            <pubDate>${PUB_DATE}</pubDate>
             <sparkle:minimumSystemVersion>${MIN_SYSTEM_VERSION}</sparkle:minimumSystemVersion>
             <enclosure url="${DOWNLOAD_URL}"
                        sparkle:version="${VERSION}"
@@ -96,11 +98,7 @@ ${NOTES_LINK_TAG:+${NOTES_LINK_TAG}$'\n'}            <pubDate>${PUB_DATE}</pubDa
                        sparkle:edSignature="${ED_SIGNATURE}" />
         </item>
 XML
-
-# Drop the empty placeholder line if there are no notes.
-if [[ -z "${NOTES_LINK_TAG}" ]]; then
-  ITEM_XML=$(echo "${ITEM_XML}" | sed '/^[[:space:]]*$/d')
-fi
+ITEM_XML="${ITEM_XML%$'\n'}"
 
 # ---- Splice the item into the channel (after <language> tag) --------------
 TMP=$(mktemp)
