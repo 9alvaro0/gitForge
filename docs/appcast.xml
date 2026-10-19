@@ -24,5 +24,17 @@
                        type="application/octet-stream"
                        sparkle:edSignature="cIUX9ZwQ/ilWCcNzFoMrfz/G4NWQJGU6qdI27IIEzFFiVyhrKyXA7bAjrDyR4DZEtERRDu0IxVRgC4oeX7zRBA==" />
         </item>
+        <item>
+            <title>gitForge 1.1.1</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.1.1.html</sparkle:releaseNotesLink>
+            <pubDate>Mon, 19 Oct 2026 10:48:36 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.1.1/gitForge-1.1.1.dmg"
+                       sparkle:version="1.1.1"
+                       sparkle:shortVersionString="1.1.1"
+                       length="15349790"
+                       type="application/octet-stream"
+                       sparkle:edSignature="HLV7856l6Yc3+PcIcpbFxY0ctHorsE16+y+mTwD4tLa1dl1d8AaiRChVktisIYFWHTY/gmx2Cvp5E7v7GKa7BQ==" />
+        </item>
     </channel>
 </rss>
