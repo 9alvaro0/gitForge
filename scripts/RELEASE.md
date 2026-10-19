@@ -51,10 +51,12 @@ docs**. The feed will be served at
 One command does the full pipeline:
 
 ```bash
-./scripts/ship.sh 1.0.2
+./scripts/ship.sh 1.1.0
 ```
 
-This orchestrates: validate → bump `MARKETING_VERSION` → generate release
+This orchestrates: validate → bump `MARKETING_VERSION` and set `CURRENT_PROJECT_VERSION` to the
+same value (Sparkle compares the appcast's `sparkle:version` against
+`CFBundleVersion`) → generate release
 notes from `git log v{prev}..HEAD` (grouped into New / Fixes / Improvements)
 → commit → `release.sh` → tag → `gh release create` → `update-appcast.sh`
 → commit appcast → push commits + tag.
@@ -75,7 +77,7 @@ If you prefer to drive each step manually, the underlying scripts still work
 standalone: `release.sh` (build/sign/notarize), `update-appcast.sh <version>`
 (EdDSA-sign + prepend `<item>`).
 
-Within 24 hours, every running gitForge ≥ 1.0.2 picks up the update on its
+Within 24 hours, every running gitForge ≥ 1.1.0 picks up the update on its
 next background check. Users can also force a check from **Help → Check for
 Updates…**.
 
