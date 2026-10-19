@@ -2,6 +2,8 @@
 
 A modern, native macOS Git client built with SwiftUI.
 
+**Website:** [9alvaro0.github.io/gitForge](https://9alvaro0.github.io/gitForge/)
+
 > Opinionated and focused. Like Fork but native and modern, like GitKraken without the bloat.
 
 ## Download
