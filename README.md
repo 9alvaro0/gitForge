@@ -4,9 +4,19 @@ A modern, native macOS Git client built with SwiftUI.
 
 > Opinionated and focused. Like Fork but native and modern, like GitKraken without the bloat.
 
+## Download
+
+**[Download the latest version](https://github.com/9alvaro0/gitForge/releases/latest)** (DMG, macOS 26.1 or later, Apple silicon and Intel).
+
+1. Open the DMG and drag **gitForge** to **Applications**.
+2. Open it. It is signed and notarized by Apple, so it opens without security warnings.
+3. If the Xcode Command Line Tools aren't installed, gitForge offers to install them (they include `git`).
+
+gitForge updates itself: new versions are offered in the app, or from **Help → Check for Updates…**. If you have 1.0.1, download 1.1.0 by hand once; it was the last version without automatic updates.
+
 ## Status
 
-In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues) for the roadmap.
+In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues) for the roadmap and the [releases](https://github.com/9alvaro0/gitForge/releases) for what's new in each version.
 
 ## Features
 
