@@ -12,5 +12,17 @@
           and cannot self-update — users on v1.0.1 must download v1.0.2
           manually from GitHub Releases the one time.
         -->
+        <item>
+            <title>gitForge 1.1.0</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.1.0.html</sparkle:releaseNotesLink>
+            <pubDate>Mon, 19 Oct 2026 09:22:12 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.1.0/gitForge-1.1.0.dmg"
+                       sparkle:version="1.1.0"
+                       sparkle:shortVersionString="1.1.0"
+                       length="13200374"
+                       type="application/octet-stream"
+                       sparkle:edSignature="cIUX9ZwQ/ilWCcNzFoMrfz/G4NWQJGU6qdI27IIEzFFiVyhrKyXA7bAjrDyR4DZEtERRDu0IxVRgC4oeX7zRBA==" />
+        </item>
     </channel>
 </rss>
