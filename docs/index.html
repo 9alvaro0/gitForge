@@ -4,139 +4,155 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>gitForge · A native Git client for macOS</title>
-<meta name="description" content="gitForge is a fast, focused Git client for macOS built with SwiftUI. History, changes, branches, conflicts and pull requests in one native window. Free and open source.">
+<meta name="description" content="gitForge is a native Git client for macOS built with SwiftUI. History, changes, branches, conflicts and pull requests in one window. Free and open source.">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#0f0e14">
+<meta name="theme-color" content="#1c1360">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="canonical" href="https://9alvaro0.github.io/gitForge/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="gitForge · A native Git client for macOS">
-<meta property="og:description" content="Fast, focused and built with SwiftUI. Free and open source.">
+<meta property="og:title" content="gitForge · Forged for the Mac">
+<meta property="og:description" content="A native Git client for macOS, built with SwiftUI. Free and open source.">
 <meta property="og:url" content="https://9alvaro0.github.io/gitForge/">
 <meta property="og:image" content="https://9alvaro0.github.io/gitForge/assets/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;700&display=swap">
 <style>
 :root {
-  --bg: #0f0e14;
-  --surface: #17151f;
-  --surface-2: #1e1b28;
-  --line: #2a2636;
-  --text: #f2f0f7;
-  --text-2: #b4afc4;
-  --text-3: #8d879e;
-  --accent: #7c5cff;
-  --accent-fill: #7350fa;
-  --accent-text: #a995ff;
-  --spark: #ffb547;
-  --radius: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --ink: #1c1360;
+  --paper: #ffffff;
+  --text-2: #e2ddff;
+  --label: #cfc8ff;
+  --line: rgba(255, 255, 255, 0.55);
+  --line-soft: rgba(255, 255, 255, 0.28);
+  --spark: #ffc062;
+  --spark-hover: #ffd08a;
+  --display: "Archivo", -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 17px/1.6 var(--font);
+  color: var(--paper);
+  background-color: var(--ink);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.13) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  font: 18px/1.55 var(--display);
   -webkit-font-smoothing: antialiased;
 }
-a { color: var(--accent-text); text-decoration: none; }
-a:hover { text-decoration: underline; }
-:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 3px; border-radius: 6px; }
-.wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
-.skip { position: absolute; left: -999px; top: 8px; background: var(--surface-2); color: var(--text); padding: 8px 14px; border-radius: 8px; z-index: 10; }
+a { color: #ffd28a; }
+a:hover { color: #ffe3b3; }
+:focus-visible { outline: 3px solid var(--spark); outline-offset: 3px; border-radius: 4px; }
+.wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+.label { margin: 0; font-family: var(--mono); font-size: 13px; color: var(--label); }
+.skip { position: absolute; left: -9999px; top: 8px; z-index: 10; padding: 10px 16px; border-radius: 6px; background: var(--spark); color: var(--ink); font-weight: 700; }
 .skip:focus { left: 16px; }
 
 /* Header */
-header.top { position: sticky; top: 0; z-index: 5; background: rgba(15, 14, 20, 0.82); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 60px; }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; font-size: 18px; }
-.brand:hover { text-decoration: none; }
-.brand img { width: 30px; height: 30px; }
-nav ul { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; align-items: center; }
-nav a { color: var(--text-2); font-size: 15px; padding: 8px 12px; border-radius: 8px; display: inline-block; }
-nav a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); text-decoration: none; }
-nav a.nav-cta { color: #fff; background: var(--accent-fill); font-weight: 600; }
-nav a.nav-cta:hover { background: #7f60ff; }
+.top .wrap { height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 12px; color: var(--paper); text-decoration: none; font-size: 19px; font-weight: 800; font-stretch: 125%; }
+.brand:hover { color: var(--paper); }
+.top nav ul { list-style: none; display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; font-family: var(--mono); font-size: 13px; }
+.top nav a { display: inline-block; padding: 12px; color: #d9d3ff; text-decoration: none; }
+.top nav a:hover { color: var(--paper); text-decoration: underline; text-underline-offset: 4px; }
+.top nav .nav-cta { margin-left: 8px; padding: 11px 16px; border-radius: 6px; background: var(--spark); color: var(--ink); font-weight: 700; }
+.top nav .nav-cta:hover { background: var(--spark-hover); color: var(--ink); text-decoration: none; }
 
 /* Buttons */
-.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 12px; font-weight: 600; font-size: 16px; text-decoration: none; transition: background 0.15s, border-color 0.15s; }
-.btn:hover { text-decoration: none; }
-.btn-primary { background: var(--accent-fill); color: #fff; box-shadow: 0 8px 28px rgba(115, 80, 250, 0.35); }
-.btn-primary:hover { background: #8064ff; }
-.btn-secondary { color: var(--text); border: 1px solid var(--line); background: var(--surface); }
-.btn-secondary:hover { border-color: #3d3750; background: var(--surface-2); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 22px; border-radius: 8px; font-size: 17px; font-weight: 800; text-decoration: none; }
 .btn svg { width: 20px; height: 20px; flex: none; }
+.btn-primary { background: var(--spark); color: var(--ink); }
+.btn-primary:hover { background: var(--spark-hover); color: var(--ink); }
+.btn-ghost { border: 1.5px solid rgba(255, 255, 255, 0.6); color: var(--paper); font-weight: 700; }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.08); color: var(--paper); }
 
 /* Hero */
-.hero { position: relative; padding: 88px 0 40px; text-align: center; overflow: hidden; }
-.hero::before { content: ""; position: absolute; left: 50%; top: -220px; width: 1100px; height: 700px; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(124, 92, 255, 0.28), rgba(124, 92, 255, 0) 70%); pointer-events: none; }
-.hero .wrap { position: relative; }
-.hero-icon { width: 128px; height: 128px; margin: 0 auto 20px; display: block; filter: drop-shadow(0 18px 40px rgba(124, 92, 255, 0.35)); }
-.hero h1 { margin: 0 auto; max-width: 820px; font-size: clamp(38px, 6vw, 64px); line-height: 1.06; letter-spacing: -0.025em; font-weight: 700; }
-.hero p.lede { margin: 20px auto 0; max-width: 640px; color: var(--text-2); font-size: clamp(18px, 2.2vw, 21px); }
-.cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
-.meta { margin-top: 16px; color: var(--text-3); font-size: 14px; }
-.meta span + span::before { content: "·"; margin: 0 8px; }
+.hero { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 48px; align-items: end; padding-top: 96px; padding-bottom: 24px; }
+h1 { margin: 20px 0 0; font-size: 96px; line-height: 0.92; font-weight: 900; font-stretch: 125%; letter-spacing: -0.03em; }
+.hero .lede { margin: 0; color: var(--text-2); font-size: 20px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.hero .meta { margin-top: 16px; }
 
 /* Screenshots */
-.shot { margin: 0; }
-.shot img { display: block; width: 100%; height: auto; border-radius: 1.1% / 1.9%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 30px 80px rgba(0, 0, 0, 0.55), 0 10px 30px rgba(0, 0, 0, 0.4); background: var(--surface); }
-.hero-shot { margin-top: 56px; }
+.screen { display: block; width: 100%; height: auto; border-radius: 12px; background: #17123d; box-shadow: 0 0 0 1.5px var(--line), 0 40px 90px rgba(8, 4, 40, 0.65); }
 
-/* Sections */
-section { padding: 72px 0; }
-.eyebrow { color: var(--accent-text); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; margin: 0 0 10px; }
-h2 { font-size: clamp(30px, 4vw, 42px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 700; }
-h3 { font-size: 19px; margin: 0 0 6px; font-weight: 600; }
-.section-lede { color: var(--text-2); max-width: 640px; margin: 0; }
+/* Annotated History screenshot */
+.figure-section { max-width: 1240px; margin: 0 auto; padding: 120px 32px 130px; }
+.annotated { position: relative; margin: 0; }
+.leader { position: absolute; width: 1.5px; background: rgba(255, 255, 255, 0.75); }
+.dot { position: absolute; width: 11px; height: 11px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--spark); }
+.note { position: absolute; margin: 0; font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+.note b, .legend b { color: var(--spark); }
+.legend { display: none; }
 
-.feature { padding: 56px 0 24px; }
-.feature-text { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px 56px; align-items: start; margin-bottom: 36px; }
-.feature-text h3 { font-size: clamp(24px, 2.6vw, 30px); line-height: 1.2; letter-spacing: -0.015em; margin-bottom: 10px; }
-.feature ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-.feature li { position: relative; padding-left: 26px; color: var(--text-2); }
-.feature li::before { content: ""; position: absolute; left: 4px; top: 0.68em; width: 8px; height: 8px; border-radius: 50%; background: var(--spark); box-shadow: 0 0 10px rgba(255, 181, 71, 0.6); }
-kbd { font: 600 13px/1 var(--mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 3px 6px; white-space: nowrap; }
+/* Details */
+.detail { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 48px; align-items: start; padding-top: 40px; padding-bottom: 96px; }
+.detail.flip { grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); }
+.detail.flip .detail-text { order: 2; }
+.detail-text { position: sticky; top: 24px; }
+h2 { margin: 14px 0 0; font-size: 52px; line-height: 1; font-weight: 900; font-stretch: 125%; letter-spacing: -0.025em; }
+.detail-text .lede { margin: 20px 0 0; color: var(--text-2); }
+.spec { margin: 28px 0 0; border-top: 1.5px solid var(--line); font-family: var(--mono); font-size: 14px; }
+.spec div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.spec dt { color: var(--label); }
+.spec dd { margin: 0; text-align: right; }
 
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
-.card p { margin: 0; color: var(--text-2); font-size: 16px; }
-.card .ico { width: 40px; height: 40px; border-radius: 10px; background: rgba(124, 92, 255, 0.14); color: var(--accent-text); display: grid; place-items: center; margin-bottom: 16px; }
-.card .ico svg { width: 22px; height: 22px; }
+/* Specifications */
+.specs { padding-top: 40px; padding-bottom: 80px; }
+.specs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin-top: 18px; border: 1.5px solid var(--line); background: var(--line-soft); }
+.specs-grid > div { padding: 26px; background: var(--ink); }
+.specs-grid h3 { margin: 0; font-size: 21px; font-weight: 800; font-stretch: 112%; }
+.specs-grid p { margin: 6px 0 0; color: var(--text-2); font-size: 16px; }
 
-.native { background: linear-gradient(180deg, rgba(124, 92, 255, 0.08), rgba(124, 92, 255, 0)); border-top: 1px solid var(--line); }
-.pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-.pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--text-2); font-size: 15px; }
-.pill svg { width: 18px; height: 18px; color: var(--accent-text); }
+/* Final call to action */
+.final { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center; padding-top: 56px; padding-bottom: 100px; }
+.final h2 { margin: 0; font-size: 72px; line-height: 0.95; letter-spacing: -0.03em; }
+.final p { margin: 14px 0 0; color: var(--text-2); }
+.final .btn { min-height: 58px; padding: 0 30px; font-size: 18px; }
 
-.final { text-align: center; }
-.final img { width: 96px; height: 96px; margin-bottom: 16px; }
-.final p { color: var(--text-2); margin: 0 auto; max-width: 560px; }
+/* Drawing title block */
+footer.wrap { padding-bottom: 56px; }
+.title-block { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 1px; border: 1.5px solid var(--line); background: var(--line-soft); font-family: var(--mono); font-size: 13px; }
+.title-block > div { padding: 14px 16px; background: var(--ink); }
+.title-block span { display: block; color: var(--label); }
+.title-block strong { display: block; margin-top: 4px; font-weight: 700; }
+.footer-links { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 18px 0 0; padding: 0; font-family: var(--mono); font-size: 13px; }
 
-footer { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--text-3); font-size: 14px; }
-footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; align-items: center; }
-footer ul { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 0; padding: 0; }
-footer a { color: var(--text-2); }
-
-@media (max-width: 900px) {
-  .feature { padding: 36px 0 12px; }
-  .feature-text { grid-template-columns: minmax(0, 1fr); margin-bottom: 24px; }
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  h1 { font-size: 80px; }
+}
+@media (max-width: 960px) {
+  .hero, .detail, .detail.flip, .final { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .detail.flip .detail-text { order: 0; }
+  .detail-text { position: static; }
+  .figure-section { padding: 64px 32px 72px; }
+  .leader, .dot, .note { display: none; }
+  .legend { display: grid; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; font-family: var(--mono); font-size: 13px; }
+  .specs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .title-block { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .title-block > div:first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) {
-  .wrap { padding: 0 16px; }
-  nav li.hide-sm { display: none; }
+  body { font-size: 17px; }
+  .wrap, .figure-section { padding-left: 16px; padding-right: 16px; }
+  .top nav .hide-sm { display: none; }
   .hero { padding-top: 56px; }
-  .hero-icon { width: 104px; height: 104px; }
-  .grid { grid-template-columns: minmax(0, 1fr); }
-  section { padding: 52px 0; }
-  .btn { width: 100%; justify-content: center; }
+  h1 { font-size: clamp(40px, 12.5vw, 58px); }
+  h2 { font-size: 40px; }
+  .final h2 { font-size: 52px; }
+  .btn { width: 100%; }
+  .detail { padding-bottom: 64px; }
+  .specs-grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>
 </head>
@@ -145,10 +161,11 @@ footer a { color: var(--text-2); }
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#" aria-label="gitForge home"><img src="assets/favicon.png" alt="" width="30" height="30">gitForge</a>
+    <a class="brand" href="./"><img src="assets/favicon.png" alt="" width="34" height="34">gitForge</a>
     <nav aria-label="Main">
       <ul>
-        <li class="hide-sm"><a href="#features">Features</a></li>
+        <li class="hide-sm"><a href="#specifications">Specifications</a></li>
+        <li class="hide-sm"><a href="https://github.com/9alvaro0/gitForge/releases">Release notes</a></li>
         <li class="hide-sm"><a href="https://github.com/9alvaro0/gitForge">GitHub</a></li>
         <li><a class="nav-cta download-link" href="https://github.com/9alvaro0/gitForge/releases/latest">Download</a></li>
       </ul>
@@ -157,157 +174,133 @@ footer a { color: var(--text-2); }
 </header>
 
 <main id="main">
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="wrap">
-      <img class="hero-icon" src="assets/icon-512.png" alt="gitForge app icon: a hammer forging a git branch on an anvil" width="128" height="128">
-      <h1 id="hero-title">A native Git client for macOS</h1>
-      <p class="lede">Fast, focused and built with SwiftUI. Your history, changes, branches and conflicts in one window, with nothing in the way.</p>
+  <section class="wrap hero" aria-labelledby="hero-title">
+    <div>
+      <p class="label">FIG. 1 · A native Git client for macOS</p>
+      <h1 id="hero-title">Forged for<br>the Mac.</h1>
+    </div>
+    <div>
+      <p class="lede">History, changes, branches and conflicts in one SwiftUI window, running the git already on your Mac.</p>
       <div class="cta-row">
         <a class="btn btn-primary download-link" href="https://github.com/9alvaro0/gitForge/releases/latest">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
           Download for macOS
         </a>
-        <a class="btn btn-secondary" href="https://github.com/9alvaro0/gitForge">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
-          View on GitHub
-        </a>
+        <a class="btn btn-ghost" href="https://github.com/9alvaro0/gitForge">View source</a>
       </div>
-      <p class="meta"><span class="version-label">Latest version</span><span>macOS 26.1 or later</span><span>Apple silicon and Intel</span><span>Free and open source</span></p>
-      <figure class="shot hero-shot">
-        <img src="assets/screenshots/history.jpg" width="2400" height="1405" alt="gitForge History: the commit graph of the gitForge repository with branch lanes and tags, next to a commit's details and its side-by-side diff with syntax highlighting">
-      </figure>
+      <p class="label meta"><span class="version-label">v1.1.1</span> · macOS 26.1+ · Apple silicon &amp; Intel · MIT</p>
     </div>
   </section>
 
-  <section id="features" aria-labelledby="features-title">
-    <div class="wrap">
-      <p class="eyebrow">Features</p>
-      <h2 id="features-title">Everything you do with Git, in one window</h2>
-      <p class="section-lede">gitForge runs the git you already have and stays out of your way. No accounts to create, nothing to configure first.</p>
+  <section class="figure-section" aria-label="The History window">
+    <figure class="annotated">
+      <img class="screen" src="assets/screenshots/history.jpg" width="2400" height="1405" alt="gitForge History: the repository and branch tree, a commit graph with a lane for every branch, the selected commit's details, and its side-by-side diff with syntax highlighting">
+      <span class="leader" style="left: 7%; top: -86px; height: calc(33% + 86px);" aria-hidden="true"></span>
+      <span class="dot" style="left: 7%; top: 33%;" aria-hidden="true"></span>
+      <p class="note" style="left: 7%; top: -112px;" aria-hidden="true"><b>A</b> · Repositories &amp; branch tree</p>
+      <span class="leader" style="left: 27%; top: -46px; height: calc(24% + 46px);" aria-hidden="true"></span>
+      <span class="dot" style="left: 27%; top: 24%;" aria-hidden="true"></span>
+      <p class="note" style="left: 27%; top: -72px;" aria-hidden="true"><b>B</b> · A lane for every branch</p>
+      <span class="leader" style="left: 66%; top: -86px; height: calc(10% + 86px);" aria-hidden="true"></span>
+      <span class="dot" style="left: 66%; top: 10%;" aria-hidden="true"></span>
+      <p class="note" style="left: 66%; top: -112px;" aria-hidden="true"><b>C</b> · Commit, signature and CI</p>
+      <span class="leader" style="left: 82%; top: 70%; height: calc(30% + 60px);" aria-hidden="true"></span>
+      <span class="dot" style="left: 82%; top: 70%;" aria-hidden="true"></span>
+      <p class="note" style="right: 18%; bottom: -88px;" aria-hidden="true"><b>D</b> · Split or unified diff, highlighted</p>
+      <figcaption>
+        <ul class="legend">
+          <li><b>A</b> · Repositories &amp; branch tree</li>
+          <li><b>B</b> · A lane for every branch</li>
+          <li><b>C</b> · Commit, signature and CI</li>
+          <li><b>D</b> · Split or unified diff, highlighted</li>
+        </ul>
+      </figcaption>
+    </figure>
+  </section>
 
-      <div class="feature">
-        <div class="feature-text">
-          <div>
-            <h3>Stage exactly what you mean</h3>
-            <p class="section-lede">Review every change in a unified or side-by-side diff and build the commit you want.</p>
-          </div>
-          <ul>
-            <li>Stage, unstage and discard by file, by hunk or by line.</li>
-            <li>Stash just the files you select, and filter long lists.</li>
-            <li>Commit with amend and sign-off, or press <kbd>⌘</kbd> <kbd>↩</kbd>.</li>
-          </ul>
-        </div>
-        <figure class="shot"><img src="assets/screenshots/changes.jpg" width="2400" height="1405" loading="lazy" alt="gitForge Changes: unstaged and staged files on the left, a staged Swift file's diff with Unstage hunk buttons, and the commit composer"></figure>
-      </div>
+  <section class="wrap detail" aria-labelledby="changes-title">
+    <div class="detail-text">
+      <p class="label">DETAIL E · Changes</p>
+      <h2 id="changes-title">Stage what you mean.</h2>
+      <p class="lede">Build the commit you want, down to a single line of a single hunk.</p>
+      <dl class="spec">
+        <div><dt>Staging</dt><dd>file · hunk · line</dd></div>
+        <div><dt>Commit</dt><dd>amend · sign-off · ⌘↩</dd></div>
+        <div><dt>Stash</dt><dd>selected files</dd></div>
+        <div><dt>Diff</dt><dd>wrap · hide whitespace</dd></div>
+      </dl>
+    </div>
+    <img class="screen" src="assets/screenshots/changes.jpg" width="2400" height="1405" loading="lazy" alt="gitForge Changes: unstaged and staged files, a staged file's split diff with an Unstage hunk button, and the commit composer">
+  </section>
 
-      <div class="feature">
-        <div class="feature-text">
-          <div>
-            <h3>Resolve conflicts without leaving the app</h3>
-            <p class="section-lede">Merges, rebases, cherry-picks and stash pops all land in the same resolver.</p>
-          </div>
-          <ul>
-            <li>Pick ours, theirs or both for each hunk, or take a whole file.</li>
-            <li>Edit the result by hand before you mark it resolved.</li>
-            <li>Jump to the next conflict with <kbd>⌥</kbd> <kbd>⌘</kbd> <kbd>↓</kbd>.</li>
-          </ul>
-        </div>
-        <figure class="shot"><img src="assets/screenshots/conflicts.jpg" width="2400" height="1405" loading="lazy" alt="gitForge conflict resolver: a Swift file with two conflicting hunks, ours and theirs side by side, Use ours and Use theirs buttons, and the resulting file below"></figure>
-      </div>
+  <section class="wrap detail flip" aria-labelledby="conflicts-title">
+    <div class="detail-text">
+      <p class="label">DETAIL F · Conflicts</p>
+      <h2 id="conflicts-title">Resolve in place.</h2>
+      <p class="lede">Merges, rebases, cherry-picks, reverts and stash applies all stop in the same resolver.</p>
+      <dl class="spec">
+        <div><dt>Per hunk</dt><dd>ours · theirs · both</dd></div>
+        <div><dt>Per file</dt><dd>take ours · take theirs</dd></div>
+        <div><dt>Result</dt><dd>editable by hand</dd></div>
+        <div><dt>Next conflict</dt><dd>⌥⌘↓</dd></div>
+      </dl>
+    </div>
+    <img class="screen" src="assets/screenshots/conflicts.jpg" width="2400" height="1405" loading="lazy" alt="gitForge conflict resolver: conflicting hunks with ours and theirs side by side, buttons to use ours, theirs or both, and the resulting file below">
+  </section>
 
-      <div class="feature">
-        <div class="feature-text">
-          <div>
-            <h3>Everything is a keystroke away</h3>
-            <p class="section-lede">The command palette finds actions, repositories, branches, commits and files as you type.</p>
-          </div>
-          <ul>
-            <li>Open it from anywhere with <kbd>⌘</kbd> <kbd>K</kbd>.</li>
-            <li>Narrow the results to one scope with <kbd>⇥</kbd>.</li>
-            <li>Run an action and keep the palette open with <kbd>⌘</kbd> <kbd>↩</kbd>.</li>
-          </ul>
-        </div>
-        <figure class="shot"><img src="assets/screenshots/palette.jpg" width="2400" height="1405" loading="lazy" alt="gitForge command palette over the History view, showing actions, branches and commits that match the search branch"></figure>
-      </div>
+  <section class="wrap detail" aria-labelledby="palette-title">
+    <div class="detail-text">
+      <p class="label">DETAIL G · Command palette</p>
+      <h2 id="palette-title">One keystroke away.</h2>
+      <p class="lede">Actions, repositories, branches, commits and files, found as you type.</p>
+      <dl class="spec">
+        <div><dt>Open</dt><dd>⌘K</dd></div>
+        <div><dt>Scope</dt><dd>⇥ · ⇧⇥</dd></div>
+        <div><dt>Run and stay open</dt><dd>⌘↩</dd></div>
+        <div><dt>Matching</dt><dd>fuzzy, grouped</dd></div>
+      </dl>
+    </div>
+    <img class="screen" src="assets/screenshots/palette.jpg" width="2400" height="1405" loading="lazy" alt="gitForge command palette over the History view, listing the actions, branches and commits that match the query">
+  </section>
 
-      <div class="grid">
-        <div class="card">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-6 3-12 7"/></svg></div>
-          <h3>A graph you can read</h3>
-          <p>Branches, tags and stashes on colour-coded lanes. Focus mode dims everything that isn't part of the selected commit's history.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v4a6 6 0 0 0 6 6h4M14 5h4v4M18 5l-6 6"/></svg></div>
-          <h3>Drag to merge or rebase</h3>
-          <p>Drop one branch onto another and see the resulting graph before you choose to merge or rebase.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4m0 0 2.5-2.5M11 6l2.5 2.5"/></svg></div>
-          <h3>Pull requests and CI</h3>
-          <p>Open and closed pull requests from GitHub and GitLab, self-hosted included, with checks, approvals and each commit's CI status.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 3.8-5 7-5s5.8 1.5 7 5"/></svg></div>
-          <h3>One account per remote</h3>
-          <p>Connect your GitHub and GitLab accounts once. Every repository uses the right one for fetch, push, clone and pull requests.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v4H4zM6 11v8h12v-8M10 15h4"/></svg></div>
-          <h3>Stashes you can browse</h3>
-          <p>Every stash with its files and diffs, untracked files included. Apply, pop or drop it with confidence.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M12 7a5 5 0 0 1 0 10"/></svg></div>
-          <h3>Made for everyone</h3>
-          <p>VoiceOver labels and actions, Increase Contrast and Reduce Motion, light and dark themes, and your choice of accent.</p>
-        </div>
-      </div>
+  <section class="wrap specs" id="specifications" aria-labelledby="specs-title">
+    <p class="label" id="specs-title">SPECIFICATIONS</p>
+    <div class="specs-grid">
+      <div><h3>Branches</h3><p>Drag one onto another to merge or rebase, with a preview of the graph.</p></div>
+      <div><h3>Pull requests</h3><p>GitHub and GitLab, self-hosted included, with checks and approvals.</p></div>
+      <div><h3>Accounts</h3><p>One GitHub or GitLab account per remote, used for every push.</p></div>
+      <div><h3>Stashes</h3><p>Every stash's files and diffs, untracked files included.</p></div>
+      <div><h3>Private</h3><p>Your system git and config. No backend, no telemetry, no sign-up.</p></div>
+      <div><h3>Accessibility</h3><p>VoiceOver, Increase Contrast and Reduce Motion, in light and dark.</p></div>
     </div>
   </section>
 
-  <section class="native" aria-labelledby="native-title">
-    <div class="wrap">
-      <p class="eyebrow">Native by design</p>
-      <h2 id="native-title">Feels like it belongs on your Mac</h2>
-      <p class="section-lede">gitForge is written in Swift and SwiftUI, uses the git installed on your system and keeps your data on your machine.</p>
-      <div class="pills">
-        <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7"/></svg>Built with SwiftUI</span>
-        <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7"/></svg>Uses your system git</span>
-        <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7"/></svg>No telemetry, no analytics</span>
-        <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7"/></svg>Signed and notarized by Apple</span>
-        <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7"/></svg>Updates itself</span>
-        <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.5 4.5L19 7"/></svg>Open source, MIT licence</span>
-      </div>
+  <section class="wrap final" aria-labelledby="final-title">
+    <div>
+      <h2 id="final-title">Start forging.</h2>
+      <p>Free for macOS 26.1 or later. Signed, notarized, and it updates itself.</p>
     </div>
-  </section>
-
-  <section class="final" aria-labelledby="final-title">
-    <div class="wrap">
-      <img src="assets/icon-512.png" alt="" width="96" height="96">
-      <h2 id="final-title">Get gitForge</h2>
-      <p>Free for macOS 26.1 or later. Open the DMG, drag gitForge to Applications and open your first repository.</p>
-      <div class="cta-row">
-        <a class="btn btn-primary download-link" href="https://github.com/9alvaro0/gitForge/releases/latest">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
-          Download for macOS
-        </a>
-        <a class="btn btn-secondary" href="https://github.com/9alvaro0/gitForge/releases">Release notes</a>
-      </div>
-      <p class="meta"><span class="version-label">Latest version</span><span>Apple silicon and Intel</span></p>
-    </div>
+    <a class="btn btn-primary download-link" href="https://github.com/9alvaro0/gitForge/releases/latest">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+      Download for macOS
+    </a>
   </section>
 </main>
 
-<footer>
-  <div class="wrap">
-    <span>gitForge by <a href="https://github.com/9alvaro0">Alvaro Guerra</a></span>
-    <ul>
-      <li><a href="https://github.com/9alvaro0/gitForge">Source code</a></li>
-      <li><a href="https://github.com/9alvaro0/gitForge/releases">Releases</a></li>
-      <li><a href="https://github.com/9alvaro0/gitForge/issues/new">Report an issue</a></li>
-      <li><a href="https://github.com/9alvaro0/gitForge/blob/main/LICENSE">MIT licence</a></li>
-    </ul>
+<footer class="wrap">
+  <div class="title-block">
+    <div><span>Project</span><strong>gitForge</strong></div>
+    <div><span>Version</span><strong class="version-number">1.1.1</strong></div>
+    <div><span>Drawn by</span><strong>A. Guerra</strong></div>
+    <div><span>Licence</span><strong>MIT</strong></div>
+    <div><span>Sheet</span><strong>1 of 1</strong></div>
   </div>
+  <ul class="footer-links">
+    <li><a href="https://github.com/9alvaro0/gitForge">Source code</a></li>
+    <li><a href="https://github.com/9alvaro0/gitForge/releases">Releases</a></li>
+    <li><a href="https://github.com/9alvaro0/gitForge/issues/new">Report an issue</a></li>
+    <li><a href="https://github.com/9alvaro0/gitForge/blob/main/LICENSE">MIT licence</a></li>
+  </ul>
 </footer>
 
 <script>
@@ -339,7 +332,8 @@ fetch("appcast.xml", { cache: "no-cache" })
       document.querySelectorAll(".download-link").forEach((link) => { link.href = url; });
     }
     if (version) {
-      document.querySelectorAll(".version-label").forEach((label) => { label.textContent = "Version " + version; });
+      document.querySelectorAll(".version-label").forEach((label) => { label.textContent = "v" + version; });
+      document.querySelectorAll(".version-number").forEach((label) => { label.textContent = version; });
     }
   })
   .catch(() => {});
