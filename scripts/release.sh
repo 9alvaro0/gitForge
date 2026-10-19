@@ -17,7 +17,6 @@ SCHEME="gitForge"
 CONFIG="Release"
 APP_NAME="gitForge"
 TEAM_ID="T6B3T6K6TZ"
-SIGNING_IDENTITY="Developer ID Application: Álvaro Guerra (${TEAM_ID})"
 NOTARY_PROFILE="gitForge-notary"
 
 BUILD_DIR="build"
@@ -39,6 +38,15 @@ require() {
 require xcodebuild
 require xcrun
 require ditto
+
+# Sign by certificate hash: the certificate name has a non-ASCII character
+# that codesign can't match when the shell locale isn't UTF-8.
+SIGNING_IDENTITY=$(security find-identity -v -p codesigning \
+  | awk -v team="(${TEAM_ID})" '/Developer ID Application/ && index($0, team) { print $2; exit }')
+if [[ -z "${SIGNING_IDENTITY}" ]]; then
+  echo "No Developer ID Application certificate for team ${TEAM_ID} in the Keychain."
+  exit 1
+fi
 
 cd "$(dirname "$0")/.."
 
