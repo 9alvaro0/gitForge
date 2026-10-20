@@ -17,6 +17,7 @@ struct SettingsView: View {
                         ProfilesSection()
                         GitSection()
                         BehaviorSection()
+                        UpdatesSection()
                         AccountsSection()
                             .id(SettingsAnchor.accounts)
                     }

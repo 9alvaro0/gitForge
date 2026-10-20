@@ -7,6 +7,9 @@ import SwiftUI
 struct ShellView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    /// Optional so previews and tests run without Sparkle.
+    @Environment(Updater.self) private var updater: Updater?
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationSplitView {
@@ -19,7 +22,9 @@ struct ShellView: View {
                     ShellToolbar(
                         viewModel: appState.catalog.activeViewModel,
                         online: appState.network.isOnline,
-                        onOpenPalette: { appState.ui.commandPaletteOpen = true }
+                        readyUpdate: updater?.readyUpdate,
+                        onOpenPalette: { appState.ui.commandPaletteOpen = true },
+                        onInstallUpdate: { updater?.installAndRelaunch() }
                     )
                 }
         }
@@ -42,6 +47,8 @@ struct ShellView: View {
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: accountId)
                     case .openAccounts:
                         appState.ui.openSettings(at: .accounts)
+                    case .openURL(let url):
+                        openURL(url)
                     }
                 })
                     .padding(.bottom, Spacing.s16)
@@ -54,6 +61,13 @@ struct ShellView: View {
                         withAnimation { appState.ui.activeToast = nil }
                     }
             }
+        }
+        // Once per launch: whether the update installed on the last quit
+        // landed. A failure only shows after the automatic retry failed too.
+        .onChange(of: updater?.launchNotice, initial: true) { _, notice in
+            guard let notice else { return }
+            updater?.launchNotice = nil
+            appState.ui.activeToast = Self.toast(for: notice)
         }
         .sheet(item: Bindable(appState.ui).cloneRequest) { request in
             CloneSheet(request: request)
@@ -80,6 +94,19 @@ struct ShellView: View {
             guard let success else { return }
             appState.ui.activeToast = ToastMessage(message: success.message, kind: .ok)
             appState.catalog.activeViewModel?.operationSuccess = nil
+        }
+    }
+
+    private static func toast(for notice: Updater.LaunchNotice) -> ToastMessage {
+        switch notice {
+        case .installed(let version):
+            return ToastMessage(message: "Updated to gitForge \(version)", kind: .ok)
+        case .failed(let version):
+            return ToastMessage(
+                message: "gitForge \(version) couldn’t be installed. Download it from GitHub and replace the app in Applications.",
+                kind: .error,
+                action: ToastAction(title: "Download", route: .openURL(Updater.releasesURL))
+            )
         }
     }
 
