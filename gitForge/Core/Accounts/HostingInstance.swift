@@ -102,9 +102,9 @@ nonisolated enum InstanceInputError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .missingHost: "Enter the instance's address, like https://git.example.com."
-        case .invalidHost(let host): "“\(host)” isn't a valid host name."
-        case .invalidAPIURL(let url): "“\(url)” isn't a valid HTTPS API address."
+        case .missingHost: String(localized: "Enter the instance's address, like https://git.example.com.")
+        case .invalidHost(let host): String(localized: "“\(host)” isn't a valid host name.")
+        case .invalidAPIURL(let url): String(localized: "“\(url)” isn't a valid HTTPS API address.")
         }
     }
 }

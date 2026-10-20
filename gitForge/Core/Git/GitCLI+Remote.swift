@@ -353,58 +353,58 @@ nonisolated enum RemoteFailure: Sendable, Equatable {
 
     var title: String {
         switch self {
-        case .authenticationHTTPS: "HTTPS authentication failed"
-        case .authenticationSSH:   "SSH authentication failed"
-        case .accountRejected:     "Account rejected"
-        case .missingScope:        "Missing permission"
-        case .nonFastForward:      "Push rejected"
-        case .divergentBranches:   "Pull rejected"
-        case .conflict:            "Merge conflict"
-        case .network:             "Network unreachable"
-        case .sslCertificate:      "Certificate not trusted"
-        case .protectedBranch:     "Branch is protected"
-        case .serverUnavailable:   "Remote is unavailable"
-        case .rateLimited:         "Rate limit reached"
-        case .noUpstream:          "No upstream branch"
-        case .cancelled:           "Cancelled"
-        case .other:               "Operation failed"
+        case .authenticationHTTPS: String(localized: "HTTPS authentication failed")
+        case .authenticationSSH:   String(localized: "SSH authentication failed")
+        case .accountRejected:     String(localized: "Account rejected")
+        case .missingScope:        String(localized: "Missing permission")
+        case .nonFastForward:      String(localized: "Push rejected")
+        case .divergentBranches:   String(localized: "Pull rejected")
+        case .conflict:            String(localized: "Merge conflict")
+        case .network:             String(localized: "Network unreachable")
+        case .sslCertificate:      String(localized: "Certificate not trusted")
+        case .protectedBranch:     String(localized: "Branch is protected")
+        case .serverUnavailable:   String(localized: "Remote is unavailable")
+        case .rateLimited:         String(localized: "Rate limit reached")
+        case .noUpstream:          String(localized: "No upstream branch")
+        case .cancelled:           String(localized: "Cancelled")
+        case .other:               String(localized: "Operation failed")
         }
     }
 
     var message: String {
         switch self {
         case .authenticationHTTPS:
-            "Your token or credential helper rejected the request. Refresh the token (or sign in again) and retry. If a stale credential is cached, `git credential-osxkeychain erase` clears it."
+            String(localized: "Your token or credential helper rejected the request. Refresh the token (or sign in again) and retry. If a stale credential is cached, `git credential-osxkeychain erase` clears it.")
         case .accountRejected(let account, let host):
-            "\(host) rejected the \(account) account gitForge used for this remote. Reconnect it in Settings › Accounts."
+            String(localized: "\(host) rejected the \(account) account gitForge used for this remote. Reconnect it in Settings › Accounts.")
         case .missingScope(let scope):
             // git doesn't say whose token it was: a gitForge account or the
             // system's credential helper.
-            "The token used for this remote lacks the `\(scope)` scope this operation needs. If it's a gitForge account, reconnect it to grant the scope; if it comes from your credential helper, replace it with a token that has it."
+            String(localized: "The token used for this remote lacks the `\(scope)` scope this operation needs. If it's a gitForge account, reconnect it to grant the scope; if it comes from your credential helper, replace it with a token that has it.")
         case .authenticationSSH:
-            "The host refused your SSH key. Run `ssh-add -l` to confirm it's loaded, or `ssh -T git@<host>` to test it. If the key has a passphrase, the agent needs it unlocked before the app can use it."
+            String(localized: "The host refused your SSH key. Run `ssh-add -l` to confirm it's loaded, or `ssh -T git@<host>` to test it. If the key has a passphrase, the agent needs it unlocked before the app can use it.")
         case .nonFastForward:
-            "The remote has commits you don't have locally. Pull first to merge or rebase, then push again — or use Force-push (with lease) if you intentionally rewrote local history."
+            String(localized: "The remote has commits you don't have locally. Pull first to merge or rebase, then push again — or use Force-push (with lease) if you intentionally rewrote local history.")
         case .divergentBranches:
-            "Local and remote have diverged. Pick \"Pull and rebase\" or \"Pull (only if no merge needed)\" from the Pull menu."
+            String(localized: "Local and remote have diverged. Pick \"Pull and rebase\" or \"Pull (only if no merge needed)\" from the Pull menu.")
         case .conflict:
-            "Merging produced conflicts. Resolve them in the working copy, then commit the result."
+            String(localized: "Merging produced conflicts. Resolve them in the working copy, then commit the result.")
         case .network:
-            "Couldn't reach the remote. Check your internet connection and try again."
+            String(localized: "Couldn't reach the remote. Check your internet connection and try again.")
         case .sslCertificate:
-            "The server's SSL certificate isn't trusted. Often a captive portal (airport/coffee shop Wi-Fi), a MITM proxy, or a self-signed enterprise cert. Verify the network is what you expect before retrying."
+            String(localized: "The server's SSL certificate isn't trusted. Often a captive portal (airport/coffee shop Wi-Fi), a MITM proxy, or a self-signed enterprise cert. Verify the network is what you expect before retrying.")
         case .protectedBranch:
-            "The remote rejected the push because the branch is protected by repository policy (required reviews, status checks, signed commits, etc.). Open a pull request instead."
+            String(localized: "The remote rejected the push because the branch is protected by repository policy (required reviews, status checks, signed commits, etc.). Open a pull request instead.")
         case .serverUnavailable:
-            "The remote service is down or overloaded. Retry in a few minutes."
+            String(localized: "The remote service is down or overloaded. Retry in a few minutes.")
         case .rateLimited:
-            "Too many requests in a short window. Wait a few minutes before retrying."
+            String(localized: "Too many requests in a short window. Wait a few minutes before retrying.")
         case .cancelled:
-            "The operation was cancelled."
+            String(localized: "The operation was cancelled.")
         case .noUpstream:
-            "This branch isn't tracking a remote. The first push will set the upstream automatically."
+            String(localized: "This branch isn't tracking a remote. The first push will set the upstream automatically.")
         case .other(let raw):
-            raw.isEmpty ? "The git command failed without a message." : raw
+            raw.isEmpty ? String(localized: "The git command failed without a message.") : raw
         }
     }
 

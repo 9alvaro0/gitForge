@@ -42,8 +42,8 @@ struct SettingsEditableRow: View {
                 .overlay(RoundedRectangle(cornerRadius: Radius.control).stroke(theme.colors.accent, lineWidth: 1))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onSubmit { commit() }
-            GFButton(title: "Save", style: .primary, size: .small) { commit() }
-            GFButton(title: "Cancel", size: .small) { editing = false }
+            GFButton(title: String(localized: "Save"), style: .primary, size: .small) { commit() }
+            GFButton(title: String(localized: "Cancel"), size: .small) { editing = false }
         }
     }
 
@@ -53,7 +53,7 @@ struct SettingsEditableRow: View {
                 .textRole(mono ? .mono : .body)
                 .foregroundStyle(value == nil ? theme.colors.textTertiary : theme.colors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            GFButton(title: "Edit", size: .small) {
+            GFButton(title: String(localized: "Edit"), size: .small) {
                 draft = value ?? ""
                 editing = true
             }

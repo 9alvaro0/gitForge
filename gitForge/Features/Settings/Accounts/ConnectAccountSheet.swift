@@ -38,7 +38,7 @@ struct ConnectAccountSheet: View {
     @ViewBuilder
     private func content(_ model: ConnectAccountModel) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s12) {
-            Text(request.replacing == nil ? "Connect account" : "Reconnect account").textRole(.title)
+            Text(request.replacing == nil ? String(localized: "Connect account") : String(localized: "Reconnect account")).textRole(.title)
             if let account = model.result {
                 result(account, model)
             } else {
@@ -78,7 +78,7 @@ struct ConnectAccountSheet: View {
 
         HStack {
             Spacer()
-            GFButton(title: "Cancel") { model.cancel(); dismiss() }
+            GFButton(title: String(localized: "Cancel")) { model.cancel(); dismiss() }
         }
     }
 
@@ -86,7 +86,7 @@ struct ConnectAccountSheet: View {
     private func browser(_ model: ConnectAccountModel) -> some View {
         switch model.deviceFlow?.state {
         case nil, .idle?, .cancelled?:
-            GFButton(title: "Get sign-in code", style: .primary) { model.startBrowser() }
+            GFButton(title: String(localized: "Get sign-in code"), style: .primary) { model.startBrowser() }
         case .requestingCode?, .finishing?:
             ProgressView().controlSize(.small)
         case .waitingForUser(let code, let expiresAt)?:
@@ -94,7 +94,7 @@ struct ConnectAccountSheet: View {
                 Text(code.userCode)
                     .font(AppFont.font(.largeTitle, weight: .semibold, monoFamily: theme.monoFont, monospaced: true))
                     .textSelection(.enabled)
-                GFButton(title: "Copy code & open browser", style: .primary) {
+                GFButton(title: String(localized: "Copy code & open browser"), style: .primary) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(code.userCode, forType: .string)
                     NSWorkspace.shared.open(code.verificationURIComplete ?? code.verificationURI)
@@ -109,7 +109,7 @@ struct ConnectAccountSheet: View {
         case .failed(let error)?:
             VStack(alignment: .leading, spacing: Spacing.s6) {
                 Text(error.localizedDescription).textRole(.callout).foregroundStyle(theme.colors.del)
-                GFButton(title: "Try again") { model.startBrowser() }
+                GFButton(title: String(localized: "Try again")) { model.startBrowser() }
             }
         case .connected?:
             EmptyView()
@@ -121,7 +121,7 @@ struct ConnectAccountSheet: View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
             Text("1. Create a token with the scopes \(Text(model.requiredScopes).font(AppFont.font(.callout, monoFamily: theme.monoFont, monospaced: true)))")
                 .textRole(.callout)
-            GFButton(title: "Create token in browser", size: .small) {
+            GFButton(title: String(localized: "Create token in browser"), size: .small) {
                 if let url = model.createTokenURL { NSWorkspace.shared.open(url) }
             }
             Text("2. Paste it").textRole(.callout)
@@ -133,7 +133,7 @@ struct ConnectAccountSheet: View {
             HStack {
                 Spacer()
                 if model.tokenState == .validating { ProgressView().controlSize(.small) }
-                GFButton(title: "Connect", style: .primary,
+                GFButton(title: String(localized: "Connect"), style: .primary,
                          disabled: model.token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             || model.tokenState == .validating) {
                     Task { await model.connectToken() }
@@ -153,7 +153,7 @@ struct ConnectAccountSheet: View {
                         .accessibilityLabel("Connected")
                 }
             VStack(alignment: .leading) {
-                Text(account.displayName ?? account.login ?? "Connected").textRole(.body, weight: .semibold)
+                Text(account.displayName ?? account.login ?? String(localized: "Connected")).textRole(.body, weight: .semibold)
                 MonoText("\(account.login ?? "") · \(model.instance?.host ?? "")", dim: true)
             }
         }
@@ -168,7 +168,7 @@ struct ConnectAccountSheet: View {
         }
         HStack {
             Spacer()
-            GFButton(title: "Done", style: .primary) { model.finish(); dismiss() }
+            GFButton(title: String(localized: "Done"), style: .primary) { model.finish(); dismiss() }
         }
     }
 }

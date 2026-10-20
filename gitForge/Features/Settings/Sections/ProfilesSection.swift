@@ -15,8 +15,8 @@ struct ProfilesSection: View {
 
     var body: some View {
         SettingsSection(
-            title: "Profiles",
-            subtitle: "Saved identities you can switch between per repository. Switching writes to that repo's local `.git/config`."
+            title: String(localized: "Profiles"),
+            subtitle: String(localized: "Saved identities you can switch between per repository. Switching writes to that repo's local `.git/config`.")
         ) {
             content
         }
@@ -76,10 +76,10 @@ struct ProfilesSection: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: Spacing.s6) {
-                GFButton(title: "Edit", size: .small) {
+                GFButton(title: String(localized: "Edit"), size: .small) {
                     draft = ProfileDraft(profile)
                 }
-                GFButton(title: "Delete", size: .small) {
+                GFButton(title: String(localized: "Delete"), size: .small) {
                     store.remove(profile.id)
                     appState.accounts.unlinkProfile(profile.id)
                 }
@@ -92,7 +92,7 @@ struct ProfilesSection: View {
     private var addRow: some View {
         HStack {
             Spacer()
-            GFButton(title: "Add profile", style: .primary, size: .small) {
+            GFButton(title: String(localized: "Add profile"), style: .primary, size: .small) {
                 draft = ProfileDraft.new()
             }
         }
@@ -173,14 +173,14 @@ private struct ProfileEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
-            field("Profile name", placeholder: "Personal", text: $draft.name)
-            field("Git name", placeholder: "Ada Lovelace", text: $draft.userName)
-            field("Git email", placeholder: "ada@example.com", text: $draft.userEmail)
-            field("Signing key (optional)", placeholder: "GPG / SSH key id", text: $draft.signingKey)
+            field(String(localized: "Profile name"), placeholder: String(localized: "Personal"), text: $draft.name)
+            field(String(localized: "Git name"), placeholder: "Ada Lovelace", text: $draft.userName)
+            field(String(localized: "Git email"), placeholder: "ada@example.com", text: $draft.userEmail)
+            field(String(localized: "Signing key (optional)"), placeholder: String(localized: "GPG / SSH key id"), text: $draft.signingKey)
             HStack {
                 Spacer()
-                GFButton(title: "Cancel", size: .small) { onCancel() }
-                GFButton(title: "Save", style: .primary, size: .small) {
+                GFButton(title: String(localized: "Cancel"), size: .small) { onCancel() }
+                GFButton(title: String(localized: "Save"), style: .primary, size: .small) {
                     guard draft.canSave else { return }
                     onSave(draft.toProfile())
                 }

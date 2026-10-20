@@ -13,19 +13,19 @@ enum PullRequestFetchError: LocalizedError, Sendable, Equatable {
     var errorDescription: String? {
         switch self {
         case .unauthorized:
-            "The token was rejected. Check that it's valid and has the required scopes."
+            String(localized: "The token was rejected. Check that it's valid and has the required scopes.")
         case .forbidden:
-            "The token doesn't have permission to read pull requests for this repo."
+            String(localized: "The token doesn't have permission to read pull requests for this repo.")
         case .notFound:
-            "Repository not found on the remote host."
+            String(localized: "Repository not found on the remote host.")
         case .network(let message):
-            "Network error: \(message)"
+            String(localized: "Network error: \(message)")
         case .tls(let message):
-            "TLS error: \(message). Likely a self-signed or untrusted certificate."
+            String(localized: "TLS error: \(message). Likely a self-signed or untrusted certificate.")
         case .decoding(let message):
-            "Couldn't read the response: \(message)"
+            String(localized: "Couldn't read the response: \(message)")
         case .server(let code, let message):
-            "Server returned \(code): \(message)"
+            String(localized: "Server returned \(code): \(message)")
         }
     }
 }

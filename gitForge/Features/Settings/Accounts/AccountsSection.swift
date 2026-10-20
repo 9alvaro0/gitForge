@@ -22,7 +22,8 @@ struct AccountsSection: View {
     }
 
     var body: some View {
-        SettingsSection(title: "Accounts", subtitle: "Sign in to GitHub and GitLab to push over HTTPS and work with pull requests.") {
+        SettingsSection(title: String(localized: "Accounts"),
+                        subtitle: String(localized: "Sign in to GitHub and GitLab to push over HTTPS and work with pull requests.")) {
             ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
                 if index > 0 { SettingsDivider() }
                 instanceBlock(block)
@@ -34,10 +35,10 @@ struct AccountsSection: View {
             }
             SettingsDivider()
             HStack(spacing: Spacing.s8) {
-                GFButton(title: "Connect account…", style: .primary, size: .small) {
+                GFButton(title: String(localized: "Connect account…"), style: .primary, size: .small) {
                     appState.ui.connectAccountRequest = ConnectAccountRequest()
                 }
-                GFButton(title: "Add instance…", size: .small) { appState.ui.addInstanceRequest = AddInstanceRequest() }
+                GFButton(title: String(localized: "Add instance…"), size: .small) { appState.ui.addInstanceRequest = AddInstanceRequest() }
                 Spacer()
             }
             .padding(Spacing.s12)
@@ -55,8 +56,8 @@ struct AccountsSection: View {
                             presenting: removingInstance) { block in
             Button("Remove", role: .destructive) { store.removeInstance(block.id) }
         } message: { block in
-            Text(block.accounts.isEmpty ? "The instance is removed from gitForge."
-                 : "Its \(block.accounts.count) account(s) are disconnected too.")
+            Text(block.accounts.isEmpty ? String(localized: "The instance is removed from gitForge.")
+                 : String(localized: "Its \(block.accounts.count) account(s) are disconnected too."))
         }
     }
 
@@ -67,7 +68,7 @@ struct AccountsSection: View {
                 HStack(spacing: Spacing.s8) {
                     MonoText(host, dim: true)
                     Spacer()
-                    GFButton(title: "Stop trusting", size: .small) {
+                    GFButton(title: String(localized: "Stop trusting"), size: .small) {
                         RemoteHostTrust.shared.revoke(host)
                         trustedHosts = Set(RemoteHostTrust.shared.trustedHosts())
                     }
@@ -114,7 +115,7 @@ struct AccountsSection: View {
                     Text("No accounts. Connect one to push over HTTPS and see pull requests.")
                         .textRole(.callout).foregroundStyle(theme.colors.textTertiary)
                     Spacer()
-                    GFButton(title: "Connect…", size: .small) {
+                    GFButton(title: String(localized: "Connect…"), size: .small) {
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: block.id)
                     }
                 }
@@ -137,11 +138,11 @@ struct AccountsSection: View {
             statusPill(row)
             switch row.primaryAction {
             case .reconnect?:
-                GFButton(title: "Reconnect…", size: .small) {
+                GFButton(title: String(localized: "Reconnect…"), size: .small) {
                     appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: row.id)
                 }
             case .test?:
-                GFButton(title: "Test", size: .small) { test(row) }
+                GFButton(title: String(localized: "Test"), size: .small) { test(row) }
             case nil:
                 EmptyView()
             }
@@ -151,7 +152,7 @@ struct AccountsSection: View {
                 }
                 Button("Test connection") { test(row) }
                 Menu("Link to profile") {
-                    MenuCheckItem("None", isChecked: row.linkedProfileId == nil) {
+                    MenuCheckItem(String(localized: "None"), isChecked: row.linkedProfileId == nil) {
                         store.linkAccount(row.id, toProfile: nil)
                     }
                     ForEach(appState.profiles.profiles) { profile in
@@ -199,7 +200,8 @@ struct AccountsSection: View {
             let kind = store.instances.first { $0.id == after.instanceId }?.kind ?? .github
             let ok = after.status == .ok || after.status == .expiringSoon
             let status = AccountsSettingsModel.status(after, kind: kind, now: .now).0
-            appState.ui.activeToast = ToastMessage(message: ok ? "\(after.login ?? "Account") is connected"
+            let name = after.login ?? String(localized: "Account")
+            appState.ui.activeToast = ToastMessage(message: ok ? String(localized: "\(name) is connected")
                                                          : "\(after.login ?? row.title): \(status)",
                                                    kind: ok ? .ok : .warn)
         }
@@ -210,11 +212,11 @@ struct AccountsSection: View {
             Text("OAuth client ID for \(instance.host)").textRole(.headline)
             Text("Register an application on that instance (non-confidential, scopes api, read_user, write_repository) and paste its Application ID.")
                 .textRole(.callout).foregroundStyle(theme.colors.textSecondary)
-            GFTextField(placeholder: "Application ID", text: $clientIdDraft)
+            GFTextField(placeholder: String(localized: "Application ID"), text: $clientIdDraft)
             HStack {
                 Spacer()
-                GFButton(title: "Cancel") { clientIdInstance = nil }
-                GFButton(title: "Save", style: .primary) {
+                GFButton(title: String(localized: "Cancel")) { clientIdInstance = nil }
+                GFButton(title: String(localized: "Save"), style: .primary) {
                     store.setOAuthClientId(clientIdDraft, forInstance: instance.id)
                     clientIdInstance = nil
                 }

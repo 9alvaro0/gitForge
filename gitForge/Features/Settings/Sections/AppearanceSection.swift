@@ -8,7 +8,7 @@ struct AppearanceSection: View {
     @Environment(WorkspaceUI.self) private var ui
 
     var body: some View {
-        SettingsSection(title: "Appearance") {
+        SettingsSection(title: String(localized: "Appearance")) {
             HStack(alignment: .top, spacing: Spacing.s24) {
                 appearanceColumn
                 codeColumn
@@ -21,15 +21,15 @@ struct AppearanceSection: View {
 
     private var appearanceColumn: some View {
         VStack(alignment: .leading, spacing: Spacing.s12) {
-            radioRow(label: "Theme",
+            radioRow(label: String(localized: "Theme"),
                      values: ThemeMode.allCases.map { ($0.rawValue, $0.label) },
                      current: ui.theme.mode.rawValue) { v in
                 if let m = ThemeMode(rawValue: v) { ui.theme.mode = m }
             }
-            colorRow(label: "Accent",
+            colorRow(label: String(localized: "Accent"),
                      swatches: AppTheme.accentSwatches,
                      current: ui.theme.accent) { ui.theme.accent = $0 }
-            radioRow(label: "Density",
+            radioRow(label: String(localized: "Density"),
                      values: Density.allCases.map { ($0.rawValue, $0.label) },
                      current: ui.theme.density.rawValue) { v in
                 if let d = Density(rawValue: v) { ui.theme.density = d }
@@ -40,23 +40,23 @@ struct AppearanceSection: View {
 
     private var codeColumn: some View {
         VStack(alignment: .leading, spacing: Spacing.s12) {
-            menuPicker(label: "Mono font",
+            menuPicker(label: String(localized: "Mono font"),
                        values: MonoFontFamily.availableCases.map { ($0.rawValue, $0.label) },
                        current: ui.theme.monoFont.resolved().rawValue) { v in
                 if let f = MonoFontFamily(rawValue: v) { ui.theme.monoFont = f }
             }
-            radioRow(label: "Diff view",
+            radioRow(label: String(localized: "Diff view"),
                      values: DiffPane.ViewMode.allCases.map { ($0.rawValue, $0.label) },
                      current: ui.preferences.defaultDiffMode.rawValue) { v in
                 if let m = DiffPane.ViewMode(rawValue: v) { ui.preferences.defaultDiffMode = m }
             }
-            menuPicker(label: "Diff context lines",
+            menuPicker(label: String(localized: "Diff context lines"),
                        values: Self.contextOptions,
                        current: String(ui.preferences.diffContextLines)) { v in
                 if let n = Int(v) { ui.preferences.diffContextLines = n }
             }
             wrapToggle
-            radioRow(label: "Dates",
+            radioRow(label: String(localized: "Dates"),
                      values: DateDisplayMode.allCases.map { ($0.rawValue, $0.label) },
                      current: ui.preferences.dateDisplayMode.rawValue) { v in
                 if let m = DateDisplayMode(rawValue: v) { ui.preferences.dateDisplayMode = m }
@@ -67,12 +67,12 @@ struct AppearanceSection: View {
 
     private var wrapToggle: some View {
         VStack(alignment: .leading, spacing: Spacing.s6) {
-            fieldLabel("Wrap long diff lines")
+            fieldLabel(String(localized: "Wrap long diff lines"))
             Toggle(isOn: Binding(
                 get: { ui.preferences.diffWrapLongLines },
                 set: { ui.preferences.diffWrapLongLines = $0 }
             )) {
-                Text(ui.preferences.diffWrapLongLines ? "Soft-wrap onto the next visual row" : "Overflow horizontally (default)")
+                Text(ui.preferences.diffWrapLongLines ? String(localized: "Soft-wrap onto the next visual row") : String(localized: "Overflow horizontally (default)"))
                     .textRole(.callout)
                     .foregroundStyle(theme.colors.textSecondary)
             }
@@ -82,7 +82,8 @@ struct AppearanceSection: View {
     }
 
     private static let contextOptions: [(String, String)] = [
-        ("1", "1 line"), ("3", "3 lines"), ("5", "5 lines"), ("10", "10 lines"),
+        ("1", String(localized: "1 line")), ("3", String(localized: "3 lines")),
+        ("5", String(localized: "5 lines")), ("10", String(localized: "10 lines")),
     ]
 
     @ViewBuilder

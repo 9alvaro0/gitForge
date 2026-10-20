@@ -10,10 +10,10 @@ struct BehaviorSection: View {
     @Environment(WorkspaceUI.self) private var ui
 
     var body: some View {
-        SettingsSection(title: "Behavior") {
+        SettingsSection(title: String(localized: "Behavior")) {
             toggleRow(
-                label: "Confirm force push",
-                description: "Show a dialog before pushing with --force-with-lease.",
+                label: String(localized: "Confirm force push"),
+                description: String(localized: "Show a dialog before pushing with --force-with-lease."),
                 isOn: Binding(
                     get: { ui.preferences.confirmForcePush },
                     set: { ui.preferences.confirmForcePush = $0 }
@@ -21,7 +21,7 @@ struct BehaviorSection: View {
             )
             SettingsDivider()
             toggleRow(
-                label: "Sign commits by default",
+                label: String(localized: "Sign commits by default"),
                 description: signCommitsDescription,
                 isOn: Binding(
                     get: { gitEnvironment.globalConfig.signCommits == true },
@@ -32,8 +32,8 @@ struct BehaviorSection: View {
             )
             SettingsDivider()
             toggleRow(
-                label: "Stash untracked files",
-                description: "Pass --include-untracked to git stash so quick stashes capture new files too.",
+                label: String(localized: "Stash untracked files"),
+                description: String(localized: "Pass --include-untracked to git stash so quick stashes capture new files too."),
                 isOn: Binding(
                     get: { ui.preferences.stashIncludeUntracked },
                     set: { ui.preferences.stashIncludeUntracked = $0 }
@@ -41,8 +41,8 @@ struct BehaviorSection: View {
             )
             SettingsDivider()
             pickerRow(
-                label: "Commits per page",
-                description: "How many commits History fetches per round-trip. Bigger pages mean fewer reloads on huge repos at the cost of slower first paint.",
+                label: String(localized: "Commits per page"),
+                description: String(localized: "How many commits History fetches per round-trip. Bigger pages mean fewer reloads on huge repos at the cost of slower first paint."),
                 current: "\(ui.preferences.commitPageSize)",
                 options: Self.pageSizeOptions
             ) { value in
@@ -50,9 +50,9 @@ struct BehaviorSection: View {
             }
             SettingsDivider()
             pickerRow(
-                label: "Git command timeout",
-                description: "Seconds before a stuck git subprocess is killed. Raise it if you hit timeouts on a slow network or very large fetches.",
-                current: "\(ui.preferences.gitTimeoutSeconds)s",
+                label: String(localized: "Git command timeout"),
+                description: String(localized: "Seconds before a stuck git subprocess is killed. Raise it if you hit timeouts on a slow network or very large fetches."),
+                current: String(localized: "\(ui.preferences.gitTimeoutSeconds)s"),
                 options: Self.timeoutOptions
             ) { value in
                 if let n = Int(value) { ui.preferences.gitTimeoutSeconds = n }
@@ -64,15 +64,15 @@ struct BehaviorSection: View {
         ("100", "100"), ("200", "200"), ("500", "500"), ("1000", "1000"),
     ]
     private static let timeoutOptions: [(String, String)] = [
-        ("30", "30 seconds"), ("60", "1 minute"), ("120", "2 minutes"),
-        ("300", "5 minutes"),
+        ("30", String(localized: "30 seconds")), ("60", String(localized: "1 minute")),
+        ("120", String(localized: "2 minutes")), ("300", String(localized: "5 minutes")),
     ]
 
     private var signCommitsDescription: String {
         if gitEnvironment.globalConfig.signingKey?.isEmpty == false {
-            return "Sets commit.gpgsign=true. Uses the signing key configured under Identity."
+            return String(localized: "Sets commit.gpgsign=true. Uses the signing key configured under Identity.")
         }
-        return "Sets commit.gpgsign=true. Configure a signing key under Identity for git to actually sign."
+        return String(localized: "Sets commit.gpgsign=true. Configure a signing key under Identity for git to actually sign.")
     }
 
     private func setSignCommits(_ enabled: Bool) {
@@ -80,7 +80,7 @@ struct BehaviorSection: View {
             do {
                 try await gitEnvironment.setSignCommits(enabled)
             } catch {
-                ui.presentedError = PresentedError(error: error, title: "Couldn’t update commit signing")
+                ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t update commit signing"))
             }
         }
     }

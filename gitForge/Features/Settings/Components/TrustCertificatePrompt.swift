@@ -23,12 +23,12 @@ struct TrustCertificatePrompt: ViewModifier {
                 if let fingerprint = await RemoteHostTrust.presentedFingerprint(host: host) {
                     pending = Pending(host: host, fingerprint: fingerprint)
                 } else {
-                    failure = "Couldn't read the certificate presented by \(host). Check the host name and your connection."
+                    failure = String(localized: "Couldn't read the certificate presented by \(host). Check the host name and your connection.")
                     self.host = nil
                 }
             }
             .confirmationDialog(
-                "Trust the certificate of \(pending?.host ?? "this host")?",
+                "Trust the certificate of \(pending?.host ?? String(localized: "this host"))?",
                 isPresented: Binding(get: { pending != nil }, set: { if !$0 { finish() } }),
                 titleVisibility: .visible,
                 presenting: pending

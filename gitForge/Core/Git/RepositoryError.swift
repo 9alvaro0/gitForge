@@ -7,9 +7,11 @@ nonisolated enum RepositoryError: Error, Sendable, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notAGitRepository(let url):
-            return "“\(url.lastPathComponent)” is not a Git repository."
+            let name = url.lastPathComponent
+            return String(localized: "“\(name)” is not a Git repository.")
         case .directoryNotFound(let url):
-            return "Folder not found: \(url.path(percentEncoded: false))"
+            let path = url.path(percentEncoded: false)
+            return String(localized: "Folder not found: \(path)")
         }
     }
 }

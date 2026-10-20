@@ -11,11 +11,11 @@ struct GitSection: View {
 
     var body: some View {
         SettingsSection(title: "Git") {
-            SettingsEditableRow(label: "Default branch",
+            SettingsEditableRow(label: String(localized: "Default branch"),
                                 value: gitEnvironment.globalConfig.defaultBranch,
                                 mono: true,
                                 placeholder: "main") { value in
-                apply("Couldn’t update default branch") {
+                apply(String(localized: "Couldn’t update default branch")) {
                     try await gitEnvironment.setDefaultBranch(value)
                 }
             }
@@ -28,9 +28,10 @@ struct GitSection: View {
 
     private var pullStrategyRow: some View {
         HStack {
-            SettingsRowLabel(text: "Pull strategy")
+            SettingsRowLabel(text: String(localized: "Pull strategy"))
             Spacer(minLength: 0)
-            SettingsPicker(current: gitEnvironment.globalConfig.pullStrategy ?? "default") {
+            SettingsPicker(current: gitEnvironment.globalConfig.pullStrategy
+                            ?? String(localized: "settings.pullStrategy.default", defaultValue: "default")) {
                 Button("Default (git config)") { setPullStrategy(nil) }
                 Divider()
                 Button("Rebase") { setPullStrategy("rebase") }
@@ -45,7 +46,7 @@ struct GitSection: View {
 
     private var autoFetchRow: some View {
         HStack {
-            SettingsRowLabel(text: "Auto-fetch")
+            SettingsRowLabel(text: String(localized: "Auto-fetch"))
             Spacer(minLength: 0)
             SettingsPicker(current: autoFetchLabel) {
                 Button("Off") { setAutoFetch(nil) }
@@ -63,13 +64,13 @@ struct GitSection: View {
     }
 
     private var autoFetchLabel: String {
-        guard let interval = gitEnvironment.globalConfig.autoFetchInterval, interval > 0 else { return "Off" }
-        if interval >= 60 { return "Every \(interval / 60) min" }
-        return "Every \(interval) sec"
+        guard let interval = gitEnvironment.globalConfig.autoFetchInterval, interval > 0 else { return String(localized: "Off") }
+        if interval >= 60 { return String(localized: "Every \(interval / 60) min") }
+        return String(localized: "Every \(interval) sec")
     }
 
     private func setPullStrategy(_ value: String?) {
-        apply("Couldn’t update pull strategy") {
+        apply(String(localized: "Couldn’t update pull strategy")) {
             try await gitEnvironment.setPullStrategy(value)
         }
     }
@@ -82,7 +83,7 @@ struct GitSection: View {
                     autoFetchIntervalSeconds: gitEnvironment.globalConfig.autoFetchInterval ?? 0
                 )
             } catch {
-                ui.presentedError = PresentedError(error: error, title: "Couldn’t update auto-fetch")
+                ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t update auto-fetch"))
             }
         }
     }

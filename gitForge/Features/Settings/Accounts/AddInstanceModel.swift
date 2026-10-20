@@ -54,9 +54,9 @@ final class AddInstanceModel {
         switch await verifier.verify(instance) {
         case .verified(let deviceFlow):
             save(instance, warning: deviceFlow ? nil
-                 : "Sign-in with the browser needs GitLab 17.2 or later; this instance will use tokens.")
+                 : String(localized: "Sign-in with the browser needs GitLab 17.2 or later; this instance will use tokens."))
         case .needsSignIn:
-            save(instance, warning: "The API needs a token to answer; it'll be checked when you connect the first account.")
+            save(instance, warning: String(localized: "The API needs a token to answer; it'll be checked when you connect the first account."))
         case .untrustedCertificate:
             // The API is what's checked, and it may live on another host.
             state = .needsTrust(host: instance.apiBaseURL.host() ?? instance.host)

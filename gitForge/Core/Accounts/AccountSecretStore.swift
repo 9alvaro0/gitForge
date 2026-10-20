@@ -17,8 +17,8 @@ nonisolated enum AccountSecretStoreError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .keychain(let status):
-            let detail = SecCopyErrorMessageString(status, nil) as String? ?? "status \(status)"
-            return "Couldn't save the account to the Keychain: \(detail)."
+            let detail = SecCopyErrorMessageString(status, nil) as String? ?? String(localized: "status \(Int(status))")
+            return String(localized: "Couldn't save the account to the Keychain: \(detail).")
         }
     }
 }

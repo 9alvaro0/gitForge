@@ -300,7 +300,7 @@ nonisolated enum StashLookupError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .notFound:
-            "That stash no longer exists — it was dropped or popped elsewhere. The list has been refreshed."
+            String(localized: "That stash no longer exists — it was dropped or popped elsewhere. The list has been refreshed.")
         }
     }
 }

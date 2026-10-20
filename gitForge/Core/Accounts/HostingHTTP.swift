@@ -59,7 +59,7 @@ nonisolated struct HostingHTTP: Sendable {
         return try await send(request)
     }
 
-    static let pinMismatch = "it doesn't match the certificate you trusted for this host"
+    static let pinMismatch = String(localized: "it doesn't match the certificate you trusted for this host")
 
     static func check(_ status: Int) throws {
         switch status {

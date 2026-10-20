@@ -17,11 +17,12 @@ extension GitError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .gitNotFound:
-            return "Git executable not found. Install the Xcode Command Line Tools."
+            return String(localized: "Git executable not found. Install the Xcode Command Line Tools.")
         case .invalidWorkingDirectory(let url):
-            return "Working directory does not exist: \(url.path(percentEncoded: false))"
+            let path = url.path(percentEncoded: false)
+            return String(localized: "Working directory does not exist: \(path)")
         case .launchFailed(let reason):
-            return "Failed to launch git: \(reason)"
+            return String(localized: "Failed to launch git: \(reason)")
         case .commandFailed(let args, let exitCode, let stderr):
             if let message = Self.localChangesMessage(stderr: stderr) { return message }
             // Redact both sides — a `https://user:token@host` URL can land in
@@ -29,13 +30,14 @@ extension GitError: LocalizedError {
             // this string ends up in user-visible alerts and shared logs.
             let command = GitCLI.redacted((["git"] + args).joined(separator: " "))
             let trimmed = GitCLI.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
-            return "`\(command)` exited with code \(exitCode): \(trimmed)"
+            let code = Int(exitCode)
+            return String(localized: "`\(command)` exited with code \(code): \(trimmed)")
         case .busy:
-            return "Another operation is in progress."
+            return String(localized: "Another operation is in progress.")
         case .outputTooLarge(let consumed, let cap):
             let consumedMB = consumed / 1_048_576
             let capMB = cap / 1_048_576
-            return "Output exceeded \(capMB) MB (read \(consumedMB) MB) and was terminated. The diff or log is too large for the UI — narrow the range or run from terminal."
+            return String(localized: "Output exceeded \(capMB) MB (read \(consumedMB) MB) and was terminated. The diff or log is too large for the UI — narrow the range or run from terminal.")
         }
     }
 }
@@ -48,7 +50,7 @@ extension GitError {
     static func localChangesMessage(stderr: String) -> String? {
         if stderr.contains("cannot rebase: You have unstaged changes")
             || stderr.contains("cannot rebase: Your index contains uncommitted changes") {
-            return "You have uncommitted changes. Commit, stash or discard them before rebasing."
+            return String(localized: "You have uncommitted changes. Commit, stash or discard them before rebasing.")
         }
         guard stderr.contains("would be overwritten by") else { return nil }
         let files = stderr.split(separator: "\n")
@@ -57,7 +59,7 @@ extension GitError {
         let list = files.isEmpty ? "" : " (\(files.prefix(3).joined(separator: ", "))\(files.count > 3 ? ", …" : ""))"
         let untracked = stderr.contains("untracked working tree files")
         return untracked
-            ? "Untracked files would be overwritten\(list). Move or delete them, or commit them first."
-            : "Your local changes would be overwritten\(list). Commit, stash or discard them first."
+            ? String(localized: "Untracked files would be overwritten\(list). Move or delete them, or commit them first.")
+            : String(localized: "Your local changes would be overwritten\(list). Commit, stash or discard them first.")
     }
 }

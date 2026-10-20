@@ -122,7 +122,10 @@ nonisolated struct DeleteUntrackedError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         let listed = paths.prefix(3).joined(separator: ", ")
-        let more = paths.count > 3 ? " and \(paths.count - 3) more" : ""
-        return "Couldn't delete \(listed)\(more). Check the file permissions and try again."
+        if paths.count > 3 {
+            let more = paths.count - 3
+            return String(localized: "Couldn't delete \(listed) and \(more) more. Check the file permissions and try again.")
+        }
+        return String(localized: "Couldn't delete \(listed). Check the file permissions and try again.")
     }
 }
