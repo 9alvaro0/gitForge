@@ -5,9 +5,24 @@ import SwiftUI
 struct ShellToolbar: ToolbarContent {
     let viewModel: RepositoryViewModel?
     let online: Bool
+    /// A downloaded update; shows "Restart to Update" while set.
+    var readyUpdate: Updater.ReadyUpdate? = nil
     let onOpenPalette: () -> Void
+    var onInstallUpdate: () -> Void = {}
 
     var body: some ToolbarContent {
+        // Leftmost of the shared items so it reads as app-level, not part
+        // of the repository's remote actions.
+        if let readyUpdate {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: onInstallUpdate) {
+                    Label("Restart to Update", systemImage: "arrow.down.circle")
+                }
+                .labelStyle(.titleAndIcon)
+                .help("gitForge \(readyUpdate.version) is ready. Restart now to install it, or it installs when you quit.")
+            }
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+        }
         if let viewModel {
             ToolbarItem(placement: .primaryAction) {
                 RemoteToolbarGroup(viewModel: viewModel, online: online)

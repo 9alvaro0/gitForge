@@ -145,13 +145,20 @@ The suite (Swift Testing) uses real `git` against throwaway repositories in the 
 
 ## Updates
 
-gitForge ships with [Sparkle](https://sparkle-project.org). New versions are
-fetched in the background once a day from
-`https://9alvaro0.github.io/gitForge/appcast.xml`. The DMG must pass an EdDSA
-signature check against the embedded `SUPublicEDKey` before installation, so
-unsigned or tampered builds are rejected even if served from the right URL.
+gitForge ships with [Sparkle](https://sparkle-project.org). It checks
+`https://9alvaro0.github.io/gitForge/appcast.xml` every 6 hours, downloads new
+versions in the background and installs them when you quit the app. A
+**Restart to Update** button in the toolbar installs a downloaded update right
+away. The DMG must pass an EdDSA signature check against the embedded
+`SUPublicEDKey` before installation, so unsigned or tampered builds are
+rejected even if served from the right URL.
 
-Manual check: **Help → Check for Updates…**
+If an install fails after quitting (the app comes back on the old version),
+gitForge retries it once on the next launch; if that fails too it says so and
+links to the download.
+
+Turn automatic installs off in **Settings → Updates**. Manual check:
+**Help → Check for Updates…**
 
 ## License
 

@@ -254,9 +254,10 @@ struct BranchesView: View {
         Task { toast(await viewModel.checkoutBranch(ref), success: String(localized: "Checked out \(ref.displayName)")) }
     }
 
-    /// Failures surface through `remoteFailure`, like the toolbar's Push.
+    /// Success and failure toasts come from `operationSuccess` /
+    /// `remoteFailure`, like the toolbar's Push.
     private func runPush(_ ref: GitRef) async {
-        if await viewModel.pushBranch(ref) { toast(String(localized: "Pushed \(ref.name)"), kind: .ok) }
+        await viewModel.pushBranch(ref)
     }
 
     /// Same semantics as a chip dropped on a chip in History: merge the

@@ -92,13 +92,14 @@ extension RepositoryViewModel {
             return false
         }
         let body = workingCopy.commitBody
+        let amend = workingCopy.amendMode
         isMutating = true
         defer { isMutating = false }
         do {
             try await cli.commit(
                 subject: subject,
                 body: body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : body,
-                amend: workingCopy.amendMode,
+                amend: amend,
                 signOff: workingCopy.signOff
             )
             workingCopy.resetComposer()
@@ -107,6 +108,8 @@ extension RepositoryViewModel {
             // clean commit but harmless and keeps the refresh shape
             // uniform across every state-changing op.
             await refreshAfterIntegration()
+            let shortSha = await cli.headSha().map { String($0.prefix(7)) }
+            operationSuccess = .commit(shortSha: shortSha, subject: subject, amend: amend)
             return true
         } catch {
             commitError = error.userMessage

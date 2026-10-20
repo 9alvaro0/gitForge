@@ -73,6 +73,10 @@ final class RepositoryViewModel {
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
     var remoteOperation: RemoteOperation?
     var remoteFailure: RemoteFailure?
+    /// Last commit / fetch / pull / push that finished cleanly; `ShellView`
+    /// shows it as a success toast and clears it. The silent auto-fetch
+    /// never sets it.
+    var operationSuccess: OperationSuccess?
     var upstream: String?
     var aheadCount: Int = 0
     var behindCount: Int = 0

@@ -165,6 +165,22 @@
         }
       }
     },
+    "%@ is already up to date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ya está al día"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ já está atualizado"
+          }
+        }
+      }
+    },
     "%@ is connected" : {
       "localizations" : {
         "es" : {
@@ -1770,6 +1786,22 @@
         }
       }
     },
+    "Already up to date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya está al día"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já está atualizado"
+          }
+        }
+      }
+    },
     "Also clone the repository's submodules (--recurse-submodules)" : {
       "localizations" : {
         "es" : {
@@ -1830,6 +1862,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Corrigir o último commit"
+          }
+        }
+      }
+    },
+    "Amended %@ — %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modificado %@ — %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corrigido %@ — %@"
+          }
+        }
+      }
+    },
+    "Amended “%@”" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modificado «%@»"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corrigido “%@”"
           }
         }
       }
@@ -2730,6 +2794,22 @@
         }
       }
     },
+    "Check now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobar ahora"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificar agora"
+          }
+        }
+      }
+    },
     "Check out" : {
       "localizations" : {
         "es" : {
@@ -3606,6 +3686,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Commits por página"
+          }
+        }
+      }
+    },
+    "Committed %@ — %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit %@ — %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit %@ — %@"
+          }
+        }
+      }
+    },
+    "Committed “%@”" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit hecho: «%@»"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit feito: “%@”"
           }
         }
       }
@@ -5804,6 +5916,38 @@
         }
       }
     },
+    "Download" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descargar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transferir"
+          }
+        }
+      }
+    },
+    "Download updates in the background and install them when you quit gitForge. When off, gitForge asks before downloading." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarga las actualizaciones en segundo plano y las instala al salir de gitForge. Si está desactivado, gitForge pregunta antes de descargar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transfere as atualizações em segundo plano e instala-as ao sair do gitForge. Se estiver desativado, o gitForge pergunta antes de transferir."
+          }
+        }
+      }
+    },
     "Drop" : {
       "localizations" : {
         "es" : {
@@ -6366,6 +6510,54 @@
         }
       }
     },
+    "Fetched — %@ has nothing new" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch hecho — %@ no tiene nada nuevo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch concluído — %@ não tem nada de novo"
+          }
+        }
+      }
+    },
+    "Fetched — %lld commits to pull from %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch hecho — %lld commits para hacer pull de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch concluído — %lld commits para fazer pull de %@"
+          }
+        }
+      }
+    },
+    "Fetched — 1 commit to pull from %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch hecho — 1 commit para hacer pull de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch concluído — 1 commit para fazer pull de %@"
+          }
+        }
+      }
+    },
     "File mode changed" : {
       "localizations" : {
         "es" : {
@@ -6698,6 +6890,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Forçar eliminação (commits não integrados)"
+          }
+        }
+      }
+    },
+    "Force-pushed %lld commits to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push forzado de %lld commits a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push forçado de %lld commits para %@"
+          }
+        }
+      }
+    },
+    "Force-pushed 1 commit to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push forzado de 1 commit a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push forçado de 1 commit para %@"
+          }
+        }
+      }
+    },
+    "Force-pushed to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push forzado a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push forçado para %@"
           }
         }
       }
@@ -7290,6 +7530,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Instalar Command Line Tools"
+          }
+        }
+      }
+    },
+    "Install automatically" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instalar automáticamente"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instalar automaticamente"
           }
         }
       }
@@ -10308,6 +10564,22 @@
         }
       }
     },
+    "Published %@ to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ publicada en %2$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ publicado em %2$@"
+          }
+        }
+      }
+    },
     "Pull" : {
       "localizations" : {
         "es" : {
@@ -10432,6 +10704,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pull concluído"
+          }
+        }
+      }
+    },
+    "Pulled from %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull hecho desde %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull concluído a partir de %@"
           }
         }
       }
@@ -10592,6 +10880,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Push de %@ feito"
+          }
+        }
+      }
+    },
+    "Pushed %lld commits to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push de %lld commits a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push de %lld commits para %@"
+          }
+        }
+      }
+    },
+    "Pushed 1 commit to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push de 1 commit a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push de 1 commit para %@"
           }
         }
       }
@@ -11764,6 +12084,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reiniciar agora"
+          }
+        }
+      }
+    },
+    "Restart to Update" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar para actualizar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar para atualizar"
+          }
+        }
+      }
+    },
+    "Restart to Update to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar para actualizar a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar para atualizar para %@"
           }
         }
       }
@@ -15178,6 +15530,38 @@
         }
       }
     },
+    "Updated to gitForge %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizado a gitForge %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atualizado para gitForge %@"
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizaciones"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atualizações"
+          }
+        }
+      }
+    },
     "Use a token" : {
       "localizations" : {
         "es" : {
@@ -16013,6 +16397,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ambas, primeiro a deles"
+          }
+        }
+      }
+    },
+    "branch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ramo"
           }
         }
       }
@@ -16895,6 +17295,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O git regista o seu nome e e-mail em cada commit. Isto é escrito em `~/.gitconfig` e aplica-se a todos os repositórios."
+          }
+        }
+      }
+    },
+    "gitForge %@ couldn’t be installed. Download it from GitHub and replace the app in Applications." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido instalar gitForge %@. Descárgalo de GitHub y sustituye la app en Aplicaciones."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível instalar o gitForge %@. Transfira-o do GitHub e substitua a app em Aplicações."
+          }
+        }
+      }
+    },
+    "gitForge %@ is ready. Restart now to install it, or it installs when you quit." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gitForge %@ está listo. Reinicia ahora para instalarlo o se instalará al salir."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O gitForge %@ está pronto. Reinicie agora para o instalar ou será instalado ao sair."
+          }
+        }
+      }
+    },
+    "gitForge %@. Checks for updates every 6 hours." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gitForge %@. Busca actualizaciones cada 6 horas."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gitForge %@. Procura atualizações a cada 6 horas."
           }
         }
       }

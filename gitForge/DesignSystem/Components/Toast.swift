@@ -24,6 +24,7 @@ nonisolated struct ToastAction: Equatable, Sendable {
     enum Route: Equatable, Sendable {
         case reconnectAccount(instanceId: UUID, accountId: UUID?)
         case openAccounts
+        case openURL(URL)
     }
     let title: String
     let route: Route

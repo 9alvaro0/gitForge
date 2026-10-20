@@ -79,7 +79,8 @@ standalone: `release.sh` (build/sign/notarize), `update-appcast.sh <version>`
 (EdDSA-sign + prepend `<item>`).
 
 Within 24 hours, every running gitForge ≥ 1.1.0 picks up the update on its
-next background check. Users can also force a check from **Help → Check for
+next background check (every 6 hours after 1.2.0; newer versions also
+download it silently and install it on quit). Users can also force a check from **Help → Check for
 Updates…**.
 
 ## Smoke test
