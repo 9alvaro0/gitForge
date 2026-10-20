@@ -21,6 +21,9 @@ struct DiffUnifiedContent: View {
     var onExpandGap: (Int) -> Void = { _ in }
 
     @Environment(\.appPreferences) private var preferences
+    @Environment(\.appTheme) private var theme
+    /// Width of the widest row (`DiffContentWidth`); 0 until measured.
+    @State private var rowWidth: CGFloat = 0
 
     var body: some View {
         // Wrapped lines must be measured against the viewport, so the
@@ -53,10 +56,57 @@ struct DiffUnifiedContent: View {
                     }
                     gapSection(before: hunks.count)
                 }
-                .frame(minWidth: geo.size.width, maxWidth: wrap ? geo.size.width : nil,
+                // Without wrapping, at least as wide as the widest line: the
+                // lazy stack alone only measures the rows laid out so far.
+                .frame(minWidth: wrap ? geo.size.width : max(geo.size.width, rowWidth),
+                       maxWidth: wrap ? geo.size.width : nil,
                        minHeight: geo.size.height, alignment: .topLeading)
             }
         }
+        .task(id: widthKey) { await measureRowWidth() }
+    }
+}
+
+extension DiffUnifiedContent {
+    /// Everything the widest row depends on. Line lengths stand in for the
+    /// text, so an edit that keeps the line count still re-measures.
+    private struct WidthKey: Hashable {
+        let hunks: [[Int]]
+        let expandedGaps: Set<Int>
+        let fileLineCount: Int
+        let font: MonoFontFamily
+        let wrap: Bool
+    }
+
+    private var widthKey: WidthKey {
+        WidthKey(
+            hunks: hunks.map { [$0.id, $0.lines.count, $0.lines.reduce(0) { $0 + $1.content.utf8.count }] },
+            expandedGaps: expandedGaps,
+            fileLineCount: fileLines.count,
+            font: theme.monoFont,
+            wrap: preferences.diffWrapLongLines
+        )
+    }
+
+    /// Every line a row shows: the hunks' and the opened gaps'.
+    private var allLines: [String] {
+        var lines = hunks.flatMap { $0.lines.map(\.content) }
+        for gap in gaps where expandedGaps.contains(gap.id) {
+            lines += gap.lines(from: fileLines).map(\.content)
+        }
+        return lines
+    }
+
+    private func measureRowWidth() async {
+        guard !preferences.diffWrapLongLines else { return }
+        let lines = allLines
+        // The scan walks every character; only the few widest get measured.
+        let candidates = await Task.detached(priority: .userInitiated) {
+            DiffContentWidth.widestCandidates(lines)
+        }.value
+        guard !Task.isCancelled else { return }
+        let font = AppFont.codeNSFont(TypeRole.mono.size, family: theme.monoFont)
+        rowWidth = DiffContentWidth.unifiedRowWidth(of: candidates, font: font)
     }
 }
 
