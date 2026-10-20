@@ -44,6 +44,7 @@ extension RepositoryViewModel {
             try await cli.fetchAll()
             lastFetchedAt = .now
             await loadRefs()
+            operationSuccess = .fetch(upstream: upstream, behind: behindCount)
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
@@ -71,11 +72,14 @@ extension RepositoryViewModel {
             remoteOperation = nil
             isMutating = false
         }
+        let headBefore = await cli.headSha()
         do {
             try await cli.pull(rebase: rebase, ffOnly: ffOnly)
             await loadRefs()
             await workingCopy.refreshStatus()
             await history.reloadLog()
+            let headAfter = await cli.headSha()
+            operationSuccess = .pull(upstream: upstream, changed: headBefore != headAfter)
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
@@ -96,6 +100,7 @@ extension RepositoryViewModel {
         remoteFailure = nil
         defer { remoteOperation = nil }
         let setUpstream = upstream == nil
+        let branch = currentBranchName
         // The remote git pushes this branch to (pushRemote, pushDefault, then
         // the tracking remote), so fork / triangular setups push — and are
         // signed — where git would. "origin" when nothing is configured.
@@ -119,17 +124,21 @@ extension RepositoryViewModel {
             } catch {}
             await loadRefs()
         }
+        // Read after the lease fetch so the count matches what this push sends.
+        let pushedCount = aheadCount
         do {
             try await cli.push(
                 setUpstream: setUpstream,
                 remote: resolvedRemote,
-                branch: currentBranchName,
+                branch: branch,
                 forceWithLease: forceWithLease
             )
             if setUpstream { upstream = await cli.upstreamName() }
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
             await loadRefs()
+            operationSuccess = .push(branch: branch, remote: resolvedRemote, ahead: pushedCount,
+                                     firstPush: setUpstream, forced: forceWithLease)
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)

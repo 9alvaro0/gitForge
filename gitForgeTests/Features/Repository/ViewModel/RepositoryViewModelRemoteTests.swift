@@ -125,3 +125,46 @@ struct RepositoryViewModelRemoteOpsTests {
         #expect(vm.remoteOperation == nil)
     }
 }
+
+@Suite("RepositoryViewModel — success feedback", .serialized)
+@MainActor
+struct RepositoryViewModelSuccessFeedbackTests {
+    @Test("Commit, push and fetch each publish a success event")
+    func commitPushFetch() async throws {
+        let origin = try await GitTestRepo.make(bare: true)
+        let work = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+            try repo.git("remote", "add", "origin", origin.url.path)
+        }
+        defer { origin.remove(); work.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: work.url))
+        await vm.loadRefs()
+
+        // First push: no upstream yet.
+        #expect(await vm.push())
+        #expect(vm.operationSuccess?.message == "Published main to origin/main")
+
+        try await work.externalWriteAsync("b\n", to: "b.txt")
+        try await work.gitAsync("add", "b.txt")
+        await vm.workingCopy.refreshStatus()
+        vm.workingCopy.commitSubject = "Add b"
+        #expect(await vm.commit())
+        let sha = try await work.gitAsync("rev-parse", "--short=7", "HEAD")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(vm.operationSuccess?.message == "Committed \(sha) — Add b")
+
+        #expect(await vm.push())
+        #expect(vm.operationSuccess?.message == "Pushed 1 commit to origin/main")
+
+        #expect(await vm.fetch())
+        #expect(vm.operationSuccess?.message == "Fetched — origin/main has nothing new")
+    }
+
+    @Test("A failed push publishes no success")
+    func failedPushIsSilent() async {
+        let url = URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")
+        let vm = RepositoryViewModel(repository: Repository(url: url))
+        #expect(await vm.push() == false)
+        #expect(vm.operationSuccess == nil)
+    }
+}
