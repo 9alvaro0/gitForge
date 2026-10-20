@@ -71,15 +71,18 @@ nonisolated enum TypeRole: CaseIterable, Sendable {
     /// moves it, so the regular face stands in for every weight.
     @MainActor
     func naturalLineHeight(monoFamily: MonoFontFamily) -> CGFloat {
-        let font: NSFont
-        if isMono {
-            font = monoFamily == .systemMono
-                ? .monospacedSystemFont(ofSize: size, weight: .regular)
-                : NSFont(name: monoFamily.rawValue, size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)
-        } else {
-            font = .systemFont(ofSize: size)
-        }
+        let font = isMono ? AppFont.codeNSFont(size, family: monoFamily) : .systemFont(ofSize: size)
         return NSLayoutManager().defaultLineHeight(for: font)
+    }
+}
+
+extension AppFont {
+    /// AppKit counterpart of `codeFace`, for measuring code text.
+    static func codeNSFont(_ size: CGFloat, family: MonoFontFamily) -> NSFont {
+        if family != .systemMono, let font = NSFont(name: family.rawValue, size: size) {
+            return font
+        }
+        return .monospacedSystemFont(ofSize: size, weight: .regular)
     }
 }
 
