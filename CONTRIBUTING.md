@@ -8,6 +8,8 @@ Open an [issue](https://github.com/9alvaro0/gitForge/issues/new/choose) and pick
 
 Before opening one, search the [existing issues](https://github.com/9alvaro0/gitForge/issues?q=is%3Aissue) to avoid duplicates.
 
+**Security vulnerabilities:** don't open a public issue. See [SECURITY.md](SECURITY.md).
+
 ## Contributing code
 
 You don't need write access to the repository. Contributions go through a **fork**:
