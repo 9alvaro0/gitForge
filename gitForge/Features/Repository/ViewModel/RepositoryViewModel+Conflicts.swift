@@ -52,7 +52,7 @@ extension RepositoryViewModel {
     /// a commit racing it) can't fight over `.git/index.lock`.
     private func runConflictMutation(_ body: () async throws -> Void) async {
         guard !isMutating else {
-            commitError = "Another operation is in progress."
+            commitError = String(localized: "Another operation is in progress.")
             return
         }
         isMutating = true
@@ -107,14 +107,14 @@ extension RepositoryViewModel {
     /// behaves like a direct `git merge`. Otherwise checks out `target` first
     /// so the merge lands on the right ref.
     func mergeBranch(source: GitRef, into target: GitRef?) async -> IntegrationOutcome {
-        guard !isMutating else { return .failed("Another operation is in progress.") }
+        guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
         let sourceName = source.isLocalBranch ? source.name : source.displayName
         isMutating = true
         defer { isMutating = false }
         do {
             if let target, target.name != currentBranchName {
                 guard target.isLocalBranch else {
-                    return .failed("Can only merge into a local branch.")
+                    return .failed(String(localized: "Can only merge into a local branch."))
                 }
                 try await cli.checkout(branch: target.name)
                 await refreshAfterRefMutation(reloadLog: true)
@@ -136,7 +136,7 @@ extension RepositoryViewModel {
     /// `git rebase <upstream>` against the current HEAD. Routes conflicts to
     /// the resolver via the `IntegrationOutcome`.
     func rebaseOnto(_ ref: GitRef) async -> IntegrationOutcome {
-        guard !isMutating else { return .failed("Another operation is in progress.") }
+        guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
         let upstream = ref.isLocalBranch ? ref.name : ref.displayName
         isMutating = true
         defer { isMutating = false }

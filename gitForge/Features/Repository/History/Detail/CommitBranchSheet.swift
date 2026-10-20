@@ -14,9 +14,9 @@ struct CommitBranchSheet: View {
                 .textRole(.headline)
             GFTextField(placeholder: "feat/awesome", text: $name)
             HStack {
-                GFButton(title: "Cancel", action: onCancel)
+                GFButton(title: String(localized: "Cancel"), action: onCancel)
                 Spacer()
-                GFButton(title: "Create & checkout", style: .primary,
+                GFButton(title: String(localized: "Create & checkout"), style: .primary,
                          disabled: name.isEmpty, action: onConfirm)
             }
         }

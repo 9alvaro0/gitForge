@@ -14,19 +14,19 @@ struct FirstRepoStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s12) {
             actionCard(symbol: "folder",
-                       title: "Open a folder",
-                       subtitle: "Add an existing local git repository.",
-                       cta: "Choose folder…",
+                       title: String(localized: "Open a folder"),
+                       subtitle: String(localized: "Add an existing local git repository."),
+                       cta: String(localized: "Choose folder…"),
                        action: onOpenLocal)
             actionCard(symbol: "square.and.arrow.down",
-                       title: "Clone from URL",
-                       subtitle: "Bring a repository down from any git remote (HTTPS or SSH).",
-                       cta: "Open Clone…",
+                       title: String(localized: "Clone from URL"),
+                       subtitle: String(localized: "Bring a repository down from any git remote (HTTPS or SSH)."),
+                       cta: String(localized: "Open Clone…"),
                        action: onClone)
             actionCard(symbol: "cloud",
-                       title: "Connect GitHub or GitLab",
-                       subtitle: "Browse your repositories and clone them in two clicks.",
-                       cta: "Browse providers…",
+                       title: String(localized: "Connect GitHub or GitLab"),
+                       subtitle: String(localized: "Browse your repositories and clone them in two clicks."),
+                       cta: String(localized: "Browse providers…"),
                        action: onConnect)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -112,7 +112,7 @@ final class AppState {
         // doesn't spam on every `activate` of an already-open repo.
         if isSwitching, let synced = SyncedFolderDetector.detect(in: catalog.activeRepository?.url ?? url) {
             ui.activeToast = ToastMessage(
-                message: "Repository is inside \(synced.displayName) — sync conflicts on `.git/` can corrupt the repo. Consider moving it outside the synced folder.",
+                message: String(localized: "Repository is inside \(synced.displayName) — sync conflicts on `.git/` can corrupt the repo. Consider moving it outside the synced folder."),
                 kind: .warn
             )
         }
@@ -151,14 +151,14 @@ final class AppState {
     func applyCloneProfile(_ profileId: UUID?) async -> Bool {
         guard let profileId, let viewModel = catalog.activeViewModel else { return true }
         guard let profile = profiles.profiles.first(where: { $0.id == profileId }) else {
-            ui.activeToast = ToastMessage(message: "Cloned, but the chosen profile no longer exists", kind: .warn)
+            ui.activeToast = ToastMessage(message: String(localized: "Cloned, but the chosen profile no longer exists"), kind: .warn)
             return false
         }
         do {
             try await viewModel.applyProfile(profile)
             return true
         } catch {
-            ui.activeToast = ToastMessage(message: "Cloned, but couldn't apply \(profile.name): \(error.userMessage)", kind: .warn)
+            ui.activeToast = ToastMessage(message: String(localized: "Cloned, but couldn't apply \(profile.name): \(error.userMessage)"), kind: .warn)
             return false
         }
     }
@@ -168,20 +168,20 @@ final class AppState {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty, !trimmedPath.isEmpty else {
-            ui.presentedError = PresentedError(title: "Clone failed", message: "Source URL and local path are required.")
+            ui.presentedError = PresentedError(title: String(localized: "Clone failed"), message: String(localized: "Source URL and local path are required."))
             return
         }
         let expanded = (trimmedPath as NSString).expandingTildeInPath
         let destination = URL(fileURLWithPath: expanded)
         if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
-            ui.presentedError = PresentedError(title: "Clone failed", message: "Destination already exists: \(expanded)")
+            ui.presentedError = PresentedError(title: String(localized: "Clone failed"), message: String(localized: "Destination already exists: \(expanded)"))
             return
         }
 
         var pin = CloneAccountPin.pin(accountId, destination: destination, in: accounts)
         let destinationPath = destination.path(percentEncoded: false)
         profileLookup.beginClone(at: destinationPath, profileId: profileId)
-        clone.cloneState = .running(stage: "Connecting…", percent: 0)
+        clone.cloneState = .running(stage: String(localized: "Connecting…"), percent: 0)
         defer {
             clone.cloneState = .idle
             profileLookup.endClone(at: destinationPath)
@@ -207,12 +207,12 @@ final class AppState {
         } catch is CancellationError {
             pin?.undo()
             Self.cleanupPartialClone(at: destination)
-            ui.activeToast = ToastMessage(message: "Clone cancelled", kind: .info)
+            ui.activeToast = ToastMessage(message: String(localized: "Clone cancelled"), kind: .info)
             return
         } catch {
             pin?.undo()
             Self.cleanupPartialClone(at: destination)
-            ui.presentedError = PresentedError(error: error, title: "Clone failed")
+            ui.presentedError = PresentedError(error: error, title: String(localized: "Clone failed"))
             return
         }
 
@@ -229,11 +229,11 @@ final class AppState {
             let profileApplied = await applyCloneProfile(profileId)
             ui.workspaceSection = .history
             if profileApplied {
-                ui.activeToast = ToastMessage(message: "Cloned \(destination.lastPathComponent)", kind: .ok)
+                ui.activeToast = ToastMessage(message: String(localized: "Cloned \(destination.lastPathComponent)"), kind: .ok)
             }
         } catch {
             ui.presentedError = PresentedError(
-                title: "Cloned, but couldn't open it",
+                title: String(localized: "Cloned, but couldn't open it"),
                 message: "\(destination.path(percentEncoded: false)) — \(error.userMessage)"
             )
         }
@@ -253,7 +253,7 @@ final class AppState {
 
     /// Opens an `NSOpenPanel` and returns the chosen directory's path. Used
     /// by the Clone view to pick a parent directory.
-    func pickDirectoryPath(prompt: String = "Choose") async -> String? {
+    func pickDirectoryPath(prompt: String = String(localized: "Choose")) async -> String? {
         let panel = NSOpenPanel()
         panel.title = prompt
         panel.prompt = prompt
@@ -268,16 +268,16 @@ final class AppState {
     /// File ▸ New Repository… and Welcome: picks (or creates) a folder, runs
     /// `git init` there unless it already holds a repository, and opens it.
     func presentNewRepositoryPanel() async {
-        guard let path = await pickDirectoryPath(prompt: "Create Repository") else { return }
+        guard let path = await pickDirectoryPath(prompt: String(localized: "Create Repository")) else { return }
         let url = URL(fileURLWithPath: path)
         do {
             let created = try await GitCLI.initRepository(at: url)
             try await openRepository(at: url)
             if created {
-                ui.activeToast = ToastMessage(message: "Created \(url.lastPathComponent)", kind: .ok)
+                ui.activeToast = ToastMessage(message: String(localized: "Created \(url.lastPathComponent)"), kind: .ok)
             }
         } catch {
-            ui.presentedError = PresentedError(error: error, title: "Couldn't create the repository")
+            ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn't create the repository"))
         }
     }
 
@@ -285,8 +285,8 @@ final class AppState {
     /// repo, and surfaces any failure.
     func presentOpenRepositoryPanel() async {
         let panel = NSOpenPanel()
-        panel.title = "Open Repository"
-        panel.prompt = "Open"
+        panel.title = String(localized: "Open Repository")
+        panel.prompt = String(localized: "Open")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false

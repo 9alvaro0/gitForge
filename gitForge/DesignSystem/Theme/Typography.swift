@@ -12,7 +12,8 @@ enum MonoFontFamily: String, CaseIterable, Identifiable, Sendable {
     case systemMono    = "System Monospaced"
 
     var id: String { rawValue }
-    var label: String { rawValue }
+    /// Font names stay as-is; only the system sentinel is translated.
+    var label: String { self == .systemMono ? String(localized: "System Monospaced") : rawValue }
 
     /// `true` when the font is registered with the OS so callers can render
     /// it without falling back to the system monospaced font. The

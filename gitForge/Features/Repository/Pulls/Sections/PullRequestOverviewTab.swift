@@ -36,7 +36,7 @@ struct PullRequestOverviewTab: View {
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            GFButton(title: localMergeRunning ? "Resolving…" : "Resolve locally", disabled: localMergeRunning,
+            GFButton(title: localMergeRunning ? String(localized: "Resolving…") : String(localized: "Resolve locally"), disabled: localMergeRunning,
                      action: onTryLocalMerge)
         }
         .padding(Spacing.s12)
@@ -46,7 +46,7 @@ struct PullRequestOverviewTab: View {
 
     private func descriptionCard(_ detail: PullRequestDetail) -> some View {
         card {
-            OverviewSectionLabel("Description")
+            OverviewSectionLabel(String(localized: "Description"))
             if let body = detail.descriptionMarkdown, !body.isEmpty {
                 MarkdownView(source: body)
             } else {
@@ -59,7 +59,7 @@ struct PullRequestOverviewTab: View {
 
     private var descriptionPlaceholder: some View {
         card {
-            OverviewSectionLabel("Description")
+            OverviewSectionLabel(String(localized: "Description"))
             Text("Adds the PR/MR integration with the new detail view, including overview, commits, and files tabs.")
                 .textRole(.body)
             Text("Each tab shares state with the parent so navigating between them is instantaneous.")

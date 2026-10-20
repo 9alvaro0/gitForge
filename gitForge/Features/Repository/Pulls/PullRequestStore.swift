@@ -334,7 +334,7 @@ final class PullRequestStore {
         let gen = detailGen
         guard let pr = selected, let host else { return }
         guard let token = currentToken else {
-            detailError = "The account's token isn't available. Refresh the list."
+            detailError = String(localized: "The account's token isn't available. Refresh the list.")
             return
         }
 
@@ -459,7 +459,7 @@ final class PullRequestStore {
 
     private static func message(for error: Error) -> String {
         if let typed = error as? PullRequestFetchError {
-            return typed.errorDescription ?? "Request failed"
+            return typed.errorDescription ?? String(localized: "Request failed")
         }
         return error.localizedDescription
     }

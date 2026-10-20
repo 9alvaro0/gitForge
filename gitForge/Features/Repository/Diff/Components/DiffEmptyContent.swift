@@ -24,20 +24,20 @@ struct DiffEmptyContent: View {
     private var copy: (title: String, subtitle: String?) {
         switch state {
         case .empty:
-            return ("No changes", nil)
+            return (String(localized: "No changes"), nil)
         case .binary:
-            return ("Binary file", "Diff isn't rendered for non-text content.")
+            return (String(localized: "Binary file"), String(localized: "Diff isn't rendered for non-text content."))
         case .untrackedBinary:
-            return ("New binary file",
-                    "This file is untracked and isn't text — open it in an external app to inspect it.")
+            return (String(localized: "New binary file"),
+                    String(localized: "This file is untracked and isn't text — open it in an external app to inspect it."))
         case .renameOnly:
-            return ("Renamed", "The file was moved without content changes.")
+            return (String(localized: "Renamed"), String(localized: "The file was moved without content changes."))
         case .modeChange(let from, let to):
-            return ("File mode changed", "\(from) → \(to). The contents are unchanged.")
+            return (String(localized: "File mode changed"), String(localized: "\(from) → \(to). The contents are unchanged."))
         case .submoduleUpdate(let from, let to):
-            return ("Submodule updated", "\(from.prefix(7)) → \(to.prefix(7))")
+            return (String(localized: "Submodule updated"), "\(from.prefix(7)) → \(to.prefix(7))")
         case .whitespaceOnly:
-            return ("Only whitespace changed", "Turn off Hide whitespace in the diff options to see it.")
+            return (String(localized: "Only whitespace changed"), String(localized: "Turn off Hide whitespace in the diff options to see it."))
         }
     }
 }

@@ -10,6 +10,8 @@
   ],
   "defaultOptions" : {
     "codeCoverage" : false,
+    "language" : "en",
+    "region" : "US",
     "targetForVariableExpansion" : {
       "containerPath" : "container:gitForge.xcodeproj",
       "identifier" : "CD2E2B202FA8DE7300330FAF",

@@ -7,9 +7,9 @@ struct UpdatesSection: View {
 
     var body: some View {
         if let updater {
-            SettingsSection(title: "Updates", subtitle: versionSubtitle) {
+            SettingsSection(title: String(localized: "Updates"), subtitle: versionSubtitle) {
                 HStack(alignment: .top) {
-                    SettingsRowLabel(text: "Install automatically")
+                    SettingsRowLabel(text: String(localized: "Install automatically"))
                     VStack(alignment: .leading, spacing: Spacing.s2) {
                         Toggle("", isOn: Binding(
                             get: { updater.installsUpdatesAutomatically },
@@ -29,13 +29,13 @@ struct UpdatesSection: View {
                 .padding(.vertical, Spacing.s8)
                 SettingsDivider()
                 HStack(alignment: .center) {
-                    SettingsRowLabel(text: "Check now")
+                    SettingsRowLabel(text: String(localized: "Check now"))
                     if let ready = updater.readyUpdate {
-                        GFButton(title: "Restart to Update to \(ready.version)", style: .primary, size: .small) {
+                        GFButton(title: String(localized: "Restart to Update to \(ready.version)"), style: .primary, size: .small) {
                             updater.installAndRelaunch()
                         }
                     } else {
-                        GFButton(title: "Check for Updates…", size: .small,
+                        GFButton(title: String(localized: "Check for Updates…"), size: .small,
                                  disabled: !updater.canCheckForUpdates) {
                             updater.checkForUpdates()
                         }
@@ -50,6 +50,6 @@ struct UpdatesSection: View {
 
     private var versionSubtitle: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-        return "gitForge \(version). Checks for updates every 6 hours."
+        return String(localized: "gitForge \(version). Checks for updates every 6 hours.")
     }
 }

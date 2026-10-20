@@ -18,10 +18,10 @@ struct PullRequestDetailView: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .checks:   "Checks"
-            case .overview: "Overview"
-            case .commits:  "Commits"
-            case .files:    "Files"
+            case .checks:   String(localized: "Checks")
+            case .overview: String(localized: "Overview")
+            case .commits:  String(localized: "Commits")
+            case .files:    String(localized: "Files")
             }
         }
     }
@@ -109,8 +109,8 @@ struct PullRequestDetailView: View {
     private var content: some View {
         Group {
             if let error = store.detailError, store.detail == nil {
-                EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load detail", subtitle: error) {
-                    GFButton(title: "Retry") { Task { await store.loadDetail() } }
+                EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Couldn't load detail"), subtitle: error) {
+                    GFButton(title: String(localized: "Retry")) { Task { await store.loadDetail() } }
                 }
             } else {
                 switch tab {
@@ -150,7 +150,7 @@ struct PullRequestDetailView: View {
 
     private var localMergeMessage: String {
         guard let pr = store.selected else { return "" }
-        return "Will fetch, check out \(pr.sourceBranch), and merge \(pr.targetBranch) into it. Conflicts route you to the Conflicts view."
+        return String(localized: "Will fetch, check out \(pr.sourceBranch), and merge \(pr.targetBranch) into it. Conflicts route you to the Conflicts view.")
     }
 
     private func runCheckout() async {
@@ -158,7 +158,7 @@ struct PullRequestDetailView: View {
         defer { checkingOut = false }
         switch await checkoutBranch() {
         case .success(let branch):
-            appState.ui.activeToast = ToastMessage(message: "Checked out \(branch)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Checked out \(branch)"), kind: .ok)
         case .failure(let error) where error is CancellationError:
             break
         case .failure(let error):
@@ -172,11 +172,13 @@ struct PullRequestDetailView: View {
         let pr = store.selected
         switch outcome {
         case .clean:
-            let label = pr.map { "\($0.targetBranch) into \($0.sourceBranch)" } ?? "the target branch"
-            appState.ui.activeToast = ToastMessage(message: "Already integrated — merged \(label) cleanly.", kind: .ok)
+            let message = pr.map {
+                String(localized: "Already integrated — merged \($0.targetBranch) into \($0.sourceBranch) cleanly.")
+            } ?? String(localized: "Already integrated — merged the target branch cleanly.")
+            appState.ui.activeToast = ToastMessage(message: message, kind: .ok)
         case .conflicts:
             appState.ui.workspaceSection = .conflict
-            appState.ui.activeToast = ToastMessage(message: "Merge has conflicts — resolve to continue", kind: .warn)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Merge has conflicts — resolve to continue"), kind: .warn)
         case .cancelled:
             break
         case .failed(let message):

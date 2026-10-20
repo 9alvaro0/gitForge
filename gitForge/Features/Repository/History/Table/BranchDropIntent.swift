@@ -11,8 +11,8 @@ nonisolated enum BranchDropIntent: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .commit(let sha, _): "Move the branch to \(sha)"
-        case .branch(let name): "Merge or rebase onto \(name)"
+        case .commit(let sha, _): String(localized: "Move the branch to \(sha)")
+        case .branch(let name): String(localized: "Merge or rebase onto \(name)")
         }
     }
 
@@ -21,7 +21,7 @@ nonisolated enum BranchDropIntent: Equatable, Sendable {
         case .commit(_, let subject):
             subject
         case .branch:
-            "Drop, then pick merge or rebase"
+            String(localized: "Drop, then pick merge or rebase")
         }
     }
 

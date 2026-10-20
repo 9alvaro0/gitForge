@@ -15,7 +15,7 @@ struct RemoteToolbarGroup: View {
     var body: some View {
         ControlGroup {
             Button { Task { await viewModel.fetch() } } label: {
-                label("Fetch", systemImage: "arrow.triangle.2.circlepath",
+                label(String(localized: "Fetch"), systemImage: "arrow.triangle.2.circlepath",
                       loading: viewModel.remoteOperation == .fetching)
             }
             .disabled(!online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .fetching))
@@ -29,7 +29,7 @@ struct RemoteToolbarGroup: View {
                     Task { await viewModel.pull(rebase: true) }
                 }
             } label: {
-                label(countedTitle("Pull", viewModel.behindCount), systemImage: "arrow.down.to.line",
+                label(countedTitle(String(localized: "Pull"), viewModel.behindCount), systemImage: "arrow.down.to.line",
                       loading: viewModel.remoteOperation == .pulling)
             } primaryAction: {
                 Task { await viewModel.pull() }
@@ -37,7 +37,7 @@ struct RemoteToolbarGroup: View {
             // Pull is also a local mutation (see `RepositoryViewModel.pull`).
             .disabled(!online || ((viewModel.remoteOperation != nil || viewModel.isMutating)
                 && viewModel.remoteOperation != .pulling))
-            .help(online ? "Pull" : "Offline")
+            .help(online ? String(localized: "Pull") : String(localized: "Offline"))
 
             Menu {
                 Button("Force push (only if remote unchanged)", role: .destructive) {
@@ -48,20 +48,20 @@ struct RemoteToolbarGroup: View {
                     }
                 }
             } label: {
-                label(countedTitle("Push", viewModel.aheadCount), systemImage: "arrow.up.to.line",
+                label(countedTitle(String(localized: "Push"), viewModel.aheadCount), systemImage: "arrow.up.to.line",
                       loading: viewModel.remoteOperation == .pushing)
             } primaryAction: {
                 Task { await viewModel.push() }
             }
             .disabled(!online || (viewModel.remoteOperation != nil && viewModel.remoteOperation != .pushing))
-            .help(online ? "Push" : "Offline")
+            .help(online ? String(localized: "Push") : String(localized: "Offline"))
         }
         .labelStyle(.titleAndIcon)
         // A ControlGroup reports a flexible width; without this the toolbar
         // reserves too much room and pushes items into its overflow menu.
         .fixedSize()
         .confirmationDialog(
-            "Force push to \(viewModel.currentBranchName ?? "remote")?",
+            "Force push to \(viewModel.currentBranchName ?? String(localized: "remote"))?",
             isPresented: $pendingForcePush,
             titleVisibility: .visible
         ) {

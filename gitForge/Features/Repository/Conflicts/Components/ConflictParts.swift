@@ -7,8 +7,8 @@ enum ConflictSide {
 
     var label: String {
         switch self {
-        case .ours: "◀ OURS"
-        case .theirs: "THEIRS ▶"
+        case .ours: String(localized: "◀ OURS")
+        case .theirs: String(localized: "THEIRS ▶")
         }
     }
 

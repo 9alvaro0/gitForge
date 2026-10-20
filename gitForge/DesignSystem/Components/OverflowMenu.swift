@@ -4,7 +4,7 @@ import SwiftUI
 /// 26×26 hit area, our own glyph, the native chevron hidden, and dropdown
 /// items provided by the caller.
 struct OverflowMenu<Content: View>: View {
-    var accessibilityLabel: String = "More options"
+    var accessibilityLabel: String = String(localized: "More options")
     @ViewBuilder var content: () -> Content
 
     @Environment(\.appTheme) private var theme

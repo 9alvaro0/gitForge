@@ -41,7 +41,7 @@ struct BranchDialogs: ViewModifier {
             } message: {
                 Text(mergeMessage)
             }
-            .confirmationDialog("Rebase \(currentBranchName ?? "current") onto \(rebaseTarget?.displayName ?? "")?",
+            .confirmationDialog("Rebase \(currentBranchLabel) onto \(rebaseTarget?.displayName ?? "")?",
                                 isPresented: presence($rebaseTarget),
                                 titleVisibility: .visible) {
                 Button("Rebase") {
@@ -50,7 +50,7 @@ struct BranchDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { rebaseTarget = nil }
             } message: {
-                Text("Replays \(currentBranchName ?? "current") on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
+                Text("Replays \(currentBranchLabel) on top of \(rebaseTarget?.displayName ?? ""). You'll need a force push afterwards.")
             }
             .confirmationDialog("Delete tag \(deleteTargetTag?.name ?? "")?",
                                 isPresented: presence($deleteTargetTag),
@@ -69,19 +69,24 @@ struct BranchDialogs: ViewModifier {
             }
     }
 
+    /// The current branch's name, or "current" when detached.
+    private var currentBranchLabel: String {
+        currentBranchName ?? String(localized: "branch.current.fallback", defaultValue: "current")
+    }
+
     private var mergeTitle: String {
         guard let req = mergeRequest else { return "" }
-        let target = req.target?.displayName ?? currentBranchName ?? "current"
-        return "Merge \(req.source.displayName) into \(target)?"
+        let target = req.target?.displayName ?? currentBranchLabel
+        return String(localized: "Merge \(req.source.displayName) into \(target)?")
     }
 
     private var mergeMessage: String {
         guard let req = mergeRequest else { return "" }
-        let target = req.target?.displayName ?? currentBranchName ?? "current"
+        let target = req.target?.displayName ?? currentBranchLabel
         if let t = req.target, t.name != currentBranchName {
-            return "Will check out \(target) first, then merge \(req.source.displayName) into it. Conflicts route you to the Conflicts view."
+            return String(localized: "Will check out \(target) first, then merge \(req.source.displayName) into it. Conflicts route you to the Conflicts view.")
         }
-        return "Brings \(req.source.displayName) into \(target). Conflicts route you to the Conflicts view."
+        return String(localized: "Brings \(req.source.displayName) into \(target). Conflicts route you to the Conflicts view.")
     }
 
     /// `confirmationDialog(isPresented:)` insists on a `Bool` binding even

@@ -8,8 +8,8 @@ nonisolated enum AccountStoreError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .duplicateHost(let host): "\(host) is already in the list."
-        case .unknownInstance: "That instance no longer exists."
+        case .duplicateHost(let host): String(localized: "\(host) is already in the list.")
+        case .unknownInstance: String(localized: "That instance no longer exists.")
         }
     }
 }

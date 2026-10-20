@@ -10,17 +10,20 @@ struct PullsTokenMissingSection: View {
     let onOpenSettings: () -> Void
 
     var body: some View {
-        let provider = host?.provider.label ?? "hosting"
+        let provider = host?.provider.label ?? String(localized: "hosting")
+        let hostName = host?.host ?? String(localized: "the host")
         EmptyState(
             symbol: "arrow.triangle.pull",
-            title: reconnect ? "Reconnect your \(provider) account" : "Connect a \(provider) account",
+            title: reconnect ? String(localized: "Reconnect your \(provider) account")
+                             : String(localized: "Connect a \(provider) account"),
             subtitle: reconnect
-                ? "The account's token was rejected. Sign in again to list \(nounPlural)."
-                : "Sign in to \(host?.host ?? "the host") to list \(nounPlural) and push over HTTPS."
+                ? String(localized: "The account's token was rejected. Sign in again to list \(nounPlural).")
+                : String(localized: "Sign in to \(hostName) to list \(nounPlural) and push over HTTPS.")
         ) {
             HStack(spacing: Spacing.s8) {
-                GFButton(title: reconnect ? "Reconnect…" : "Connect account…", style: .primary, action: onConnect)
-                GFButton(title: "Open Settings", action: onOpenSettings)
+                GFButton(title: reconnect ? String(localized: "Reconnect…") : String(localized: "Connect account…"),
+                         style: .primary, action: onConnect)
+                GFButton(title: String(localized: "Open Settings"), action: onOpenSettings)
             }
         }
     }

@@ -41,7 +41,7 @@ struct ConflictHunkView: View {
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
             Spacer(minLength: 0)
-            GFButton(title: "Change", size: .small, action: onClear)
+            GFButton(title: String(localized: "conflict.hunk.change", defaultValue: "Change"), size: .small, action: onClear)
                 .help("Undo this pick")
         }
         .padding(.horizontal, Spacing.s12)
@@ -53,10 +53,10 @@ struct ConflictHunkView: View {
 
     static func pickLabel(_ pick: ConflictHunk.Pick) -> String {
         switch pick {
-        case .ours: "Ours"
-        case .theirs: "Theirs"
-        case .both: "Both · ours first"
-        case .bothTheirsFirst: "Both · theirs first"
+        case .ours: String(localized: "Ours")
+        case .theirs: String(localized: "Theirs")
+        case .both: String(localized: "Both · ours first")
+        case .bothTheirsFirst: String(localized: "Both · theirs first")
         }
     }
 
@@ -88,10 +88,10 @@ struct ConflictHunkView: View {
             .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: Spacing.s8) {
-                ConflictSideButton(side: .ours, title: "Use ours") { onPick(.ours) }
-                ConflictSideButton(side: .theirs, title: "Use theirs") { onPick(.theirs) }
-                GFButton(title: "Both · ours first") { onPick(.both) }
-                GFButton(title: "Both · theirs first") { onPick(.bothTheirsFirst) }
+                ConflictSideButton(side: .ours, title: String(localized: "Use ours")) { onPick(.ours) }
+                ConflictSideButton(side: .theirs, title: String(localized: "Use theirs")) { onPick(.theirs) }
+                GFButton(title: String(localized: "Both · ours first")) { onPick(.both) }
+                GFButton(title: String(localized: "Both · theirs first")) { onPick(.bothTheirsFirst) }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, Spacing.s12)
@@ -126,7 +126,9 @@ struct ConflictHunkView: View {
         .padding(.vertical, Spacing.s4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(side == .ours ? "Ours" : "Theirs"), \(lines.count) lines")
+        .accessibilityLabel(side == .ours
+            ? String(localized: "Ours, \(lines.count) lines")
+            : String(localized: "Theirs, \(lines.count) lines"))
     }
 }
 

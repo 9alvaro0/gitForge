@@ -13,22 +13,22 @@ extension RepositoryViewModel {
     /// `.conflicts`; the caller is expected to route to the conflicts section.
     func attemptLocalMergeForPullRequest() async -> IntegrationOutcome {
         guard let pr = pullRequests.selected else {
-            return .failed("No pull request selected.")
+            return .failed(String(localized: "No pull request selected."))
         }
         guard !pullRequests.localMergeRunning else {
-            return .failed("A local merge is already running.")
+            return .failed(String(localized: "A local merge is already running."))
         }
         if mergeState.isInProgress {
-            return .failed("A merge or rebase is already in progress. Resolve it from the Conflicts section first.")
+            return .failed(String(localized: "A merge or rebase is already in progress. Resolve it from the Conflicts section first."))
         }
         if !workingCopy.status.isClean {
-            return .failed("Working tree has uncommitted changes. Commit, stash or discard them before integrating.")
+            return .failed(String(localized: "Working tree has uncommitted changes. Commit, stash or discard them before integrating."))
         }
 
         // Checkout + merge rewrite the index and worktree: hold `isMutating`
         // like every other local mutation.
         guard !isMutating else {
-            return .failed("Another operation is in progress.")
+            return .failed(String(localized: "Another operation is in progress."))
         }
         isMutating = true
         pullRequests.localMergeRunning = true
@@ -45,14 +45,14 @@ extension RepositoryViewModel {
             return .cancelled
         } catch {
             let message = error.userMessage
-            return .failed("Fetch failed: \(message)")
+            return .failed(String(localized: "Fetch failed: \(message)"))
         }
 
         // Pick the freshly fetched ref to merge in. Prefer a remote-tracking
         // branch (so we use the latest tip) and fall back to a local branch
         // with the same name when no matching remote ref exists.
         guard let targetSpec = mergeRefSpec(for: pr.targetBranch) else {
-            return .failed("Couldn't find branch \"\(pr.targetBranch)\" locally or on any remote.")
+            return .failed(String(localized: "Couldn't find branch \"\(pr.targetBranch)\" locally or on any remote."))
         }
 
         // Make sure the source branch is checked out — create it tracking the
@@ -62,7 +62,7 @@ extension RepositoryViewModel {
             await refreshAfterRefMutation(reloadLog: true)
         } catch {
             let message = error.userMessage
-            return .failed("Couldn't check out \(pr.sourceBranch): \(message)")
+            return .failed(String(localized: "Couldn't check out \(pr.sourceBranch): \(message)"))
         }
 
         do {
@@ -144,7 +144,7 @@ extension RepositoryViewModel {
             throw GitError.commandFailed(
                 args: ["checkout", branch],
                 exitCode: 1,
-                stderr: "Branch \"\(branch)\" doesn't exist locally and no remote tracks it."
+                stderr: String(localized: "Branch \"\(branch)\" doesn't exist locally and no remote tracks it.")
             )
         }
         try await cli.createBranch(branch, startingAt: remoteRef.name, checkout: true)
@@ -156,8 +156,8 @@ enum PullCheckoutError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noSelection: "No pull request selected."
-        case .busy: "Another operation is in progress."
+        case .noSelection: String(localized: "No pull request selected.")
+        case .busy: String(localized: "Another operation is in progress.")
         }
     }
 }

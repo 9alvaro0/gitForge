@@ -31,27 +31,27 @@ struct PullsContentSection: View {
             if let suggestion = store.suggestedInstance {
                 EmptyState(
                     symbol: "arrow.triangle.pull",
-                    title: "\(suggestion.host) isn't added yet",
-                    subtitle: "It looks like a \(suggestion.kind.label) server. Add it as an instance to see its \(nounPlural)."
+                    title: String(localized: "\(suggestion.host) isn't added yet"),
+                    subtitle: String(localized: "It looks like a \(suggestion.kind.label) server. Add it as an instance to see its \(nounPlural).")
                 ) {
-                    GFButton(title: "Add as \(suggestion.kind.label) instance…", style: .primary) {
+                    GFButton(title: String(localized: "Add as \(suggestion.kind.label) instance…"), style: .primary) {
                         onAddInstance(suggestion)
                     }
                 }
             } else {
                 EmptyState(
                     symbol: "arrow.triangle.pull",
-                    title: "No supported remote detected",
-                    subtitle: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts."
+                    title: String(localized: "No supported remote detected"),
+                    subtitle: String(localized: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts.")
                 )
             }
         } else if store.accountNotChosen {
             EmptyState(
                 symbol: "person.crop.circle.badge.questionmark",
-                title: "No account chosen",
-                subtitle: "Several \(store.host?.provider.label ?? "hosting") accounts can read \(store.host?.host ?? "this host"). Choose the one this repository uses to list its \(nounPlural)."
+                title: String(localized: "No account chosen"),
+                subtitle: accountNotChosenSubtitle
             ) {
-                GFButton(title: "Choose account…", style: .primary) {
+                GFButton(title: String(localized: "Choose account…"), style: .primary) {
                     Task { await store.load(force: true) }
                 }
             }
@@ -67,18 +67,24 @@ struct PullsContentSection: View {
         // Loaded with a host and token: `PullsView` shows the list instead.
     }
 
+    private var accountNotChosenSubtitle: String {
+        let provider = store.host?.provider.label ?? String(localized: "hosting")
+        let host = store.host?.host ?? String(localized: "this host")
+        return String(localized: "Several \(provider) accounts can read \(host). Choose the one this repository uses to list its \(nounPlural).")
+    }
+
     private func errorState(message: String) -> some View {
-        EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load", subtitle: message) {
+        EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Couldn't load"), subtitle: message) {
             HStack(spacing: Spacing.s8) {
                 if isTLSError(message), let host = store.host {
-                    GFButton(title: "Trust \(host.host)…", style: .primary) {
+                    GFButton(title: String(localized: "Trust \(host.host)…"), style: .primary) {
                         trustHost = host.host
                     }
-                    GFButton(title: "Try again") {
+                    GFButton(title: String(localized: "Try again")) {
                         Task { await store.load(force: true) }
                     }
                 } else {
-                    GFButton(title: "Try again", style: .primary) {
+                    GFButton(title: String(localized: "Try again"), style: .primary) {
                         Task { await store.load(force: true) }
                     }
                 }
@@ -88,6 +94,7 @@ struct PullsContentSection: View {
 
     /// The error has been mapped to a friendly string already, so match the
     /// prefix the formatter uses rather than the underlying URLError.
+    /// Every translation of `PullRequestFetchError.tls` keeps the word "TLS".
     private func isTLSError(_ message: String) -> Bool {
         let lower = message.lowercased()
         return lower.contains("tls") || lower.contains("certificate") || lower.contains("secure connection")

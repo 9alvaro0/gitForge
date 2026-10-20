@@ -12,8 +12,8 @@ nonisolated enum DateDisplayMode: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .relative: return "Relative (2h ago)"
-        case .absolute: return "Absolute (2026-05-09 14:32)"
+        case .relative: return String(localized: "Relative (2h ago)")
+        case .absolute: return String(localized: "Absolute (2026-05-09 14:32)")
         }
     }
 

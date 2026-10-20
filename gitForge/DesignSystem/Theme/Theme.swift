@@ -8,9 +8,9 @@ enum ThemeMode: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .system: return "System"
-        case .dark:   return "Dark"
-        case .light:  return "Light"
+        case .system: return String(localized: "System")
+        case .dark:   return String(localized: "Dark")
+        case .light:  return String(localized: "Light")
         }
     }
 }

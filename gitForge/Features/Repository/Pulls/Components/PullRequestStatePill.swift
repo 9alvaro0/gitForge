@@ -24,10 +24,14 @@ struct PullRequestStatePill: View {
     private var style: (String, String, Color, Color) {
         let c = theme.colors
         switch state {
-        case .open: return ("Open", "arrow.triangle.pull", c.ok, c.okSoft)
-        case .merged: return ("Merged", "arrow.triangle.merge", c.accent, c.accentSoft)
-        case .closed: return ("Closed", "xmark.circle", c.del, c.delSoft)
-        case .draft: return ("Draft", "circle.dashed", c.textTertiary, c.fillControl)
+        case .open:
+            return (String(localized: "pr.state.open", defaultValue: "Open"), "arrow.triangle.pull", c.ok, c.okSoft)
+        case .merged:
+            return (String(localized: "pr.state.merged", defaultValue: "Merged"), "arrow.triangle.merge", c.accent, c.accentSoft)
+        case .closed:
+            return (String(localized: "pr.state.closed", defaultValue: "Closed"), "xmark.circle", c.del, c.delSoft)
+        case .draft:
+            return (String(localized: "pr.state.draft", defaultValue: "Draft"), "circle.dashed", c.textTertiary, c.fillControl)
         }
     }
 }

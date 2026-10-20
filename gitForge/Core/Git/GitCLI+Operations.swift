@@ -46,9 +46,9 @@ extension GitCLI {
         var flag: String { "--\(rawValue)" }
         var label: String {
             switch self {
-            case .soft:  return "Soft (keep changes staged)"
-            case .mixed: return "Mixed (keep changes unstaged)"
-            case .hard:  return "Hard (discard everything)"
+            case .soft:  return String(localized: "Soft (keep changes staged)")
+            case .mixed: return String(localized: "Mixed (keep changes unstaged)")
+            case .hard:  return String(localized: "Hard (discard everything)")
             }
         }
     }

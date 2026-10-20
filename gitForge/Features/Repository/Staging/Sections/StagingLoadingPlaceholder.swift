@@ -16,11 +16,11 @@ struct StagingLoadingPlaceholder: View {
 
     var body: some View {
         LazyVStack(spacing: 0) {
-            StagingFileSectionHeader(title: "Unstaged", count: 0)
+            StagingFileSectionHeader(title: String(localized: "Unstaged"), count: 0)
             ForEach(0..<3, id: \.self) { index in
                 row(index: index)
             }
-            StagingFileSectionHeader(title: "Staged", count: 0)
+            StagingFileSectionHeader(title: String(localized: "Staged"), count: 0)
                 .padding(.top, Spacing.s12)
             ForEach(3..<5, id: \.self) { index in
                 row(index: index)

@@ -28,7 +28,7 @@ struct GitInstallPrompt: View {
             }
             HStack(spacing: Spacing.s8) {
                 GFButton(
-                    title: isInstalling ? "Installing…" : "Install Command Line Tools",
+                    title: isInstalling ? String(localized: "Installing…") : String(localized: "Install Command Line Tools"),
                     style: .primary,
                     disabled: isInstalling
                 ) {
@@ -38,7 +38,7 @@ struct GitInstallPrompt: View {
                         isInstalling = false
                     }
                 }
-                GFButton(title: "Recheck") {
+                GFButton(title: String(localized: "Recheck")) {
                     Task { await gitEnvironment.refreshGitInstallation() }
                 }
             }

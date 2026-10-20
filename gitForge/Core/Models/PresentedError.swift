@@ -8,12 +8,12 @@ struct PresentedError: Identifiable, Sendable {
     let title: String
     let message: String
 
-    init(title: String = "Couldn’t open repository", message: String) {
+    init(title: String = String(localized: "Couldn’t open repository"), message: String) {
         self.title = title
         self.message = message
     }
 
-    init(error: Error, title: String = "Couldn’t open repository") {
+    init(error: Error, title: String = String(localized: "Couldn’t open repository")) {
         self.title = title
         self.message = error.userMessage
     }

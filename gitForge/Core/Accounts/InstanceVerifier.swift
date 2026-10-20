@@ -35,7 +35,8 @@ nonisolated struct InstanceVerifier: Sendable {
         } catch HostingAuthError.tls(_) {
             return .untrustedCertificate
         } catch HostingAuthError.server(let status) {
-            return .unreachable("The server answered \(status) at \(url.absoluteString). Check the address and the API URL.")
+            let address = url.absoluteString
+            return .unreachable(String(localized: "The server answered \(status) at \(address). Check the address and the API URL."))
         } catch {
             return .unreachable(HostingAuthError.wrapping(error).localizedDescription)
         }

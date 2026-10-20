@@ -45,23 +45,23 @@ struct StagingFilesColumn: View {
     private var fileList: some View {
         LazyVStack(spacing: 0) {
             section(
-                title: "Unstaged",
+                title: String(localized: "Unstaged"),
                 files: unstaged,
-                emptyText: isFiltering ? "No matches" : "No unstaged changes",
-                allLabel: "Stage all",
+                emptyText: isFiltering ? String(localized: "No matches") : String(localized: "No unstaged changes"),
+                allLabel: String(localized: "Stage all"),
                 onAll: { Task { await viewModel.stage(unstaged) } },
-                moveTitle: "Stage",
+                moveTitle: String(localized: "Stage"),
                 side: .unstaged,
                 onMove: { Task { await viewModel.stageSelected() } },
                 lineCounts: viewModel.workingCopy.unstagedLineCounts
             )
             section(
-                title: "Staged",
+                title: String(localized: "Staged"),
                 files: staged,
-                emptyText: isFiltering ? "No matches" : "Nothing staged",
-                allLabel: "Unstage all",
+                emptyText: isFiltering ? String(localized: "No matches") : String(localized: "Nothing staged"),
+                allLabel: String(localized: "Unstage all"),
                 onAll: { Task { await viewModel.unstage(staged) } },
-                moveTitle: "Unstage",
+                moveTitle: String(localized: "Unstage"),
                 side: .staged,
                 onMove: { Task { await viewModel.unstageSelected() } },
                 lineCounts: viewModel.workingCopy.stagedLineCounts

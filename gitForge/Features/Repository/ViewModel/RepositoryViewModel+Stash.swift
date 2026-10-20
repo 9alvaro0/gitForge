@@ -51,7 +51,7 @@ extension RepositoryViewModel {
     /// the view can route conflicts to the resolver UI an  d surface friendly
     /// messages for the common pre-flight abort cases (dirty worktree).
     func applyStash(_ stash: Stash, drop: Bool) async -> IntegrationOutcome {
-        guard !isMutating else { return .failed("Another operation is in progress.") }
+        guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
         isMutating = true
         defer { isMutating = false }
         do {
@@ -115,8 +115,14 @@ extension RepositoryViewModel {
 
     private func friendlyStashApplyMessage(for error: Error) -> String {
         let raw = error.userMessage
-        if raw.contains("would be overwritten") {
-            return "Commit, stash, or discard your current changes before applying this stash."
+        // Match git's own stderr: `userMessage` is localized, so matching on
+        // it would only work in English.
+        let gitStderr: String? = {
+            if let gitError = error as? GitError, case .commandFailed(_, _, let stderr) = gitError { return stderr }
+            return nil
+        }()
+        if (gitStderr ?? raw).contains("would be overwritten") {
+            return String(localized: "Commit, stash, or discard your current changes before applying this stash.")
         }
         return raw
     }
@@ -127,7 +133,7 @@ enum StashError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .nothingToStash: "No changes to stash"
+        case .nothingToStash: String(localized: "No changes to stash")
         }
     }
 }

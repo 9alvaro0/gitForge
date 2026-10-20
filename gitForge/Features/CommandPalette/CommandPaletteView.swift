@@ -111,7 +111,7 @@ struct CommandPaletteView: View {
                     .background(Capsule().fill(isCurrent ? theme.colors.accentFill : .clear))
                     .contentShape(Capsule())
                     .accessibilityAddTraits(isCurrent ? .isSelected : [])
-                    .accessibilityHint(option == .all ? "Search everything" : "Search only \(option.title)")
+                    .accessibilityHint(option == .all ? String(localized: "Search everything") : String(localized: "Search only \(option.title)"))
             }
             Spacer(minLength: 0)
         }
@@ -126,8 +126,8 @@ struct CommandPaletteView: View {
 
     private var placeholder: String {
         switch scope {
-        case .all: "Search actions, repositories, branches, commits, files…"
-        case .only(let kind): "Search \(kind.title.lowercased())…"
+        case .all: String(localized: "Search actions, repositories, branches, commits, files…")
+        case .only(let kind): String(localized: "Search \(kind.title.lowercased())…")
         }
     }
 
@@ -140,7 +140,7 @@ struct CommandPaletteView: View {
     @ViewBuilder
     private func results(_ rows: [CommandPaletteSections.Row]) -> some View {
         if rows.isEmpty {
-            Text(query.isEmpty ? "Nothing in \(scope.title)" : "No matches for “\(query)”")
+            Text(query.isEmpty ? String(localized: "Nothing in \(scope.title)") : String(localized: "No matches for “\(query)”"))
                 .textRole(.body)
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(maxWidth: .infinity)
@@ -192,12 +192,12 @@ struct CommandPaletteView: View {
 
     private var footer: some View {
         HStack(spacing: Spacing.s16) {
-            hint("↑↓", "navigate")
-            hint("↵", "run")
-            hint("⌘↵", "run without closing")
-            hint("⇥", "next scope")
+            hint("↑↓", String(localized: "navigate"))
+            hint("↵", String(localized: "run"))
+            hint("⌘↵", String(localized: "run without closing"))
+            hint("⇥", String(localized: "next scope"))
             Spacer(minLength: 0)
-            hint("esc", "close")
+            hint("esc", String(localized: "close"))
         }
         .textRole(.caption)
         .foregroundStyle(theme.colors.textTertiary)

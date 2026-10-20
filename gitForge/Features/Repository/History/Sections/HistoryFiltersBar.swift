@@ -15,7 +15,7 @@ struct HistoryFiltersBar: View {
 
     var body: some View {
         HStack(spacing: Spacing.s12) {
-            GFTextField(placeholder: "Search subject, author, sha…", text: $search)
+            GFTextField(placeholder: String(localized: "Search subject, author, sha…"), text: $search)
                 .frame(maxWidth: 320)
                 .focused($searchFocused)
                 .onKeyPress(.escape) {
@@ -68,7 +68,7 @@ struct HistoryFiltersBar: View {
             .accessibilityLabel("Focused on \(focusLabel)")
             .accessibilityHint("Shows all commits again")
         } else {
-            GFButton(title: "Focus", systemImage: "scope", size: .small, disabled: !canFocus,
+            GFButton(title: String(localized: "Focus"), systemImage: "scope", size: .small, disabled: !canFocus,
                      action: onToggleFocus)
                 .help("Dim every commit outside the selected commit's history")
         }
@@ -77,12 +77,12 @@ struct HistoryFiltersBar: View {
     private var summary: String {
         let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty, let focusLabel {
-            return "\(matchCount) of \(totalCount) in \(focusLabel)"
+            return String(localized: "\(matchCount) of \(totalCount) in \(focusLabel)")
         }
         if trimmed.isEmpty {
-            return "\(totalCount) commits"
+            return String(localized: "\(totalCount) commits")
         }
-        return "\(matchCount) of \(totalCount) match"
+        return String(localized: "\(matchCount) of \(totalCount) match")
     }
 }
 

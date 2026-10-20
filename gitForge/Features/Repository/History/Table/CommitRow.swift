@@ -172,7 +172,7 @@ struct CommitRow: View, Equatable {
     private var accessibilitySummary: String {
         var parts = [commit.subject, commit.authorName,
                      preferences.dateDisplayMode.format(commit.authorDate),
-                     "commit \(commit.shortSha)"]
+                     String(localized: "commit \(commit.shortSha)")]
         parts += refs.map(\.displayName)
         return parts.joined(separator: ", ")
     }

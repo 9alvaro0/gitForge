@@ -40,7 +40,7 @@ struct SidebarHost: View {
                 appState.ui.workspaceSection = .history
                 if !vm.history.revealInHistory(ref) {
                     appState.ui.activeToast = ToastMessage(
-                        message: "“\(ref.name)” isn’t in the loaded history",
+                        message: String(localized: "“\(ref.name)” isn’t in the loaded history"),
                         kind: .warn
                     )
                 }
@@ -50,7 +50,7 @@ struct SidebarHost: View {
                 Task {
                     switch await vm.checkoutBranch(ref) {
                     case .success:
-                        appState.ui.activeToast = ToastMessage(message: "Checked out \(ref.displayName)", kind: .ok)
+                        appState.ui.activeToast = ToastMessage(message: String(localized: "Checked out \(ref.displayName)"), kind: .ok)
                     case .failure(let err):
                         appState.ui.activeToast = ToastMessage(
                             message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
@@ -65,7 +65,7 @@ struct SidebarHost: View {
                 } else {
                     Task {
                         do { try await vm.applyProfile(profile) }
-                        catch { appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t switch identity") }
+                        catch { appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t switch identity")) }
                     }
                 }
             },
@@ -90,7 +90,7 @@ struct SidebarHost: View {
             Task { await reloadRemotes() }
         }
         .confirmationDialog(
-            pendingProfile.map { "Apply profile “\($0.profile.name)”?" } ?? "",
+            pendingProfile.map { String(localized: "Apply profile “\($0.profile.name)”?") } ?? "",
             isPresented: Binding(
                 get: { pendingProfile != nil },
                 set: { if !$0 { pendingProfile = nil } }
@@ -103,7 +103,7 @@ struct SidebarHost: View {
                 let profile = pending.profile
                 Task {
                     do { try await vm.applyProfile(profile) }
-                    catch { appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t switch identity") }
+                    catch { appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t switch identity")) }
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -157,19 +157,21 @@ struct SidebarHost: View {
         let nextKey = profile.signingKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         var lines: [String] = []
-        if currentName != nextName { lines.append("Name: \(currentName.isEmpty ? "—" : currentName) → \(nextName)") }
-        if currentEmail != nextEmail { lines.append("Email: \(currentEmail.isEmpty ? "—" : currentEmail) → \(nextEmail)") }
+        let shownName = currentName.isEmpty ? "—" : currentName
+        let shownEmail = currentEmail.isEmpty ? "—" : currentEmail
+        if currentName != nextName { lines.append(String(localized: "Name: \(shownName) → \(nextName)")) }
+        if currentEmail != nextEmail { lines.append(String(localized: "Email: \(shownEmail) → \(nextEmail)")) }
         if currentKey != nextKey {
             if nextKey.isEmpty {
-                lines.append("Signing key: will be removed (commits won’t be GPG-signed here unless your global config signs them).")
+                lines.append(String(localized: "Signing key: will be removed (commits won’t be GPG-signed here unless your global config signs them)."))
             } else if currentKey.isEmpty {
-                lines.append("Signing key: will be set to \(nextKey)")
+                lines.append(String(localized: "Signing key: will be set to \(nextKey)"))
             } else {
-                lines.append("Signing key: \(currentKey) → \(nextKey)")
+                lines.append(String(localized: "Signing key: \(currentKey) → \(nextKey)"))
             }
         }
         guard !lines.isEmpty else { return nil }
-        let header = "This writes user.name/email/signingkey to this repository’s .git/config (overrides global):"
+        let header = String(localized: "This writes user.name/email/signingkey to this repository’s .git/config (overrides global):")
         return IdentityDiff(message: header + "\n\n" + lines.joined(separator: "\n"))
     }
 

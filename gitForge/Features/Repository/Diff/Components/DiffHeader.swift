@@ -28,17 +28,17 @@ struct DiffHeader: View {
                 statsView(stats)
             }
             SegmentedControl<DiffPane.ViewMode>(
-                [(.unified, "Unified"), (.split, "Split")],
+                [(.unified, String(localized: "Unified")), (.split, String(localized: "Split"))],
                 selection: $viewMode
             )
             .fixedSize()
             optionsMenu
             if let onOpenInEditor {
-                IconButton(symbol: "arrow.up.right.square", accessibilityLabel: "Open in editor", action: onOpenInEditor)
+                IconButton(symbol: "arrow.up.right.square", accessibilityLabel: String(localized: "Open in editor"), action: onOpenInEditor)
                     .help("Open in editor")
             }
             if let onClose {
-                IconButton(symbol: "xmark", accessibilityLabel: "Hide diff pane", action: onClose)
+                IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide diff pane"), action: onClose)
                     .help("Hide diff pane")
             }
         }
@@ -71,8 +71,8 @@ struct DiffHeader: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel("Diff options")
-        .accessibilityValue(hiding ? "Whitespace hidden" : "")
-        .help(hiding ? "Diff options · whitespace hidden" : "Diff options")
+        .accessibilityValue(hiding ? String(localized: "Whitespace hidden") : "")
+        .help(hiding ? String(localized: "Diff options · whitespace hidden") : String(localized: "Diff options"))
     }
 
     /// Folder dim, file name bright: the name is what the eye scans.

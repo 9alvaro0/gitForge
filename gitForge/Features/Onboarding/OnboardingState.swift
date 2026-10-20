@@ -21,52 +21,52 @@ final class OnboardingState {
 
         var title: String {
             switch self {
-            case .welcome:    return "Welcome"
+            case .welcome:    return String(localized: "Welcome")
             case .git:        return "Git"
-            case .identity:   return "Identity"
-            case .appearance: return "Appearance"
-            case .defaults:   return "Defaults"
-            case .firstRepo:  return "First repository"
+            case .identity:   return String(localized: "Identity")
+            case .appearance: return String(localized: "Appearance")
+            case .defaults:   return String(localized: "Defaults")
+            case .firstRepo:  return String(localized: "First repository")
             }
         }
 
         /// The second line of the step in the rail.
         var railSubtitle: String {
             switch self {
-            case .welcome:    return "What gitForge does"
-            case .git:        return "Find the git tool"
-            case .identity:   return "Name and email"
-            case .appearance: return "Theme, accent, density"
-            case .defaults:   return "Branch and clone folder"
-            case .firstRepo:  return "Open or clone a repo"
+            case .welcome:    return String(localized: "What gitForge does")
+            case .git:        return String(localized: "Find the git tool")
+            case .identity:   return String(localized: "Name and email")
+            case .appearance: return String(localized: "Theme, accent, density")
+            case .defaults:   return String(localized: "Branch and clone folder")
+            case .firstRepo:  return String(localized: "Open or clone a repo")
             }
         }
 
         var heading: String {
             switch self {
-            case .welcome:    return "Welcome to gitForge"
-            case .git:        return "Find git"
-            case .identity:   return "Who are you?"
-            case .appearance: return "Make it yours"
-            case .defaults:   return "Defaults"
-            case .firstRepo:  return "Add your first repository"
+            case .welcome:    return String(localized: "Welcome to gitForge")
+            case .git:        return String(localized: "Find git")
+            case .identity:   return String(localized: "Who are you?")
+            case .appearance: return String(localized: "Make it yours")
+            case .defaults:   return String(localized: "Defaults")
+            case .firstRepo:  return String(localized: "Add your first repository")
             }
         }
 
         var lede: String {
             switch self {
             case .welcome:
-                return "A native macOS git client built around fast history navigation, fluid diffs, and a quiet UI."
+                return String(localized: "A native macOS git client built around fast history navigation, fluid diffs, and a quiet UI.")
             case .git:
-                return "gitForge drives the git command-line tool installed on this Mac."
+                return String(localized: "gitForge drives the git command-line tool installed on this Mac.")
             case .identity:
-                return "git records your name and email on every commit. This writes to `~/.gitconfig` and applies to every repository."
+                return String(localized: "git records your name and email on every commit. This writes to `~/.gitconfig` and applies to every repository.")
             case .appearance:
-                return "Pick a look. The preview updates as you go."
+                return String(localized: "Pick a look. The preview updates as you go.")
             case .defaults:
-                return "Two preferences that pay off later. You can change them anytime in Settings."
+                return String(localized: "Two preferences that pay off later. You can change them anytime in Settings.")
             case .firstRepo:
-                return "Pick how you want to get started — or skip and add one later."
+                return String(localized: "Pick how you want to get started — or skip and add one later.")
             }
         }
 
@@ -86,8 +86,8 @@ final class OnboardingState {
 
         var primaryLabel: String {
             switch self {
-            case .welcome:    return "Get started"
-            case .git, .identity, .appearance, .defaults: return "Continue"
+            case .welcome:    return String(localized: "Get started")
+            case .git, .identity, .appearance, .defaults: return String(localized: "Continue")
             case .firstRepo:  return ""
             }
         }
@@ -95,9 +95,13 @@ final class OnboardingState {
         var next: Step? { Step(rawValue: rawValue + 1) }
 
         /// "Next: Defaults" beside the primary button.
-        var nextLabel: String? { next.map { "Next: \($0.title)" } }
+        var nextLabel: String? { next.map { String(localized: "Next: \($0.title)") } }
 
-        var counter: String { "Step \(rawValue + 1) of \(Step.allCases.count)" }
+        var counter: String {
+            let number = rawValue + 1
+            let total = Step.allCases.count
+            return String(localized: "Step \(number) of \(total)")
+        }
     }
 
     var currentStep: Step = .welcome

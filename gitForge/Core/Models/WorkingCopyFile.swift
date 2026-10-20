@@ -49,16 +49,16 @@ nonisolated struct WorkingCopyFile: Sendable, Equatable, Identifiable, Hashable 
         /// character — useless. This expands to the full word.
         var spokenName: String {
             switch self {
-            case .unmodified:  "unchanged"
-            case .modified:    "modified"
-            case .added:       "added"
-            case .deleted:     "deleted"
-            case .renamed:     "renamed"
-            case .copied:      "copied"
-            case .typeChanged: "type changed"
-            case .untracked:   "untracked"
-            case .ignored:     "ignored"
-            case .unmerged:    "unmerged"
+            case .unmodified:  String(localized: "file.status.spoken.unmodified", defaultValue: "unchanged")
+            case .modified:    String(localized: "file.status.spoken.modified", defaultValue: "modified")
+            case .added:       String(localized: "file.status.spoken.added", defaultValue: "added")
+            case .deleted:     String(localized: "file.status.spoken.deleted", defaultValue: "deleted")
+            case .renamed:     String(localized: "file.status.spoken.renamed", defaultValue: "renamed")
+            case .copied:      String(localized: "file.status.spoken.copied", defaultValue: "copied")
+            case .typeChanged: String(localized: "file.status.spoken.typeChanged", defaultValue: "type changed")
+            case .untracked:   String(localized: "file.status.spoken.untracked", defaultValue: "untracked")
+            case .ignored:     String(localized: "file.status.spoken.ignored", defaultValue: "ignored")
+            case .unmerged:    String(localized: "file.status.spoken.unmerged", defaultValue: "unmerged")
             }
         }
     }

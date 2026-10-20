@@ -43,7 +43,9 @@ struct ConflictFileRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(file.path)
-        .accessibilityLabel("\(file.path), \(file.resolved ? "resolved" : "\(file.conflicts) conflicts")")
+        .accessibilityLabel(file.resolved
+            ? String(localized: "\(file.path), resolved")
+            : String(localized: "\(file.path), \(file.conflicts) conflicts"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .contextMenu { menu }
         // Every other discard in the app confirms first; this one throws
@@ -62,7 +64,9 @@ struct ConflictFileRow: View {
     /// Folder first so files with the same name stay apart; then the state.
     private var subtitle: String {
         let folder = (file.path as NSString).deletingLastPathComponent
-        let state = file.resolved ? "Resolved" : (file.conflicts == 1 ? "1 conflict" : "\(file.conflicts) conflicts")
+        let state = file.resolved
+            ? String(localized: "Resolved")
+            : (file.conflicts == 1 ? String(localized: "1 conflict") : String(localized: "\(file.conflicts) conflicts"))
         return folder.isEmpty ? state : "\(state) · \(folder)"
     }
 

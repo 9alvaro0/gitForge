@@ -43,7 +43,7 @@ struct CommitTrustLine: View {
         } label: {
             HStack(spacing: Spacing.s4) {
                 CIBadge(status: status)
-                Text(count == 1 ? "1 check" : "\(count) checks")
+                Text(count == 1 ? String(localized: "1 check") : String(localized: "\(count) checks"))
                     .textRole(.caption)
                     .foregroundStyle(theme.colors.textTertiary)
             }
@@ -80,10 +80,10 @@ struct CommitTrustLine: View {
 
     static func tooltip(for signature: CommitSignature) -> String {
         var lines = [signature.label]
-        if let signer = signature.signer { lines.append("Signer: \(signer)") }
-        if let key = signature.key { lines.append("Key: \(key)") }
+        if let signer = signature.signer { lines.append(String(localized: "Signer: \(signer)")) }
+        if let key = signature.key { lines.append(String(localized: "Key: \(key)")) }
         if signature.status == .unverifiable {
-            lines.append("Git couldn't check it: the key isn't in your keyring (GPG) or allowed signers file (SSH), or the signing tool isn't on the app's PATH.")
+            lines.append(String(localized: "Git couldn't check it: the key isn't in your keyring (GPG) or allowed signers file (SSH), or the signing tool isn't on the app's PATH."))
         }
         return lines.joined(separator: "\n")
     }

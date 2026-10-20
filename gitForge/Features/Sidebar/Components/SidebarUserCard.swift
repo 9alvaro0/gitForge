@@ -40,8 +40,8 @@ struct SidebarUserCard: View {
         var label: String? {
             switch self {
             case .profile(let n): return n
-            case .custom:         return "Custom"
-            case .inherited:      return "Global"
+            case .custom:         return String(localized: "identity.scope.custom", defaultValue: "Custom")
+            case .inherited:      return String(localized: "identity.scope.global", defaultValue: "Global")
             case .none:           return nil
             }
         }
@@ -57,7 +57,7 @@ struct SidebarUserCard: View {
         .menuIndicator(.hidden)
         .buttonStyle(.plain)
         .disabled(!menuEnabled && profiles.isEmpty)
-        .help(menuEnabled ? "Switch git identity for this repository" : "Manage git profiles")
+        .help(menuEnabled ? String(localized: "Switch git identity for this repository") : String(localized: "Manage git profiles"))
     }
 
     private var cardContent: some View {
@@ -90,8 +90,8 @@ struct SidebarUserCard: View {
             Circle().fill(online ? theme.colors.ok : theme.colors.textQuaternary)
                 .frame(width: 8, height: 8)
                 // Colour alone doesn't reach VoiceOver (or colour-blind users).
-                .accessibilityLabel(online ? "Online" : "Offline")
-                .help(online ? "Online" : "Offline")
+                .accessibilityLabel(online ? String(localized: "Online") : String(localized: "Offline"))
+                .help(online ? String(localized: "Online") : String(localized: "Offline"))
         }
         .padding(.horizontal, Spacing.s12)
         .padding(.vertical, Spacing.s8)
@@ -145,7 +145,7 @@ struct SidebarUserCard: View {
             MenuCheckItem(label, isChecked: checked) { onHostingEntry(section, entry) }
         case .system(let checked):
             Divider()
-            MenuCheckItem("Use system credentials", isChecked: checked) { onHostingEntry(section, entry) }
+            MenuCheckItem(String(localized: "Use system credentials"), isChecked: checked) { onHostingEntry(section, entry) }
         case .connect:
             Button("Connect account…") { onHostingEntry(section, entry) }
         }

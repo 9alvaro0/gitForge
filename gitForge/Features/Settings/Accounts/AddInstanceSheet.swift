@@ -36,14 +36,14 @@ struct AddInstanceSheet: View {
             .pickerStyle(.segmented)
             GFTextField(placeholder: "https://git.example.com", text: Bindable(model).url)
             DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
-                GFTextField(placeholder: model.defaultAPIURL.isEmpty ? "API URL" : model.defaultAPIURL,
+                GFTextField(placeholder: model.defaultAPIURL.isEmpty ? String(localized: "API URL") : model.defaultAPIURL,
                             text: Bindable(model).apiURL)
             }
             status(model.state)
             HStack {
                 Spacer()
-                GFButton(title: "Cancel") { dismiss() }
-                GFButton(title: "Add", style: .primary, disabled: model.state == .verifying) {
+                GFButton(title: String(localized: "Cancel")) { dismiss() }
+                GFButton(title: String(localized: "Add"), style: .primary, disabled: model.state == .verifying) {
                     Task { await model.add() }
                 }
             }
@@ -78,7 +78,7 @@ struct AddInstanceSheet: View {
         case .added(let instance, let warning?):
             VStack(alignment: .leading, spacing: Spacing.s6) {
                 Text(warning).textRole(.callout).foregroundStyle(theme.colors.warn)
-                GFButton(title: "Done", style: .primary) { onAdded(instance); dismiss() }
+                GFButton(title: String(localized: "Done"), style: .primary) { onAdded(instance); dismiss() }
             }
         case .added:
             EmptyView()

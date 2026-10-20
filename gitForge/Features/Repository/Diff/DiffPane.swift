@@ -31,8 +31,8 @@ struct DiffPane: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .unified: return "Unified"
-            case .split:   return "Split"
+            case .unified: return String(localized: "Unified")
+            case .split:   return String(localized: "Split")
             }
         }
     }
@@ -161,14 +161,14 @@ struct DiffPane: View {
     private func headerControls(for hunk: DiffHunk) -> DiffHunkHeader.Controls? {
         guard let actions = hunkActions else { return nil }
         let picked = viewMode == .unified ? selectedLines[hunk.id] : nil
-        let target = picked.map { $0.count == 1 ? "1 line" : "\($0.count) lines" } ?? "hunk"
+        let pickedCount = picked?.count
         var controls = DiffHunkHeader.Controls(
-            applyTitle: "\(actions.verb) \(target)",
+            applyTitle: Self.applyTitle(verb: actions.verb, lineCount: pickedCount),
             onApply: { actions.onApply(hunk, picked) },
             disabled: actions.disabled
         )
         if actions.onDiscard != nil {
-            controls.discardTitle = "Discard \(target)…"
+            controls.discardTitle = Self.discardButtonTitle(lineCount: pickedCount)
             controls.onDiscard = { pendingDiscard = PendingDiscard(hunk: hunk, lineIds: picked) }
         }
         return controls
@@ -180,8 +180,33 @@ struct DiffPane: View {
 
     private var discardTitle: String {
         guard let pending = pendingDiscard else { return "" }
-        if let ids = pending.lineIds { return ids.count == 1 ? "Discard 1 line?" : "Discard \(ids.count) lines?" }
-        return "Discard this hunk?"
+        if let ids = pending.lineIds {
+            let count = ids.count
+            return count == 1 ? String(localized: "Discard 1 line?") : String(localized: "Discard \(count) lines?")
+        }
+        return String(localized: "Discard this hunk?")
+    }
+
+    /// "Stage hunk" / "Unstage 2 lines": whole phrases so each language can
+    /// word them. `verb` arrives localized from `DiffHunkActions`; unknown
+    /// verbs fall back to "<verb> hunk".
+    static func applyTitle(verb: String, lineCount: Int?) -> String {
+        if verb == String(localized: "Stage") {
+            guard let n = lineCount else { return String(localized: "Stage hunk") }
+            return n == 1 ? String(localized: "Stage 1 line") : String(localized: "Stage \(n) lines")
+        }
+        if verb == String(localized: "Unstage") {
+            guard let n = lineCount else { return String(localized: "Unstage hunk") }
+            return n == 1 ? String(localized: "Unstage 1 line") : String(localized: "Unstage \(n) lines")
+        }
+        guard let n = lineCount else { return String(localized: "\(verb) hunk") }
+        return n == 1 ? String(localized: "\(verb) 1 line") : String(localized: "\(verb) \(n) lines")
+    }
+
+    /// "Discard hunk…" / "Discard 2 lines…".
+    static func discardButtonTitle(lineCount: Int?) -> String {
+        guard let n = lineCount else { return String(localized: "Discard hunk…") }
+        return n == 1 ? String(localized: "Discard 1 line…") : String(localized: "Discard \(n) lines…")
     }
 
     /// Above this many lines the diff renders as plain text: tokenising runs

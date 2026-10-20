@@ -13,7 +13,7 @@ struct DetailHeader<Actions: View, Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
             HStack(spacing: Spacing.s8) {
-                GFButton(title: "Back", systemImage: "chevron.left", size: .small, action: onBack)
+                GFButton(title: String(localized: "Back"), systemImage: "chevron.left", size: .small, action: onBack)
                 Spacer()
                 actions
             }

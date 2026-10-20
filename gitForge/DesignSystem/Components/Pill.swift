@@ -43,7 +43,7 @@ struct StatusPills: View {
             Pill(text: "···", kind: .neutral)
                 .skeleton(true)
         } else if ahead == 0 && behind == 0 && dirty == 0 {
-            Pill(text: "clean", kind: .neutral)
+            Pill(text: String(localized: "clean"), kind: .neutral)
         } else {
             HStack(spacing: Spacing.s2) {
                 if ahead > 0  { Pill(text: "↑\(ahead)",  kind: .up) }

@@ -94,12 +94,12 @@ struct BranchDropDialogs: ViewModifier {
 
     private var moveTitle: String {
         guard let r = moveRequest else { return "" }
-        return "Move \(r.branch.displayName) to \(r.targetShortSha)?"
+        return String(localized: "Move \(r.branch.displayName) to \(r.targetShortSha)?")
     }
 
     private var resetTitle: String {
         guard let r = resetRequest else { return "" }
-        return "Reset \(r.branchName) to \(r.targetShortSha)?"
+        return String(localized: "Reset \(r.branchName) to \(r.targetShortSha)?")
     }
 }
 
@@ -140,13 +140,15 @@ struct MergeRebaseDialog: ViewModifier {
     /// visible before the button is pressed.
     static func message(for request: MergeRebaseRequest?) -> String {
         guard let r = request else { return "" }
-        return """
-        Merge: replays \(r.source.displayName) into \(r.target.displayName) as a new merge commit. History is preserved.
+        let source = r.source.displayName
+        let target = r.target.displayName
+        return String(localized: """
+        Merge: replays \(source) into \(target) as a new merge commit. History is preserved.
 
-        Rebase: rewrites every commit on \(r.source.displayName) on top of \(r.target.displayName). If \(r.source.displayName) is already pushed, you'll need a force push afterwards.
+        Rebase: rewrites every commit on \(source) on top of \(target). If \(source) is already pushed, you'll need a force push afterwards.
 
         Either action may switch branches first if the destination isn't checked out.
-        """
+        """)
     }
 }
 

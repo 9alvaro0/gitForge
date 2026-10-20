@@ -24,11 +24,11 @@ enum CloneURLValidator {
         var errorDescription: String? {
             switch self {
             case .empty:
-                "Clone URL is empty."
+                String(localized: "Clone URL is empty.")
             case .startsWithDash:
-                "Clone URL can't start with '-' — git would treat it as an option."
+                String(localized: "Clone URL can't start with '-' — git would treat it as an option.")
             case .unsupportedScheme(let raw):
-                "Unsupported clone URL: \(raw). Use https://, http://, ssh://, git://, or git@host:path."
+                String(localized: "Unsupported clone URL: \(raw). Use https://, http://, ssh://, git://, or git@host:path.")
             }
         }
     }
@@ -78,7 +78,7 @@ extension GitCLI {
             // `--branch` consumes the next argv as its value; without this guard,
             // a name starting with `-` would be re-parsed by git as a flag.
             guard !trimmed.hasPrefix("-") else {
-                throw GitError.launchFailed("Branch name can't start with '-'.")
+                throw GitError.launchFailed(String(localized: "Branch name can't start with '-'."))
             }
             return trimmed
         }()

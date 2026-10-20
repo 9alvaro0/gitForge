@@ -21,7 +21,7 @@ struct PullsView: View {
             } else {
                 PullsContentSection(
                     store: store,
-                    nounPlural: headerTitle.lowercased(),
+                    nounPlural: nounPlural,
                     onConnect: {
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: store.connectInstanceId,
                                                                                 replacing: store.reconnectAccountId)
@@ -41,7 +41,7 @@ struct PullsView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .labelStyle(.iconOnly)
-                .help("Refresh \(headerTitle.lowercased())")
+                .help(refreshHelp)
                 .disabled(store.isLoading)
             }
         }
@@ -76,7 +76,7 @@ struct PullsView: View {
                     if store.selected != nil {
                         PullRequestDetailView(store: store, integrateLocally: integrateLocally, checkoutBranch: checkoutBranch)
                     } else {
-                        EmptyState(symbol: "arrow.triangle.pull", title: "Select a \(singularNoun)")
+                        EmptyState(symbol: "arrow.triangle.pull", title: selectTitle)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -136,20 +136,38 @@ struct PullsView: View {
         }
     }
 
+    // Whole phrases per provider ("pull request" on GitHub and by default,
+    // "merge request" on GitLab) so translations needn't splice nouns.
+
+    private var isMergeRequest: Bool { store.host?.provider == .gitlab }
+
     private var emptyTitle: String {
         switch store.scope {
-        case .open: "No open \(headerTitle.lowercased())"
-        case .mine: "None of the open \(headerTitle.lowercased()) are yours"
-        case .closed: "No closed \(headerTitle.lowercased())"
+        case .open:
+            isMergeRequest ? String(localized: "No open merge requests") : String(localized: "No open pull requests")
+        case .mine:
+            isMergeRequest ? String(localized: "None of the open merge requests are yours")
+                           : String(localized: "None of the open pull requests are yours")
+        case .closed:
+            isMergeRequest ? String(localized: "No closed merge requests") : String(localized: "No closed pull requests")
         }
     }
 
-    private var singularNoun: String {
-        store.host?.provider.pullNoun.lowercased() ?? "pull request"
+    private var selectTitle: String {
+        isMergeRequest ? String(localized: "Select a merge request") : String(localized: "Select a pull request")
+    }
+
+    private var refreshHelp: String {
+        isMergeRequest ? String(localized: "Refresh merge requests") : String(localized: "Refresh pull requests")
+    }
+
+    /// Lowercase plural noun spliced into the full-width states' sentences.
+    private var nounPlural: String {
+        isMergeRequest ? String(localized: "merge requests") : String(localized: "pull requests")
     }
 
     private var headerTitle: String {
-        store.host?.provider.pullNoun.appending("s") ?? "Pull requests"
+        isMergeRequest ? String(localized: "Merge requests") : String(localized: "Pull requests")
     }
 }
 

@@ -40,7 +40,7 @@ struct DefaultsStep: View {
                     .foregroundStyle(theme.colors.textSecondary)
             }
             SegmentedControl<BranchChoice>(
-                [(.main, "main"), (.master, "master"), (.custom, "Custom")],
+                [(.main, "main"), (.master, "master"), (.custom, String(localized: "onboarding.branch.custom", defaultValue: "Custom"))],
                 selection: $branchChoice
             )
             .frame(maxWidth: 320, alignment: .leading)
@@ -63,7 +63,7 @@ struct DefaultsStep: View {
             }
             HStack(spacing: Spacing.s8) {
                 GFTextField(placeholder: "~/code", text: $state.cloneDirectory)
-                GFButton(title: "Choose…", action: onPickDirectory)
+                GFButton(title: String(localized: "Choose…"), action: onPickDirectory)
             }
         }
     }

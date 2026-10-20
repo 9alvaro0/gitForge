@@ -31,8 +31,9 @@ struct PaletteActionRouter {
         case .revealBranch(let ref):
             appState.ui.workspaceSection = .history
             if let vm = appState.catalog.activeViewModel, !vm.history.revealInHistory(ref) {
+                let name = ref.name
                 appState.ui.activeToast = ToastMessage(
-                    message: "“\(ref.name)” isn’t in the loaded history",
+                    message: String(localized: "“\(name)” isn’t in the loaded history"),
                     kind: .warn
                 )
             }
@@ -60,7 +61,7 @@ struct PaletteActionRouter {
             guard let vm = appState.catalog.activeViewModel else { return }
             switch await vm.stashAll() {
             case .success:
-                appState.ui.activeToast = ToastMessage(message: "Stashed", kind: .ok)
+                appState.ui.activeToast = ToastMessage(message: String(localized: "Stashed"), kind: .ok)
             case .failure(let error):
                 appState.ui.activeToast = ToastMessage(
                     message: error.userMessage,

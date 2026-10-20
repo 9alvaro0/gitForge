@@ -87,6 +87,7 @@ See the [Layout section of the README](README.md#layout) for an overview of the 
 - **Git access goes through `GitCLI`** (shell-out to the system `git`); don't add libgit2 or other Git libraries.
 - **No telemetry, analytics or backend.** gitForge only talks to the Git remotes and the GitHub / GitLab APIs the user configures.
 - **UI** uses the tokens and components in `gitForge/DesignSystem`. Check light and dark mode, and keep VoiceOver, Increase Contrast and Reduce Motion working.
+- **Localization**: the app ships in English, Spanish (`es`) and European Portuguese (`pt-PT`) via `gitForge/Localizable.xcstrings`. SwiftUI literals (`Text("…")`, `Button("…")`, `.help("…")`) are picked up automatically; user-facing text typed as `String` (component titles, enum labels, toasts, errors) must use `String(localized: "…")`. Add the `es` and `pt-PT` translations for every new string in the catalog. Tests run in English (see `gitForge.xctestplan`).
 - **Add or update tests** for changes in `Core` (git operations, parsers, graph layout).
 - **Keep pull requests focused**: one fix or feature per PR.
 

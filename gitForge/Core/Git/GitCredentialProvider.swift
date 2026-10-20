@@ -46,7 +46,7 @@ nonisolated enum GitAccountError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .rejected(let account, let host):
-            "\(host) rejected the \(account) account. Reconnect it in Settings › Accounts."
+            String(localized: "\(host) rejected the \(account) account. Reconnect it in Settings › Accounts.")
         }
     }
 }

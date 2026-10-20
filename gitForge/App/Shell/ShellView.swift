@@ -100,12 +100,12 @@ struct ShellView: View {
     private static func toast(for notice: Updater.LaunchNotice) -> ToastMessage {
         switch notice {
         case .installed(let version):
-            return ToastMessage(message: "Updated to gitForge \(version)", kind: .ok)
+            return ToastMessage(message: String(localized: "Updated to gitForge \(version)"), kind: .ok)
         case .failed(let version):
             return ToastMessage(
-                message: "gitForge \(version) couldn’t be installed. Download it from GitHub and replace the app in Applications.",
+                message: String(localized: "gitForge \(version) couldn’t be installed. Download it from GitHub and replace the app in Applications."),
                 kind: .error,
-                action: ToastAction(title: "Download", route: .openURL(Updater.releasesURL))
+                action: ToastAction(title: String(localized: "Download"), route: .openURL(Updater.releasesURL))
             )
         }
     }

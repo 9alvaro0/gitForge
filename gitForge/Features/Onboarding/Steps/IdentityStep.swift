@@ -15,10 +15,10 @@ struct IdentityStep: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
-            field(label: "Name") {
+            field(label: String(localized: "Name")) {
                 GFTextField(placeholder: "Ada Lovelace", text: $state.name)
             }
-            field(label: "Email") {
+            field(label: String(localized: "Email")) {
                 GFTextField(placeholder: "ada@example.com", text: $state.email)
             }
             signingDisclosure
@@ -34,8 +34,8 @@ struct IdentityStep: View {
         if state.showSigningField {
             VStack(alignment: .leading, spacing: Spacing.s8) {
                 disclosureToggle
-                field(label: "Signing key (GPG / SSH)") {
-                    GFTextField(placeholder: "Key id, optional", text: $state.signingKey)
+                field(label: String(localized: "Signing key (GPG / SSH)")) {
+                    GFTextField(placeholder: String(localized: "Key id, optional"), text: $state.signingKey)
                 }
             }
         } else {

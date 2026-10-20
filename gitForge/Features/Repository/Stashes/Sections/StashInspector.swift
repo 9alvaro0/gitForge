@@ -36,11 +36,11 @@ struct StashInspector: View {
                 .textSelection(.enabled)
             metadata
             HStack(spacing: Spacing.s8) {
-                GFButton(title: "Apply", action: onApply)
+                GFButton(title: String(localized: "Apply"), action: onApply)
                     .help("Apply the stash and keep it")
-                GFButton(title: "Pop", style: .primary, action: onPop)
+                GFButton(title: String(localized: "Pop"), style: .primary, action: onPop)
                     .help("Apply the stash and drop it")
-                GFButton(title: "Drop…", style: .destructive, action: onDrop)
+                GFButton(title: String(localized: "Drop…"), style: .destructive, action: onDrop)
             }
         }
     }
@@ -48,10 +48,10 @@ struct StashInspector: View {
     private var metadata: some View {
         let detail = store.detail
         return Grid(alignment: .leading, horizontalSpacing: Spacing.s16, verticalSpacing: Spacing.s6) {
-            metaRow("Branch", detail?.parentBranch ?? "—", mono: true)
-            metaRow("Base", detail.map { String($0.parentSha.prefix(7)) } ?? "—", mono: true)
-            metaRow("Date", detail?.authorDate.map { preferences.dateDisplayMode.format($0) } ?? "—", mono: false)
-            metaRow("Ref", stash.reference, mono: true)
+            metaRow(String(localized: "Branch"), detail?.parentBranch ?? "—", mono: true)
+            metaRow(String(localized: "Base"), detail.map { String($0.parentSha.prefix(7)) } ?? "—", mono: true)
+            metaRow(String(localized: "Date"), detail?.authorDate.map { preferences.dateDisplayMode.format($0) } ?? "—", mono: false)
+            metaRow(String(localized: "Ref"), stash.reference, mono: true)
         }
         .skeleton(detail == nil && store.isLoading)
     }
@@ -78,8 +78,8 @@ struct StashInspector: View {
     @ViewBuilder
     private var content: some View {
         if let error = store.error, store.detail == nil {
-            EmptyState(symbol: "exclamationmark.triangle", title: "Couldn't load stash", subtitle: error) {
-                GFButton(title: "Retry") { Task { await store.load() } }
+            EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Couldn't load stash"), subtitle: error) {
+                GFButton(title: String(localized: "Retry")) { Task { await store.load() } }
             }
         } else {
             StashFilesTab(store: store, diffMode: $diffMode)

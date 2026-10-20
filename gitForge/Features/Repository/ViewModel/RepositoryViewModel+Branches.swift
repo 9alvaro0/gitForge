@@ -114,11 +114,11 @@ enum BranchOpError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidName(let name):
-            "Invalid branch name “\(name)”."
+            String(localized: "Invalid branch name “\(name)”.")
         case .notALocalBranch:
-            "Only local branches can be moved."
+            String(localized: "Only local branches can be moved.")
         case .cannotMoveCurrentBranch:
-            "Cannot move the currently checked-out branch — use Reset instead."
+            String(localized: "Cannot move the currently checked-out branch — use Reset instead.")
         }
     }
 }

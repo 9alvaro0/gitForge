@@ -54,7 +54,7 @@ struct RepositoryCommands: Commands {
                 Task {
                     let result = await viewModel.stashAll()
                     if case .failure(let error) = result {
-                        appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t stash")
+                        appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t stash"))
                     }
                 }
             }

@@ -16,12 +16,12 @@ struct StashCreateSheet: View {
                 Text("Message (optional)")
                     .textRole(.callout, weight: .semibold)
                     .foregroundStyle(theme.colors.textSecondary)
-                GFTextField(placeholder: "WIP: refactor commit graph", text: $message)
+                GFTextField(placeholder: String(localized: "WIP: refactor commit graph"), text: $message)
             }
             HStack {
-                GFButton(title: "Cancel", action: onCancel)
+                GFButton(title: String(localized: "Cancel"), action: onCancel)
                 Spacer()
-                GFButton(title: "Stash", style: .primary, action: onStash)
+                GFButton(title: String(localized: "Stash"), style: .primary, action: onStash)
             }
         }
         .padding(Spacing.s20)

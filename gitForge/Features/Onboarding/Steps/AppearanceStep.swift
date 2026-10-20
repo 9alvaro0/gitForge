@@ -34,7 +34,7 @@ struct AppearanceStep: View {
     // MARK: Appearance
 
     private var appearance: some View {
-        group("Appearance") {
+        group(String(localized: "Appearance")) {
             HStack(spacing: Spacing.s12) {
                 ForEach([ThemeMode.light, .dark, .system]) { mode in
                     themeCard(mode)
@@ -53,7 +53,7 @@ struct AppearanceStep: View {
                 ThemeThumbnail(mode: mode, accent: theme.colors.accent)
                     .frame(height: 74)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.row))
-                Text(mode == .system ? "Match system" : mode.label)
+                Text(mode == .system ? String(localized: "Match system") : mode.label)
                     .textRole(.callout, weight: selected ? .semibold : .regular)
                     .foregroundStyle(theme.colors.textPrimary)
                     .padding(.horizontal, Spacing.s2)
@@ -71,7 +71,7 @@ struct AppearanceStep: View {
     // MARK: Accent
 
     private var accent: some View {
-        group("Accent") {
+        group(String(localized: "Accent")) {
             HStack(spacing: Spacing.s12) {
                 ForEach(Array(AccentSwatch.allCases.enumerated()), id: \.offset) { _, swatch in
                     swatchButton(swatch)
@@ -110,10 +110,10 @@ struct AppearanceStep: View {
 
     static func name(_ swatch: AccentSwatch) -> String {
         switch swatch {
-        case .violet: "Violet"
-        case .green: "Green"
-        case .coral: "Coral"
-        case .blue: "Blue"
+        case .violet: String(localized: "Violet")
+        case .green: String(localized: "Green")
+        case .coral: String(localized: "Coral")
+        case .blue: String(localized: "Blue")
         }
     }
 
@@ -121,7 +121,9 @@ struct AppearanceStep: View {
 
     private var density: some View {
         @Bindable var themeModel = ui.theme
-        return group("Density") {
+        let regularRows = Int(Density.regular.metrics.rowList)
+        let compactRows = Int(Density.compact.metrics.rowList)
+        return group(String(localized: "Density")) {
             Picker("Density", selection: $themeModel.density) {
                 Text("Regular").tag(Density.regular)
                 Text("Compact").tag(Density.compact)
@@ -129,8 +131,8 @@ struct AppearanceStep: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             Text(ui.theme.density == .regular
-                 ? "\(Int(Density.regular.metrics.rowList)) pt rows · comfortable for long sessions"
-                 : "\(Int(Density.compact.metrics.rowList)) pt rows · more commits on screen")
+                 ? String(localized: "\(regularRows) pt rows · comfortable for long sessions")
+                 : String(localized: "\(compactRows) pt rows · more commits on screen"))
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
         }
@@ -140,7 +142,7 @@ struct AppearanceStep: View {
     private var codeFont: some View {
         @Bindable var themeModel = ui.theme
         let fonts = MonoFontFamily.availableCases
-        return group("Code font") {
+        return group(String(localized: "Code font")) {
             if fonts.count <= 3 {
                 Picker("Code font", selection: $themeModel.monoFont) {
                     ForEach(fonts, id: \.self) { Text($0.label).tag($0) }

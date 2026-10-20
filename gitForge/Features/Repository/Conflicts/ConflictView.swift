@@ -11,8 +11,8 @@ struct ConflictView: View {
             if viewModel.mergeState.isInProgress {
                 resolverShell
             } else {
-                EmptyState(symbol: "checkmark", title: "No merge in progress",
-                           subtitle: "Conflicts will show up here when a merge or rebase pauses.")
+                EmptyState(symbol: "checkmark", title: String(localized: "No merge in progress"),
+                           subtitle: String(localized: "Conflicts will show up here when a merge or rebase pauses."))
                     .background(theme.colors.bgContent)
                     .navigationTitle("Conflicts")
             }
@@ -86,10 +86,10 @@ struct ConflictView: View {
                 }
             }
         } else if conflicts.selectedPath != nil {
-            EmptyState(symbol: "checkmark", title: "No conflicts left in this file",
-                       subtitle: "Pick another file on the left, or continue when every file is resolved.")
+            EmptyState(symbol: "checkmark", title: String(localized: "No conflicts left in this file"),
+                       subtitle: String(localized: "Pick another file on the left, or continue when every file is resolved."))
         } else {
-            EmptyState(symbol: "exclamationmark.triangle", title: "Pick a conflicted file")
+            EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Pick a conflicted file"))
         }
     }
 
@@ -105,7 +105,7 @@ struct ConflictView: View {
                 // Stash apply has no `--abort` in git; the VM reverts the
                 // paths the stash touched. Confirm because it discards the
                 // half-applied stash content from the worktree.
-                GFButton(title: "Abort stash apply…", style: .destructive, fullWidth: true) {
+                GFButton(title: String(localized: "Abort stash apply…"), style: .destructive, fullWidth: true) {
                     confirmAbortStash = true
                 }
             case .bisecting:
@@ -119,14 +119,14 @@ struct ConflictView: View {
                 EmptyView()
             case .merging, .rebasing, .cherryPicking, .reverting:
                 VStack(spacing: Spacing.s6) {
-                    GFButton(title: "Continue \(operationLabel)", systemImage: "checkmark", style: .primary,
+                    GFButton(title: continueTitle, systemImage: "checkmark", style: .primary,
                              size: .large,
                              disabled: !viewModel.conflicts.files.allSatisfy(\.resolved) || viewModel.isMutating,
                              fullWidth: true) {
                         Task { await viewModel.continueMerge() }
                     }
                     .help("Available once every file is resolved")
-                    GFButton(title: "Abort \(operationLabel)", style: .destructive,
+                    GFButton(title: abortTitle, style: .destructive,
                              disabled: viewModel.isMutating, fullWidth: true) {
                         Task { await viewModel.abortMerge() }
                     }
@@ -139,20 +139,31 @@ struct ConflictView: View {
         }
     }
 
-    private var operationLabel: String {
+    /// Whole phrases per operation so each translates as a unit.
+    private var continueTitle: String {
         switch viewModel.mergeState {
-        case .merging:       return "merge"
-        case .rebasing:      return "rebase"
-        case .cherryPicking: return "cherry-pick"
-        case .reverting:     return "revert"
-        default:             return ""
+        case .merging:       return String(localized: "Continue merge")
+        case .rebasing:      return String(localized: "Continue rebase")
+        case .cherryPicking: return String(localized: "Continue cherry-pick")
+        case .reverting:     return String(localized: "Continue revert")
+        default:             return String(localized: "Continue")
+        }
+    }
+
+    private var abortTitle: String {
+        switch viewModel.mergeState {
+        case .merging:       return String(localized: "Abort merge")
+        case .rebasing:      return String(localized: "Abort rebase")
+        case .cherryPicking: return String(localized: "Abort cherry-pick")
+        case .reverting:     return String(localized: "Abort revert")
+        default:             return String(localized: "Abort")
         }
     }
 
     private func runAbortStashApply() async {
         switch await viewModel.abortStashApply() {
         case .success:
-            appState.ui.activeToast = ToastMessage(message: "Stash apply aborted", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Stash apply aborted"), kind: .ok)
         case .failure(let error):
             appState.ui.activeToast = ToastMessage(
                 message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription,

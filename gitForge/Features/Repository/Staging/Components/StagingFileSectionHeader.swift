@@ -45,9 +45,9 @@ struct StagingFileSectionHeader: View {
 
     private func spokenValue(_ selection: StagingSectionSelection) -> String {
         switch selection {
-        case .empty: "none selected"
-        case .partial(let n): "\(n) of \(count) selected"
-        case .full: "all selected"
+        case .empty: String(localized: "none selected")
+        case .partial(let n): String(localized: "\(n) of \(count) selected")
+        case .full: String(localized: "all selected")
         }
     }
 }

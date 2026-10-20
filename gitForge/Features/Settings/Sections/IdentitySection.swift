@@ -6,31 +6,31 @@ struct IdentitySection: View {
 
     var body: some View {
         SettingsSection(
-            title: "Default identity",
-            subtitle: "Global `~/.gitconfig`. Used as the fallback when a repository has no identity of its own."
+            title: String(localized: "Default identity"),
+            subtitle: String(localized: "Global `~/.gitconfig`. Used as the fallback when a repository has no identity of its own.")
         ) {
-            SettingsEditableRow(label: "Name",
+            SettingsEditableRow(label: String(localized: "Name"),
                                 value: gitEnvironment.globalConfig.identity.name) { value in
                 guard let value else { return }
-                apply("Couldn’t update name") {
+                apply(String(localized: "Couldn’t update name")) {
                     try await gitEnvironment.setIdentity(name: value)
                 }
             }
             SettingsDivider()
-            SettingsEditableRow(label: "Email",
+            SettingsEditableRow(label: String(localized: "Email"),
                                 value: gitEnvironment.globalConfig.identity.email,
                                 mono: true) { value in
                 guard let value else { return }
-                apply("Couldn’t update email") {
+                apply(String(localized: "Couldn’t update email")) {
                     try await gitEnvironment.setIdentity(email: value)
                 }
             }
             SettingsDivider()
-            SettingsEditableRow(label: "Signing key",
+            SettingsEditableRow(label: String(localized: "Signing key"),
                                 value: gitEnvironment.globalConfig.signingKey,
                                 mono: true,
-                                placeholder: "GPG / SSH key id (optional)") { value in
-                apply("Couldn’t update signing key") {
+                                placeholder: String(localized: "GPG / SSH key id (optional)")) { value in
+                apply(String(localized: "Couldn’t update signing key")) {
                     try await gitEnvironment.setSigningKey(value)
                 }
             }

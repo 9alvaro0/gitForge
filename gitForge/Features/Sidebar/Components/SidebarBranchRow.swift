@@ -44,7 +44,7 @@ struct SidebarBranchRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(row.name) folder")
-        .accessibilityValue(expanded ? "expanded" : "collapsed")
+        .accessibilityValue(expanded ? String(localized: "expanded") : String(localized: "collapsed"))
     }
 
     /// A `Button`, not `onTapGesture`: inside the sidebar `List` plain tap
@@ -66,7 +66,7 @@ struct SidebarBranchRow: View {
             Divider()
             Button("Show in Branches") { onShowInBranches() }
         }
-        .accessibilityLabel(ref.isHead ? "\(ref.name), current branch" : ref.name)
+        .accessibilityLabel(ref.isHead ? String(localized: "\(ref.name), current branch") : ref.name)
         .accessibilityAction(named: "Check out") { if !ref.isHead { onCheckout(ref) } }
     }
 

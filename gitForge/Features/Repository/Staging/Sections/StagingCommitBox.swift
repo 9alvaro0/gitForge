@@ -75,7 +75,8 @@ struct StagingCommitBox: View {
         .padding(.trailing, Spacing.s8)
         .frame(height: 26)
         .background(Capsule().fill(theme.colors.fillControl))
-        .help(identity.email.map { "Commits as \($0). Change identity from the sidebar profile." } ?? "Change identity from the sidebar profile.")
+        .help(identity.email.map { email in String(localized: "Commits as \(email). Change identity from the sidebar profile.") }
+              ?? String(localized: "Change identity from the sidebar profile."))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Author: \(identity.displayName)")
     }

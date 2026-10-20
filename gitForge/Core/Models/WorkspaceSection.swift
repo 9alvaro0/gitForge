@@ -14,13 +14,13 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
 
     var label: String {
         switch self {
-        case .history:  return "History"
-        case .changes:  return "Changes"
-        case .branches: return "Branches"
-        case .stashes:  return "Stashes"
-        case .pulls:    return "Pull requests"
-        case .conflict: return "Conflicts"
-        case .settings: return "Settings"
+        case .history:  return String(localized: "History")
+        case .changes:  return String(localized: "Changes")
+        case .branches: return String(localized: "Branches")
+        case .stashes:  return String(localized: "Stashes")
+        case .pulls:    return String(localized: "Pull requests")
+        case .conflict: return String(localized: "Conflicts")
+        case .settings: return String(localized: "Settings")
         }
     }
 

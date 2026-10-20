@@ -34,8 +34,8 @@ struct UncommittedDetailColumn: View {
                 // Inside the inspector's scroll view: the reader scrolls it.
                 ScrollViewReader { proxy in
                     VStack(alignment: .leading, spacing: Spacing.s12) {
-                        fileSection(title: "STAGED", count: staged.count, files: staged, side: .staged)
-                        fileSection(title: "UNSTAGED", count: unstaged.count, files: unstaged, side: .unstaged)
+                        fileSection(title: String(localized: "STAGED"), emptyText: String(localized: "Nothing staged"), count: staged.count, files: staged, side: .staged)
+                        fileSection(title: String(localized: "UNSTAGED"), emptyText: String(localized: "Nothing unstaged"), count: unstaged.count, files: unstaged, side: .unstaged)
                     }
                     .listKeyboardNavigation(
                         ids: rowIDs,
@@ -65,14 +65,14 @@ struct UncommittedDetailColumn: View {
                 .foregroundStyle(theme.colors.textPrimary)
             Spacer()
             if let onClose {
-                IconButton(symbol: "xmark", accessibilityLabel: "Hide uncommitted detail", action: onClose)
+                IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide uncommitted detail"), action: onClose)
                     .help("Hide uncommitted detail")
             }
         }
     }
 
     @ViewBuilder
-    private func fileSection(title: String, count: Int, files: [WorkingCopyFile], side: WorkingCopySide) -> some View {
+    private func fileSection(title: String, emptyText: String, count: Int, files: [WorkingCopyFile], side: WorkingCopySide) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
             HStack {
                 Text(title)
@@ -84,7 +84,7 @@ struct UncommittedDetailColumn: View {
                     .foregroundStyle(theme.colors.textTertiary)
             }
             if files.isEmpty {
-                Text("Nothing \(title.lowercased())")
+                Text(emptyText)
                     .textRole(.callout)
                     .italic()
                     .foregroundStyle(theme.colors.textTertiary)

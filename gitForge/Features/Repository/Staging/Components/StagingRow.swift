@@ -37,7 +37,7 @@ struct StagingRow: View {
                 ))
                 .toggleStyle(GFCheckboxStyle())
                 .accessibilityLabel("Select \(file.path)")
-                .accessibilityValue(isTicked ? "selected" : "not selected")
+                .accessibilityValue(isTicked ? String(localized: "selected") : String(localized: "not selected"))
                 StatusTag(kind: StatusTag.Kind(workingFile: file.displayStatus))
                 pathView
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -58,21 +58,21 @@ struct StagingRow: View {
         .simultaneousGesture(
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
         )
-        .help(showsStagedSide ? "Double-click to unstage · checkbox = select for batch" : "Double-click to stage · checkbox = select for batch")
+        .help(showsStagedSide ? String(localized: "Double-click to unstage · checkbox = select for batch") : String(localized: "Double-click to stage · checkbox = select for batch"))
         .contextMenu { contextMenu }
         .confirmationDialog(
-            file.isUntracked ? "Delete \(filename)?" : "Discard changes to \(filename)?",
+            file.isUntracked ? String(localized: "Delete \(filename)?") : String(localized: "Discard changes to \(filename)?"),
             isPresented: $pendingDiscard,
             titleVisibility: .visible
         ) {
-            Button(file.isUntracked ? "Delete file" : "Discard changes",
+            Button(file.isUntracked ? String(localized: "Delete file") : String(localized: "Discard changes"),
                    role: .destructive) {
                 Task { await viewModel.discardChanges([file]) }
             }
         } message: {
             Text(file.isUntracked
-                 ? "The file will be removed from disk. This can't be undone from the app."
-                 : "Local changes will be reverted to the last committed version. This can't be undone.")
+                 ? String(localized: "The file will be removed from disk. This can't be undone from the app.")
+                 : String(localized: "Local changes will be reverted to the last committed version. This can't be undone."))
         }
     }
 
@@ -88,7 +88,7 @@ struct StagingRow: View {
                 pendingDiscard = true
             }
         } else {
-            Button(file.isUnmerged ? "Discard conflict (revert to HEAD)" : "Discard changes",
+            Button(file.isUnmerged ? String(localized: "Discard conflict (revert to HEAD)") : String(localized: "Discard changes"),
                    role: .destructive) {
                 pendingDiscard = true
             }
@@ -141,15 +141,17 @@ struct StagingRow: View {
     /// its porcelain code so the user hears "Staged modified: path/to/file"
     /// instead of an opaque "checkbox marked".
     private var statusDescription: String {
-        let side = file.isStaged ? "Staged" : "Unstaged"
         let status = file.isStaged ? file.stagedStatus : file.unstagedStatus
-        return "\(side) \(status.spokenName)"
+        let spoken = status.spokenName
+        return file.isStaged ? String(localized: "Staged \(spoken)") : String(localized: "Unstaged \(spoken)")
     }
 
     private var accessibilityText: String {
         let base = "\(statusDescription): \(file.path)"
         guard let lineCounts, !lineCounts.isEmpty else { return base }
-        return "\(base), \(lineCounts.additions) additions, \(lineCounts.deletions) deletions"
+        let additions = lineCounts.additions
+        let deletions = lineCounts.deletions
+        return String(localized: "\(base), \(additions) additions, \(deletions) deletions")
     }
 
     private func countsView(_ counts: DiffStats) -> some View {

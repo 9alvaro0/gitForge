@@ -15,14 +15,14 @@ struct StagingBatchBar: View {
 
     var body: some View {
         HStack(spacing: Spacing.s8) {
-            Text(count == 1 ? "1 file selected" : "\(count) files selected")
+            Text(count == 1 ? String(localized: "1 file selected") : String(localized: "\(count) files selected"))
                 .textRole(.callout, weight: .semibold)
                 .foregroundStyle(theme.colors.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
             GFButton(title: moveTitle, style: .primary, size: .small, disabled: disabled, action: onMove)
-            GFButton(title: "Stash", size: .small, disabled: disabled, action: onStash)
-                .help(count == 1 ? "Stash this file’s changes" : "Stash these files’ changes")
-            GFButton(title: "Discard…", style: .destructive, size: .small, disabled: disabled) {
+            GFButton(title: String(localized: "Stash"), size: .small, disabled: disabled, action: onStash)
+                .help(count == 1 ? String(localized: "Stash this file’s changes") : String(localized: "Stash these files’ changes"))
+            GFButton(title: String(localized: "Discard…"), style: .destructive, size: .small, disabled: disabled) {
                 confirmingDiscard = true
             }
         }
@@ -32,7 +32,7 @@ struct StagingBatchBar: View {
         .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.accentSoft))
         .padding(.top, Spacing.s6)
         .confirmationDialog(
-            count == 1 ? "Discard changes to 1 file?" : "Discard changes to \(count) files?",
+            count == 1 ? String(localized: "Discard changes to 1 file?") : String(localized: "Discard changes to \(count) files?"),
             isPresented: $confirmingDiscard,
             titleVisibility: .visible
         ) {

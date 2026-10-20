@@ -13,6 +13,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.s24) {
                         AppearanceSection()
+                        LanguageSection()
                         IdentitySection()
                         ProfilesSection()
                         GitSection()

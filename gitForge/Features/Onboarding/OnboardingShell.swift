@@ -63,7 +63,7 @@ struct OnboardingShell<Content: View>: View {
     private func footer(gutter: CGFloat) -> some View {
         HStack(spacing: Spacing.s12) {
             if currentStep.canGoBack {
-                GFButton(title: "Back", action: onBack)
+                GFButton(title: String(localized: "Back"), action: onBack)
             }
             Spacer(minLength: 0)
             if let next = currentStep.nextLabel, !primaryLabel.isEmpty {
@@ -72,10 +72,10 @@ struct OnboardingShell<Content: View>: View {
                     .foregroundStyle(theme.colors.textSecondary)
             }
             if currentStep.canSkip {
-                GFButton(title: "Skip", action: onSkip)
+                GFButton(title: String(localized: "Skip"), action: onSkip)
             }
             if !primaryLabel.isEmpty {
-                GFButton(title: primaryBusy ? "Working…" : primaryLabel,
+                GFButton(title: primaryBusy ? String(localized: "Working…") : primaryLabel,
                          style: .primary,
                          disabled: !primaryEnabled || primaryBusy,
                          action: onPrimary)
@@ -146,7 +146,9 @@ private struct OnboardingRail: View {
         .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Radius.card).fill(isCurrent ? theme.colors.fillHover : .clear))
         .accessibilityElement(children: .combine)
-        .accessibilityValue(isCurrent ? "Current step" : isDone ? "Done" : "To do")
+        .accessibilityValue(isCurrent ? String(localized: "Current step")
+                            : isDone ? String(localized: "onboarding.step.done", defaultValue: "Done")
+                            : String(localized: "To do"))
     }
 
     @ViewBuilder

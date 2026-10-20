@@ -32,10 +32,10 @@ struct StashesView: View {
             if viewModel.stashes.isEmpty {
                 EmptyState(
                     symbol: "tray.full",
-                    title: "No stashes",
+                    title: String(localized: "No stashes"),
                     subtitle: hasDirtyChanges
-                        ? "Use \u{201C}Stash changes…\u{201D} to park your work in progress."
-                        : "When you stash work in progress it'll show up here."
+                        ? String(localized: "Use \u{201C}Stash changes…\u{201D} to park your work in progress.")
+                        : String(localized: "When you stash work in progress it'll show up here.")
                 )
             } else {
                 HStack(spacing: 0) {
@@ -120,20 +120,21 @@ struct StashesView: View {
                 onDrop: { dropTarget = stash }
             )
         } else {
-            EmptyState(symbol: "tray.full", title: "Select a stash")
+            EmptyState(symbol: "tray.full", title: String(localized: "Select a stash"))
         }
     }
 
     private func runApply(_ stash: Stash, drop: Bool) async {
         let outcome = await viewModel.applyStash(stash, drop: drop)
+        let reference = stash.reference
         switch outcome {
         case .clean:
             appState.ui.activeToast = ToastMessage(
-                message: drop ? "Popped \(stash.reference)" : "Applied \(stash.reference)",
+                message: drop ? String(localized: "Popped \(reference)") : String(localized: "Applied \(reference)"),
                 kind: .ok)
         case .conflicts:
             appState.ui.activeToast = ToastMessage(
-                message: "Stash applied with conflicts — resolve to continue",
+                message: String(localized: "Stash applied with conflicts — resolve to continue"),
                 kind: .warn)
             appState.ui.workspaceSection = .conflict
         case .cancelled:
@@ -144,9 +145,10 @@ struct StashesView: View {
     }
 
     private func runDrop(_ stash: Stash) async {
+        let reference = stash.reference
         switch await viewModel.dropStash(stash) {
         case .success:
-            appState.ui.activeToast = ToastMessage(message: "Dropped \(stash.reference)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Dropped \(reference)"), kind: .ok)
         case .failure(let err):
             appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
@@ -163,7 +165,7 @@ struct StashesView: View {
                 kind: .error
             )
         } else {
-            appState.ui.activeToast = ToastMessage(message: "Stashed", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Stashed"), kind: .ok)
         }
         stashSheet = false
     }

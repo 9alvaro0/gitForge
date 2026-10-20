@@ -34,23 +34,23 @@ nonisolated enum HostingAuthError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .network(let message): "Couldn't reach the server: \(message)"
-        case .tls(let message): "The server's certificate isn't trusted: \(message)"
-        case .unauthorized: "The token was rejected. It may have been revoked or have expired."
-        case .forbidden: "The token isn't allowed to read your user. Check its scopes."
-        case .server(let status): "The server answered with an error (\(status))."
-        case .decoding: "The server's answer couldn't be read."
-        case .oauth(let code): "The server refused the sign-in (\(code))."
-        case .oauthUnavailable: "Signing in with the browser isn't set up for this instance. Use a token instead."
-        case .deviceFlowUnsupported: "This server doesn't support signing in with a code (GitLab needs 17.2 or later). Use a token instead."
-        case .expiredToken: "The code expired before it was approved. Start again."
-        case .accessDenied: "The sign-in was declined in the browser."
-        case .refreshRejected: "The session expired. Reconnect the account."
-        case .missingScopes(let scopes): "The token is missing these scopes: \(scopes.joined(separator: ", "))."
-        case .inactiveToken: "The token has been revoked or is no longer active."
-        case .missingSecret: "The account's token couldn't be read from the Keychain."
-        case .storage(let message): "Couldn't save the account: \(message)"
-        case .cancelled: "Cancelled."
+        case .network(let message): String(localized: "Couldn't reach the server: \(message)")
+        case .tls(let message): String(localized: "The server's certificate isn't trusted: \(message)")
+        case .unauthorized: String(localized: "The token was rejected. It may have been revoked or have expired.")
+        case .forbidden: String(localized: "The token isn't allowed to read your user. Check its scopes.")
+        case .server(let status): String(localized: "The server answered with an error (\(status)).")
+        case .decoding: String(localized: "The server's answer couldn't be read.")
+        case .oauth(let code): String(localized: "The server refused the sign-in (\(code)).")
+        case .oauthUnavailable: String(localized: "Signing in with the browser isn't set up for this instance. Use a token instead.")
+        case .deviceFlowUnsupported: String(localized: "This server doesn't support signing in with a code (GitLab needs 17.2 or later). Use a token instead.")
+        case .expiredToken: String(localized: "The code expired before it was approved. Start again.")
+        case .accessDenied: String(localized: "The sign-in was declined in the browser.")
+        case .refreshRejected: String(localized: "The session expired. Reconnect the account.")
+        case .missingScopes(let scopes): String(localized: "The token is missing these scopes: \(scopes.joined(separator: ", ")).")
+        case .inactiveToken: String(localized: "The token has been revoked or is no longer active.")
+        case .missingSecret: String(localized: "The account's token couldn't be read from the Keychain.")
+        case .storage(let message): String(localized: "Couldn't save the account: \(message)")
+        case .cancelled: String(localized: "Cancelled.")
         }
     }
 
