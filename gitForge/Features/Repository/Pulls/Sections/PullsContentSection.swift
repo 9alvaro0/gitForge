@@ -94,6 +94,7 @@ struct PullsContentSection: View {
 
     /// The error has been mapped to a friendly string already, so match the
     /// prefix the formatter uses rather than the underlying URLError.
+    /// Every translation of `PullRequestFetchError.tls` keeps the word "TLS".
     private func isTLSError(_ message: String) -> Bool {
         let lower = message.lowercased()
         return lower.contains("tls") || lower.contains("certificate") || lower.contains("secure connection")
