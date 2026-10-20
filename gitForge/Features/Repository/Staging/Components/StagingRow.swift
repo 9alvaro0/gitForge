@@ -9,6 +9,8 @@ struct StagingRow: View {
     var side: WorkingCopySide? = nil
     /// `+N −M` of this row's side (staged or unstaged), when git reports it.
     var lineCounts: DiffStats? = nil
+    /// Runs after a click opens the row — the list takes keyboard focus.
+    var onSelect: (() -> Void)? = nil
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
     /// Drives a per-row confirmation when the user picks "Discard changes"
@@ -20,7 +22,10 @@ struct StagingRow: View {
         let isSelected = viewModel.workingCopy.selectedWorkingCopyFile?.id == file.id
             && (side == nil || viewModel.workingCopy.diffSide(for: file) == side)
         let isTicked = viewModel.workingCopy.selectedFilePaths.contains(file.path)
-        Button(action: { viewModel.workingCopy.select(file, side: side) }) {
+        Button(action: {
+            viewModel.workingCopy.select(file, side: side)
+            onSelect?()
+        }) {
             HStack(spacing: Spacing.s8) {
                 // The checkbox is for *batch selection*, not stage/unstage —
                 // pairing it with the batch bar under the section. Stage /

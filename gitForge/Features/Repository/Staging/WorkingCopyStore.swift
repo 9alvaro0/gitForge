@@ -367,6 +367,6 @@ final class WorkingCopyStore {
 
 /// The two parts of a working-copy file: its staged changes (index vs HEAD)
 /// and its unstaged ones (worktree vs index).
-nonisolated enum WorkingCopySide: Sendable, Equatable {
+nonisolated enum WorkingCopySide: Sendable, Hashable {
     case staged, unstaged
 }

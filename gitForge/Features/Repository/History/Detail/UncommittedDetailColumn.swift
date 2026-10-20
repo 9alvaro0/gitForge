@@ -13,6 +13,7 @@ struct UncommittedDetailColumn: View {
     var onClose: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
+    @FocusState private var listFocused: Bool
 
     private var staged: [WorkingCopyFile]   { viewModel.workingCopy.status.stagedFiles }
     private var unstaged: [WorkingCopyFile] { viewModel.workingCopy.status.unstagedFiles }
@@ -30,10 +31,29 @@ struct UncommittedDetailColumn: View {
                     .italic()
                     .foregroundStyle(theme.colors.textTertiary)
             } else {
-                fileSection(title: "STAGED", count: staged.count, files: staged, side: .staged)
-                fileSection(title: "UNSTAGED", count: unstaged.count, files: unstaged, side: .unstaged)
+                // Inside the inspector's scroll view: the reader scrolls it.
+                ScrollViewReader { proxy in
+                    VStack(alignment: .leading, spacing: Spacing.s12) {
+                        fileSection(title: "STAGED", count: staged.count, files: staged, side: .staged)
+                        fileSection(title: "UNSTAGED", count: unstaged.count, files: unstaged, side: .unstaged)
+                    }
+                    .listKeyboardNavigation(
+                        ids: rowIDs,
+                        selection: viewModel.workingCopy.selectedRowID,
+                        isFocused: $listFocused,
+                        scrollProxy: proxy
+                    ) { id in
+                        viewModel.workingCopy.select(id, in: id.side == .staged ? staged : unstaged)
+                    }
+                }
             }
         }
+    }
+
+    /// Staged then Unstaged, the order ↑↓ walks them in.
+    private var rowIDs: [WorkingCopyRowID] {
+        staged.map { WorkingCopyRowID(side: .staged, path: $0.path) }
+            + unstaged.map { WorkingCopyRowID(side: .unstaged, path: $0.path) }
     }
 
     private var header: some View {
@@ -78,7 +98,9 @@ struct UncommittedDetailColumn: View {
                                 && viewModel.workingCopy.diffSide(for: file) == side
                         ) {
                             viewModel.workingCopy.select(file, side: side)
+                            listFocused = true
                         }
+                        .id(WorkingCopyRowID(side: side, path: file.path))
                     }
                 }
             }

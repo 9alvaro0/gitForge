@@ -5,6 +5,7 @@ struct ConflictFilesColumn: View {
     @Bindable var viewModel: RepositoryViewModel
 
     @Environment(\.appTheme) private var theme
+    @FocusState private var listFocused: Bool
 
     static let width: CGFloat = 280
 
@@ -21,21 +22,35 @@ struct ConflictFilesColumn: View {
                     .padding(Spacing.s12)
                 Spacer(minLength: 0)
             } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: Spacing.s2) {
-                        ForEach(files) { file in
-                            ConflictFileRow(
-                                file: file,
-                                isSelected: file.path == viewModel.conflicts.selectedPath,
-                                absoluteURL: viewModel.repository.url.appendingPathComponent(file.path),
-                                onSelect: { Task { await viewModel.conflicts.loadHunks(for: file.path) } },
-                                onResolveOurs: { Task { await viewModel.resolveFile(at: file.path, using: .ours) } },
-                                onResolveTheirs: { Task { await viewModel.resolveFile(at: file.path, using: .theirs) } },
-                                onDiscard: { Task { await viewModel.discardChanges(workingCopyFile(for: file)) } }
-                            )
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: Spacing.s2) {
+                            ForEach(files) { file in
+                                ConflictFileRow(
+                                    file: file,
+                                    isSelected: file.path == viewModel.conflicts.selectedPath,
+                                    absoluteURL: viewModel.repository.url.appendingPathComponent(file.path),
+                                    onSelect: {
+                                        listFocused = true
+                                        Task { await viewModel.conflicts.loadHunks(for: file.path) }
+                                    },
+                                    onResolveOurs: { Task { await viewModel.resolveFile(at: file.path, using: .ours) } },
+                                    onResolveTheirs: { Task { await viewModel.resolveFile(at: file.path, using: .theirs) } },
+                                    onDiscard: { Task { await viewModel.discardChanges(workingCopyFile(for: file)) } }
+                                )
+                                .id(file.path)
+                            }
                         }
+                        .padding(Spacing.s6)
                     }
-                    .padding(Spacing.s6)
+                    .listKeyboardNavigation(
+                        ids: files.map(\.path),
+                        selection: viewModel.conflicts.selectedPath,
+                        isFocused: $listFocused,
+                        scrollProxy: proxy
+                    ) { path in
+                        Task { await viewModel.conflicts.loadHunks(for: path) }
+                    }
                 }
             }
         }

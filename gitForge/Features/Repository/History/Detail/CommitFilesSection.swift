@@ -6,6 +6,7 @@ struct CommitFilesSection: View {
     @Bindable var viewModel: RepositoryViewModel
 
     @Environment(\.appTheme) private var theme
+    @FocusState private var listFocused: Bool
 
     private var detail: CommitDetail? { viewModel.history.detailCache[commit.sha] }
 
@@ -13,16 +14,27 @@ struct CommitFilesSection: View {
         VStack(alignment: .leading, spacing: Spacing.s4) {
             header
             if let detail {
-                LazyVStack(spacing: 1) {
-                    ForEach(detail.files) { f in
-                        FileMiniRow(
-                            file: f,
-                            absoluteURL: viewModel.repository.url.appendingPathComponent(f.path),
-                            isActive: viewModel.history.selectedCommitFile == f.path
-                        ) {
-                            viewModel.history.selectedCommitFile = f.path
+                // Inside the inspector's scroll view: the reader scrolls it.
+                ScrollViewReader { proxy in
+                    LazyVStack(spacing: 1) {
+                        ForEach(detail.files) { f in
+                            FileMiniRow(
+                                file: f,
+                                absoluteURL: viewModel.repository.url.appendingPathComponent(f.path),
+                                isActive: viewModel.history.selectedCommitFile == f.path
+                            ) {
+                                viewModel.history.selectedCommitFile = f.path
+                                listFocused = true
+                            }
+                            .id(f.path)
                         }
                     }
+                    .listKeyboardNavigation(
+                        ids: detail.files.map(\.path),
+                        selection: viewModel.history.selectedCommitFile,
+                        isFocused: $listFocused,
+                        scrollProxy: proxy
+                    ) { viewModel.history.selectedCommitFile = $0 }
                 }
             } else {
                 placeholder
