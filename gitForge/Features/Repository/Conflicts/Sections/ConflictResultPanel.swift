@@ -60,10 +60,10 @@ struct ConflictResultPanel: View {
             }
             Spacer(minLength: 0)
             if manualText == nil {
-                GFButton(title: "Edit", systemImage: "pencil", size: .small, action: onEdit)
+                GFButton(title: String(localized: "Edit"), systemImage: "pencil", size: .small, action: onEdit)
                     .help("Write the result yourself, starting from the current picks")
             } else {
-                GFButton(title: "Discard edits", style: .destructive, size: .small, action: onDiscardEdits)
+                GFButton(title: String(localized: "Discard edits"), style: .destructive, size: .small, action: onDiscardEdits)
                     .help("Go back to resolving with the picks")
             }
         }

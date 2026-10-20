@@ -44,15 +44,15 @@ struct ConflictFileHeader: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 // The buttons keep their size; the path truncates instead.
                 Group {
-                    ConflictSideButton(side: .ours, title: "Take ours", action: onTakeOurs)
+                    ConflictSideButton(side: .ours, title: String(localized: "Take ours"), action: onTakeOurs)
                         .help("Resolve the whole file with ours and mark it resolved")
-                    ConflictSideButton(side: .theirs, title: "Take theirs", action: onTakeTheirs)
+                    ConflictSideButton(side: .theirs, title: String(localized: "Take theirs"), action: onTakeTheirs)
                         .help("Resolve the whole file with theirs and mark it resolved")
-                    IconButton(symbol: "arrow.up.right.square", accessibilityLabel: "Open in editor", action: onOpenInEditor)
+                    IconButton(symbol: "arrow.up.right.square", accessibilityLabel: String(localized: "Open in editor"), action: onOpenInEditor)
                         .help("Open in editor")
-                    GFButton(title: "Mark resolved", style: .primary,
+                    GFButton(title: String(localized: "Mark resolved"), style: .primary,
                              disabled: !canMarkResolved, action: onMarkResolved)
-                        .help(isManual ? "Write your result to the file and stage it" : "Write the picks to the file and stage it")
+                        .help(isManual ? String(localized: "Write your result to the file and stage it") : String(localized: "Write the picks to the file and stage it"))
                 }
                 .fixedSize()
             }
@@ -70,7 +70,7 @@ struct ConflictFileHeader: View {
         HStack(spacing: 0) {
             sideLabel(.ours, detail: currentBranchName ?? "HEAD")
             Rectangle().fill(theme.colors.separator).frame(width: 1)
-            sideLabel(.theirs, detail: "incoming")
+            sideLabel(.theirs, detail: String(localized: "incoming"))
         }
         .frame(height: 30)
         .overlay(alignment: .bottom) {

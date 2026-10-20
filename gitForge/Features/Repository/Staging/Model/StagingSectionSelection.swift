@@ -31,9 +31,10 @@ nonisolated enum StagingSectionSelection: Equatable, Sendable {
 /// Title of the composer's primary button.
 nonisolated enum CommitButtonTitle {
     static func make(fileCount: Int, branch: String?, amend: Bool) -> String {
-        if amend { return "Amend last commit" }
-        guard let branch else { return "Commit to detached HEAD" }
-        let files = fileCount == 1 ? "1 file" : "\(fileCount) files"
-        return "Commit \(files) to \(branch)"
+        if amend { return String(localized: "Amend last commit") }
+        guard let branch else { return String(localized: "Commit to detached HEAD") }
+        return fileCount == 1
+            ? String(localized: "Commit 1 file to \(branch)")
+            : String(localized: "Commit \(fileCount) files to \(branch)")
     }
 }

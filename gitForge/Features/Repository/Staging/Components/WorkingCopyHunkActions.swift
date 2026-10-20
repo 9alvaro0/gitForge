@@ -9,7 +9,7 @@ extension DiffHunkActions {
         guard viewModel.canApplyHunks(to: file) else { return nil }
         let staged = viewModel.workingCopy.diffSide(for: file) == .staged
         var actions = DiffHunkActions(
-            verb: staged ? "Unstage" : "Stage",
+            verb: staged ? String(localized: "Unstage") : String(localized: "Stage"),
             onApply: { hunk, lines in
                 Task { await viewModel.apply(staged ? .unstage : .stage, hunk: hunk, lineIds: lines, in: file) }
             },

@@ -27,13 +27,13 @@ struct StagingDiffColumn: View {
                     viewMode: $diffMode
                 )
             } else if hasFiles {
-                EmptyState(symbol: "square.and.pencil", title: "Pick a file to see the diff",
-                           subtitle: "Selection drives the right-hand pane.") { EmptyView() }
+                EmptyState(symbol: "square.and.pencil", title: String(localized: "Pick a file to see the diff"),
+                           subtitle: String(localized: "Selection drives the right-hand pane.")) { EmptyView() }
             } else if statusLoading {
                 DiffPane(file: nil, hunks: [], loading: true, viewMode: $diffMode)
             } else {
-                EmptyState(symbol: "checkmark", title: "Working tree is clean",
-                           subtitle: "No changes to stage.") { EmptyView() }
+                EmptyState(symbol: "checkmark", title: String(localized: "Working tree is clean"),
+                           subtitle: String(localized: "No changes to stage.")) { EmptyView() }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

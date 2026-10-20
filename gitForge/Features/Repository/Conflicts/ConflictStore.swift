@@ -131,7 +131,7 @@ final class ConflictStore {
         var errorDescription: String? {
             switch self {
             case .changedOnDisk(let path):
-                "“\(path)” changed on disk — reload conflicts before resolving."
+                String(localized: "“\(path)” changed on disk — reload conflicts before resolving.")
             }
         }
     }
