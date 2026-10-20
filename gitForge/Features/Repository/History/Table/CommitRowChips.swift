@@ -16,6 +16,9 @@ struct CommitRowChips: View {
     var maxNameWidth: CGFloat? = nil
     /// Chips shown before the rest fold into "+N" (at least 1).
     var maxVisible: Int = 2
+    /// Lane colour of this commit in the graph; branch chips take it as a
+    /// tint so each chip matches the line it labels.
+    var laneColor: Color? = nil
 
     @Environment(\.appTheme) private var theme
     @Environment(\.branchDropTracker) private var dropTracker
@@ -45,7 +48,8 @@ struct CommitRowChips: View {
             remote: ref.isRemoteBranch,
             tag: ref.isTag,
             hasRemoteCounterpart: hasRemoteCounterpart(for: ref),
-            maxNameWidth: maxNameWidth
+            maxNameWidth: maxNameWidth,
+            laneColor: laneColor
         )
         if ref.isLocalBranch, let onBranchDrop {
             chip
@@ -159,7 +163,8 @@ struct CommitRowChips: View {
                     current: ref.isLocalBranch && ref.name == currentBranch,
                     remote: ref.isRemoteBranch,
                     tag: ref.isTag,
-                    hasRemoteCounterpart: hasRemoteCounterpart(for: ref)
+                    hasRemoteCounterpart: hasRemoteCounterpart(for: ref),
+                    laneColor: laneColor
                 )
             }
         }
