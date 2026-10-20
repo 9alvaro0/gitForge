@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/9alvaro0/gitForge/security/advisories/new
+    about: Report it privately, not in a public issue.
+  - name: Contributing guide
+    url: https://github.com/9alvaro0/gitForge/blob/main/CONTRIBUTING.md
+    about: How to set up the project and open a pull request from a fork.

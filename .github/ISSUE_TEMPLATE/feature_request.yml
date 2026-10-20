@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an idea or improvement for gitForge
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        gitForge is opinionated and focused. Please search [existing issues](https://github.com/9alvaro0/gitForge/issues?q=is%3Aissue) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what makes it hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like gitForge to handle it?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Workarounds you use today, or how other Git clients handle it.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to implement this myself
