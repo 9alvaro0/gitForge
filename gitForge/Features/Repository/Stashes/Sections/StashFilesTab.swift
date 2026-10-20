@@ -5,6 +5,7 @@ struct StashFilesTab: View {
     @Binding var diffMode: DiffPane.ViewMode
 
     @Environment(\.appTheme) private var theme
+    @FocusState private var listFocused: Bool
 
     private var files: [StashFileChange] { store.detail?.files ?? [] }
 
@@ -50,17 +51,31 @@ struct StashFilesTab: View {
     }
 
     private var fileList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(files) { file in
-                    StashFileRow(
-                        file: file,
-                        isSelected: file.path == store.selectedFile,
-                        onSelect: { Task { await store.loadFileDiff(at: file.path) } }
-                    )
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(files) { file in
+                        StashFileRow(
+                            file: file,
+                            isSelected: file.path == store.selectedFile,
+                            onSelect: {
+                                listFocused = true
+                                Task { await store.loadFileDiff(at: file.path) }
+                            }
+                        )
+                        .id(file.path)
+                    }
                 }
+                .padding(Spacing.s6)
             }
-            .padding(Spacing.s6)
+            .listKeyboardNavigation(
+                ids: files.map(\.path),
+                selection: store.selectedFile,
+                isFocused: $listFocused,
+                scrollProxy: proxy
+            ) { path in
+                Task { await store.loadFileDiff(at: path) }
+            }
         }
     }
 

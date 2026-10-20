@@ -7,6 +7,7 @@ struct PullRequestFilesTab: View {
     @Environment(\.appTheme) private var theme
     @State private var selectedPath: String?
     @State private var diffViewMode: DiffPane.ViewMode = .unified
+    @FocusState private var listFocused: Bool
 
     var body: some View {
         if files.isEmpty {
@@ -43,17 +44,29 @@ struct PullRequestFilesTab: View {
     }
 
     private var fileList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(files) { file in
-                    PullRequestFileRow(
-                        file: file,
-                        isSelected: file.path == selectedPath,
-                        onSelect: { selectedPath = file.path }
-                    )
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(files) { file in
+                        PullRequestFileRow(
+                            file: file,
+                            isSelected: file.path == selectedPath,
+                            onSelect: {
+                                selectedPath = file.path
+                                listFocused = true
+                            }
+                        )
+                        .id(file.path)
+                    }
                 }
+                .padding(Spacing.s6)
             }
-            .padding(Spacing.s6)
+            .listKeyboardNavigation(
+                ids: files.map(\.path),
+                selection: selectedPath,
+                isFocused: $listFocused,
+                scrollProxy: proxy
+            ) { selectedPath = $0 }
         }
     }
 

@@ -54,6 +54,7 @@ Not supported (yet): interactive rebase, LFS, submodule management, creating or 
 | `⌘↩` | Commit (Changes) |
 | `⌘,` | Settings |
 | `↑` / `↓` | Move through commits (History table focused) |
+| `↑` / `↓` | Move through files in any file list (Changes, commit detail, stash, pull request, conflicts) |
 
 The full action set is also exposed through the native menu bar (File / View / Repository / Help).
 

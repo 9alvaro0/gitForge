@@ -11,17 +11,34 @@ struct StagingFilesColumn: View {
     var isFiltering = false
 
     @Environment(\.appTheme) private var theme
+    @FocusState private var listFocused: Bool
+
+    /// Unstaged then Staged, the order ↑↓ walks them in.
+    private var rowIDs: [WorkingCopyRowID] {
+        unstaged.map { WorkingCopyRowID(side: .unstaged, path: $0.path) }
+            + staged.map { WorkingCopyRowID(side: .staged, path: $0.path) }
+    }
 
     var body: some View {
-        ScrollView {
-            Group {
-                if statusLoading && staged.isEmpty && unstaged.isEmpty {
-                    StagingLoadingPlaceholder()
-                } else {
-                    fileList
+        ScrollViewReader { proxy in
+            ScrollView {
+                Group {
+                    if statusLoading && staged.isEmpty && unstaged.isEmpty {
+                        StagingLoadingPlaceholder()
+                    } else {
+                        fileList
+                    }
                 }
+                .padding(Spacing.s8)
             }
-            .padding(Spacing.s8)
+            .listKeyboardNavigation(
+                ids: rowIDs,
+                selection: viewModel.workingCopy.selectedRowID,
+                isFocused: $listFocused,
+                scrollProxy: proxy
+            ) { id in
+                viewModel.workingCopy.select(id, in: id.side == .staged ? staged : unstaged)
+            }
         }
     }
 
@@ -82,7 +99,9 @@ struct StagingFilesColumn: View {
                     .frame(height: theme.density.metrics.rowList)
             } else {
                 ForEach(files) { f in
-                    StagingRow(file: f, viewModel: viewModel, side: side, lineCounts: lineCounts[f.path])
+                    StagingRow(file: f, viewModel: viewModel, side: side, lineCounts: lineCounts[f.path],
+                               onSelect: { listFocused = true })
+                        .id(WorkingCopyRowID(side: side, path: f.path))
                 }
             }
             if selection != .empty {
