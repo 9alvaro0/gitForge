@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// Which refs the Branches & Tags table lists.
 nonisolated enum BranchScope: String, CaseIterable, Identifiable, Sendable {
