@@ -63,7 +63,12 @@ struct CommitRow: View, Equatable {
                     // Chips may take up to ~40 % of Description; tight rows
                     // show one chip and "+N".
                     maxNameWidth: min(160, tableLayout.description * 0.3),
-                    maxVisible: tableLayout.description < 360 ? 1 : 2
+                    maxVisible: tableLayout.description < 360 ? 1 : 2,
+                    laneColor: graphStyle.laneColor(
+                        branchId: layout.commitBranchId,
+                        priorityRank: layout.commitPriorityRank,
+                        isStash: layout.commitIsStash
+                    )
                 )
                 .fixedSize()
                 Text(commit.subject)
