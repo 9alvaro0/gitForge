@@ -35,7 +35,7 @@ struct UncommittedRow: View {
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: layout.date, alignment: .leading)
             Color.clear.frame(width: HistoryTableLayout.gap)
-            Text("–")
+            Text(verbatim: "–")
                 .textRole(.monoSmall)
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: layout.commit, alignment: .trailing)

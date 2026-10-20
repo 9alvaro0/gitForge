@@ -14,11 +14,11 @@ struct CommandPaletteItem: Identifiable, Hashable {
 
         var title: String {
             switch self {
-            case .command: "Actions"
-            case .repo:    "Repositories"
-            case .branch:  "Branches"
-            case .commit:  "Commits"
-            case .file:    "Files"
+            case .command: String(localized: "Actions")
+            case .repo:    String(localized: "Repositories")
+            case .branch:  String(localized: "Branches")
+            case .commit:  String(localized: "Commits")
+            case .file:    String(localized: "Files")
             }
         }
     }
@@ -68,7 +68,7 @@ enum CommandPaletteScope: Hashable {
 
     var title: String {
         switch self {
-        case .all: "All"
+        case .all: String(localized: "palette.scope.all", defaultValue: "All")
         case .only(let kind): kind.title
         }
     }

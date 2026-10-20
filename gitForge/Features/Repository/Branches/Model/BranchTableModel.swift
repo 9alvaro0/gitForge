@@ -8,9 +8,9 @@ nonisolated enum BranchScope: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .local: "Local"
-        case .remote: "Remote"
-        case .tags: "Tags"
+        case .local: String(localized: "branch.scope.local", defaultValue: "Local")
+        case .remote: String(localized: "branch.scope.remote", defaultValue: "Remote")
+        case .tags: String(localized: "Tags")
         }
     }
 

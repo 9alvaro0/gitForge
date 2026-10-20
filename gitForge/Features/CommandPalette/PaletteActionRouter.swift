@@ -31,8 +31,9 @@ struct PaletteActionRouter {
         case .revealBranch(let ref):
             appState.ui.workspaceSection = .history
             if let vm = appState.catalog.activeViewModel, !vm.history.revealInHistory(ref) {
+                let name = ref.name
                 appState.ui.activeToast = ToastMessage(
-                    message: "“\(ref.name)” isn’t in the loaded history",
+                    message: String(localized: "“\(name)” isn’t in the loaded history"),
                     kind: .warn
                 )
             }
@@ -43,11 +44,11 @@ struct PaletteActionRouter {
                 workingCopy.select(file, side: file.isUnstaged ? .unstaged : .staged)
             }
         case .fetch:
-            runRemote(label: "Fetched") { vm in await vm.fetch() }
+            runRemote(label: String(localized: "Fetched")) { vm in await vm.fetch() }
         case .pull:
-            runRemote(label: "Pulled") { vm in await vm.pull() }
+            runRemote(label: String(localized: "Pulled")) { vm in await vm.pull() }
         case .push:
-            runRemote(label: "Pushed") { vm in await vm.push() }
+            runRemote(label: String(localized: "Pushed")) { vm in await vm.push() }
         case .stash:
             runStash()
         case .noop:
@@ -60,7 +61,7 @@ struct PaletteActionRouter {
             guard let vm = appState.catalog.activeViewModel else { return }
             switch await vm.stashAll() {
             case .success:
-                appState.ui.activeToast = ToastMessage(message: "Stashed", kind: .ok)
+                appState.ui.activeToast = ToastMessage(message: String(localized: "Stashed"), kind: .ok)
             case .failure(let error):
                 appState.ui.activeToast = ToastMessage(
                     message: error.userMessage,

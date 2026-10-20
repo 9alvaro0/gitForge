@@ -21,11 +21,12 @@ struct PullRequestDetailHeader: View {
                     .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                     .foregroundStyle(theme.colors.textTertiary)
                 Spacer(minLength: 0)
-                GFButton(title: checkingOut ? "Checking out…" : "Check out branch",
+                GFButton(title: checkingOut ? String(localized: "Checking out…") : String(localized: "Check out branch"),
                          disabled: checkingOut || pullRequest.state == .merged, action: onCheckout)
                     .help("Fetch and check out \(pullRequest.sourceBranch)")
                 if let url = pullRequest.webURL {
-                    GFButton(title: "Open on \(hostLabel ?? "the web")", systemImage: "arrow.up.right") {
+                    GFButton(title: hostLabel.map { String(localized: "Open on \($0)") } ?? String(localized: "Open on the web"),
+                             systemImage: "arrow.up.right") {
                         ExternalURL.open(url)
                     }
                 }
@@ -68,12 +69,18 @@ struct PullRequestDetailHeader: View {
         }
     }
 
+    /// Whole phrases per state and count so translations can reorder them.
     private var verb: String {
-        let commits = commitCount.map { $0 == 1 ? "1 commit" : "\($0) commits" } ?? "commits"
-        switch pullRequest.state {
-        case .merged: return "merged \(commits) into"
-        case .closed: return "wanted to merge \(commits) into"
-        case .open, .draft: return "wants to merge \(commits) into"
+        switch (pullRequest.state, commitCount) {
+        case (.merged, 1?): return String(localized: "merged 1 commit into")
+        case (.merged, let n?): return String(localized: "merged \(n) commits into")
+        case (.merged, nil): return String(localized: "merged commits into")
+        case (.closed, 1?): return String(localized: "wanted to merge 1 commit into")
+        case (.closed, let n?): return String(localized: "wanted to merge \(n) commits into")
+        case (.closed, nil): return String(localized: "wanted to merge commits into")
+        case (.open, 1?), (.draft, 1?): return String(localized: "wants to merge 1 commit into")
+        case (.open, let n?), (.draft, let n?): return String(localized: "wants to merge \(n) commits into")
+        case (.open, nil), (.draft, nil): return String(localized: "wants to merge commits into")
         }
     }
 
@@ -146,9 +153,9 @@ struct PullRequestDetailHeader: View {
 
     private func spoken(_ state: PullRequestDetail.Reviewer.State) -> String {
         switch state {
-        case .approved: "approved"
-        case .changesRequested: "requested changes"
-        case .pending: "pending"
+        case .approved: String(localized: "approved")
+        case .changesRequested: String(localized: "requested changes")
+        case .pending: String(localized: "pending")
         }
     }
 }

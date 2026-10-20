@@ -23,12 +23,12 @@ struct CommitTagSheet: View {
                 Text("Message (optional — annotated tag if set)")
                     .textRole(.caption, weight: .medium)
                     .foregroundStyle(theme.colors.textTertiary)
-                GFTextField(placeholder: "Release 1.2.3", text: $message)
+                GFTextField(placeholder: String(localized: "Release 1.2.3"), text: $message)
             }
             HStack {
-                GFButton(title: "Cancel", action: onCancel)
+                GFButton(title: String(localized: "Cancel"), action: onCancel)
                 Spacer()
-                GFButton(title: "Create tag", style: .primary,
+                GFButton(title: String(localized: "Create tag"), style: .primary,
                          disabled: name.isEmpty, action: onConfirm)
             }
         }

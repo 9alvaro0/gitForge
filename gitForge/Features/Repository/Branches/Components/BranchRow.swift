@@ -137,8 +137,8 @@ struct BranchRow: View {
     /// otherwise the remote's name next to the counts; empty without upstream.
     private var syncLabel: String {
         guard let upstream = ref.upstream else { return "" }
-        if ref.upstreamGone { return "gone" }
-        if (ref.ahead ?? 0) == 0 && (ref.behind ?? 0) == 0 { return "in sync" }
+        if ref.upstreamGone { return String(localized: "gone") }
+        if (ref.ahead ?? 0) == 0 && (ref.behind ?? 0) == 0 { return String(localized: "in sync") }
         return String(upstream.split(separator: "/").first ?? "")
     }
 
@@ -148,11 +148,11 @@ struct BranchRow: View {
 
     private var spokenLabel: String {
         var parts = [ref.displayName]
-        if isCurrent { parts.append("current branch") }
-        if isMerged { parts.append("merged") }
-        if let ahead = ref.ahead, ahead > 0 { parts.append("\(ahead) ahead") }
-        if let behind = ref.behind, behind > 0 { parts.append("\(behind) behind") }
-        if ref.upstreamGone { parts.append("upstream gone") }
+        if isCurrent { parts.append(String(localized: "current branch")) }
+        if isMerged { parts.append(String(localized: "merged")) }
+        if let ahead = ref.ahead, ahead > 0 { parts.append(String(localized: "\(ahead) ahead")) }
+        if let behind = ref.behind, behind > 0 { parts.append(String(localized: "\(behind) behind")) }
+        if ref.upstreamGone { parts.append(String(localized: "upstream gone")) }
         if let subject = ref.subject { parts.append(subject) }
         if !updatedLabel.isEmpty { parts.append(updatedLabel) }
         return parts.joined(separator: ", ")
@@ -183,7 +183,7 @@ struct BranchRow: View {
                 }
             }
             if !isCurrent {
-                Button("Rebase \(currentBranchName ?? "current") onto this…") { actions.rebase(ref) }
+                Button("Rebase \(currentBranchName ?? String(localized: "branch.current.fallback", defaultValue: "current")) onto this…") { actions.rebase(ref) }
             }
             if ref.isLocalBranch {
                 Divider()

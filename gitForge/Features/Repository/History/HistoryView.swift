@@ -303,10 +303,10 @@ struct HistoryView: View {
                 .padding(Spacing.s16)
             }
         } else {
-            EmptyState(symbol: "clock.arrow.circlepath", title: "Select a commit",
-                       subtitle: "Its detail and changes appear here.") { EmptyView() }
+            EmptyState(symbol: "clock.arrow.circlepath", title: String(localized: "Select a commit"),
+                       subtitle: String(localized: "Its detail and changes appear here.")) { EmptyView() }
                 .overlay(alignment: .topTrailing) {
-                    IconButton(symbol: "xmark", accessibilityLabel: "Hide commit detail") {
+                    IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide commit detail")) {
                         setDetailColumnCollapsed(true)
                     }
                     .help("Hide commit detail")
@@ -456,7 +456,8 @@ struct HistoryView: View {
 
     private var detachedCheckoutTitle: String {
         guard let commit = detachedCheckoutTarget else { return "" }
-        return "Checkout \(commit.shortSha)?"
+        let shortSha = commit.shortSha
+        return String(localized: "Checkout \(shortSha)?")
     }
 }
 

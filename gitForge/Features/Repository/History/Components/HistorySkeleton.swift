@@ -10,14 +10,14 @@ struct HistorySkeleton: View {
     // loading, and shouldn't ever look like a real commit subject the user
     // is about to see.
     private static let placeholderSubjects = [
-        "Loading commit subject…",
-        "Loading commit subject…",
-        "Loading commit subject…",
-        "Loading commit subject…",
-        "Loading commit subject…",
-        "Loading commit subject…",
-        "Loading commit subject…",
-        "Loading commit subject…",
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
+        String(localized: "Loading commit subject…"),
     ]
 
     var body: some View {
@@ -37,7 +37,7 @@ struct HistorySkeleton: View {
     private func row(index: Int) -> some View {
         let subject = Self.placeholderSubjects[index % Self.placeholderSubjects.count]
         HStack(spacing: Spacing.s12) {
-            Text("main")
+            Text(verbatim: "main")
                 .textRole(.monoSmall)
                 .padding(.horizontal, Spacing.s6).padding(.vertical, 1)
                 .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.fillControl))
@@ -47,15 +47,15 @@ struct HistorySkeleton: View {
                 .foregroundStyle(theme.colors.textPrimary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("9alvaro0")
+            Text(verbatim: "9alvaro0")
                 .textRole(.monoSmall)
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: 110, alignment: .leading)
-            Text("abc1234")
+            Text(verbatim: "abc1234")
                 .textRole(.monoSmall)
                 .foregroundStyle(theme.colors.accent)
                 .frame(width: 70, alignment: .leading)
-            Text("2h")
+            Text(verbatim: "2h")
                 .textRole(.monoSmall)
                 .foregroundStyle(theme.colors.textTertiary)
                 .frame(width: 50, alignment: .leading)

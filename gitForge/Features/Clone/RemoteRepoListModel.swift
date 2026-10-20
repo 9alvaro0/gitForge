@@ -64,7 +64,8 @@ final class RemoteRepoListModel {
 
     /// "login @ host", for the account picker.
     func label(for account: HostingAccount) -> String {
-        "\(account.login ?? "Copied token") @ \(instance(of: account)?.host ?? "?")"
+        let login = account.login ?? String(localized: "Copied token")
+        return "\(login) @ \(instance(of: account)?.host ?? "?")"
     }
 
     /// Re-reads the usable accounts of this kind (after connecting one, say),
@@ -192,7 +193,7 @@ final class RemoteRepoListModel {
         }
         // The provider's 403 text is about pull requests.
         state = .failed((error as? PullRequestFetchError) == .forbidden
-                        ? "The account's token isn't allowed to list repositories. Check its scopes."
+                        ? String(localized: "The account's token isn't allowed to list repositories. Check its scopes.")
                         : error.userMessage)
     }
 }

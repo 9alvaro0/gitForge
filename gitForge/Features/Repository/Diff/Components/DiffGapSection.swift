@@ -36,7 +36,7 @@ struct DiffGapSection: View {
                 HStack(spacing: Spacing.s6) {
                     Image(systemName: "arrow.up.and.down")
                         .font(.system(size: 10, weight: .semibold))
-                    Text(gap.count == 1 ? "Show 1 hidden line" : "Show \(gap.count) hidden lines")
+                    Text(gap.count == 1 ? String(localized: "Show 1 hidden line") : String(localized: "Show \(gap.count) hidden lines"))
                         .textRole(.caption)
                 }
                 .foregroundStyle(theme.colors.textTertiary)

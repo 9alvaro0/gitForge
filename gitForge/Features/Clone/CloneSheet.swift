@@ -70,7 +70,7 @@ struct CloneSheet: View {
     private func form(_ model: CloneSheetModel) -> some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Spacing.s16) {
-            field("Repository URL") {
+            field(String(localized: "Repository URL")) {
                 // Beside the field, not over it: a long URL ran under the badge.
                 HStack(spacing: Spacing.s8) {
                     TextField("Paste an HTTPS or SSH repository URL", text: $model.url)
@@ -94,7 +94,7 @@ struct CloneSheet: View {
                     .textRole(.caption)
                 }
             }
-            field("Clone into") {
+            field(String(localized: "Clone into")) {
                 HStack(spacing: Spacing.s8) {
                     TextField("~/Developer/repo", text: $model.destination)
                         .textFieldStyle(.roundedBorder)
@@ -145,7 +145,7 @@ struct CloneSheet: View {
                     if isCloning { appState.clone.cancel() } else { dismiss() }
                 }
                 .keyboardShortcut(.cancelAction)
-                Button(isCloning ? "Cloning…" : "Clone") { clone(model) }
+                Button(isCloning ? String(localized: "Cloning…") : String(localized: "Clone")) { clone(model) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(isCloning || !model.canClone)
             }
@@ -180,8 +180,8 @@ struct CloneSheet: View {
     nonisolated static func probeDescription(_ state: CloneSheetModel.ProbeState) -> String? {
         switch state {
         case .idle: nil
-        case .checking: "Checking…"
-        case .done(.reachable): "Reachable"
+        case .checking: String(localized: "Checking…")
+        case .done(.reachable): String(localized: "Reachable")
         case .done(.unreachable(let failure)): reason(failure)
         }
     }
@@ -189,10 +189,10 @@ struct CloneSheet: View {
     /// A short reason for "Can't reach".
     nonisolated static func reason(_ failure: RemoteFailure?) -> String {
         switch failure {
-        case .authenticationHTTPS, .authenticationSSH, .accountRejected: "Can't reach · credentials"
-        case .network: "Can't reach · offline"
-        case .sslCertificate: "Can't reach · certificate"
-        default: "Can't reach"
+        case .authenticationHTTPS, .authenticationSSH, .accountRejected: String(localized: "Can't reach · credentials")
+        case .network: String(localized: "Can't reach · offline")
+        case .sslCertificate: String(localized: "Can't reach · certificate")
+        default: String(localized: "Can't reach")
         }
     }
 
@@ -225,7 +225,7 @@ struct CloneSheet: View {
     }
 
     private func choose(_ model: CloneSheetModel) async {
-        guard let parent = await appState.pickDirectoryPath(prompt: "Choose parent directory") else { return }
+        guard let parent = await appState.pickDirectoryPath(prompt: String(localized: "Choose parent directory")) else { return }
         lastParentDir = parent
         model.chooseParent(parent)
     }

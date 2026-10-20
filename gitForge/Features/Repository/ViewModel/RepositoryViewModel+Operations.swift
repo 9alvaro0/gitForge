@@ -5,7 +5,7 @@ import Foundation
 /// to celebrate, route to the conflict resolver, or surface the error.
 extension RepositoryViewModel {
     func cherryPick(_ commit: Commit) async -> IntegrationOutcome {
-        guard !isMutating else { return .failed("Another operation is in progress.") }
+        guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
         commitError = nil
         let mainline = commit.isMerge ? 1 : nil
         isMutating = true
@@ -28,7 +28,7 @@ extension RepositoryViewModel {
     }
 
     func revert(_ commit: Commit) async -> IntegrationOutcome {
-        guard !isMutating else { return .failed("Another operation is in progress.") }
+        guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
         commitError = nil
         let mainline = commit.isMerge ? 1 : nil
         isMutating = true
@@ -49,7 +49,7 @@ extension RepositoryViewModel {
     }
 
     func reset(to sha: String, mode: GitCLI.ResetMode) async -> IntegrationOutcome {
-        guard !isMutating else { return .failed("Another operation is in progress.") }
+        guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
         commitError = nil
         isMutating = true
         defer { isMutating = false }

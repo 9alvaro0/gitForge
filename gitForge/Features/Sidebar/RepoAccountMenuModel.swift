@@ -46,32 +46,33 @@ nonisolated enum RepoAccountMenuModel {
                                                     activeProfileId: activeProfileId, instances: instances,
                                                     accounts: usable, assignments: withoutChoice)
             let automaticLabel: String = switch automatic {
-            case .account(let account): "Automatic (\(name(account)))"
-            case .ambiguous: "Automatic (ask)"
-            case .none: "Automatic (system credentials)"
+            case .account(let account): String(localized: "Automatic (\(name(account)))")
+            case .ambiguous: String(localized: "Automatic (ask)")
+            case .none: String(localized: "Automatic (system credentials)")
             }
             let chosenAccount = choice?.accountId.flatMap { id in usable.first { $0.id == id } }
             let current: String
             if choice == .system {
-                current = "System credentials"
+                current = String(localized: "System credentials")
             } else if let chosenAccount {
                 current = "\(name(chosenAccount)) @ \(host)"
             } else {
                 switch automatic {
                 case .account(let account): current = "\(name(account)) @ \(host)"
-                case .ambiguous: current = "Choose…"
-                case .none: current = "System credentials"
+                case .ambiguous: current = String(localized: "Choose…")
+                case .none: current = String(localized: "System credentials")
                 }
             }
             var entries: [RepoAccountSection.Entry] = [.automatic(label: automaticLabel, checked: choice == nil)]
             entries += usable.map { .account(id: $0.id, label: name($0), checked: choice == .account($0.id)) }
             entries += [.system(checked: choice == .system), .connect(instanceId: instance.id)]
+            let remoteName = remote.name
             return RepoAccountSection(remote: remote.name, instanceId: instance.id,
-                                      title: "Hosting account · \(remote.name)", current: current, entries: entries)
+                                      title: String(localized: "Hosting account · \(remoteName)"), current: current, entries: entries)
         }
     }
 
     private static func name(_ account: HostingAccount) -> String {
-        account.login ?? "Copied token"
+        account.login ?? String(localized: "Copied token")
     }
 }

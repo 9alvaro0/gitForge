@@ -56,14 +56,14 @@ enum CommandPaletteBuilder {
     }
 
     static let builtInCommands: [CommandPaletteItem] = [
-        CommandPaletteItem(kind: .command, label: "Open repository…",  hint: "⌘O",  action: .openRepository),
-        CommandPaletteItem(kind: .command, label: "Clone repository…", hint: "⌥⌘C", action: .cloneRepository),
-        CommandPaletteItem(kind: .command, label: "Fetch all",       hint: "⌘⇧F", action: .fetch),
-        CommandPaletteItem(kind: .command, label: "Pull",            hint: "⌘⇧L", action: .pull),
-        CommandPaletteItem(kind: .command, label: "Push",            hint: "⌘⇧P", action: .push),
-        CommandPaletteItem(kind: .command, label: "New branch…",     hint: "⌘⇧B", action: .selectSection(.branches)),
-        CommandPaletteItem(kind: .command, label: "Stash changes",   hint: nil,   action: .stash),
-        CommandPaletteItem(kind: .command, label: "Settings",        hint: "⌘,",  action: .selectSection(.settings)),
+        CommandPaletteItem(kind: .command, label: String(localized: "Open repository…"),  hint: "⌘O",  action: .openRepository),
+        CommandPaletteItem(kind: .command, label: String(localized: "Clone repository…"), hint: "⌥⌘C", action: .cloneRepository),
+        CommandPaletteItem(kind: .command, label: String(localized: "Fetch all"),       hint: "⌘⇧F", action: .fetch),
+        CommandPaletteItem(kind: .command, label: String(localized: "Pull"),            hint: "⌘⇧L", action: .pull),
+        CommandPaletteItem(kind: .command, label: String(localized: "Push"),            hint: "⌘⇧P", action: .push),
+        CommandPaletteItem(kind: .command, label: String(localized: "New branch…"),     hint: "⌘⇧B", action: .selectSection(.branches)),
+        CommandPaletteItem(kind: .command, label: String(localized: "Stash changes"),   hint: nil,   action: .stash),
+        CommandPaletteItem(kind: .command, label: String(localized: "Settings"),        hint: "⌘,",  action: .selectSection(.settings)),
     ]
 
     private static func orgName(for repo: Repository) -> String {
@@ -72,9 +72,9 @@ enum CommandPaletteBuilder {
 
     private static func branchHint(for ref: GitRef) -> String {
         switch ref.kind {
-        case .localBranch:        return "local"
-        case .remoteBranch:       return "remote"
-        case .tag:                return "tag"
+        case .localBranch:        return String(localized: "palette.branch.local", defaultValue: "local")
+        case .remoteBranch:       return String(localized: "palette.branch.remote", defaultValue: "remote")
+        case .tag:                return String(localized: "palette.branch.tag", defaultValue: "tag")
         }
     }
 }

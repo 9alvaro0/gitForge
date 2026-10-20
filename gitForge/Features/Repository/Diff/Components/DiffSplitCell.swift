@@ -24,7 +24,7 @@ struct DiffSplitCell: View {
                     .padding(.trailing, Spacing.s12)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(" ")
+                Text(verbatim: " ")
                     .font(AppFont.font(.mono, monoFamily: theme.monoFont))
                     .frame(maxWidth: .infinity)
             }

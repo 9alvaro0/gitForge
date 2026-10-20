@@ -43,9 +43,9 @@ struct BranchTable: View {
 
     private var emptyTitle: String {
         switch scope {
-        case .local: "No local branches"
-        case .remote: "No remote branches"
-        case .tags: "No tags"
+        case .local: String(localized: "No local branches")
+        case .remote: String(localized: "No remote branches")
+        case .tags: String(localized: "No tags")
         }
     }
 

@@ -110,7 +110,7 @@ struct OnboardingFlow: View {
             // onboarding) — bootstrap-time seeding handles existing configs.
             if profiles.profiles.isEmpty {
                 profiles.add(GitProfile(
-                    name: "Personal",
+                    name: String(localized: "Personal"),
                     userName: n,
                     userEmail: e,
                     signingKey: key.isEmpty ? nil : key
@@ -118,7 +118,7 @@ struct OnboardingFlow: View {
             }
             state.advance()
         } catch {
-            appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t save identity")
+            appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t save identity"))
         }
     }
 
@@ -132,7 +132,7 @@ struct OnboardingFlow: View {
             if !dir.isEmpty { lastParentDir = dir }
             state.advance()
         } catch {
-            appState.ui.presentedError = PresentedError(error: error, title: "Couldn’t save defaults")
+            appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t save defaults"))
         }
     }
 
@@ -157,7 +157,7 @@ struct OnboardingFlow: View {
 
     private func pickCloneDirectory() {
         Task {
-            if let dir = await appState.pickDirectoryPath(prompt: "Default clone directory") {
+            if let dir = await appState.pickDirectoryPath(prompt: String(localized: "Default clone directory")) {
                 state.cloneDirectory = dir
             }
         }

@@ -38,7 +38,7 @@ struct CommitTableHeader: View {
                              onCommit: { columns.commit() })
             // Last column: no trailing handle, which would make the header
             // wider than the rows and force a horizontal scroll bar.
-            Text("Commit").frame(width: layout.commit, alignment: .trailing)
+            Text(String(localized: "history.column.commit", defaultValue: "Commit")).frame(width: layout.commit, alignment: .trailing)
             Spacer(minLength: 0)
         }
         .textRole(.caption, weight: .semibold)

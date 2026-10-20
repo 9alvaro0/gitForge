@@ -104,9 +104,9 @@ struct BranchesView: View {
         }
         .sheet(isPresented: $ui.newBranchSheetVisible) {
             BranchInputSheet(
-                title: "New branch",
+                title: String(localized: "New branch"),
                 placeholder: "feat/awesome",
-                confirmTitle: "Create & checkout",
+                confirmTitle: String(localized: "Create & checkout"),
                 text: $newBranchName,
                 confirmDisabled: newBranchName.isEmpty,
                 onCancel: { ui.newBranchSheetVisible = false },
@@ -124,9 +124,9 @@ struct BranchesView: View {
         }
         .sheet(item: $renameTarget) { ref in
             BranchInputSheet(
-                title: "Rename \(ref.name)",
+                title: String(localized: "Rename \(ref.name)"),
                 placeholder: ref.name,
-                confirmTitle: "Rename",
+                confirmTitle: String(localized: "Rename"),
                 text: $renameDraft,
                 confirmDisabled: renameDraft.isEmpty || renameDraft == ref.name,
                 onCancel: { renameTarget = nil },
@@ -198,8 +198,8 @@ struct BranchesView: View {
     @ViewBuilder
     private var table: some View {
         if hasActiveFilter && scopedRefs.isEmpty {
-            EmptyState(symbol: "magnifyingglass", title: "Nothing matches “\(filter)”") {
-                GFButton(title: "Clear filter", size: .small) { filter = "" }
+            EmptyState(symbol: "magnifyingglass", title: String(localized: "Nothing matches “\(filter)”")) {
+                GFButton(title: String(localized: "Clear filter"), size: .small) { filter = "" }
             }
         } else {
             BranchTable(
@@ -225,8 +225,8 @@ struct BranchesView: View {
                             trunkTip: viewModel.trunkBranch?.targetSha)
         } else {
             EmptyState(symbol: scope == .tags ? "tag" : "arrow.triangle.branch",
-                       title: scope == .tags ? "Select a tag" : "Select a branch",
-                       subtitle: "Its upstream, last commit and actions show here.")
+                       title: scope == .tags ? String(localized: "Select a tag") : String(localized: "Select a branch"),
+                       subtitle: String(localized: "Its upstream, last commit and actions show here."))
         }
     }
 
@@ -251,12 +251,12 @@ struct BranchesView: View {
 
     private func handleCheckout(_ ref: GitRef) {
         // A failed checkout (local changes in the way) used to say nothing.
-        Task { toast(await viewModel.checkoutBranch(ref), success: "Checked out \(ref.displayName)") }
+        Task { toast(await viewModel.checkoutBranch(ref), success: String(localized: "Checked out \(ref.displayName)")) }
     }
 
     /// Failures surface through `remoteFailure`, like the toolbar's Push.
     private func runPush(_ ref: GitRef) async {
-        if await viewModel.pushBranch(ref) { toast("Pushed \(ref.name)", kind: .ok) }
+        if await viewModel.pushBranch(ref) { toast(String(localized: "Pushed \(ref.name)"), kind: .ok) }
     }
 
     /// Same semantics as a chip dropped on a chip in History: merge the
@@ -270,29 +270,30 @@ struct BranchesView: View {
 
     private func runDroppedMerge(_ request: MergeRebaseRequest) async {
         report(await viewModel.mergeBranch(source: request.source, into: request.target),
-               success: "Merged \(request.source.displayName) into \(request.target.displayName)",
-               conflicts: "Merge has conflicts — resolve to continue")
+               success: String(localized: "Merged \(request.source.displayName) into \(request.target.displayName)"),
+               conflicts: String(localized: "Merge has conflicts — resolve to continue"))
     }
 
     private func runDroppedRebase(_ request: MergeRebaseRequest) async {
         report(await viewModel.rebase(request.source, onto: request.target),
-               success: "Rebased \(request.source.displayName) onto \(request.target.displayName)",
-               conflicts: "Rebase has conflicts — resolve to continue")
+               success: String(localized: "Rebased \(request.source.displayName) onto \(request.target.displayName)"),
+               conflicts: String(localized: "Rebase has conflicts — resolve to continue"))
     }
 
     private func runMerge(request: MergeRequest) async {
         let outcome = await viewModel.mergeBranch(source: request.source, into: request.target)
         let targetLabel = request.target?.displayName ?? currentBranchName ?? "HEAD"
         report(outcome,
-               success: "Merged \(request.source.displayName) into \(targetLabel)",
-               conflicts: "Merge has conflicts — resolve to continue")
+               success: String(localized: "Merged \(request.source.displayName) into \(targetLabel)"),
+               conflicts: String(localized: "Merge has conflicts — resolve to continue"))
     }
 
     private func runRebase(ref: GitRef) async {
         let outcome = await viewModel.rebaseOnto(ref)
+        let branchLabel = currentBranchName ?? "HEAD"
         report(outcome,
-               success: "Rebased \(currentBranchName ?? "HEAD") onto \(ref.displayName)",
-               conflicts: "Rebase has conflicts — resolve to continue")
+               success: String(localized: "Rebased \(branchLabel) onto \(ref.displayName)"),
+               conflicts: String(localized: "Rebase has conflicts — resolve to continue"))
     }
 
     private func report(_ outcome: RepositoryViewModel.IntegrationOutcome,
@@ -314,11 +315,11 @@ struct BranchesView: View {
     // MARK: Tag handlers
 
     private func runPushTag(_ ref: GitRef) async {
-        toast(await viewModel.pushTag(ref), success: "Pushed \(ref.name)")
+        toast(await viewModel.pushTag(ref), success: String(localized: "Pushed \(ref.name)"))
     }
 
     private func runPushAllTags() async {
-        toast(await viewModel.pushAllTags(), success: "Pushed all tags")
+        toast(await viewModel.pushAllTags(), success: String(localized: "Pushed all tags"))
     }
 
     private func runDeleteTag(_ ref: GitRef, alsoOnRemote: Bool) async {
@@ -328,8 +329,10 @@ struct BranchesView: View {
                 return
             }
         }
-        let suffix = alsoOnRemote ? " (local + remote)" : " (local)"
-        toast(await viewModel.deleteTag(ref), success: "Deleted \(ref.name)\(suffix)")
+        let success = alsoOnRemote
+            ? String(localized: "Deleted \(ref.name) (local + remote)")
+            : String(localized: "Deleted \(ref.name) (local)")
+        toast(await viewModel.deleteTag(ref), success: success)
     }
 
     // MARK: Toast helpers

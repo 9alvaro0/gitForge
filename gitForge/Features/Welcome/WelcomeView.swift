@@ -45,13 +45,13 @@ struct WelcomeView: View {
                     .foregroundStyle(theme.colors.textSecondary)
             }
             VStack(spacing: Spacing.s8) {
-                bigButton("Open a repository…", symbol: "folder", shortcut: "⌘O", prominent: false) {
+                bigButton(String(localized: "Open a repository…"), symbol: "folder", shortcut: "⌘O", prominent: false) {
                     Task { await appState.presentOpenRepositoryPanel() }
                 }
-                bigButton("Clone a repository…", symbol: "square.and.arrow.down", shortcut: "⌥⌘C", prominent: true) {
+                bigButton(String(localized: "Clone a repository…"), symbol: "square.and.arrow.down", shortcut: "⌥⌘C", prominent: true) {
                     appState.ui.requestClone()
                 }
-                bigButton("New repository…", symbol: "plus.rectangle.on.folder", shortcut: "⌥⌘N", prominent: false) {
+                bigButton(String(localized: "New repository…"), symbol: "plus.rectangle.on.folder", shortcut: "⌥⌘N", prominent: false) {
                     Task { await appState.presentNewRepositoryPanel() }
                 }
             }
@@ -108,7 +108,8 @@ struct WelcomeView: View {
 
     private var signedIn: String {
         let logins = appState.accounts.accounts.filter(AccountGitCredentials.signs).compactMap(\.login)
-        return logins.isEmpty ? "No accounts connected" : "Signed in as \(logins.joined(separator: " · "))"
+        let joined = logins.joined(separator: " · ")
+        return logins.isEmpty ? String(localized: "No accounts connected") : String(localized: "Signed in as \(joined)")
     }
 
     static var version: String {
@@ -136,8 +137,8 @@ struct WelcomeView: View {
                     .accessibilityLabel("Filter recent repositories")
             }
             if appState.catalog.repositories.isEmpty {
-                EmptyState(symbol: "folder", title: "No recent repositories",
-                           subtitle: "Repositories you open or clone show up here.")
+                EmptyState(symbol: "folder", title: String(localized: "No recent repositories"),
+                           subtitle: String(localized: "Repositories you open or clone show up here."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {

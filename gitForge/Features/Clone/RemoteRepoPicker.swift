@@ -76,7 +76,7 @@ struct RemoteRepoPicker: View {
     private func searchBar(_ model: RemoteRepoListModel) -> some View {
         HStack(spacing: Spacing.s8) {
             Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(theme.colors.textTertiary).accessibilityHidden(true)
-            GFTextField(placeholder: "Filter by name or description…", text: Bindable(model).search)
+            GFTextField(placeholder: String(localized: "Filter by name or description…"), text: Bindable(model).search)
             if model.state == .loading || model.isLoadingMore {
                 ProgressView().controlSize(.small)
             }
@@ -107,7 +107,7 @@ struct RemoteRepoPicker: View {
                 row(for: repo, model: model)
             }
             if model.hasMore {
-                GFButton(title: model.isLoadingMore ? "Loading…" : "Load more",
+                GFButton(title: model.isLoadingMore ? String(localized: "Loading…") : String(localized: "Load more"),
                          style: .secondary,
                          disabled: model.isLoadingMore) {
                     Task { await model.loadMore() }
@@ -126,7 +126,7 @@ struct RemoteRepoPicker: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(theme.colors.textTertiary)
                     .frame(width: 16)
-                    .accessibilityLabel(repo.isPrivate ? "Private" : "Public")
+                    .accessibilityLabel(repo.isPrivate ? String(localized: "Private") : String(localized: "Public"))
                 VStack(alignment: .leading, spacing: Spacing.s2) {
                     Text(repo.fullName)
                         .textRole(.mono, weight: .medium)
@@ -155,16 +155,18 @@ struct RemoteRepoPicker: View {
     }
 
     private func connectCard(instanceId: UUID?, replacing: UUID?) -> some View {
-        card {
-            Text(replacing == nil ? "Connect a \(kind.label) account" : "Reconnect your \(kind.label) account")
+        let provider = kind.label
+        return card {
+            Text(replacing == nil ? String(localized: "Connect a \(provider) account")
+                                  : String(localized: "Reconnect your \(provider) account"))
                 .textRole(.headline)
                 .foregroundStyle(theme.colors.textPrimary)
             Text(replacing == nil
-                 ? "Sign in to browse the repositories you can clone, and clone them over HTTPS with that account."
-                 : "Its token was rejected. Reconnect it to browse your repositories again.")
+                 ? String(localized: "Sign in to browse the repositories you can clone, and clone them over HTTPS with that account.")
+                 : String(localized: "Its token was rejected. Reconnect it to browse your repositories again."))
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textTertiary)
-            GFButton(title: replacing == nil ? "Connect account…" : "Reconnect…", style: .primary) {
+            GFButton(title: replacing == nil ? String(localized: "Connect account…") : String(localized: "Reconnect…"), style: .primary) {
                 appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: replacing)
             }
         }
@@ -181,7 +183,7 @@ struct RemoteRepoPicker: View {
             Text(message)
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textTertiary)
-            GFButton(title: "Retry", style: .secondary) {
+            GFButton(title: String(localized: "Retry"), style: .secondary) {
                 Task { await model.load() }
             }
         }

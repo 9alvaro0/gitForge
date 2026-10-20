@@ -91,9 +91,9 @@ final class CloneSheetModel {
     var destinationHint: String? {
         let path = (destination.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
         guard !path.isEmpty else { return nil }
-        if FileManager.default.fileExists(atPath: path) { return "Already exists — choose another folder" }
+        if FileManager.default.fileExists(atPath: path) { return String(localized: "Already exists — choose another folder") }
         let parent = (path as NSString).deletingLastPathComponent
-        return FileManager.default.fileExists(atPath: parent) ? nil : "Parent folder will be created"
+        return FileManager.default.fileExists(atPath: parent) ? nil : String(localized: "Parent folder will be created")
     }
 
     /// Fills the form from a "My repos" row: HTTPS, signed by `accountId`.
@@ -145,8 +145,8 @@ final class CloneSheetModel {
 
     private func signedBy(_ host: RemoteHost) -> String {
         guard isHTTPS else { return "SSH" }
-        if let login = signingAccount?.login { return "via \(login)" }
-        return "system credentials"
+        if let login = signingAccount?.login { return String(localized: "via \(login)") }
+        return String(localized: "system credentials")
     }
 
     private func urlDidChange() {

@@ -38,8 +38,10 @@ struct BranchFolderRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .accessibilityLabel("\(name) folder, \(leafCount) \(leafCount == 1 ? "item" : "items")")
-        .accessibilityValue(isCollapsed ? "collapsed" : "expanded")
+        .accessibilityLabel(leafCount == 1
+                            ? String(localized: "\(name) folder, 1 item")
+                            : String(localized: "\(name) folder, \(leafCount) items"))
+        .accessibilityValue(isCollapsed ? String(localized: "collapsed") : String(localized: "expanded"))
     }
 }
 

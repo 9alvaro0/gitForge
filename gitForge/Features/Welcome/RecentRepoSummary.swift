@@ -9,14 +9,17 @@ nonisolated struct RecentRepoSummary: Equatable, Sendable {
 
     /// Changes win over ahead/behind: they're what the user would lose.
     var label: String {
-        if changed > 0 { return "\(changed) changed" }
+        if changed > 0 { return String(localized: "\(changed) changed") }
         switch (ahead, behind) {
-        case (0, 0): return "Clean"
-        case (_, 0): return "↑ \(ahead) ahead"
-        case (0, _): return "↓ \(behind) behind"
+        case (0, 0): return String(localized: "repo.state.clean", defaultValue: "Clean")
+        case (_, 0): return String(localized: "↑ \(ahead) ahead")
+        case (0, _): return String(localized: "↓ \(behind) behind")
         default: return "↑\(ahead) ↓\(behind)"
         }
     }
+
+    /// No local changes and level with the upstream (the "Clean" label).
+    var isClean: Bool { changed == 0 && ahead == 0 && behind == 0 }
 
     /// Parses `git status --porcelain=v1 --branch`.
     static func parse(_ output: String) -> RecentRepoSummary {

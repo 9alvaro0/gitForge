@@ -78,27 +78,27 @@ struct RecentRepositoryRow: View {
     }
 
     private var branch: String {
-        if case .ready(let summary) = state { return summary.branch ?? "detached" }
+        if case .ready(let summary) = state { return summary.branch ?? String(localized: "detached") }
         return ""
     }
 
     private var statusText: String {
         switch state {
         case .ready(let summary): summary.label
-        case .missing: "Missing"
+        case .missing: String(localized: "Missing")
         case .loading, nil: ""
         }
     }
 
     private var statusIsNotable: Bool {
-        if case .ready(let summary) = state { return summary.label != "Clean" }
+        if case .ready(let summary) = state { return !summary.isClean }
         return false
     }
 
     private var statusColor: Color {
         switch state {
         case .ready(let summary) where summary.behind > 0 && summary.changed == 0: theme.colors.warn
-        case .ready(let summary) where summary.label != "Clean": theme.colors.textPrimary
+        case .ready(let summary) where !summary.isClean: theme.colors.textPrimary
         default: theme.colors.textTertiary
         }
     }

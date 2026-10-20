@@ -36,7 +36,7 @@ struct BranchInputSheet: View {
                     onConfirm(text)
                 }
             HStack {
-                GFButton(title: "Cancel", action: onCancel)
+                GFButton(title: String(localized: "Cancel"), action: onCancel)
                 Spacer()
                 GFButton(title: confirmTitle,
                          style: .primary,

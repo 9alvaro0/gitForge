@@ -25,9 +25,9 @@ struct MergeReadinessBanner: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             if readiness.passed + readiness.running + readiness.failed > 0 {
                 HStack(spacing: Spacing.s12) {
-                    count(readiness.passed, "passed", theme.colors.ok)
-                    count(readiness.running, "running", theme.colors.info)
-                    count(readiness.failed, "failed", theme.colors.del)
+                    count(readiness.passed, String(localized: "checks.count.passed", defaultValue: "passed"), theme.colors.ok)
+                    count(readiness.running, String(localized: "checks.count.running", defaultValue: "running"), theme.colors.info)
+                    count(readiness.failed, String(localized: "checks.count.failed", defaultValue: "failed"), theme.colors.del)
                 }
                 .fixedSize()
             }
@@ -47,15 +47,16 @@ struct MergeReadinessBanner: View {
 
     private var title: String {
         switch readiness.kind {
-        case .blocked: "Merge blocked"
-        case .waiting: "Waiting on checks or reviews"
-        case .ready: "Ready to merge"
+        case .blocked: String(localized: "Merge blocked")
+        case .waiting: String(localized: "Waiting on checks or reviews")
+        case .ready: String(localized: "Ready to merge")
         }
     }
 
     private var detail: String {
         let reasons = readiness.reasons.isEmpty ? "" : readiness.reasons.joined(separator: " · ").capitalizedFirst + ". "
-        return reasons + "gitForge doesn’t merge pull requests — open it on \(hostLabel ?? "the host") to merge."
+        let host = hostLabel ?? String(localized: "the host")
+        return reasons + String(localized: "gitForge doesn’t merge pull requests — open it on \(host) to merge.")
     }
 
     private var symbol: String {

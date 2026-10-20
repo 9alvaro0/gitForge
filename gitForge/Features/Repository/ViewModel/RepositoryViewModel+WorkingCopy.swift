@@ -80,15 +80,15 @@ extension RepositoryViewModel {
         commitError = nil
         let subject = workingCopy.commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !subject.isEmpty else {
-            commitError = "Commit subject cannot be empty"
+            commitError = String(localized: "Commit subject cannot be empty")
             return false
         }
         guard workingCopy.amendMode || workingCopy.status.hasStagedChanges else {
-            commitError = "Nothing staged to commit"
+            commitError = String(localized: "Nothing staged to commit")
             return false
         }
         if amendWouldRewritePublishedHistory, !confirmedAmendOfPublished {
-            commitError = "HEAD is already on the remote — amending rewrites public history. Confirm to force-push afterwards."
+            commitError = String(localized: "HEAD is already on the remote — amending rewrites public history. Confirm to force-push afterwards.")
             return false
         }
         let body = workingCopy.commitBody

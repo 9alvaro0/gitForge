@@ -89,10 +89,10 @@ struct Sidebar: View {
                     }
                 }
                 Section {
-                    SidebarRefSummaryRow(systemImage: "cloud", title: "Remotes", detail: remotesDetail) {
+                    SidebarRefSummaryRow(systemImage: "cloud", title: String(localized: "Remotes"), detail: remotesDetail) {
                         onSelectSection(.branches)
                     }
-                    SidebarRefSummaryRow(systemImage: "tag", title: "Tags", detail: "\(refs.filter(\.isTag).count)") {
+                    SidebarRefSummaryRow(systemImage: "tag", title: String(localized: "Tags"), detail: "\(refs.filter(\.isTag).count)") {
                         onSelectSection(.branches)
                     }
                 }
@@ -118,7 +118,7 @@ struct Sidebar: View {
 
     private var remotesDetail: String {
         let names = BranchTree.remoteNames(in: refs)
-        return names.isEmpty ? "none" : names.joined(separator: ", ")
+        return names.isEmpty ? String(localized: "none") : names.joined(separator: ", ")
     }
 
     private func toggleFolder(_ path: String) {

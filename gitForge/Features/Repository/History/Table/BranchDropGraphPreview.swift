@@ -13,10 +13,10 @@ struct BranchDropGraphPreview: View {
         switch preview.kind {
         case let .integrate(sourceOnly, targetOnly):
             HStack(alignment: .top, spacing: Spacing.s16) {
-                PreviewColumn(title: "Merge", sketch: .merge(source: sourceOnly, target: targetOnly),
+                PreviewColumn(title: String(localized: "Merge"), sketch: .merge(source: sourceOnly, target: targetOnly),
                               caption: BranchDropPreview.mergeCaption(sourceOnly: sourceOnly, targetOnly: targetOnly,
                                                                       source: source, target: target))
-                PreviewColumn(title: "Rebase", sketch: .rebase(source: sourceOnly, target: targetOnly),
+                PreviewColumn(title: String(localized: "Rebase"), sketch: .rebase(source: sourceOnly, target: targetOnly),
                               caption: BranchDropPreview.rebaseCaption(sourceOnly: sourceOnly, targetOnly: targetOnly,
                                                                        source: source, target: target))
             }

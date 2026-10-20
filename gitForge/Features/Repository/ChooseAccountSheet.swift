@@ -13,10 +13,15 @@ struct ChooseAccountSheet: View {
 
     /// "2 GitLab accounts could be used for group/app. …"
     nonisolated static func summary(count: Int, provider: String?, host: String, ownerRepo: String) -> String {
-        let kind = provider.map { "\($0) " } ?? ""
-        let accounts = count == 1 ? "One \(kind)account" : "\(count) \(kind)accounts"
-        let place = provider == nil ? " on \(host)" : ""
-        return "\(accounts)\(place) could be used for \(ownerRepo). gitForge will remember your choice for this repository."
+        // Whole sentences per case so translations can reorder freely.
+        if let provider {
+            return count == 1
+                ? String(localized: "One \(provider) account could be used for \(ownerRepo). gitForge will remember your choice for this repository.")
+                : String(localized: "\(count) \(provider) accounts could be used for \(ownerRepo). gitForge will remember your choice for this repository.")
+        }
+        return count == 1
+            ? String(localized: "One account on \(host) could be used for \(ownerRepo). gitForge will remember your choice for this repository.")
+            : String(localized: "\(count) accounts on \(host) could be used for \(ownerRepo). gitForge will remember your choice for this repository.")
     }
 
     var body: some View {
@@ -28,7 +33,7 @@ struct ChooseAccountSheet: View {
             Picker("", selection: $selection) {
                 ForEach(request.remote.candidates) { account in
                     VStack(alignment: .leading) {
-                        Text(account.login ?? "Copied token")
+                        Text(account.login ?? String(localized: "Copied token"))
                         Text(detail(account)).textRole(.caption).foregroundStyle(theme.colors.textTertiary)
                     }
                     .tag(Optional(RepoAccountChoice.account(account.id)))
@@ -44,8 +49,8 @@ struct ChooseAccountSheet: View {
             .labelsHidden()
             HStack {
                 Spacer()
-                GFButton(title: "Cancel") { onAnswer(nil) }
-                GFButton(title: "Use this account", style: .primary, disabled: selection == nil) { onAnswer(selection) }
+                GFButton(title: String(localized: "Cancel")) { onAnswer(nil) }
+                GFButton(title: String(localized: "Use this account"), style: .primary, disabled: selection == nil) { onAnswer(selection) }
             }
         }
         .padding(Spacing.s16)
@@ -58,6 +63,6 @@ struct ChooseAccountSheet: View {
 
     private func detail(_ account: HostingAccount) -> String {
         let profile = profiles.first { $0.id == account.linkedProfileId }?.name
-        return [request.remote.host, profile.map { "linked to \($0)" }].compactMap { $0 }.joined(separator: " · ")
+        return [request.remote.host, profile.map { String(localized: "linked to \($0)") }].compactMap { $0 }.joined(separator: " · ")
     }
 }

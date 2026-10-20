@@ -30,7 +30,7 @@ struct CommitDetailColumn: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if let onClose {
-                        IconButton(symbol: "xmark", accessibilityLabel: "Hide commit detail", action: onClose)
+                        IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide commit detail"), action: onClose)
                             .help("Hide commit detail")
                     }
                 }
@@ -102,7 +102,7 @@ struct CommitDetailColumn: View {
     private var parentLine: some View {
         if !commit.parentShas.isEmpty {
             HStack(spacing: Spacing.s6) {
-                Text(commit.parentShas.count > 1 ? "Parents" : "Parent")
+                Text(commit.parentShas.count > 1 ? String(localized: "Parents") : String(localized: "Parent"))
                     .textRole(.caption)
                     .foregroundStyle(theme.colors.textTertiary)
                 ForEach(commit.parentShas, id: \.self) { parent in

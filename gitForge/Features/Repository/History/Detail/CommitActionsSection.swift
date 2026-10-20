@@ -65,7 +65,7 @@ struct CommitActionsSection: View {
         .confirmationDialog("Reset to \(commit.shortSha)?",
                             isPresented: resetConfirmBinding,
                             titleVisibility: .visible) {
-            Button(resetMode == .hard ? "Reset (destructive)" : "Reset",
+            Button(resetMode == .hard ? String(localized: "Reset (destructive)") : String(localized: "Reset"),
                    role: resetMode == .hard ? .destructive : nil) {
                 if let mode = resetMode { Task { await runReset(mode: mode) } }
             }
@@ -79,11 +79,11 @@ struct CommitActionsSection: View {
         guard let mode else { return "" }
         switch mode {
         case .soft:
-            return "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as staged changes. Working tree is untouched."
+            return String(localized: "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as staged changes. Working tree is untouched.")
         case .mixed:
-            return "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as unstaged changes. Working tree is untouched."
+            return String(localized: "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as unstaged changes. Working tree is untouched.")
         case .hard:
-            return "Moves HEAD to \(shortSha) and DISCARDS every commit and uncommitted change after it. Recoverable only via `git reflog` for a limited time. This cannot be undone from the UI."
+            return String(localized: "Moves HEAD to \(shortSha) and DISCARDS every commit and uncommitted change after it. Recoverable only via `git reflog` for a limited time. This cannot be undone from the UI.")
         }
     }
 
@@ -96,29 +96,29 @@ struct CommitActionsSection: View {
             spacing: Spacing.s6
         ) {
             CommitActionButton(
-                icon: "arrow.triangle.branch", title: "Branch",
-                tooltip: "Create a new branch starting at \(commit.shortSha)."
+                icon: "arrow.triangle.branch", title: String(localized: "Branch"),
+                tooltip: String(localized: "Create a new branch starting at \(commit.shortSha).")
             ) {
                 newBranchName = ""
                 newBranchSheet = true
             }
             CommitActionButton(
-                icon: "tag", title: "Tag",
-                tooltip: "Create a tag pointing at \(commit.shortSha)."
+                icon: "tag", title: String(localized: "Tag"),
+                tooltip: String(localized: "Create a tag pointing at \(commit.shortSha).")
             ) {
                 newTagName = ""
                 newTagMessage = ""
                 newTagSheet = true
             }
             CommitActionButton(
-                icon: "plus", title: "Cherry-pick",
-                tooltip: "Replay this commit on top of the current branch."
+                icon: "plus", title: String(localized: "Cherry-pick"),
+                tooltip: String(localized: "Replay this commit on top of the current branch.")
             ) {
                 cherryPickConfirm = true
             }
             CommitActionButton(
-                icon: "arrow.up", title: "Revert",
-                tooltip: "Create a new commit that undoes the changes from \(commit.shortSha)."
+                icon: "arrow.up", title: String(localized: "Revert"),
+                tooltip: String(localized: "Create a new commit that undoes the changes from \(commit.shortSha).")
             ) {
                 revertConfirm = true
             }
@@ -133,7 +133,7 @@ struct CommitActionsSection: View {
         } label: {
             CommitActionButtonLabel(
                 icon: "exclamationmark.triangle",
-                title: "Reset to here",
+                title: String(localized: "Reset to here"),
                 destructive: true,
                 trailingChevron: true
             )
@@ -166,7 +166,7 @@ struct CommitActionsSection: View {
         )
         switch result {
         case .success:
-            appState.ui.activeToast = ToastMessage(message: "Tagged \(commit.shortSha) as \(name)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Tagged \(commit.shortSha) as \(name)"), kind: .ok)
             newTagSheet = false
         case .failure(let err):
             appState.ui.activeToast = ToastMessage(
@@ -180,8 +180,8 @@ struct CommitActionsSection: View {
     private func runCherryPick() async {
         appState.ui.emitToast(
             for: await viewModel.cherryPick(commit),
-            success: "Cherry-picked \(commit.shortSha)",
-            conflicts: "Cherry-pick has conflicts — resolve to continue"
+            success: String(localized: "Cherry-picked \(commit.shortSha)"),
+            conflicts: String(localized: "Cherry-pick has conflicts — resolve to continue")
         )
     }
 
@@ -189,8 +189,8 @@ struct CommitActionsSection: View {
     private func runRevert() async {
         appState.ui.emitToast(
             for: await viewModel.revert(commit),
-            success: "Reverted \(commit.shortSha)",
-            conflicts: "Revert has conflicts — resolve to continue"
+            success: String(localized: "Reverted \(commit.shortSha)"),
+            conflicts: String(localized: "Revert has conflicts — resolve to continue")
         )
     }
 
@@ -198,8 +198,8 @@ struct CommitActionsSection: View {
     private func runReset(mode: GitCLI.ResetMode) async {
         appState.ui.emitToast(
             for: await viewModel.reset(to: commit.sha, mode: mode),
-            success: "Reset \(mode.rawValue) to \(commit.shortSha)",
-            conflicts: "Reset has conflicts — resolve to continue"
+            success: String(localized: "Reset \(mode.rawValue) to \(commit.shortSha)"),
+            conflicts: String(localized: "Reset has conflicts — resolve to continue")
         )
     }
 }

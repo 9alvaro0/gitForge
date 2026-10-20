@@ -73,8 +73,8 @@ struct CollapsedPaneStrip: View {
     }
     private var helpText: String {
         switch kind {
-        case .diff:   return "Show the diff pane"
-        case .detail: return "Show commit detail"
+        case .diff:   return String(localized: "Show the diff pane")
+        case .detail: return String(localized: "Show commit detail")
         }
     }
 }

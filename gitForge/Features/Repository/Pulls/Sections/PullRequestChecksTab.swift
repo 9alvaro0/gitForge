@@ -13,8 +13,8 @@ struct PullRequestChecksTab: View {
             if loading {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                EmptyState(symbol: "checkmark", title: "No checks",
-                           subtitle: "No CI has reported on the latest commit of this pull request.")
+                EmptyState(symbol: "checkmark", title: String(localized: "No checks"),
+                           subtitle: String(localized: "No CI has reported on the latest commit of this pull request."))
             }
         } else {
             VStack(spacing: 0) {

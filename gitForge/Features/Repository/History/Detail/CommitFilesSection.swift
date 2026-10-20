@@ -42,9 +42,11 @@ struct CommitFilesSection: View {
         }
     }
 
+    private var fileCount: Int { detail?.files.count ?? 0 }
+
     private var header: some View {
         HStack(spacing: Spacing.s4) {
-            Text(detail?.files.count == 1 ? "1 file changed" : "\(detail?.files.count ?? 0) files changed")
+            Text(fileCount == 1 ? String(localized: "1 file changed") : String(localized: "\(fileCount) files changed"))
                 .textRole(.caption, weight: .semibold)
                 .foregroundStyle(theme.colors.textTertiary)
         }
@@ -53,10 +55,10 @@ struct CommitFilesSection: View {
 
     // Bland filler — visible only while the commit detail is loading.
     private static let placeholderPaths = [
-        "Loading file path…",
-        "Loading file path…",
-        "Loading file path…",
-        "Loading file path…",
+        String(localized: "Loading file path…"),
+        String(localized: "Loading file path…"),
+        String(localized: "Loading file path…"),
+        String(localized: "Loading file path…"),
     ]
 
     private var placeholder: some View {
@@ -132,12 +134,12 @@ private struct FileMiniRow: View {
 
     private var statusName: String {
         switch tagKind {
-        case .added, .untracked: "added"
-        case .deleted:           "deleted"
-        case .renamed:           "renamed"
-        case .copied:            "copied"
-        case .unmerged:          "conflicted"
-        default:                 "modified"
+        case .added, .untracked: String(localized: "added")
+        case .deleted:           String(localized: "deleted")
+        case .renamed:           String(localized: "renamed")
+        case .copied:            String(localized: "copied")
+        case .unmerged:          String(localized: "conflicted")
+        default:                 String(localized: "modified")
         }
     }
 

@@ -13,10 +13,10 @@ struct WelcomeStep: View {
 
     private var featureList: some View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
-            featureRow(symbol: "point.3.connected.trianglepath.dotted", title: "History graph", subtitle: "Branches, merges, and tags rendered as you scroll.")
-            featureRow(symbol: "plus.forwardslash.minus", title: "Side-by-side diffs", subtitle: "Unified or split, with the same syntax highlighter as your editor.")
-            featureRow(symbol: "arrow.triangle.pull", title: "Pull requests inline", subtitle: "Browse GitHub and GitLab PRs without leaving the app.")
-            featureRow(symbol: "tray.full", title: "Stashes and conflicts", subtitle: "First-class drill-in for both — no terminal trips required.")
+            featureRow(symbol: "point.3.connected.trianglepath.dotted", title: String(localized: "History graph"), subtitle: String(localized: "Branches, merges, and tags rendered as you scroll."))
+            featureRow(symbol: "plus.forwardslash.minus", title: String(localized: "Side-by-side diffs"), subtitle: String(localized: "Unified or split, with the same syntax highlighter as your editor."))
+            featureRow(symbol: "arrow.triangle.pull", title: String(localized: "Pull requests inline"), subtitle: String(localized: "Browse GitHub and GitLab PRs without leaving the app."))
+            featureRow(symbol: "tray.full", title: String(localized: "Stashes and conflicts"), subtitle: String(localized: "First-class drill-in for both — no terminal trips required."))
         }
         .padding(Spacing.s16)
         .frame(maxWidth: .infinity, alignment: .leading)

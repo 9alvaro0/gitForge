@@ -32,8 +32,8 @@ struct BranchInspector: View {
             // stay short enough not to truncate.
             if let ahead = ref.ahead, let behind = ref.behind, ahead + behind > 0, !ref.upstreamGone {
                 HStack(spacing: Spacing.s8) {
-                    countCard(value: "↑ \(ahead)", color: theme.colors.add, caption: "ahead")
-                    countCard(value: "↓ \(behind)", color: theme.colors.warn, caption: "behind")
+                    countCard(value: "↑ \(ahead)", color: theme.colors.add, caption: String(localized: "ahead"))
+                    countCard(value: "↓ \(behind)", color: theme.colors.warn, caption: String(localized: "behind"))
                 }
             }
             lastCommit
@@ -74,17 +74,17 @@ struct BranchInspector: View {
     }
 
     private var kindLabel: String {
-        if ref.isTag { return "Tag" }
-        if ref.isRemoteBranch { return "Remote branch" }
-        return isCurrent ? "Current branch" : "Branch"
+        if ref.isTag { return String(localized: "Tag") }
+        if ref.isRemoteBranch { return String(localized: "Remote branch") }
+        return isCurrent ? String(localized: "Current branch") : String(localized: "Branch")
     }
 
     private var trackingLine: String? {
         guard ref.isLocalBranch else { return nil }
-        guard let upstream = ref.upstream else { return "No upstream" }
-        if ref.upstreamGone { return "Tracked \(upstream), which no longer exists" }
+        guard let upstream = ref.upstream else { return String(localized: "No upstream") }
+        if ref.upstreamGone { return String(localized: "Tracked \(upstream), which no longer exists") }
         let inSync = (ref.ahead ?? 0) == 0 && (ref.behind ?? 0) == 0
-        return inSync ? "Tracks \(upstream) · in sync" : "Tracks \(upstream)"
+        return inSync ? String(localized: "Tracks \(upstream) · in sync") : String(localized: "Tracks \(upstream)")
     }
 
     /// Spec §4.2: the ahead/behind figures are the one `title`-size mono text.
@@ -170,10 +170,10 @@ struct BranchInspector: View {
 
     private func trunkSummary(_ c: BranchComparison) -> String {
         switch (c.ahead, c.behind) {
-        case (0, 0): return "Same commit as \(c.trunk)"
-        case (0, let behind): return "Fully in \(c.trunk) · \(behind) behind"
-        case (let ahead, 0): return "\(ahead) not in \(c.trunk) · up to date with it"
-        case (let ahead, let behind): return "\(ahead) not in \(c.trunk) · \(behind) behind"
+        case (0, 0): return String(localized: "Same commit as \(c.trunk)")
+        case (0, let behind): return String(localized: "Fully in \(c.trunk) · \(behind) behind")
+        case (let ahead, 0): return String(localized: "\(ahead) not in \(c.trunk) · up to date with it")
+        case (let ahead, let behind): return String(localized: "\(ahead) not in \(c.trunk) · \(behind) behind")
         }
     }
 
@@ -183,25 +183,25 @@ struct BranchInspector: View {
     private var actionButtons: some View {
         VStack(spacing: Spacing.s6) {
             if ref.isTag {
-                GFButton(title: "Push to origin", fullWidth: true) { actions.pushTag(ref) }
-                GFButton(title: "Delete tag…", style: .destructive, fullWidth: true) { actions.deleteTag(ref) }
+                GFButton(title: String(localized: "Push to origin"), fullWidth: true) { actions.pushTag(ref) }
+                GFButton(title: String(localized: "Delete tag…"), style: .destructive, fullWidth: true) { actions.deleteTag(ref) }
             } else {
-                GFButton(title: isCurrent ? "Checked out" : "Check out", disabled: isCurrent, fullWidth: true) {
+                GFButton(title: isCurrent ? String(localized: "Checked out") : String(localized: "Check out"), disabled: isCurrent, fullWidth: true) {
                     actions.checkout(ref)
                 }
                 // Branch names go in the help: in the button they'd truncate.
                 if !isCurrent, let current = currentBranchName {
-                    GFButton(title: "Merge into current branch", fullWidth: true) { actions.merge(ref, nil) }
+                    GFButton(title: String(localized: "Merge into current branch"), fullWidth: true) { actions.merge(ref, nil) }
                         .help("Merge \(ref.displayName) into \(current)")
-                    GFButton(title: "Rebase current branch onto this", fullWidth: true) { actions.rebase(ref) }
+                    GFButton(title: String(localized: "Rebase current branch onto this"), fullWidth: true) { actions.rebase(ref) }
                         .help("Rebase \(current) onto \(ref.displayName)")
                 }
                 if ref.isLocalBranch {
-                    GFButton(title: "Push", fullWidth: true) { actions.push(ref) }
-                        .help(ref.upstream.map { "Push to \($0)" } ?? "Push and set its upstream")
-                    GFButton(title: "Rename…", fullWidth: true) { actions.rename(ref) }
+                    GFButton(title: String(localized: "Push"), fullWidth: true) { actions.push(ref) }
+                        .help(ref.upstream.map { String(localized: "Push to \($0)") } ?? String(localized: "Push and set its upstream"))
+                    GFButton(title: String(localized: "Rename…"), fullWidth: true) { actions.rename(ref) }
                     if !isCurrent {
-                        GFButton(title: "Delete branch…", style: .destructive, fullWidth: true) { actions.delete(ref) }
+                        GFButton(title: String(localized: "Delete branch…"), style: .destructive, fullWidth: true) { actions.delete(ref) }
                     }
                 }
             }

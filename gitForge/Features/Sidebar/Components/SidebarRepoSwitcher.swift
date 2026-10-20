@@ -26,7 +26,7 @@ struct SidebarRepoSwitcher: View {
                     .frame(width: 30, height: 30)
                     .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.accentFill))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(activeRepository?.name ?? "No repository")
+                    Text(activeRepository?.name ?? String(localized: "No repository"))
                         .textRole(.body, weight: .semibold)
                         .foregroundStyle(theme.colors.textPrimary)
                         .lineLimit(1)
@@ -46,13 +46,13 @@ struct SidebarRepoSwitcher: View {
             .contentShape(.rect(cornerRadius: Radius.card))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(activeRepository.map { "Repository \($0.name)" } ?? "Choose a repository")
+        .accessibilityLabel(activeRepository.map { repo in String(localized: "Repository \(repo.name)") } ?? String(localized: "Choose a repository"))
         .accessibilityHint("Shows your repositories")
         .popover(isPresented: $isPresented, arrowEdge: .trailing) { popoverContent }
     }
 
     private var pathLabel: String {
-        guard let url = activeRepository?.url else { return "Open or clone one" }
+        guard let url = activeRepository?.url else { return String(localized: "Open or clone one") }
         return (url.path as NSString).abbreviatingWithTildeInPath
     }
 
@@ -82,9 +82,9 @@ struct SidebarRepoSwitcher: View {
             .frame(maxHeight: 360)
             Divider()
             VStack(alignment: .leading, spacing: Spacing.s2) {
-                popoverAction("Open existing folder…", systemImage: "folder", action: onOpenExisting)
-                popoverAction("Clone repository…", systemImage: "square.and.arrow.down", action: onCloneNew)
-                popoverAction("Settings…", systemImage: "gearshape", action: onOpenSettings)
+                popoverAction(String(localized: "Open existing folder…"), systemImage: "folder", action: onOpenExisting)
+                popoverAction(String(localized: "Clone repository…"), systemImage: "square.and.arrow.down", action: onCloneNew)
+                popoverAction(String(localized: "Settings…"), systemImage: "gearshape", action: onOpenSettings)
             }
             .padding(Spacing.s6)
         }

@@ -47,8 +47,9 @@ extension HistoryView {
         if (viewModel.refsBySha[sha] ?? []).contains(where: {
             $0.isLocalBranch && $0.name == viewModel.currentBranchName
         }) {
+            let branchLabel = viewModel.currentBranchName ?? commit.shortSha
             appState.ui.activeToast = ToastMessage(
-                message: "Already on \(viewModel.currentBranchName ?? commit.shortSha)",
+                message: String(localized: "Already on \(branchLabel)"),
                 kind: .ok
             )
             return
@@ -59,7 +60,7 @@ extension HistoryView {
     func runCheckoutBranch(_ ref: GitRef) async {
         switch await viewModel.checkoutBranch(ref) {
         case .success:
-            appState.ui.activeToast = ToastMessage(message: "Checked out \(ref.displayName)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Checked out \(ref.displayName)"), kind: .ok)
         case .failure(let err):
             appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
@@ -70,7 +71,7 @@ extension HistoryView {
     func runCheckoutCommit(_ commit: Commit) async {
         switch await viewModel.checkoutCommit(commit.sha) {
         case .success:
-            appState.ui.activeToast = ToastMessage(message: "Detached HEAD at \(commit.shortSha)", kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Detached HEAD at \(commit.shortSha)"), kind: .ok)
         case .failure(let err):
             appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
@@ -83,7 +84,7 @@ extension HistoryView {
             switch await viewModel.moveBranch(request.branch, to: request.targetSha) {
             case .success:
                 appState.ui.activeToast = ToastMessage(
-                    message: "Moved \(request.branch.displayName) to \(request.targetShortSha)",
+                    message: String(localized: "Moved \(request.branch.displayName) to \(request.targetShortSha)"),
                     kind: .ok)
             case .failure(let err):
                 appState.ui.activeToast = ToastMessage(
@@ -98,8 +99,8 @@ extension HistoryView {
             let outcome = await viewModel.reset(to: request.targetSha, mode: mode)
             appState.ui.emitToast(
                 for: outcome,
-                success: "Reset \(request.branchName) to \(request.targetShortSha) (\(mode.rawValue))",
-                conflicts: "Reset paused on conflicts — resolve to continue"
+                success: String(localized: "Reset \(request.branchName) to \(request.targetShortSha) (\(mode.rawValue))"),
+                conflicts: String(localized: "Reset paused on conflicts — resolve to continue")
             )
         }
     }
@@ -109,8 +110,8 @@ extension HistoryView {
             let outcome = await viewModel.mergeBranch(source: request.source, into: request.target)
             appState.ui.emitToast(
                 for: outcome,
-                success: "Merged \(request.source.displayName) into \(request.target.displayName)",
-                conflicts: "Merge has conflicts — resolve to continue"
+                success: String(localized: "Merged \(request.source.displayName) into \(request.target.displayName)"),
+                conflicts: String(localized: "Merge has conflicts — resolve to continue")
             )
         }
     }
@@ -122,8 +123,8 @@ extension HistoryView {
             let outcome = await viewModel.rebase(request.source, onto: request.target)
             appState.ui.emitToast(
                 for: outcome,
-                success: "Rebased \(request.source.displayName) onto \(request.target.displayName)",
-                conflicts: "Rebase has conflicts — resolve to continue"
+                success: String(localized: "Rebased \(request.source.displayName) onto \(request.target.displayName)"),
+                conflicts: String(localized: "Rebase has conflicts — resolve to continue")
             )
         }
     }
