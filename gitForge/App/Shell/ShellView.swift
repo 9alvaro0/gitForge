@@ -74,6 +74,13 @@ struct ShellView: View {
                                                                                      accounts: appState.accounts.accounts))
             appState.catalog.activeViewModel?.remoteFailure = nil
         }
+        // Same idea for success: commit, fetch, pull and push confirm what
+        // landed, wherever they were started from.
+        .onChange(of: appState.catalog.activeViewModel?.operationSuccess) { _, success in
+            guard let success else { return }
+            appState.ui.activeToast = ToastMessage(message: success.message, kind: .ok)
+            appState.catalog.activeViewModel?.operationSuccess = nil
+        }
     }
 
     /// Branch and ahead/behind (the old status bar's left half), or the
