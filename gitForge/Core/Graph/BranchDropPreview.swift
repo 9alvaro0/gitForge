@@ -36,27 +36,32 @@ nonisolated struct BranchDropPreview: Equatable, Sendable {
 
     /// Merge `source` into `target`.
     static func mergeCaption(sourceOnly: Int, targetOnly: Int, source: String, target: String) -> String {
-        if sourceOnly == 0 { return "\(target) already has \(source)" }
-        if targetOnly == 0 { return "Fast-forwards \(target) by \(commits(sourceOnly))" }
-        return "A merge commit brings \(commits(sourceOnly)) into \(target)"
+        if sourceOnly == 0 { return String(localized: "\(target) already has \(source)") }
+        let sourceCommits = commits(sourceOnly)
+        if targetOnly == 0 { return String(localized: "Fast-forwards \(target) by \(sourceCommits)") }
+        return String(localized: "A merge commit brings \(sourceCommits) into \(target)")
     }
 
     /// Rebase `source` onto `target`.
     static func rebaseCaption(sourceOnly: Int, targetOnly: Int, source: String, target: String) -> String {
-        if targetOnly == 0 { return "\(source) is already on top of \(target)" }
-        if sourceOnly == 0 { return "\(source) moves up to \(target)" }
-        return "Replays \(commits(sourceOnly)) after \(target)'s \(commits(targetOnly))"
+        if targetOnly == 0 { return String(localized: "\(source) is already on top of \(target)") }
+        if sourceOnly == 0 { return String(localized: "\(source) moves up to \(target)") }
+        let sourceCommits = commits(sourceOnly)
+        let targetCommits = commits(targetOnly)
+        return String(localized: "Replays \(sourceCommits) after \(target)'s \(targetCommits)")
     }
 
     static func moveCaption(dropped: Int, gained: Int, branch: String) -> String {
+        let droppedCommits = commits(dropped)
+        let gainedCommits = commits(gained)
         switch (dropped, gained) {
-        case (0, let gained): "\(branch) moves forward \(commits(gained))"
-        case (let dropped, 0): "\(branch) moves back \(commits(dropped))"
-        case let (dropped, gained): "\(branch) leaves \(commits(dropped)) and takes \(commits(gained)) from another line"
+        case (0, _): return String(localized: "\(branch) moves forward \(gainedCommits)")
+        case (_, 0): return String(localized: "\(branch) moves back \(droppedCommits)")
+        default: return String(localized: "\(branch) leaves \(droppedCommits) and takes \(gainedCommits) from another line")
         }
     }
 
     private static func commits(_ count: Int) -> String {
-        count == 1 ? "1 commit" : "\(count) commits"
+        count == 1 ? String(localized: "1 commit") : String(localized: "\(count) commits")
     }
 }

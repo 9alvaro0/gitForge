@@ -26,12 +26,12 @@ nonisolated struct CommitSignature: Sendable, Equatable {
 
     var label: String {
         switch status {
-        case .verified: "Verified"
-        case .untrusted: "Signed · untrusted key"
-        case .expired: "Signed · expired"
-        case .revoked: "Signed · revoked key"
-        case .bad: "Bad signature"
-        case .unverifiable: "Signed · can't verify"
+        case .verified: String(localized: "Verified")
+        case .untrusted: String(localized: "Signed · untrusted key")
+        case .expired: String(localized: "Signed · expired")
+        case .revoked: String(localized: "Signed · revoked key")
+        case .bad: String(localized: "Bad signature")
+        case .unverifiable: String(localized: "Signed · can't verify")
         }
     }
 

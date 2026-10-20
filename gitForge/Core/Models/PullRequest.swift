@@ -27,10 +27,10 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable {
 
     var label: String {
         switch state {
-        case .open:   "Open"
-        case .closed: "Closed"
-        case .merged: "Merged"
-        case .draft:  "Draft"
+        case .open:   String(localized: "pr.state.open", defaultValue: "Open")
+        case .closed: String(localized: "pr.state.closed", defaultValue: "Closed")
+        case .merged: String(localized: "pr.state.merged", defaultValue: "Merged")
+        case .draft:  String(localized: "pr.state.draft", defaultValue: "Draft")
         }
     }
 }
@@ -43,9 +43,9 @@ nonisolated enum PullListScope: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .open: "Open"
-        case .mine: "Mine"
-        case .closed: "Closed"
+        case .open: String(localized: "pr.scope.open", defaultValue: "Open")
+        case .mine: String(localized: "pr.scope.mine", defaultValue: "Mine")
+        case .closed: String(localized: "pr.scope.closed", defaultValue: "Closed")
         }
     }
 }

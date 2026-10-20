@@ -5,7 +5,12 @@ enum Density: String, CaseIterable, Identifiable, Sendable {
     case regular
 
     var id: String { rawValue }
-    var label: String { rawValue.capitalized }
+    var label: String {
+        switch self {
+        case .compact: String(localized: "Compact")
+        case .regular: String(localized: "Regular")
+        }
+    }
 
     /// Reads a stored value. `comfy` (dropped in the v2 redesign) and anything
     /// unknown fall back to `.regular`.

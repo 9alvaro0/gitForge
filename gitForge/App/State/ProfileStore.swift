@@ -49,7 +49,7 @@ final class ProfileStore {
               !email.isEmpty
         else { return }
         let seeded = GitProfile(
-            name: "Personal",
+            name: String(localized: "Personal"),
             userName: name,
             userEmail: email,
             signingKey: global.signingKey?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty

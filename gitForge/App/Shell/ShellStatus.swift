@@ -4,7 +4,7 @@ import Foundation
 nonisolated enum ShellStatus {
     /// Toolbar subtitle: the branch, then ahead / behind when non-zero.
     static func subtitle(branch: String?, ahead: Int, behind: Int) -> String {
-        guard let branch else { return "Detached HEAD" }
+        guard let branch else { return String(localized: "Detached HEAD") }
         var counts: [String] = []
         if ahead > 0 { counts.append("↑\(ahead)") }
         if behind > 0 { counts.append("↓\(behind)") }
@@ -13,17 +13,22 @@ nonisolated enum ShellStatus {
 
     /// Tooltip of the Fetch button. Replaces the status bar's "last fetch".
     static func fetchHelp(lastFetch: Date?, now: Date, online: Bool) -> String {
-        guard online else { return "Offline" }
-        guard let lastFetch else { return "Fetch from remotes · never fetched" }
+        guard online else { return String(localized: "Offline") }
+        guard let lastFetch else { return String(localized: "Fetch from remotes · never fetched") }
         let seconds = max(0, now.timeIntervalSince(lastFetch))
-        let age: String
         switch seconds {
-        case ..<60: age = "just now"
-        case ..<3_600: age = "\(Int(seconds / 60)) min ago"
-        case ..<86_400: age = "\(Int(seconds / 3_600)) h ago"
-        default: age = "\(Int(seconds / 86_400)) d ago"
+        case ..<60:
+            return String(localized: "Fetch from remotes · last fetched just now")
+        case ..<3_600:
+            let minutes = Int(seconds / 60)
+            return String(localized: "Fetch from remotes · last fetched \(minutes) min ago")
+        case ..<86_400:
+            let hours = Int(seconds / 3_600)
+            return String(localized: "Fetch from remotes · last fetched \(hours) h ago")
+        default:
+            let days = Int(seconds / 86_400)
+            return String(localized: "Fetch from remotes · last fetched \(days) d ago")
         }
-        return "Fetch from remotes · last fetched \(age)"
     }
 
     /// Two-letter mark for the repository tile: the first letters of the

@@ -31,12 +31,12 @@ nonisolated struct CICheck: Sendable, Equatable, Identifiable {
 
         var label: String {
             switch self {
-            case .passed: "Passed"
-            case .failed: "Failed"
-            case .running: "Running"
-            case .queued: "Queued"
-            case .skipped: "Skipped"
-            case .canceled: "Canceled"
+            case .passed: String(localized: "ci.check.passed", defaultValue: "Passed")
+            case .failed: String(localized: "ci.check.failed", defaultValue: "Failed")
+            case .running: String(localized: "ci.check.running", defaultValue: "Running")
+            case .queued: String(localized: "ci.check.queued", defaultValue: "Queued")
+            case .skipped: String(localized: "ci.check.skipped", defaultValue: "Skipped")
+            case .canceled: String(localized: "ci.check.canceled", defaultValue: "Canceled")
             }
         }
     }
@@ -91,11 +91,11 @@ nonisolated struct CIStatus: Sendable, Equatable {
 
     var label: String {
         switch state {
-        case .success:  "Passing"
-        case .failure:  "Failing"
-        case .pending:  "Running"
-        case .canceled: "Canceled"
-        case .unknown:  "Unknown"
+        case .success:  String(localized: "ci.status.passing", defaultValue: "Passing")
+        case .failure:  String(localized: "ci.status.failing", defaultValue: "Failing")
+        case .pending:  String(localized: "ci.status.running", defaultValue: "Running")
+        case .canceled: String(localized: "ci.status.canceled", defaultValue: "Canceled")
+        case .unknown:  String(localized: "ci.status.unknown", defaultValue: "Unknown")
         }
     }
 }
