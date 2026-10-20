@@ -1850,6 +1850,22 @@
         }
       }
     },
+    "App language" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma de la app"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma da app"
+          }
+        }
+      }
+    },
     "Appearance" : {
       "localizations" : {
         "es" : {
@@ -7486,6 +7502,22 @@
         }
       }
     },
+    "Language" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        }
+      }
+    },
     "Last commit" : {
       "localizations" : {
         "es" : {
@@ -11704,6 +11736,38 @@
         }
       }
     },
+    "Restart gitForge to apply the new language." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reinicia gitForge para aplicar el nuevo idioma."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reinicie o gitForge para aplicar o novo idioma."
+          }
+        }
+      }
+    },
+    "Restart now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar ahora"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar agora"
+          }
+        }
+      }
+    },
     "Result" : {
       "localizations" : {
         "es" : {
@@ -13702,6 +13766,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Credenciais do sistema"
+          }
+        }
+      }
+    },
+    "System default" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predeterminado del sistema"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predefinição do sistema"
           }
         }
       }
@@ -18289,6 +18369,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“%@” não está no histórico carregado"
+          }
+        }
+      }
+    },
+    "“System default” follows the language set in System Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Predeterminado del sistema» sigue el idioma configurado en Ajustes del Sistema."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Predefinição do sistema” segue o idioma definido nas Definições do Sistema."
           }
         }
       }
