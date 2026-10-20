@@ -150,7 +150,12 @@ struct CommitGraphTable: View {
                                     onSelect: { onUncommittedSelect?() }
                                 )
                             }
-                            ForEach(Array(commits.enumerated()), id: \.element.sha) { idx, commit in
+                            // Indices, not `Array(commits.enumerated())`: that
+                            // copied the whole log (and hashed every sha) on each
+                            // re-render. `.id(sha)` keeps the identity
+                            // `scrollTo(sha)` and row state rely on.
+                            ForEach(commits.indices, id: \.self) { idx in
+                                let commit = commits[idx]
                                 CommitRow(
                                     commit: commit,
                                     layout: layouts[safe: idx] ?? .empty,
@@ -171,7 +176,11 @@ struct CommitGraphTable: View {
                                     onDoubleClick: { onDoubleClick?(commit.sha) },
                                     onBranchDrop: onBranchDrop
                                 )
-                                .onAppear { onAppear?(commit) }
+                                .equatable()
+                                .id(commit.sha)
+                                // Only the last row can page in more; firing for
+                                // every row spawned a Task per row scrolled past.
+                                .onAppear { if idx == commits.count - 1 { onAppear?(commit) } }
                             }
                         } header: {
                             CommitTableHeader(

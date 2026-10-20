@@ -1,7 +1,29 @@
 import SwiftUI
 import AppKit
 
-struct CommitRow: View {
+/// `Equatable` over the rendered data only (closures are ignored): the table
+/// wraps each row in `.equatable()`, so a History re-render that doesn't
+/// touch a row's data (inspector load, diff load, selection of another row)
+/// skips its body instead of rebuilding every visible row — the context
+/// menu, drop targets and graph Canvas included. Closures only forward to
+/// the host by sha, so a stale copy still does the right thing.
+struct CommitRow: View, Equatable {
+    static func == (lhs: CommitRow, rhs: CommitRow) -> Bool {
+        lhs.commit == rhs.commit
+            && lhs.layout == rhs.layout
+            && lhs.maxLanes == rhs.maxLanes
+            && lhs.rowHeight == rhs.rowHeight
+            && lhs.tableLayout == rhs.tableLayout
+            && lhs.refs == rhs.refs
+            && lhs.currentBranch == rhs.currentBranch
+            && lhs.isSelected == rhs.isSelected
+            && lhs.graphStyle == rhs.graphStyle
+            && lhs.isHeadCommit == rhs.isHeadCommit
+            && lhs.dimmed == rhs.dimmed
+            && (lhs.onBranchDrop == nil) == (rhs.onBranchDrop == nil)
+            && (lhs.onFilterByAuthor == nil) == (rhs.onFilterByAuthor == nil)
+    }
+
     let commit: Commit
     let layout: GraphRowLayout
     let maxLanes: Int

@@ -22,12 +22,15 @@ struct CommitRowChips: View {
     @State private var showHiddenRefs = false
 
     var body: some View {
+        // Filter + sort once per body; the visible / hidden / overflow
+        // helpers each re-sorted the refs before.
+        let split = splitRefs
         HStack(spacing: Spacing.s4) {
-            ForEach(visibleRefs) { ref in
+            ForEach(split.visible) { ref in
                 chipView(for: ref)
             }
-            if let extra = overflowCount {
-                overflowPill(count: extra)
+            if !split.hidden.isEmpty {
+                overflowPill(hidden: split.hidden)
             }
             Spacer(minLength: 0)
         }
@@ -106,21 +109,17 @@ struct CommitRowChips: View {
         return 3
     }
 
-    private var visibleRefs: [GitRef] {
+    private var splitRefs: (visible: [GitRef], hidden: [GitRef]) {
+        let sorted = sortedRefs
         let limit = max(1, maxVisible)
-        return sortedRefs.count <= limit ? sortedRefs : Array(sortedRefs.prefix(max(1, limit - 1)))
-    }
-
-    private var hiddenRefs: [GitRef] {
-        Array(sortedRefs.dropFirst(visibleRefs.count))
-    }
-
-    private var overflowCount: Int? {
-        hiddenRefs.isEmpty ? nil : hiddenRefs.count
+        guard sorted.count > limit else { return (sorted, []) }
+        let shown = max(1, limit - 1)
+        return (Array(sorted.prefix(shown)), Array(sorted.dropFirst(shown)))
     }
 
     @ViewBuilder
-    private func overflowPill(count: Int) -> some View {
+    private func overflowPill(hidden: [GitRef]) -> some View {
+        let count = hidden.count
         Button {
             showHiddenRefs.toggle()
         } label: {
@@ -144,11 +143,11 @@ struct CommitRowChips: View {
             if hovering { showHiddenRefs = true }
         }
         .popover(isPresented: $showHiddenRefs, arrowEdge: .bottom) {
-            hiddenRefsPopover
+            hiddenRefsPopover(hidden)
         }
     }
 
-    private var hiddenRefsPopover: some View {
+    private func hiddenRefsPopover(_ hiddenRefs: [GitRef]) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s6) {
             Text("\(hiddenRefs.count) more")
                 .textRole(.caption, weight: .semibold)

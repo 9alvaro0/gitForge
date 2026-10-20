@@ -402,11 +402,15 @@ struct HistoryView: View {
     private var searchMatcher: ((Commit) -> Bool)? {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !query.isEmpty else { return nil }
+        // Case-insensitive search instead of `lowercased()` per field: this
+        // runs over the whole log for the match count and per visible row on
+        // every render, and each `lowercased()` allocated a new string.
+        // Shas are already lowercase hex.
         return { commit in
-            commit.subject.lowercased().contains(query)
-                || commit.authorName.lowercased().contains(query)
-                || commit.authorEmail.lowercased().contains(query)
-                || commit.sha.lowercased().hasPrefix(query)
+            commit.subject.range(of: query, options: .caseInsensitive) != nil
+                || commit.authorName.range(of: query, options: .caseInsensitive) != nil
+                || commit.authorEmail.range(of: query, options: .caseInsensitive) != nil
+                || commit.sha.hasPrefix(query)
         }
     }
 
