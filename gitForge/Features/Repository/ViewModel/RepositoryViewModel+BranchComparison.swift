@@ -38,6 +38,8 @@ extension RepositoryViewModel {
         do {
             try await cli.pushBranch(ref.name, remote: remote, setUpstream: ref.upstream == nil)
             await loadRefs()
+            operationSuccess = .push(branch: ref.name, remote: remote, ahead: ref.ahead ?? 0,
+                                     firstPush: ref.upstream == nil, forced: false)
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
