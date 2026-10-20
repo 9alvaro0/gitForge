@@ -73,6 +73,8 @@ The full action set is also exposed through the native menu bar (File / View / R
 
 ## Development
 
+Want to contribute? See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ```bash
 open gitForge.xcodeproj
 ```
