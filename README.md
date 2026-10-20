@@ -1,10 +1,46 @@
+<div align="center">
+
+<img src="docs/assets/icon-512.png" width="128" height="128" alt="gitForge app icon">
+
 # gitForge
 
-A modern, native macOS Git client built with SwiftUI.
+**A modern, native Git client for macOS, built with SwiftUI.**
 
-**Website:** [9alvaro0.github.io/gitForge](https://9alvaro0.github.io/gitForge/)
+Opinionated and focused. Like Fork but native and modern, like GitKraken without the bloat.
 
-> Opinionated and focused. Like Fork but native and modern, like GitKraken without the bloat.
+[![Latest release](https://img.shields.io/github/v/release/9alvaro0/gitForge?label=release&color=orange)](https://github.com/9alvaro0/gitForge/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/9alvaro0/gitForge/total?color=blue)](https://github.com/9alvaro0/gitForge/releases)
+![macOS 26.1+](https://img.shields.io/badge/macOS-26.1%2B-black?logo=apple)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+[![License: MIT](https://img.shields.io/github/license/9alvaro0/gitForge?color=green)](LICENSE)
+
+[**Download**](https://github.com/9alvaro0/gitForge/releases/latest) · [**Website**](https://9alvaro0.github.io/gitForge/) · [**Release notes**](https://github.com/9alvaro0/gitForge/releases) · [**Roadmap**](https://github.com/9alvaro0/gitForge/issues)
+
+<br>
+
+<img src="docs/assets/screenshots/history.jpg" alt="gitForge History: the repository and branch tree, a commit graph with a lane for every branch, the selected commit's details, and its side-by-side diff with syntax highlighting">
+
+</div>
+
+<table>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <img src="docs/assets/screenshots/changes.jpg" alt="gitForge Changes: unstaged and staged files, a split diff with an Unstage hunk button, and the commit composer"><br>
+      <b>Stage what you mean</b><br>
+      <sub>By file, hunk or single line.</sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="docs/assets/screenshots/conflicts.jpg" alt="gitForge conflict resolver: ours and theirs side by side with buttons to use ours, theirs or both"><br>
+      <b>Resolve in place</b><br>
+      <sub>Merge, rebase, cherry-pick, revert and stash conflicts.</sub>
+    </td>
+    <td width="33%" align="center" valign="top">
+      <img src="docs/assets/screenshots/palette.jpg" alt="gitForge command palette over the History view, listing matching actions, branches and commits"><br>
+      <b>One keystroke away</b><br>
+      <sub>Actions, branches, commits and files with <code>⌘K</code>.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Download
 
@@ -37,6 +73,9 @@ Not supported (yet): interactive rebase, LFS, submodule management, creating or 
 
 ## Keyboard Shortcuts
 
+<details>
+<summary>Show all shortcuts</summary>
+
 | Shortcut | Action |
 | --- | --- |
 | `⌘O` | Open Repository… |
@@ -55,6 +94,8 @@ Not supported (yet): interactive rebase, LFS, submodule management, creating or 
 | `⌘,` | Settings |
 | `↑` / `↓` | Move through commits (History table focused) |
 | `↑` / `↓` | Move through files in any file list (Changes, commit detail, stash, pull request, conflicts) |
+
+</details>
 
 The full action set is also exposed through the native menu bar (File / View / Repository / Help).
 
