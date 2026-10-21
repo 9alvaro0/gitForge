@@ -28,8 +28,26 @@ struct GraphRowGeometryTests {
 
     private static func segments(_ row: GraphRow, in geometry: GraphRowGeometry = geometry()) -> [(GraphSegment, GraphStep)] {
         var all: [(GraphSegment, GraphStep)] = []
-        geometry.forEachSegment(of: row) { all.append(($0, $1)) }
+        geometry.forEachSegment(of: row) { segment, step, _ in all.append((segment, step)) }
         return all
+    }
+
+    /// Every half of `row` with the dash phase it starts with.
+    private static func phasedSegments(_ row: GraphRow, in geometry: GraphRowGeometry = geometry())
+        -> [(segment: GraphSegment, step: GraphStep, dashPhase: CGFloat)] {
+        var all: [(segment: GraphSegment, step: GraphStep, dashPhase: CGFloat)] = []
+        geometry.forEachSegment(of: row) { segment, step, dashPhase in all.append((segment, step, dashPhase)) }
+        return all
+    }
+
+    /// Whether `a` and `b` are the same point of a dash pattern of `period`
+    /// (they may differ by whole periods), within 0.01.
+    private static func expectSamePhase(_ a: CGFloat, _ b: CGFloat, period: CGFloat, _ message: String = "",
+                                        sourceLocation: SourceLocation = #_sourceLocation) {
+        var difference = (a - b).truncatingRemainder(dividingBy: period)
+        if difference < 0 { difference += period }
+        #expect(min(difference, period - difference) < 0.01, "\(a) vs \(b) mod \(period) \(message)",
+                sourceLocation: sourceLocation)
     }
 
     private static func curve(_ bezier: GraphCurve.Bezier) -> GraphSegment {
@@ -118,14 +136,14 @@ struct GraphRowGeometryTests {
         }
     }
 
-    @Test("A stash's dashed half arrives from the joint itself, keeping its dash's phase there; it still leaves past the joint")
+    @Test("A stash's dashed halves meet exactly on the joint, neither running past it")
     func stashHalves() {
         let geometry = Self.geometry()
         for step in [Self.step(1, 0, .stash), Self.step(0, 3, .stash)] {
             let upper = Self.segments(Self.row(below: [step]))[0].0
             let lower = Self.segments(Self.row(above: [step]))[0].0
             #expect(lower.samples.first!.y == geometry.jointAbove)
-            #expect(abs(upper.samples.last!.y - geometry.jointBelow - GraphRowGeometry.overlap(for: .regular)) < 1e-9)
+            #expect(upper.samples.last!.y == geometry.jointBelow)
             Self.expectJoin(upper, lower, of: step, in: geometry)
         }
     }
@@ -156,6 +174,124 @@ struct GraphRowGeometryTests {
         #expect(upper.last == CGPoint(x: lower[0].x, y: lower[0].y + geometry.pitch))
     }
 
+    @Test("Half a pitch holds a whole number of dash periods", arguments: [(29.0, 7.25), (23.0, 5.75)])
+    func dashPeriod(pitch: CGFloat, period: CGFloat) {
+        #expect(GraphRowGeometry.dashPeriod(pitch: pitch) == period)
+    }
+
+    @Test("The period stays near a 3–3 dash and half a pitch always holds a whole number of them",
+          arguments: Array(24...80))
+    func dashPeriodHoldsWholePeriods(pitch: Int) {
+        let pitch = CGFloat(pitch)
+        let period = GraphRowGeometry.dashPeriod(pitch: pitch)
+        #expect(period >= 4.5 && period <= 7.5, "\(period)")
+        let count = pitch / 2 / period
+        #expect(abs(count - count.rounded()) < 1e-9, "\(count)")
+    }
+
+    @Test("A geometry's dash period is the one of its own pitch", arguments: [DensityMetrics.regular, .compact])
+    func geometryDashPeriod(density: DensityMetrics) {
+        let geometry = Self.geometry(density)
+        #expect(geometry.dashPeriod == GraphRowGeometry.dashPeriod(pitch: geometry.pitch))
+        #expect(geometry.dashPeriod == (density == .regular ? 7.25 : 5.75))
+    }
+
+    @Test("Stash and ghost steps are dashed; solid ones are not")
+    func isDashed() {
+        #expect(GraphRowGeometry.isDashed(Self.step(0, 1, .stash)))
+        #expect(GraphRowGeometry.isDashed(Self.step(0, 0, .stash)))
+        #expect(GraphRowGeometry.isDashed(Self.step(0, 1, .ghost)))
+        #expect(GraphRowGeometry.isDashed(Self.step(2, 2, .ghost)))
+        #expect(!GraphRowGeometry.isDashed(Self.step(0, 1)))
+        #expect(!GraphRowGeometry.isDashed(Self.step(2, 2)))
+    }
+
+    @Test("A half starts its dash at 0, unless it is a curve arriving: that one carries on from the half that left",
+          arguments: [DensityMetrics.regular, .compact], [GraphStroke.solid, .ghost, .stash])
+    func dashPhases(density: DensityMetrics, stroke: GraphStroke) {
+        let geometry = Self.geometry(density)
+        let period = geometry.dashPeriod
+        let row = Self.row(above: [Self.step(1, 0, stroke), Self.step(2, 3, stroke), Self.step(4, 4, stroke)],
+                           below: [Self.step(0, 2, stroke), Self.step(3, 1, stroke), Self.step(5, 5, stroke)])
+        for (segment, step, phase) in Self.phasedSegments(row, in: geometry) {
+            let arrivesBent = step.from != step.to && row.stepsAbove.contains(step)
+            if GraphRowGeometry.isDashed(step) && arrivesBent {
+                // The mirror of this half left the row above with its dash from 0: this one picks up there.
+                #expect(phase >= 0 && phase < period, "\(step) \(phase)")
+                Self.expectSamePhase(phase, segment.length, period: period, "\(step)")
+            } else {
+                #expect(phase == 0, "\(step) \(phase)")
+            }
+        }
+    }
+
+    @Test("The dash continues across the joint for straights and S curves up to six columns",
+          arguments: [DensityMetrics.regular, .compact], [0, 1, 2, 3, 6])
+    func dashAcrossJoint(density: DensityMetrics, width: Int) {
+        // The upper row leaves column 0 for column `width` dashed; the lower row arrives with it.
+        let geometry = Self.geometry(density)
+        let step = GraphStep(from: 0, to: width, color: .pool(0), stroke: .ghost)
+        let upper = Self.phasedSegments(Self.row(below: [step]), in: geometry)[0]
+        let lower = Self.phasedSegments(Self.row(above: [step]), in: geometry)[0]
+        #expect(upper.dashPhase == 0)
+        Self.expectSamePhase(upper.dashPhase + upper.segment.length, lower.dashPhase, period: geometry.dashPeriod,
+                             "width \(width)")
+    }
+
+    @Test("The dash continues across the joint whichever way the S leans and for every dashed stroke",
+          arguments: [DensityMetrics.regular, .compact], [GraphStroke.ghost, .stash])
+    func dashAcrossJointBothWays(density: DensityMetrics, stroke: GraphStroke) {
+        let geometry = Self.geometry(density)
+        for (from, to) in [(0, 1), (1, 0), (4, 1), (5, 0), (1, 6), (6, 0), (3, 3)] {
+            let step = Self.step(from, to, stroke)
+            let upper = Self.phasedSegments(Self.row(below: [step]), in: geometry)[0]
+            let lower = Self.phasedSegments(Self.row(above: [step]), in: geometry)[0]
+            Self.expectSamePhase(upper.dashPhase + upper.segment.length, lower.dashPhase, period: geometry.dashPeriod,
+                                 "\(step)")
+        }
+    }
+
+    @Test("In the gitflow graph, drawn dashed, the dash continues across every joint",
+          arguments: [DensityMetrics.regular, .compact])
+    func gitflowDashAcrossJoints(density: DensityMetrics) {
+        let refs = GraphFixture.gitflowRefs(head: "feature/cart")
+        let rows = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.gitflow, headSha: "cartPayment",
+                                                       refs: refs, paletteSize: 4)).rows
+        func dashed(_ steps: [GraphStep]) -> [GraphStep] {
+            steps.map { GraphStep(from: $0.from, to: $0.to, color: $0.color, stroke: .ghost) }
+        }
+        let geometry = Self.geometry(density)
+        var bent = 0
+        for boundary in 0..<(rows.count - 1) {
+            let leaving = Self.phasedSegments(Self.row(below: dashed(rows[boundary].stepsBelow)), in: geometry)
+            let arriving = Self.phasedSegments(Self.row(above: dashed(rows[boundary + 1].stepsAbove)), in: geometry)
+            for upper in leaving {
+                guard let lower = arriving.first(where: { $0.step == upper.step }) else { continue }
+                bent += upper.step.from == upper.step.to ? 0 : 1
+                Self.expectSamePhase(upper.dashPhase + upper.segment.length, lower.dashPhase,
+                                     period: geometry.dashPeriod, "boundary \(boundary) \(upper.step)")
+            }
+        }
+        #expect(bent > 0, "the graph should have bent steps to test")
+    }
+
+    @Test("Dashed halves end exactly on the joint; solid ones still overlap it",
+          arguments: [DensityMetrics.regular, .compact], [true, false])
+    func dashedNoOverlap(density: DensityMetrics, overlapsJoints: Bool) {
+        let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
+        let solidOverlap = overlapsJoints ? GraphRowGeometry.overlap(for: density.graph) : 0
+        for (from, to) in [(0, 2), (3, 1), (0, 1), (6, 0)] {
+            for stroke in [GraphStroke.stash, .ghost, .solid] {
+                let step = Self.step(from, to, stroke)
+                let upper = Self.segments(Self.row(below: [step]), in: geometry)[0].0
+                let lower = Self.segments(Self.row(above: [step]), in: geometry)[0].0
+                let past = GraphRowGeometry.isDashed(step) ? 0 : solidOverlap
+                #expect(abs(upper.samples.last!.y - (geometry.jointBelow + past)) < 1e-9, "\(step) leaving")
+                #expect(abs(lower.samples.first!.y - (geometry.jointAbove - past)) < 1e-9, "\(step) arriving")
+            }
+        }
+    }
+
     @Test("In the gitflow graph every half a row leaves joins the half the next row arrives with",
           arguments: [DensityMetrics.regular, .compact], [true, false])
     func gitflowJoins(density: DensityMetrics, overlapsJoints: Bool) {
@@ -183,9 +319,10 @@ struct GraphRowGeometryTests {
     /// A straight step: two verticals meeting on the joint. A curve: both
     /// halves on the step's one S, from the upper row's centre and to the
     /// lower row's, each running past the joint by the overlap (none for a
-    /// dimmed row, and none for a stash's dashed arriving half). Running past
-    /// by half the stroke or more also puts everything a half leaves to the
-    /// other row, stroke included, on the other row's side of the joint.
+    /// dimmed row, and none for a dashed step, which would draw the overlap
+    /// twice over). Running past by half the stroke or more also puts
+    /// everything a half leaves to the other row, stroke included, on the
+    /// other row's side of the joint.
     private static func expectJoin(_ upper: GraphSegment, _ lower: GraphSegment, of step: GraphStep,
                                    in geometry: GraphRowGeometry,
                                    sourceLocation: SourceLocation = #_sourceLocation) {
@@ -210,20 +347,19 @@ struct GraphRowGeometryTests {
         #expect(joint.y == geometry.jointBelow, sourceLocation: sourceLocation)
 
         let halfStroke = style.metrics.edgeWidth / 2
-        let leavingPast = geometry.overlapsJoints ? GraphRowGeometry.overlap(for: style.metrics) : 0
-        let arrivingPast = step.stroke == .stash ? 0 : leavingPast
+        let past = geometry.overlapsJoints && !GraphRowGeometry.isDashed(step)
+            ? GraphRowGeometry.overlap(for: style.metrics) : 0
+        let leavingPast = past, arrivingPast = past
         let upperEnd = upper.samples.last!, lowerStart = lower.samples.first!
         #expect(abs(upperEnd.y - joint.y - leavingPast) < 1e-9, "\(step)", sourceLocation: sourceLocation)
         #expect(abs(joint.y - lowerStart.y - arrivingPast) < 1e-9, "\(step)", sourceLocation: sourceLocation)
-        if geometry.overlapsJoints {
+        if geometry.overlapsJoints && !GraphRowGeometry.isDashed(step) {
             // Past the joint by half the stroke, downwards and along the S.
             #expect(upperEnd.y - joint.y >= halfStroke, "\(step)", sourceLocation: sourceLocation)
             #expect(hypot(upperEnd.x - joint.x, upperEnd.y - joint.y) >= halfStroke, sourceLocation: sourceLocation)
-            if step.stroke != .stash {
-                #expect(joint.y - lowerStart.y >= halfStroke, "\(step)", sourceLocation: sourceLocation)
-                #expect(hypot(lowerStart.x - joint.x, lowerStart.y - joint.y) >= halfStroke,
-                        sourceLocation: sourceLocation)
-            }
+            #expect(joint.y - lowerStart.y >= halfStroke, "\(step)", sourceLocation: sourceLocation)
+            #expect(hypot(lowerStart.x - joint.x, lowerStart.y - joint.y) >= halfStroke,
+                    sourceLocation: sourceLocation)
         }
     }
 }
@@ -234,6 +370,15 @@ private extension GraphSegment {
         switch self {
         case let .line(from, to): [from, to]
         case let .curve(start, control1, control2, end): [start, control1, control2, end]
+        }
+    }
+
+    /// The length of the half: a line's distance, a curve's arc length.
+    var length: CGFloat {
+        switch self {
+        case let .line(from, to): hypot(to.x - from.x, to.y - from.y)
+        case let .curve(start, control1, control2, end):
+            GraphCurve.arcLength((start: start, control1: control1, control2: control2, end: end))
         }
     }
 

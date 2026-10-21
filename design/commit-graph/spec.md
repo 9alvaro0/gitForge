@@ -149,7 +149,7 @@ Además aparecen, en fantasma, las ramas que solo existen en el servidor, con co
 
 - Un commit es fantasma si es alcanzable desde alguna rama remota cargada y no lo es desde HEAD, una rama local ni una stash. **(Decisión mía)** Los tags no cuentan: un CI que etiqueta releases en el servidor no debe ocultar el fantasma tras un fetch, y un commit al que solo llega un tag local no es fantasma porque no viene del servidor.
 - Se calcula dentro del motor en una pasada, con dos marcas que se propagan de hijos a padres: "alcanzable desde lo local" y "alcanzable desde una remota". El orden topológico garantiza que los hijos llegan antes.
-- Aspecto: línea discontinua (3–3) al 60 % de opacidad, nodo hueco discontinuo, asunto en `textTertiary` y chip remoto con borde discontinuo.
+- Aspecto: línea discontinua al 60 % de opacidad, nodo hueco discontinuo, asunto en `textTertiary` y chip remoto con borde discontinuo. **(Decidido en G2)** El discontinuo es de unos 3–3, con el periodo ajustado para que media separación entre filas contenga un número entero de periodos (7,25 pt en regular y 5,75 en compacto). Así el patrón sigue de una fila a la siguiente sin saltos, y las mitades discontinuas no se solapan en las uniones.
 - Los commits fantasma se seleccionan y muestran su detalle igual que cualquier otro. El fetch ya los descargó.
 - El fetch automático existente mantiene el fantasma al día.
 

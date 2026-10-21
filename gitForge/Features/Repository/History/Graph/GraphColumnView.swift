@@ -127,8 +127,6 @@ nonisolated struct GraphRowPainter {
     /// `GraphRowGeometry.overlapsJoints`.
     var overlapsJoints = true
 
-    /// Dash of the side step from a stash into its commit.
-    private static let stashDash: [CGFloat] = [3, 3]
     /// Dash of the stash node's square.
     private static let stashNodeDash: [CGFloat] = [2.5, 2]
 
@@ -142,14 +140,24 @@ nonisolated struct GraphRowPainter {
         // or at the row centre (under the node, or where a line passes
         // through with a vertical tangent), and the canvas no longer clips a
         // cap that would reach past a joint. Round caps would also eat the
-        // gaps of a 3–3 dash.
+        // gaps of a dash.
         let solid = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round)
-        let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: Self.stashDash)
         let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints)
-        geometry.forEachSegment(of: row) { segment, step in
+        // A dashed half is a dash and a gap of half the geometry's period each
+        // (`GraphRowGeometry.dashPeriod`), starting at the phase the geometry
+        // gives it, so the pattern runs on across the joints between rows.
+        // The pattern is built once, the first time a half needs it.
+        var dash: [CGFloat] = []
+        geometry.forEachSegment(of: row) { segment, step, dashPhase in
             // `.ghost` is drawn solid until its own style lands (G2).
+            guard step.stroke == .stash else {
+                context.stroke(segment.path, with: .color(style.color(for: step.color)), style: solid)
+                return
+            }
+            if dash.isEmpty { dash = [geometry.dashPeriod / 2, geometry.dashPeriod / 2] }
             context.stroke(segment.path, with: .color(style.color(for: step.color)),
-                           style: step.stroke == .stash ? dashed : solid)
+                           style: StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round,
+                                              dash: dash, dashPhase: dashPhase))
         }
     }
 

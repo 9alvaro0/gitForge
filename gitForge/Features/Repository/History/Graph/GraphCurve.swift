@@ -72,6 +72,46 @@ nonisolated enum GraphCurve {
         blossom(curve, t, t, t)
     }
 
+    /// The length of `curve`, or of any piece of it (`piece(of:from:to:)`),
+    /// within 0.01 pt for an S up to twenty columns wide (the tests check it
+    /// against a fine polyline). Allocation-free: it integrates the curve's
+    /// speed, `|B'(t)|`, with two panels of 8-point Gauss–Legendre.
+    static func arcLength(_ curve: Bezier) -> CGFloat {
+        let halfPanel = 1 / CGFloat(2 * panels)
+        var length: CGFloat = 0
+        for panel in 0..<panels {
+            let middle = CGFloat(2 * panel + 1) * halfPanel
+            for index in 0..<gaussNodes.count {
+                let offset = halfPanel * gaussNodes[index]
+                length += gaussWeights[index] * halfPanel
+                    * (speed(of: curve, at: middle - offset) + speed(of: curve, at: middle + offset))
+            }
+        }
+        return length
+    }
+
+    /// Panels `arcLength` splits `0...1` into. One already gives 0.01 pt for a
+    /// half of an S up to thirty columns wide, but only ten for the whole S.
+    private static let panels = 2
+    /// The positive nodes of the 8-point Gauss–Legendre rule on `-1...1`; the
+    /// negative ones mirror them.
+    private static let gaussNodes: [CGFloat] = [
+        0.1834346424956498, 0.5255324099163290, 0.7966664774136267, 0.9602898564975363,
+    ]
+    /// The weight of each node and of its mirror.
+    private static let gaussWeights: [CGFloat] = [
+        0.3626837833783620, 0.3137066458778873, 0.2223810344533745, 0.1012285362903763,
+    ]
+
+    /// `|B'(t)|`: the derivative is the quadratic Bézier of the control polygon's edges, times 3.
+    private static func speed(of c: Bezier, at t: CGFloat) -> CGFloat {
+        let u = 1 - t
+        let (a, b, d) = (3 * u * u, 6 * u * t, 3 * t * t)
+        let dx = a * (c.control1.x - c.start.x) + b * (c.control2.x - c.control1.x) + d * (c.end.x - c.control2.x)
+        let dy = a * (c.control1.y - c.start.y) + b * (c.control2.y - c.control1.y) + d * (c.end.y - c.control2.y)
+        return hypot(dx, dy)
+    }
+
     /// De Casteljau with a different parameter at each level.
     private static func blossom(_ c: Bezier, _ u: CGFloat, _ v: CGFloat, _ w: CGFloat) -> CGPoint {
         let a = lerp(c.start, c.control1, u), b = lerp(c.control1, c.control2, u), d = lerp(c.control2, c.end, u)
