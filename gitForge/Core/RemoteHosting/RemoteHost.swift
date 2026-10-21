@@ -19,6 +19,14 @@ enum RemoteProvider: String, Sendable, Equatable, CaseIterable {
         case .gitlab: "Merge request"
         }
     }
+
+    /// How the host writes a PR/MR number: `#42` on GitHub, `!42` on GitLab.
+    nonisolated func reference(_ number: Int) -> String {
+        switch self {
+        case .github: "#\(number)"
+        case .gitlab: "!\(number)"
+        }
+    }
 }
 
 /// Parsed coordinates of a hosted repository: host (e.g. `github.com` or a
