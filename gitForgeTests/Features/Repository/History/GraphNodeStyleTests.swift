@@ -5,8 +5,8 @@ import Testing
 @Suite("Graph — node style")
 struct GraphNodeStyleTests {
 
-    private static func row(_ kind: GraphNode.Kind) -> GraphRow {
-        GraphRow(node: GraphNode(column: 0, kind: kind, color: .neutral, isGhost: false),
+    private static func row(_ kind: GraphNode.Kind, isGhost: Bool = false) -> GraphRow {
+        GraphRow(node: GraphNode(column: 0, kind: kind, color: .neutral, isGhost: isGhost),
                  stepsAbove: [], stepsBelow: [], width: 1)
     }
 
@@ -18,5 +18,14 @@ struct GraphNodeStyleTests {
         #expect(GraphNodeStyle.for(Self.row(.merge), isHeadCommit: true) == .head)
         #expect(GraphNodeStyle.for(Self.row(.stash), isHeadCommit: true) == .stash)
         #expect(GraphNodeStyle.for(Self.row(.stash), isHeadCommit: false) == .stash)
+    }
+
+    @Test("A ghost row draws the ghost node, merge or not; stash and HEAD still win")
+    func ghostPrecedence() {
+        #expect(GraphNodeStyle.for(Self.row(.commit, isGhost: true), isHeadCommit: false) == .ghost)
+        #expect(GraphNodeStyle.for(Self.row(.merge, isGhost: true), isHeadCommit: false) == .ghost)
+        #expect(GraphNodeStyle.for(Self.row(.stash, isGhost: false), isHeadCommit: true) == .stash)
+        #expect(GraphNodeStyle.for(Self.row(.stash, isGhost: true), isHeadCommit: false) == .stash)
+        #expect(GraphNodeStyle.for(Self.row(.commit, isGhost: true), isHeadCommit: true) == .head)
     }
 }

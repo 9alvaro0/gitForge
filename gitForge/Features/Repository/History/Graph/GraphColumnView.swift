@@ -11,17 +11,22 @@ nonisolated struct GraphStyle: Equatable, Sendable {
     let dark: Bool
     /// Fill behind hollow nodes; matches the table background.
     let nodeFill: Color
+    /// How opaque the line and node of a ghost, a commit that only exists on
+    /// the server, are drawn (§4.3).
+    let ghostOpacity: Double
     /// Every role's colour, resolved here so drawing a step is a lookup and
     /// never rebuilds the pool.
     private let palette: Palette
 
     init(metrics: GraphMetrics = .regular, accent: AccentSwatch = .violet,
-         accentColor: Color = .accentColor, dark: Bool = true, nodeFill: Color = .black) {
+         accentColor: Color = .accentColor, dark: Bool = true, nodeFill: Color = .black,
+         ghostOpacity: Double = GraphStyle.translucentGhostOpacity) {
         self.metrics = metrics
         self.accent = accent
         self.accentColor = accentColor
         self.dark = dark
         self.nodeFill = nodeFill
+        self.ghostOpacity = ghostOpacity
         palette = Palette(accent: accent, accentColor: accentColor, dark: dark)
     }
 
@@ -35,6 +40,16 @@ nonisolated struct GraphStyle: Equatable, Sendable {
         case .stash, .neutral: palette.muted
         case .pool(let index): palette.poolColor(index)
         }
+    }
+
+    /// How translucent ghosts are (§5.3).
+    static let translucentGhostOpacity = 0.6
+
+    /// The opacity ghosts are drawn with: translucent, unless Increase
+    /// Contrast or Reduce Transparency is on, which make them opaque (§5.7).
+    /// Their dashes and hollow node still tell them apart.
+    static func ghostOpacity(increasedContrast: Bool, reduceTransparency: Bool) -> Double {
+        increasedContrast || reduceTransparency ? 1 : translucentGhostOpacity
     }
 
     func laneCenter(_ lane: Int) -> CGFloat {
@@ -131,6 +146,9 @@ nonisolated struct GraphRowPainter {
     /// Dash of the stash node's square.
     private static let stashNodeDash: [CGFloat] = [2.5, 2]
 
+    /// Stroke width of the ghost node's ring.
+    private static let ghostNodeWidth: CGFloat = 1.5
+
     /// The row's centre, where its node sits.
     private var center: CGFloat { size.height / 2 }
 
@@ -151,29 +169,38 @@ nonisolated struct GraphRowPainter {
         // half does.
         let band = StrokeStyle(lineWidth: edge + 2 * metrics.crossingGap, lineCap: .butt, lineJoin: .round)
         let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints)
-        // A dashed half is a dash and a gap of half the geometry's period each
-        // (`GraphRowGeometry.dashPeriod`), starting at the phase the geometry
-        // gives it, so the pattern runs on across the joints between rows.
-        // The pattern is built once, the first time a half needs it.
+        // A dashed half (a stash's side step, a ghost line) is a dash and a gap
+        // of half the geometry's period each (`GraphRowGeometry.dashPeriod`),
+        // starting at the phase the geometry gives it, so the pattern runs on
+        // across the joints between rows. The pattern is built once, the first
+        // time a half needs it.
         var dash: [CGFloat] = []
         // Every half goes into one layer, and the band erases only in it:
         // what the row drew before, never the row's background (its
         // selection, hover or drop highlight) behind the canvas.
         context.drawLayer { layer in
             let eraser = crossingEraser(for: row, geometry: geometry, in: layer)
+            let layerOpacity = layer.opacity
             geometry.forEachSegment(of: row) { segment, step, dashPhase in
                 let path = segment.path
                 eraser?.stroke(path, with: .color(.black), style: band)
                 let shading = GraphicsContext.Shading.color(style.color(for: step.color))
-                // `.ghost` is drawn solid until its own style lands (G2).
-                guard step.stroke == .stash else {
+                guard GraphRowGeometry.isDashed(step) else {
                     layer.stroke(path, with: shading, style: solid)
                     return
                 }
                 if dash.isEmpty { dash = [geometry.dashPeriod / 2, geometry.dashPeriod / 2] }
-                layer.stroke(path, with: shading, style: StrokeStyle(lineWidth: edge, lineCap: .butt,
-                                                                     lineJoin: .round, dash: dash,
-                                                                     dashPhase: dashPhase))
+                let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: dash,
+                                         dashPhase: dashPhase)
+                // A ghost is translucent. The layer's opacity does it, for this
+                // stroke only, instead of building a translucent colour per step.
+                guard step.stroke == .ghost else {
+                    layer.stroke(path, with: shading, style: dashed)
+                    return
+                }
+                layer.opacity = layerOpacity * style.ghostOpacity
+                layer.stroke(path, with: shading, style: dashed)
+                layer.opacity = layerOpacity
             }
         }
     }
@@ -211,7 +238,7 @@ nonisolated struct GraphRowPainter {
         let outer: CGFloat = switch shape {
         case .head: m.headOuterRadius
         case .stash: m.stashSize / 2
-        case .commit, .merge: m.nodeRadius
+        case .commit, .merge, .ghost: m.nodeRadius
         }
         func circle(_ r: CGFloat) -> Path {
             Path(ellipseIn: CGRect(x: nodeCenter.x - r, y: nodeCenter.y - r, width: r * 2, height: r * 2))
@@ -235,6 +262,17 @@ nonisolated struct GraphRowPainter {
             context.fill(ring, with: .color(style.nodeFill))
             context.stroke(ring, with: .color(color), lineWidth: 1.5)
             context.fill(circle(m.headInnerRadius), with: .color(color))
+        case .ghost:
+            // The commit node's outline, hollow and dashed (§5.3): the path
+            // runs along the middle of the stroke, so the ring's outer edge is
+            // the commit node's radius. Six equal dashes round it.
+            let width = Self.ghostNodeWidth
+            let radius = m.nodeRadius - width / 2
+            let dash = 2 * .pi * radius / 12
+            let ring = circle(radius)
+            context.fill(ring, with: .color(style.nodeFill))
+            context.stroke(ring, with: .color(color.opacity(style.ghostOpacity)),
+                           style: StrokeStyle(lineWidth: width, dash: [dash, dash]))
         case .stash:
             let side = m.stashSize
             let square = Path(
@@ -259,6 +297,36 @@ nonisolated struct GraphRowPainter {
                                     isHeadCommit: index == 0, isSelected: index == 3, isDimmed: dimmed)
                         .frame(height: 28)
                         .opacity(dimmed ? 0.35 : 1)
+                }
+            }
+        }
+    }
+    .padding()
+    .background(Color.black)
+}
+
+#Preview("Ghosts") {
+    // Commits that only exist on the server: a dashed line and a hollow dashed
+    // node, a merge too. The right-hand copy is what Increase Contrast and
+    // Reduce Transparency make of them: opaque, still dashed and hollow.
+    let head = GraphStep(from: 0, to: 0, color: .head, stroke: .solid)
+    let line = GraphStep(from: 1, to: 1, color: .pool(0), stroke: .ghost)
+    let join = GraphStep(from: 1, to: 0, color: .pool(0), stroke: .ghost)
+    let rows = [
+        GraphRow(node: GraphNode(column: 1, kind: .commit, color: .pool(0), isGhost: true),
+                 stepsAbove: [], stepsBelow: [head, line], width: 2),
+        GraphRow(node: GraphNode(column: 1, kind: .merge, color: .pool(0), isGhost: true),
+                 stepsAbove: [head, line], stepsBelow: [head, join], width: 2),
+        GraphRow(node: GraphNode(column: 0, kind: .commit, color: .head, isGhost: false),
+                 stepsAbove: [head, join], stepsBelow: [head], width: 2),
+    ]
+    HStack(spacing: 24) {
+        ForEach([GraphStyle.translucentGhostOpacity, 1], id: \.self) { opacity in
+            VStack(spacing: HistoryTableLayout.rowSpacing) {
+                ForEach(rows.indices, id: \.self) { index in
+                    GraphColumnView(row: rows[index], maxLanes: 2, style: GraphStyle(ghostOpacity: opacity),
+                                    rowSpacing: HistoryTableLayout.rowSpacing, isSelected: index == 1)
+                        .frame(height: 28)
                 }
             }
         }

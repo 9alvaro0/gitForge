@@ -5,7 +5,9 @@ import Testing
 
 /// Renders graph rows the way the History table stacks them, over a pure red
 /// background no line is drawn in, and reads their pixels back: where the
-/// crossing gap (§5.2) clears a line, the row's own background shows.
+/// crossing gap (§5.2) clears a line, the row's own background shows. The
+/// ghost tests (§4.3) draw over black instead, so a translucent line reads as
+/// its colour scaled by its opacity.
 ///
 /// Points are in the rendered view's coordinates, from its top-left corner:
 /// the row (or the first of the stacked rows) runs from `y = 0` to its height,
@@ -22,28 +24,32 @@ struct GraphRowRenderTests {
     /// What shows where nothing is drawn.
     private static let background = Pixel(red: 255, green: 0, blue: 0, alpha: 255)
 
-    /// Fixed colours, none of them near red, whatever the system accent is.
-    private static func style(_ metrics: GraphMetrics) -> GraphStyle {
+    /// Fixed colours, none of them near red, whatever the system accent is: HEAD's
+    /// line is pure blue.
+    private static func style(_ metrics: GraphMetrics, ghostOpacity: Double = 0.6) -> GraphStyle {
         GraphStyle(metrics: metrics, accent: .violet, accentColor: Color(red: 0, green: 0, blue: 1), dark: true,
-                   nodeFill: .black)
+                   nodeFill: .black, ghostOpacity: ghostOpacity)
     }
 
-    private static func step(_ from: Int, _ to: Int, _ color: GraphColorRole) -> GraphStep {
-        GraphStep(from: from, to: to, color: color, stroke: .solid)
+    private static func step(_ from: Int, _ to: Int, _ color: GraphColorRole,
+                             stroke: GraphStroke = .solid) -> GraphStep {
+        GraphStep(from: from, to: to, color: color, stroke: stroke)
     }
 
-    private static func row(node column: Int, above: [GraphStep] = [], below: [GraphStep] = []) -> GraphRow {
-        GraphRow(node: GraphNode(column: column, kind: .commit, color: .pool(2), isGhost: false),
+    private static func row(node column: Int, above: [GraphStep] = [], below: [GraphStep] = [],
+                            color: GraphColorRole = .pool(2), isGhost: Bool = false) -> GraphRow {
+        GraphRow(node: GraphNode(column: column, kind: .commit, color: color, isGhost: isGhost),
                  stepsAbove: above, stepsBelow: below, width: lanes)
     }
 
-    /// `rows` stacked with no gap, each `rowHeight` tall, over the background.
+    /// `rows` stacked with no gap, each `rowHeight` tall, over `background`.
     private static func render(_ rows: [GraphRow], metrics: GraphMetrics, rowHeight: CGFloat,
+                               ghostOpacity: Double = 0.6, background: Color = Color(red: 1, green: 0, blue: 0),
                                sourceLocation: SourceLocation = #_sourceLocation) -> Rendering? {
-        let style = style(metrics)
+        let style = style(metrics, ghostOpacity: ghostOpacity)
         let size = CGSize(width: style.gutterWidth(lanes: lanes), height: rowHeight * CGFloat(rows.count))
         return render(ZStack(alignment: .topLeading) {
-            Color(red: 1, green: 0, blue: 0)
+            background
             VStack(spacing: 0) {
                 ForEach(rows.indices, id: \.self) { index in
                     GraphColumnView(row: rows[index], maxLanes: lanes, style: style, rowSpacing: 0)
@@ -221,6 +227,82 @@ struct GraphRowRenderTests {
             #expect(!pixel.isClose(to: Self.background), "\(center): \(pixel)", sourceLocation: sourceLocation)
         }
         #expect(sampled >= 10, "only \(sampled) pixels sampled", sourceLocation: sourceLocation)
+    }
+
+    // MARK: - Ghosts
+
+    private static let black = Pixel(red: 0, green: 0, blue: 0, alpha: 255)
+
+    /// What a ghost drawn in HEAD's colour (pure blue) at `opacity` shows over black.
+    private static func ghostBlue(_ opacity: Double) -> Pixel {
+        Pixel(red: 0, green: 0, blue: UInt8((255 * opacity).rounded()), alpha: 255)
+    }
+
+    @Test("A ghost line is dashed and translucent, and Increase Contrast makes it opaque",
+          arguments: [DensityMetrics.regular, .compact], [0.6, 1.0])
+    func ghostStroke(density: DensityMetrics, opacity: Double) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let style = Self.style(metrics, ghostOpacity: opacity)
+        // A ghost line arrives straight down column 1, from the joint above the row to its centre.
+        let row = Self.row(node: 0, above: [Self.step(1, 1, .head, stroke: .ghost)])
+        guard let image = Self.render([row], metrics: metrics, rowHeight: rowHeight, ghostOpacity: opacity,
+                                      background: .black) else { return }
+        let period = GraphRowGeometry.dashPeriod(pitch: rowHeight)
+        let periods = Int(((rowHeight / 2) / period).rounded())
+        #expect(periods >= 2, "\(periods) periods")
+        let x = style.laneCenter(1)
+        for index in 0..<periods {
+            // The middle of the dash, then of the gap after it: the pattern starts with a dash on the joint and
+            // runs on, half a period each.
+            let dash = CGPoint(x: x, y: (CGFloat(index) + 0.25) * period)
+            let gap = CGPoint(x: x, y: (CGFloat(index) + 0.75) * period)
+            #expect(image.pixel(at: dash).isClose(to: Self.ghostBlue(opacity)), "dash \(dash): \(image.pixel(at: dash))")
+            #expect(image.pixel(at: gap).isClose(to: Self.black), "gap \(gap): \(image.pixel(at: gap))")
+        }
+    }
+
+    @Test("A solid line next to a ghost one keeps its full colour", arguments: [DensityMetrics.regular, .compact])
+    func solidLineStaysOpaque(density: DensityMetrics) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let row = Self.row(node: 0, above: [Self.step(1, 1, .head, stroke: .ghost), Self.step(2, 2, .head)])
+        guard let image = Self.render([row], metrics: metrics, rowHeight: rowHeight, background: .black) else { return }
+        let point = CGPoint(x: Self.style(metrics).laneCenter(2), y: rowHeight / 4)
+        #expect(image.pixel(at: point).isClose(to: Self.ghostBlue(1)), "\(point): \(image.pixel(at: point))")
+    }
+
+    @Test("A ghost node is a hollow ring of six dashes at the commit node's size, translucent unless told otherwise",
+          arguments: [DensityMetrics.regular, .compact], [0.6, 1.0])
+    func ghostNode(density: DensityMetrics, opacity: Double) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let style = Self.style(metrics, ghostOpacity: opacity)
+        let row = Self.row(node: 1, color: .head, isGhost: true)
+        // Over black, which is also the node fill, so a stroke over either side of the path's edge reads alike.
+        guard let image = Self.render([row], metrics: metrics, rowHeight: rowHeight, ghostOpacity: opacity,
+                                      background: .black),
+              let overRed = Self.render([row], metrics: metrics, rowHeight: rowHeight, ghostOpacity: opacity)
+        else { return }
+        let center = CGPoint(x: style.laneCenter(1), y: rowHeight / 2)
+        func point(radius: CGFloat, degrees: CGFloat) -> CGPoint {
+            CGPoint(x: center.x + radius * cos(degrees * .pi / 180), y: center.y + radius * sin(degrees * .pi / 180))
+        }
+        // Hollow: where a commit would be filled the node fill shows, not the line colour or the background.
+        #expect(image.pixel(at: center).isClose(to: Self.black), "centre: \(image.pixel(at: center))")
+        #expect(overRed.pixel(at: center).isClose(to: Self.black), "centre over red: \(overRed.pixel(at: center))")
+        // Nothing past the commit node's radius.
+        for degrees in stride(from: CGFloat(0), to: 360, by: 15) {
+            let outside = image.pixel(at: point(radius: metrics.nodeRadius + 0.6, degrees: degrees))
+            #expect(outside.isClose(to: Self.black), "\(degrees)° outside: \(outside)")
+        }
+        // Round the middle of the 1.5 pt stroke, every 2.5°: it is lit (at least half the dash colour) in six
+        // runs, the dashes. A single pixel can straddle the end of a dash on a ring this small, so the test
+        // counts runs instead of reading one pixel per dash.
+        let lit = stride(from: CGFloat(0), to: 360, by: 2.5).map {
+            Int(image.pixel(at: point(radius: metrics.nodeRadius - 0.75, degrees: $0)).blue)
+                >= Int(Self.ghostBlue(opacity).blue) / 2
+        }
+        let runs = lit.indices.filter { lit[$0] && !lit[($0 + lit.count - 1) % lit.count] }.count
+        #expect(runs == 6, "\(runs) dashes: \(lit.map { $0 ? "#" : "." }.joined())")
+        #expect(lit.contains(false), "no gaps")
     }
 
     // MARK: - Geometry, written out independently of the painter
