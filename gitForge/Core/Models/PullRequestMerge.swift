@@ -13,7 +13,8 @@ nonisolated struct HostMergeStatus: Equatable, Sendable {
     var includesLocalReasons = false
     /// GitHub's `unstable`: failing checks that aren't required.
     var failingChecksOptional = false
-    /// GitHub works mergeability out in the background: ask again shortly.
+    /// The host is still working mergeability out (GitHub's `unknown`,
+    /// GitLab's `checking`…): ask again shortly.
     var stillComputing = false
 
     static var checking: String { String(localized: "checking mergeability…") }
@@ -144,13 +145,19 @@ nonisolated struct MergeDraft: Equatable, Sendable {
     }
 
     /// The request: only the edited messages the method shows, and never a
-    /// branch deletion the host can't do (a fork).
+    /// branch deletion the host can't do (a fork). Text equal to the host's
+    /// default isn't an edit, and an emptied field with no known default
+    /// shows the "… default" placeholder, so it means the host's default too.
     func input(options: MergeOptions, headSha: String?) -> MergeInput {
         let squash = options.resolvedSquash(squash, method: method)
         let shown = Set(options.messageFields(method: method, squash: squash))
+        let defaults = options.defaults(for: method)
+        let messages = edits.filter { field, text in
+            shown.contains(field) && text != (defaults[field] ?? "")
+        }
         return MergeInput(method: method, squash: squash,
                           deleteSourceBranch: deleteSourceBranch && options.canDeleteSourceBranch,
-                          messages: edits.filter { shown.contains($0.key) }, headSha: headSha)
+                          messages: messages, headSha: headSha)
     }
 }
 

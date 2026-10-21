@@ -12,7 +12,8 @@ extension GitHubPullRequestProvider {
     }
 
     /// A branch that's already gone (the repo deletes merged branches)
-    /// counts as deleted; any other failure leaves the merge standing.
+    /// counts as deleted. Any other failure, a protected branch's 422
+    /// included, leaves the merge standing and the branch reported as kept.
     func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome {
         _ = try await RemoteAPI.send(Self.mergeRequest(host: host, number: pull.number, input: input, token: token),
                                      session: session)
@@ -20,7 +21,10 @@ extension GitHubPullRequestProvider {
         do {
             _ = try await RemoteAPI.send(Self.deleteBranchRequest(host: host, branch: pull.sourceBranch, token: token),
                                          session: session)
-        } catch PullRequestFetchError.notFound, PullRequestFetchError.server(422, _) {
+        } catch PullRequestFetchError.notFound {
+            return MergeOutcome(branchDeleted: true)
+        } catch PullRequestFetchError.server(422, let body)
+                    where body.range(of: "Reference does not exist", options: .caseInsensitive) != nil {
             return MergeOutcome(branchDeleted: true)
         } catch {
             return MergeOutcome(branchDeleted: false)

@@ -39,6 +39,29 @@ struct MergeDraftTests {
         #expect(draft.input(options: Self.github, headSha: "abc").messages.isEmpty)
     }
 
+    @Test("An emptied field with no known default is the host's default: nothing travels")
+    func clearedUnknownDefault() {
+        var draft = MergeDraft(options: Self.github)
+        draft.setText("Why", for: .body)
+        draft.setText("", for: .body)
+        #expect(draft.input(options: Self.github, headSha: nil).messages.isEmpty)
+    }
+
+    @Test("Text equal to the host's default doesn't travel")
+    func sameAsDefault() {
+        var draft = MergeDraft(options: Self.github)
+        draft.setText("Add retry (#42)", for: .title)
+        #expect(draft.input(options: Self.github, headSha: nil).messages.isEmpty)
+    }
+
+    @Test("Clearing a default the sheet showed sends a blank message")
+    func clearedKnownDefault() {
+        var draft = MergeDraft(options: Self.github)
+        draft.method = .merge
+        draft.setText("", for: .body)
+        #expect(draft.input(options: Self.github, headSha: nil).messages == [.body: ""])
+    }
+
     @Test("A fork never deletes, whatever the draft says")
     func fork() {
         let fork = MergeOptions(kind: .github(methods: [.squash]), canDeleteSourceBranch: false, initialMethod: .squash, initialSquash: false)

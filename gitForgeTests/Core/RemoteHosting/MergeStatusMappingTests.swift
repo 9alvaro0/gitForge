@@ -27,10 +27,10 @@ struct MergeStatusMappingTests {
 
     @Test("GitLab detailed_merge_status: ready and waiting", arguments: [
         ("mergeable", HostMergeStatus(verdict: .ready)),
-        ("checking", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
-        ("unchecked", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
-        ("preparing", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
-        ("approvals_syncing", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
+        ("checking", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
+        ("unchecked", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
+        ("preparing", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
+        ("approvals_syncing", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
         ("ci_still_running", HostMergeStatus(verdict: .waiting, reasons: ["the pipeline is still running"])),
     ] as [(String, HostMergeStatus)])
     func gitLabOpen(detailed: String, expected: HostMergeStatus) {
@@ -66,9 +66,9 @@ struct MergeStatusMappingTests {
     @Test("GitLab before 15.6 falls back to merge_status", arguments: [
         ("can_be_merged", HostMergeStatus(verdict: .ready)),
         ("cannot_be_merged", HostMergeStatus(verdict: .blocked, reasons: ["conflicts with the target branch"])),
-        ("checking", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
-        ("unchecked", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
-        ("cannot_be_merged_recheck", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"])),
+        ("checking", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
+        ("unchecked", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
+        ("cannot_be_merged_recheck", HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)),
     ] as [(String, HostMergeStatus)])
     func gitLabLegacy(legacy: String, expected: HostMergeStatus) {
         #expect(GitLabPullRequestProvider.mergeStatus(detailed: nil, legacy: legacy) == expected)

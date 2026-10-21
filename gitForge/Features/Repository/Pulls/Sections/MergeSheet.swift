@@ -195,7 +195,9 @@ struct MergeOptionsForm: View {
     private func messageField(_ field: MergeMessageField) -> some View {
         let text = Binding(get: { draft.text(for: field, options: options) },
                            set: { draft.setText($0, for: field) })
-        let placeholder = String(localized: "\(hostLabel) default")
+        // Only where the host's text is unknown: an emptied field then
+        // means "the host's default", and nothing is sent for it.
+        let placeholder = options.defaults(for: draft.method)[field] == nil ? String(localized: "\(hostLabel) default") : ""
         return VStack(alignment: .leading, spacing: Spacing.s6) {
             Text(label(for: field))
                 .textRole(.callout, weight: .semibold)

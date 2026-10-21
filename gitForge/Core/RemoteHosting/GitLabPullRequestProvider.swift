@@ -160,7 +160,7 @@ extension GitLabPullRequestProvider {
             case "mergeable":
                 return HostMergeStatus(verdict: .ready)
             case "checking", "unchecked", "preparing", "approvals_syncing":
-                return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking])
+                return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking], stillComputing: true)
             case "ci_still_running":
                 return HostMergeStatus(verdict: .waiting, reasons: [String(localized: "the pipeline is still running")])
             default:
@@ -175,7 +175,7 @@ extension GitLabPullRequestProvider {
         case "cannot_be_merged":
             return HostMergeStatus(verdict: .blocked, reasons: [HostMergeStatus.conflicts])
         default:
-            return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking])
+            return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking], stillComputing: true)
         }
     }
 

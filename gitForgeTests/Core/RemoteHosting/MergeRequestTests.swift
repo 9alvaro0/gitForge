@@ -188,6 +188,14 @@ struct MergeFlowTests {
         #expect(try await provider.merge(host: host, pull: pull(), input: Self.squashAndDelete, token: "t") == MergeOutcome(branchDeleted: true))
     }
 
+    @Test("GitHub: a refused delete (protected branch) is a 422 too, and reports the branch kept")
+    func gitHubDeleteRefused() async throws {
+        let (server, provider, host) = Self.gitHub()
+        server.on("PUT", Self.ghMerge, body: Data(#"{"merged":true}"#.utf8))
+        server.on("DELETE", Self.ghRef, status: 422, body: Data(#"{"message":"Cannot delete a protected branch"}"#.utf8))
+        #expect(try await provider.merge(host: host, pull: pull(), input: Self.squashAndDelete, token: "t") == MergeOutcome(branchDeleted: false))
+    }
+
     @Test("GitHub: a failed delete keeps the merge and reports the branch kept")
     func gitHubDeleteFails() async throws {
         let (server, provider, host) = Self.gitHub()

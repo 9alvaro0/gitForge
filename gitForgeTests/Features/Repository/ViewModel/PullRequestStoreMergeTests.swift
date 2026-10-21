@@ -108,15 +108,25 @@ struct PullRequestStoreMergeTests {
         #expect(store.mergeReadiness?.canMerge == true)
     }
 
-    @Test("Still unknown after the recheck: no third fetch, and no merge")
-    func recheckOnlyOnce() async {
+    @Test("Still unknown after the recheck: the recheck doesn't chain, and nothing merges")
+    func recheckDoesntChain() async {
         provider.statuses = [HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)]
         let store = await loadedStore()
-        await store.loadDetail()
-        await store.mergeStatusRecheck?.value
-        #expect(provider.detailFetches[1] == 3)
+        #expect(provider.detailFetches[1] == 2)
         #expect(store.mergeReadiness?.kind == .waiting)
         #expect(store.mergeReadiness?.canMerge == false)
+    }
+
+    @Test("A later load gets its own recheck: after a 409 the status isn't left computing")
+    func recheckAfterHeadChanged() async {
+        let computing = HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)
+        provider.statuses = [computing, HostMergeStatus(verdict: .ready), computing, HostMergeStatus(verdict: .ready)]
+        let store = await preparedStore()
+        provider.mergeErrors = [PullRequestFetchError.server(409, "{}")]
+        _ = await store.merge()
+        await store.mergeStatusRecheck?.value
+        #expect(provider.detailFetches[1] == 4)
+        #expect(store.mergeReadiness?.canMerge == true)
     }
 
     @Test("Selecting another PR rechecks it again")

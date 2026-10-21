@@ -85,9 +85,8 @@ final class PullRequestStore {
     /// Just merged here: the PR stays in the detail though it left the
     /// list, until the user picks another (`pullToAutoSelect`).
     var keepsSelectionOutsideList = false
-    /// GitHub works mergeability out in the background: the detail is read
-    /// again once per selection while it says so.
-    private var mergeStatusRechecked = false
+    /// The host may still be working mergeability out: each detail load
+    /// that finds it so reads the detail once more, a moment later.
     @ObservationIgnored private(set) var mergeStatusRecheck: Task<Void, Never>?
     static var mergeStatusRecheckDelay: Duration = .seconds(3)
 
@@ -370,6 +369,11 @@ final class PullRequestStore {
     /// list loads before any row can be selected). The first failure wins
     /// `detailError`; successful parts still render.
     func loadDetail() async {
+        await loadDetail(isRecheck: false)
+    }
+
+    /// A recheck's own load never schedules another, so it can't loop.
+    private func loadDetail(isRecheck: Bool) async {
         detailGen &+= 1
         let gen = detailGen
         guard let pr = selected, let host else { return }
@@ -420,19 +424,18 @@ final class PullRequestStore {
         if case .success(let value) = checks { self.checks = value }
         let readSupport = await support
         if gen == detailGen { requestChangesSupport = readSupport }
-        recheckMergeStatusIfComputing(gen: gen)
+        if !isRecheck { recheckMergeStatusIfComputing(gen: gen) }
     }
 
-    /// One more read, a moment later, while GitHub still works out an open
-    /// PR's mergeability; dropped if the detail moved on meanwhile.
+    /// One more read, a moment later, while the host still works out an
+    /// open PR's mergeability; dropped if the detail moved on meanwhile.
     private func recheckMergeStatusIfComputing(gen: UInt64) {
-        guard gen == detailGen, !mergeStatusRechecked, let detail, detail.hostMergeStatus?.stillComputing == true,
+        guard gen == detailGen, let detail, detail.hostMergeStatus?.stillComputing == true,
               detail.pull.state == .open || detail.pull.state == .draft else { return }
-        mergeStatusRechecked = true
         mergeStatusRecheck = Task { [weak self] in
             try? await Task.sleep(for: Self.mergeStatusRecheckDelay)
             guard let self, !Task.isCancelled, self.detailGen == gen else { return }
-            await self.loadDetail()
+            await self.loadDetail(isRecheck: true)
         }
     }
 
@@ -520,7 +523,6 @@ final class PullRequestStore {
         isLoadingMergeOptions = false
         mergeDraft = nil
         keepsSelectionOutsideList = false
-        mergeStatusRechecked = false
         mergeStatusRecheck?.cancel()
         mergeStatusRecheck = nil
     }
