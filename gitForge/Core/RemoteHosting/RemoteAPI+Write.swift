@@ -39,6 +39,31 @@ extension RemoteAPI {
     }
 }
 
+// MARK: - Paging and timestamps
+
+extension RemoteAPI {
+    /// Pages 1, 2… of a list, until one comes back short of `pageSize` or
+    /// `maxPages` were read.
+    nonisolated static func collectPages<T: Sendable>(pageSize: Int, maxPages: Int,
+                                                      _ fetch: @Sendable (Int) async throws -> [T]) async throws -> [T] {
+        var all: [T] = []
+        for page in 1...max(maxPages, 1) {
+            let items = try await fetch(page)
+            all += items
+            if items.count < pageSize { break }
+        }
+        return all
+    }
+
+    /// An ISO-8601 timestamp, with or without fractional seconds, off the
+    /// main actor (`parseDate`'s formatter lives on it).
+    nonisolated static func parseTimestamp(_ raw: String?) -> Date? {
+        guard let raw else { return nil }
+        return (try? Date(raw, strategy: .iso8601))
+            ?? (try? Date(raw, strategy: Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
+    }
+}
+
 nonisolated private struct GraphQLBody<Variables: Encodable>: Encodable {
     let query: String
     let variables: Variables

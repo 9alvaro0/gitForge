@@ -4,6 +4,8 @@ import SwiftUI
 /// so a reload or switching PRs doesn't lose it.
 nonisolated enum ReviewDraftKey: Hashable, Sendable {
     case review(pullId: String, ReviewVerdict)
+    case reply(pullId: String, threadId: String)
+    case comment(pullId: String, target: CommentTarget)
 }
 
 nonisolated enum ReviewSubmitResult: Equatable, Sendable {

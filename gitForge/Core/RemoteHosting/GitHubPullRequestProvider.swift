@@ -3,8 +3,8 @@ import Foundation
 /// GitHub REST v3 implementation of `PullRequestProvider`.
 /// API reference: https://docs.github.com/en/rest/pulls/pulls
 struct GitHubPullRequestProvider: PullRequestProvider {
-    /// Used by the merge writes, so tests can point them at a stub server;
-    /// the reads predate it and use `RemoteAPI.session`.
+    /// Used by the writes, the file list and the review threads, so tests
+    /// can point them at a stub server; the older reads use `RemoteAPI.session`.
     var session: URLSession = RemoteAPI.session
 
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
@@ -96,13 +96,24 @@ struct GitHubPullRequestProvider: PullRequestProvider {
         }
     }
 
+    /// Every page, up to the API's 3000 files: a review thread on file 101
+    /// needs its file in the list.
     func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] {
+        try await RemoteAPI.collectPages(pageSize: Self.filesPageSize, maxPages: 30) { page in
+            try await fetchFiles(host: host, number: number, page: page, token: token)
+        }
+    }
+
+    nonisolated static let filesPageSize = 100
+
+    private func fetchFiles(host: RemoteHost, number: Int, page: Int, token: String) async throws -> [PullRequestFileChange] {
         guard var components = URLComponents(string: "\(Self.base(for: host))/repos/\(host.slug)/pulls/\(number)/files") else {
             throw PullRequestFetchError.network("bad URL")
         }
-        components.queryItems = [URLQueryItem(name: "per_page", value: "100")]
+        components.queryItems = [URLQueryItem(name: "per_page", value: "\(Self.filesPageSize)"),
+                                 URLQueryItem(name: "page", value: "\(page)")]
         let request = Self.makeRequest(url: components.url, token: token)
-        let data = try await RemoteAPI.send(request)
+        let data = try await RemoteAPI.send(request, session: session)
         do {
             let decoded = try JSONDecoder().decode([GitHubFileDTO].self, from: data)
             return decoded.map { $0.toModel() }

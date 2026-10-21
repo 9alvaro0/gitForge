@@ -9,6 +9,8 @@ struct DiffSplitCell: View {
     let line: DiffLine?
     let side: Side
     let attributed: AttributedString?
+    /// Starts a review comment on this side of the line; nil: no "+".
+    var onAddComment: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -41,6 +43,7 @@ struct DiffSplitCell: View {
                 DiffHatch(color: theme.colors.textPrimary.opacity(0.05))
             }
         }
+        .modifier(DiffRowCommentButton(onAdd: onAddComment, leading: DiffGutter.splitNumber + DiffGutter.numberTrailing))
     }
 
     private var number: Int? {

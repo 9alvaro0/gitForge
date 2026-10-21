@@ -35,6 +35,22 @@ protocol PullRequestReviewProvider: Sendable {
     /// Merges with `input`, then deletes the source branch if asked. A
     /// failed deletion doesn't undo the merge: it comes back as `branchDeleted == false`.
     func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome
+
+    /// The review threads on the PR's lines. `detail` gives GitLab the
+    /// current head, which tells outdated threads apart.
+    func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, token: String) async throws -> [ReviewThread]
+
+    /// Posts `body` on `target`'s line, published right away. Pinned to the
+    /// head shown (`detail`'s, else `pull`'s): without one it throws
+    /// `PullRequestActionError.headChanged` and sends nothing.
+    func addComment(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, target: CommentTarget,
+                    body: String, token: String) async throws
+
+    /// Answers `thread` with `body`.
+    func reply(host: RemoteHost, pull: PullRequest, thread: ReviewThread, body: String, token: String) async throws
+
+    /// Resolves (`true`) or reopens `thread`.
+    func setResolved(_ resolved: Bool, host: RemoteHost, pull: PullRequest, thread: ReviewThread, token: String) async throws
 }
 
 /// Resolves the review writes for a `RemoteHost`.

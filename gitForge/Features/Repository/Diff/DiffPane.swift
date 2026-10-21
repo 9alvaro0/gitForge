@@ -25,6 +25,9 @@ struct DiffPane: View {
     /// Reads the new side of the file for "Show N hidden lines". When `nil`
     /// (or it returns `nil`) no gap rows show.
     var loadNewSide: (() async -> [String]?)? = nil
+    /// Review threads under lines and the "+" to comment (pull requests).
+    /// When `nil` rows carry nothing extra and track no hover.
+    var lineAnnotations: DiffLineAnnotations? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split
@@ -105,12 +108,14 @@ struct DiffPane: View {
                                    onToggleLine: lineToggle,
                                    headerControls: { headerControls(for: $0) },
                                    gaps: gaps, expandedGaps: expandedGaps, fileLines: fileLines ?? [],
-                                   onExpandGap: { expandedGaps.insert($0) })
+                                   onExpandGap: { expandedGaps.insert($0) },
+                                   lineAnnotations: lineAnnotations)
             case .split:
                 DiffSplitContent(hunks: hunks, highlighted: highlighted,
                                  headerControls: { headerControls(for: $0) },
                                  gaps: gaps, expandedGaps: expandedGaps, fileLines: fileLines ?? [],
-                                 onExpandGap: { expandedGaps.insert($0) })
+                                 onExpandGap: { expandedGaps.insert($0) },
+                                 lineAnnotations: lineAnnotations)
             }
         }
     }

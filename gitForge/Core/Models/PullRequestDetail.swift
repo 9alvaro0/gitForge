@@ -21,6 +21,9 @@ nonisolated struct PullRequestDetail: Sendable, Equatable {
     /// Whether the signed-in account may merge it (GitHub: write access to
     /// the repo; GitLab: `user.can_merge`); `nil` when unknown.
     var viewerCanMerge: Bool? = nil
+    /// GitLab: the diff's base, start and head, which new comments are
+    /// positioned against and outdated threads are told apart by.
+    var diffRefs: DiffRefs? = nil
 
     struct Reviewer: Sendable, Equatable, Identifiable, Hashable {
         enum State: Sendable, Equatable, Hashable {
@@ -32,6 +35,13 @@ nonisolated struct PullRequestDetail: Sendable, Equatable {
         var id: String { login }
         var approved: Bool { state == .approved }
     }
+}
+
+/// The commits a GitLab MR's diff is between (`diff_refs`).
+nonisolated struct DiffRefs: Equatable, Sendable {
+    let baseSha: String
+    let startSha: String
+    let headSha: String
 }
 
 /// One CI job: a GitHub check run or commit status, or a GitLab job.

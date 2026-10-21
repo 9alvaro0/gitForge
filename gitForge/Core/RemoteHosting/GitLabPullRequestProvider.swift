@@ -327,12 +327,18 @@ private struct GitLabMRDetailDTO: Decodable {
     let user: Viewer?
     let head_pipeline: Pipeline?
     let sha: String?
+    let diff_refs: Refs?
 
     struct User: Decodable {
         let username: String?
         let avatar_url: String?
     }
     struct Viewer: Decodable { let can_merge: Bool? }
+    struct Refs: Decodable {
+        let base_sha: String?
+        let start_sha: String?
+        let head_sha: String?
+    }
     struct Pipeline: Decodable {
         let status: String?      // "success", "failed", "running", "canceled", …
         let web_url: String?
@@ -394,7 +400,12 @@ private struct GitLabMRDetailDTO: Decodable {
             ciStatus: ci,
             hostMergeStatus: GitLabPullRequestProvider.mergeStatus(detailed: detailed_merge_status, legacy: merge_status),
             headInSameRepo: source_project_id.flatMap { source in target_project_id.map { $0 == source } },
-            viewerCanMerge: user?.can_merge
+            viewerCanMerge: user?.can_merge,
+            diffRefs: diff_refs.flatMap { refs in
+                // All three or none: a comment needs every one of them.
+                guard let base = refs.base_sha, let start = refs.start_sha, let head = refs.head_sha else { return nil }
+                return DiffRefs(baseSha: base, startSha: start, headSha: head)
+            }
         )
     }
 }

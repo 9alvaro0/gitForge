@@ -25,6 +25,14 @@ extension PullRequestStore {
         return store
     }
 
+    /// The detail with review threads: under a line, resolved, outdated,
+    /// and on a file the PR no longer lists.
+    static var previewWithThreads: PullRequestStore {
+        let store = previewWithDetail
+        store.threads = [.previewOpen, .previewResolved, .previewOutdated, .previewElsewhere]
+        return store
+    }
+
     /// Drilled into a PR whose detail is still loading.
     static var previewLoadingDetail: PullRequestStore {
         let store = previewWithPullRequests
