@@ -85,12 +85,15 @@ struct GraphColumnView: View {
     let maxLanes: Int
     var style = GraphStyle()
     /// Gap between this row and its neighbours (`HistoryTableLayout.rowSpacing`).
-    /// The canvas reaches half of it above and below the row, so the lines of
-    /// adjacent rows meet in the middle of the gap instead of stopping short of it.
+    /// The lines of adjacent rows join in the middle of the gap.
     var rowSpacing: CGFloat = 0
     var isHeadCommit = false
     var isSelected = false
     var isHovered = false
+    /// The row is drawn translucent (`CommitRow` dims it), so its curve
+    /// halves stop on the joints instead of overlapping the neighbours'
+    /// (`GraphRowGeometry.overlapsJoints`).
+    var isDimmed = false
 
     var body: some View {
         let style = style
@@ -98,26 +101,31 @@ struct GraphColumnView: View {
         let node = GraphNodeStyle.for(row, isHeadCommit: isHeadCommit)
         let isSelected = isSelected
         let isHovered = isHovered
+        let overlapsJoints = !isDimmed
         Canvas { context, size in
-            let painter = GraphRowPainter(style: style, size: size)
+            let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints)
             painter.drawSteps(of: row, in: &context)
             painter.drawNode(row.node, as: node, isSelected: isSelected, isHovered: isHovered, in: &context)
         }
-        // One row pitch tall and centred on the row: the layout keeps the row's
-        // height, the canvas overhangs half the gap on each side.
-        .padding(.vertical, -rowSpacing / 2)
+        // Centred on the row and one row pitch tall plus the bleed past each
+        // joint: the layout keeps the row's height, the canvas overhangs half
+        // the gap and the bleed on each side.
+        .padding(.vertical, -(rowSpacing / 2 + GraphRowGeometry.bleed(for: style.metrics)))
         .frame(width: style.gutterWidth(lanes: maxLanes), alignment: .leading)
     }
 }
 
-/// Paints one graph row into a `Canvas` one row pitch tall
-/// (`GraphRowGeometry`): the row's halves of its steps, then its node.
+/// Paints one graph row into a `Canvas` one row pitch tall plus the bleed
+/// past each joint (`GraphRowGeometry`): the row's halves of its steps, then
+/// its node.
 ///
 /// `nonisolated` because the canvas renders off the main actor. Nothing here
 /// allocates per step beyond the step's own path.
 nonisolated struct GraphRowPainter {
     let style: GraphStyle
     let size: CGSize
+    /// `GraphRowGeometry.overlapsJoints`.
+    var overlapsJoints = true
 
     /// Dash of the side step from a stash into its commit.
     private static let stashDash: [CGFloat] = [3, 3]
@@ -130,10 +138,15 @@ nonisolated struct GraphRowPainter {
     /// Curves first, then the straight halves (`GraphRowGeometry`).
     func drawSteps(of row: GraphRow, in context: inout GraphicsContext) {
         let edge = style.metrics.edgeWidth
-        let solid = StrokeStyle(lineWidth: edge, lineCap: .round, lineJoin: .round)
-        // Butt caps: round caps would eat the gaps of a 3–3 dash.
+        // Butt caps: a half ends flat where the next one starts, on a joint
+        // or at the row centre (under the node, or where a line passes
+        // through with a vertical tangent), and the canvas no longer clips a
+        // cap that would reach past a joint. Round caps would also eat the
+        // gaps of a 3–3 dash.
+        let solid = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round)
         let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: Self.stashDash)
-        GraphRowGeometry(style: style, size: size).forEachSegment(of: row) { segment, step in
+        let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints)
+        geometry.forEachSegment(of: row) { segment, step in
             // `.ghost` is drawn solid until its own style lands (G2).
             context.stroke(segment.path, with: .color(style.color(for: step.color)),
                            style: step.stroke == .stash ? dashed : solid)
@@ -189,11 +202,45 @@ nonisolated struct GraphRowPainter {
 #Preview {
     let rows = [GraphRow].previewSamples
     // Spaced like the History table, so the lines cross the gaps between rows.
-    VStack(spacing: HistoryTableLayout.rowSpacing) {
-        ForEach(rows.indices, id: \.self) { index in
-            GraphColumnView(row: rows[index], maxLanes: 2, rowSpacing: HistoryTableLayout.rowSpacing,
-                            isHeadCommit: index == 0, isSelected: index == 3)
-                .frame(height: 28)
+    // The right-hand copy is dimmed the way a search dims its misses.
+    HStack(spacing: 24) {
+        ForEach([false, true], id: \.self) { dimmed in
+            VStack(spacing: HistoryTableLayout.rowSpacing) {
+                ForEach(rows.indices, id: \.self) { index in
+                    GraphColumnView(row: rows[index], maxLanes: 2, rowSpacing: HistoryTableLayout.rowSpacing,
+                                    isHeadCommit: index == 0, isSelected: index == 3, isDimmed: dimmed)
+                        .frame(height: 28)
+                        .opacity(dimmed ? 0.35 : 1)
+                }
+            }
+        }
+    }
+    .padding()
+    .background(Color.black)
+}
+
+#Preview("Wide curve joints") {
+    // An S three columns wide, then one two columns back, in both densities:
+    // the joints in the middle of the gaps show the curve unbroken.
+    let out = GraphStep(from: 0, to: 3, color: .pool(0), stroke: .solid)
+    let back = GraphStep(from: 3, to: 1, color: .pool(1), stroke: .solid)
+    let rows = [
+        GraphRow(node: GraphNode(column: 0, kind: .commit, color: .head, isGhost: false),
+                 stepsAbove: [], stepsBelow: [out], width: 4),
+        GraphRow(node: GraphNode(column: 3, kind: .commit, color: .pool(0), isGhost: false),
+                 stepsAbove: [out], stepsBelow: [back], width: 4),
+        GraphRow(node: GraphNode(column: 1, kind: .commit, color: .pool(1), isGhost: false),
+                 stepsAbove: [back], stepsBelow: [], width: 4),
+    ]
+    HStack(alignment: .top, spacing: 24) {
+        ForEach([DensityMetrics.regular, .compact], id: \.rowList) { density in
+            VStack(spacing: HistoryTableLayout.rowSpacing) {
+                ForEach(rows.indices, id: \.self) { index in
+                    GraphColumnView(row: rows[index], maxLanes: 4, style: GraphStyle(metrics: density.graph),
+                                    rowSpacing: HistoryTableLayout.rowSpacing)
+                        .frame(height: density.rowList)
+                }
+            }
         }
     }
     .padding()

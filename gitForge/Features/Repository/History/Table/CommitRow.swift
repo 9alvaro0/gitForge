@@ -195,7 +195,8 @@ struct CommitRow: View, Equatable {
             rowSpacing: HistoryTableLayout.rowSpacing,
             isHeadCommit: isHeadCommit,
             isSelected: isSelected,
-            isHovered: hovering
+            isHovered: hovering,
+            isDimmed: dimmed
         )
     }
 
