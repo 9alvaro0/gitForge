@@ -52,6 +52,70 @@ struct ReviewThreadParsingTests {
     }
 }
 
+extension ReviewThreadParsingTests {
+    @Test("GitLab discussions keep diff threads only and mark outdated by head SHA")
+    func gitLabDiscussions() throws {
+        let threads = try GitLabPullRequestProvider.parseDiscussions(Fixture.data("gitlab-discussions"), currentHead: "head2")
+        #expect(threads.map(\.id) == ["d1added", "d2removed", "d3oldhead"])
+        #expect(threads.map(\.ref) == [DiffLineRef(side: .new, line: 12), DiffLineRef(side: .old, line: 11),
+                                        DiffLineRef(side: .new, line: 9)])
+        #expect(threads.map(\.isOutdated) == [false, false, true])
+        #expect(threads[0].comments.map(\.id) == ["110", "112"])
+        #expect(threads[0].comments[0].authorLogin == "marta" && threads[0].comments[0].createdAt != nil)
+        #expect(threads[1].isResolved && threads[1].resolvedBy == "marta")
+        #expect(threads[1].canResolve && threads[1].canUnresolve && threads[1].canReply)
+        #expect(threads[2].path == "Sources/Backoff.swift" && threads[2].oldPath == "Sources/Old.swift")
+        #expect(threads[2].originalLine == 9)
+        #expect(threads.allSatisfy { $0.replyToCommentId == nil })
+    }
+
+    @Test("Without a known head nothing is outdated")
+    func gitLabNoHead() throws {
+        let threads = try GitLabPullRequestProvider.parseDiscussions(Fixture.data("gitlab-discussions"), currentHead: nil)
+        #expect(threads.allSatisfy { !$0.isOutdated })
+    }
+
+    @Test("diff_refs come with the MR detail")
+    @MainActor
+    func gitLabDiffRefs() throws {
+        let detail = try GitLabPullRequestProvider.parseDetail(Data("""
+        {"id": 1, "iid": 9, "title": "T", "state": "opened", "source_branch": "f", "target_branch": "main",
+         "diff_refs": {"base_sha": "base", "head_sha": "head2", "start_sha": "start"}}
+        """.utf8))
+        #expect(detail.diffRefs == DiffRefs(baseSha: "base", startSha: "start", headSha: "head2"))
+    }
+}
+
+/// GitLab's discussions against a stub server.
+@Suite("Review threads — GitLab paging")
+@MainActor
+struct GitLabThreadPagingTests {
+    @Test("Paging counts every discussion, not only the diff ones")
+    func discussionsPage() async throws {
+        let server = StubServer()
+        let provider = GitLabPullRequestProvider(session: server.http.session)
+        let host = RemoteHost(provider: .gitlab, host: server.host, owner: "group", repo: "app",
+                              apiBaseURL: URL(string: "https://\(server.host)/api/v4"))
+        let path = "/api/v4/projects/group/app/merge_requests/9/discussions"
+        let general = (0..<100).map {
+            #"{"id":"g\#($0)","individual_note":true,"notes":[{"id":\#($0),"type":null,"body":"x","system":false}]}"#
+        }
+        server.on("GET", path, body: Data("[\(general.joined(separator: ","))]".utf8))
+        server.on("GET", path, fixture: "gitlab-discussions")
+        let pull = PullRequest(id: "9", number: 9, title: "T", state: .open, authorLogin: "marta", authorAvatarURL: nil,
+                               sourceBranch: "f", targetBranch: "main", webURL: nil, createdAt: nil, updatedAt: nil,
+                               headSha: "head2")
+        var detail = PullRequestDetail(pull: pull, descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [],
+                                       mergeable: nil, ciStatus: nil)
+        detail.diffRefs = DiffRefs(baseSha: "base", startSha: "start", headSha: "head2")
+        let threads = try await provider.fetchThreads(host: host, pull: pull, detail: detail, token: "t")
+        #expect(threads.map(\.id) == ["d1added", "d2removed", "d3oldhead"])
+        #expect(threads.map(\.isOutdated) == [false, false, true])
+        #expect(server.requests("GET", path).map { $0.query["page"] } == ["1", "2"])
+        #expect(server.requests("GET", path).allSatisfy { $0.query["per_page"] == "100" })
+    }
+}
+
 private actor PageLog {
     private(set) var all: [Int] = []
     func append(_ page: Int) { all.append(page) }
