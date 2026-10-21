@@ -62,6 +62,10 @@ private final class FakeReviewProvider: PullRequestReviewProvider, @unchecked Se
     func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome {
         MergeOutcome(branchDeleted: input.deleteSourceBranch)
     }
+
+    func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, token: String) async throws -> [ReviewThread] {
+        []
+    }
 }
 
 /// The tokens `auth` was told were rejected.

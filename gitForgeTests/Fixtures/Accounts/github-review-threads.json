@@ -1,0 +1,71 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "pageInfo": { "hasNextPage": true, "endCursor": "Y3Vyc29y" },
+          "nodes": [
+            {
+              "id": "PRRT_open",
+              "isResolved": false,
+              "isOutdated": false,
+              "path": "Sources/Retry.swift",
+              "line": 12,
+              "originalLine": 12,
+              "diffSide": "RIGHT",
+              "viewerCanResolve": true,
+              "viewerCanUnresolve": false,
+              "viewerCanReply": true,
+              "resolvedBy": null,
+              "comments": {
+                "nodes": [
+                  { "databaseId": 1001, "body": "Should this retry forever?", "createdAt": "2026-10-20T09:00:00Z",
+                    "author": { "login": "marta", "avatarUrl": "https://avatars.example.test/u/1" } },
+                  { "databaseId": 1002, "body": "No, capped at 3.", "createdAt": "2026-10-20T09:30:00Z",
+                    "author": { "login": "octocat", "avatarUrl": "https://avatars.example.test/u/2" } }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_resolved",
+              "isResolved": true,
+              "isOutdated": false,
+              "path": "Sources/Retry.swift",
+              "line": 11,
+              "originalLine": 11,
+              "diffSide": "LEFT",
+              "viewerCanResolve": false,
+              "viewerCanUnresolve": true,
+              "viewerCanReply": true,
+              "resolvedBy": { "login": "marta" },
+              "comments": {
+                "nodes": [
+                  { "databaseId": 1003, "body": "Why remove this?", "createdAt": "2026-10-19T12:00:00Z",
+                    "author": { "login": "marta", "avatarUrl": null } }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_outdated",
+              "isResolved": false,
+              "isOutdated": true,
+              "path": "Sources/Backoff.swift",
+              "line": null,
+              "originalLine": 9,
+              "diffSide": "RIGHT",
+              "viewerCanResolve": true,
+              "viewerCanUnresolve": false,
+              "viewerCanReply": true,
+              "resolvedBy": null,
+              "comments": {
+                "nodes": [
+                  { "databaseId": 1004, "body": "Typo here.", "createdAt": "2026-10-18T08:00:00Z", "author": null }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

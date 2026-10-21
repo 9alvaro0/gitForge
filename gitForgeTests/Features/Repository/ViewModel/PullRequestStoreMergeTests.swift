@@ -87,6 +87,10 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
         merged.insert(pull.number)
         return outcome ?? MergeOutcome(branchDeleted: input.deleteSourceBranch)
     }
+
+    func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, token: String) async throws -> [ReviewThread] {
+        []
+    }
 }
 
 @Suite("PullRequestStore — merge", .serialized)
