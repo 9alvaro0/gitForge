@@ -79,7 +79,7 @@ struct MergeSheet: View {
     /// refusal): say why the confirm button went off.
     @ViewBuilder
     private var blockedReason: some View {
-        if store.mergeDraft != nil, let reason = store.mergeBlockedReason {
+        if let reason = store.mergeSheetBlockedReason {
             HStack(alignment: .top, spacing: Spacing.s8) {
                 Image(systemName: "xmark.octagon.fill")
                     .foregroundStyle(theme.colors.del)

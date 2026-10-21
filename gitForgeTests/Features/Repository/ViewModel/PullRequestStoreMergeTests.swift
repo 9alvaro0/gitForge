@@ -13,6 +13,8 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
     var failDetailAfterMerge = false
     /// Holds `fetchMergeOptions` until the test opens it.
     var optionsGate: AsyncGate?
+    /// Holds the list's reload after a merge until the test opens it.
+    var reloadGate: AsyncGate?
     /// Left out of the open list, as if closed elsewhere.
     var hidden: Set<Int> = []
     var mergeErrors: [Error] = []
@@ -40,6 +42,7 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
 
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
         pullsFetches += 1
+        if !merged.isEmpty, let reloadGate { await reloadGate.wait() }
         guard state == .open else { return merged.sorted().map { Self.pull($0, state: .merged, inList: true) } }
         return [1, 2, 3].filter { !merged.contains($0) && !hidden.contains($0) }.map { Self.pull($0, inList: true) }
     }
@@ -291,6 +294,7 @@ struct PullRequestStoreMergeTests {
         #expect(store.mergeBlockedReason == nil)
         store.detail?.hostMergeStatus = HostMergeStatus(verdict: .blocked, reasons: ["all threads must be resolved"])
         #expect(store.mergeBlockedReason == "All threads must be resolved.")
+        #expect(store.mergeSheetBlockedReason == "All threads must be resolved.")
         #expect(await store.merge() == .failed("All threads must be resolved."))
     }
 
@@ -333,6 +337,22 @@ struct PullRequestStoreMergeTests {
         #expect(store.items.map(\.number) == [2, 3])
         #expect(store.mergeDraft == nil)
         #expect(!store.isMerging)
+    }
+
+    @Test("The sheet keeps its fields while the list and the detail reload after merging")
+    func keepsDraftWhileReloading() async {
+        let store = await preparedStore()
+        let gate = AsyncGate()
+        provider.reloadGate = gate
+        let merging = Task { await store.merge() }
+        await waitUntil { gate.isWaiting }
+        #expect(store.mergeDraft != nil)
+        #expect(store.mergeOptions != nil)
+        // Already marked merged, but the sheet doesn't say it can't merge.
+        #expect(store.mergeSheetBlockedReason == nil)
+        gate.open()
+        #expect(await merging.value == .merged(warning: nil))
+        #expect(store.mergeDraft == nil && store.mergeOptions == nil)
     }
 
     @Test("A 401 gets one fresh token and one retry, merging once")

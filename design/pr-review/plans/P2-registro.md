@@ -49,3 +49,5 @@ En #19 los checks pasaron, pero la app no lo mostró hasta volver a pulsar la PR
 - **Refresh** recarga ahora la lista y la PR abierta. Adelanta lo que el plan de la fase 3 preveía.
 - **Probado en la app con #19:** los checks pasaron a "Superada" por sí solos, pero el banner se quedó en "bloqueada". GitHub recalcula `mergeable_state` unos segundos después de que acaben los checks, y el sondeo ya se había parado. Ahora, cuando los checks terminan y el host sigue diciendo `blocked`, se lee dos veces más.
 - **Tests:** suite 1295/1295.
+
+**Tras el merge de #19 (2026-10-21):** la hoja pasaba unos segundos al estado de carga (spinner y "Fusionar" desactivado) mientras se recargaban la lista y el detalle. Ahora `merge()` mantiene el borrador y las opciones hasta que acaban las recargas, y la hoja no da motivo de bloqueo mientras hay un merge en curso (`mergeSheetBlockedReason`; con la PR ya marcada como fusionada diría "el host todavía no permite fusionar"). Rojo → verde con `keepsDraftWhileReloading`; suite 1304/1304, build sin warnings.
