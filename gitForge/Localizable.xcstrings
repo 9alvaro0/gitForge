@@ -2058,6 +2058,102 @@
         }
       }
     },
+    "Approve" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprovar"
+          }
+        }
+      }
+    },
+    "Approve %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobar %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprovar %@"
+          }
+        }
+      }
+    },
+    "Approved" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprovado"
+          }
+        }
+      }
+    },
+    "Approved %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ aprobada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ aprovado"
+          }
+        }
+      }
+    },
+    "Approved, but the comment couldn't be posted: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobada, pero no se ha podido publicar el comentario: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprovado, mas não foi possível publicar o comentário: %@"
+          }
+        }
+      }
+    },
+    "Approve…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobar…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprovar…"
+          }
+        }
+      }
+    },
     "Author" : {
       "localizations" : {
         "es" : {
@@ -3494,6 +3590,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Paleta de comandos"
+          }
+        }
+      }
+    },
+    "Comment (optional)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentario (opcional)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentário (opcional)"
           }
         }
       }
@@ -7614,6 +7726,22 @@
         }
       }
     },
+    "It changed on the host since it loaded. Reloaded." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ha cambiado en el servidor desde que se cargó. Se ha recargado."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foi alterado no servidor desde que foi carregado. Foi recarregado."
+          }
+        }
+      }
+    },
     "It looks like a %@ server. Add it as an instance to see its %@." : {
       "localizations" : {
         "es" : {
@@ -8846,6 +8974,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Novo ramo… (⌘B)"
+          }
+        }
+      }
+    },
+    "New commits were pushed — review them and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Han llegado commits nuevos: revísalos y vuelve a intentarlo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foram enviados novos commits: reveja-os e tente novamente."
+          }
+        }
+      }
+    },
+    "New commits were pushed — review them before merging." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Han llegado commits nuevos: revísalos antes de fusionar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foram enviados novos commits: reveja-os antes de integrar."
           }
         }
       }
@@ -11702,6 +11862,70 @@
         }
       }
     },
+    "Request changes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir cambios"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir alterações"
+          }
+        }
+      }
+    },
+    "Request changes (%@)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir cambios (%@)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir alterações (%@)"
+          }
+        }
+      }
+    },
+    "Request changes on %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir cambios en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir alterações em %@"
+          }
+        }
+      }
+    },
+    "Request changes…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir cambios…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir alterações…"
+          }
+        }
+      }
+    },
     "Request failed" : {
       "localizations" : {
         "es" : {
@@ -11714,6 +11938,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O pedido falhou"
+          }
+        }
+      }
+    },
+    "Requested changes on %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios pedidos en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterações pedidas em %@"
+          }
+        }
+      }
+    },
+    "Requested changes, but the comment couldn't be posted: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios pedidos, pero no se ha podido publicar el comentario: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterações pedidas, mas não foi possível publicar o comentário: %@"
+          }
+        }
+      }
+    },
+    "Requesting changes needs GitLab 17.3 or later" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir cambios requiere GitLab 17.3 o posterior"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir alterações requer o GitLab 17.3 ou posterior"
           }
         }
       }
@@ -12276,6 +12548,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reverte para HEAD os ficheiros que este stash alterou. As outras alterações locais são mantidas e o stash continua na lista para poder voltar a aplicá-lo mais tarde."
+          }
+        }
+      }
+    },
+    "Review" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rever"
           }
         }
       }
@@ -14506,6 +14794,22 @@
         }
       }
     },
+    "The host refused: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor lo ha rechazado: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor recusou: %@"
+          }
+        }
+      }
+    },
     "The instance is removed from gitForge." : {
       "localizations" : {
         "es" : {
@@ -15899,6 +16203,22 @@
         }
       }
     },
+    "What needs to change (required)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qué hay que cambiar (obligatorio)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O que tem de mudar (obrigatório)"
+          }
+        }
+      }
+    },
     "When you stash work in progress it'll show up here." : {
       "localizations" : {
         "es" : {
@@ -16155,6 +16475,22 @@
         }
       }
     },
+    "You have a pending review started on GitHub. Submit or discard it there first." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tienes una revisión pendiente empezada en GitHub. Envíala o descártala allí primero."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tem uma revisão pendente iniciada no GitHub. Submeta-a ou descarte-a lá primeiro."
+          }
+        }
+      }
+    },
     "You have uncommitted changes. Commit, stash or discard them before rebasing." : {
       "localizations" : {
         "es" : {
@@ -16167,6 +16503,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tem alterações sem commit. Faça commit, stash ou descarte-as antes de fazer rebase."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't approve this merge request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede aprobar esta merge request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode aprovar este merge request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't approve this pull request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede aprobar esta pull request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode aprovar este pull request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't comment on this merge request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede comentar en esta merge request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode comentar neste merge request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't comment on this pull request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede comentar en esta pull request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode comentar neste pull request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't merge this merge request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede fusionar esta merge request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode integrar este merge request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't merge this pull request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede fusionar esta pull request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode integrar este pull request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't request changes on this merge request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede pedir cambios en esta merge request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode pedir alterações neste merge request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't request changes on this pull request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede pedir cambios en esta pull request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode pedir alterações neste pull request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't resolve threads on this merge request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede resolver hilos en esta merge request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode resolver conversas neste merge request."
+          }
+        }
+      }
+    },
+    "Your account (%@ on %@) can't resolve threads on this pull request." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta (%1$@ en %2$@) no puede resolver hilos en esta pull request."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sua conta (%1$@ em %2$@) não pode resolver conversas neste pull request."
           }
         }
       }

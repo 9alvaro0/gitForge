@@ -27,7 +27,7 @@ struct ReviewComposer: View {
                 GFButton(title: String(localized: "Cancel"), shortcut: .cancelAction, action: onCancel)
                 GFButton(title: sendTitle, style: sendStyle, disabled: !canSend,
                          shortcut: KeyboardShortcut(.return, modifiers: .command), action: onSend)
-                    .help("⌘↩")
+                    .help(Text(verbatim: "⌘↩"))
             }
         }
         .onAppear { focused = true }
