@@ -13,11 +13,12 @@ import SwiftUI
 /// and WHEN, so any boundary the eye lands on is draggable.
 struct CommitGraphTable: View {
     let commits: [Commit]
-    let layouts: [GraphRowLayout]
-    /// Widest row of the graph (`HistoryStore.graphMaxLanes`, computed
-    /// once per layout pass). Recomputing it here walked every layout, and
-    /// did so for each row SwiftUI built — O(visible rows × commits) on every
-    /// re-render of History.
+    let layouts: [GraphRow]
+    /// Column count of the whole graph layout (`HistoryStore.graphMaxLanes`,
+    /// taken once per layout pass; it includes columns reserved for HEAD and
+    /// the trunks, so it can exceed the widest row). Recomputing it here walked
+    /// every layout, and did so for each row SwiftUI built — O(visible rows ×
+    /// commits) on every re-render of History.
     let maxLanes: Int
     let refsBySha: [String: [GitRef]]
     let currentBranch: String?
@@ -92,15 +93,15 @@ struct CommitGraphTable: View {
         max(columnMin, min(lanesWidth, viewport * maxAutomaticGraphShare))
     }
 
-    /// v2 graph look (spec §4.5). Built once per render in `body`.
+    /// Graph look (graph v3 spec §5). Built once per render in `body`, which
+    /// also resolves the role colours once for every row.
     private func makeGraphStyle() -> GraphStyle {
         GraphStyle(
             metrics: theme.density.metrics.graph,
             accent: theme.accentSwatch,
             accentColor: theme.colors.accent,
             dark: theme.effectiveMode == .dark,
-            nodeFill: theme.colors.bgContent,
-            headBranchId: GraphHead.branchId(headSha: headSha, commits: commits, layouts: layouts)
+            nodeFill: theme.colors.bgContent
         )
     }
 
@@ -140,7 +141,7 @@ struct CommitGraphTable: View {
             )
             ScrollViewReader { proxy in
                 ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                    LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(spacing: HistoryTableLayout.rowSpacing, pinnedViews: [.sectionHeaders]) {
                         Section {
                             if workingCopyDirty {
                                 UncommittedRow(
@@ -150,12 +151,9 @@ struct CommitGraphTable: View {
                                     onSelect: { onUncommittedSelect?() }
                                 )
                             }
-                            // Indices, not `Array(commits.enumerated())`: that
-                            // copied the whole log (and hashed every sha) on each
-                            // re-render. `.id(sha)` keeps the identity
-                            // `scrollTo(sha)` and row state rely on.
-                            ForEach(commits.indices, id: \.self) { idx in
-                                let commit = commits[idx]
+                            // Rows are identified by sha (see `CommitRowList`);
+                            // `scrollTo(sha)` below relies on it.
+                            CommitRowList(commits: commits, onLastRowAppear: onAppear) { idx, commit in
                                 CommitRow(
                                     commit: commit,
                                     layout: layouts[safe: idx] ?? .empty,
@@ -177,10 +175,6 @@ struct CommitGraphTable: View {
                                     onBranchDrop: onBranchDrop
                                 )
                                 .equatable()
-                                .id(commit.sha)
-                                // Only the last row can page in more; firing for
-                                // every row spawned a Task per row scrolled past.
-                                .onAppear { if idx == commits.count - 1 { onAppear?(commit) } }
                             }
                         } header: {
                             CommitTableHeader(

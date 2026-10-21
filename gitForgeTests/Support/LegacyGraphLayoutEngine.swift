@@ -1,4 +1,10 @@
 import Foundation
+@testable import gitForge
+
+// Frozen copy of the pre-v3 graph engine (`GraphLayoutEngine.swift` and
+// `GraphRowLayout.swift` as they were on `main`), kept only as the performance
+// baseline of the v3 engine (spec §7). Types are renamed with a `Legacy` prefix;
+// the code is otherwise untouched, so do not "improve" it.
 
 /// Two-pass branch-aware graph layout.
 ///
@@ -12,8 +18,8 @@ import Foundation
 /// a column, so a `release/*` tip that lives 50 rows no longer permanently blocks a
 /// slot for unrelated branches that come and go.
 ///
-/// Pass 3 emits the renderer-friendly `GraphRowLayout` per commit.
-nonisolated enum GraphLayoutEngine {
+/// Pass 3 emits the renderer-friendly `LegacyGraphRowLayout` per commit.
+nonisolated enum LegacyGraphLayoutEngine {
     private struct LogicalLane {
         let id: Int
         let branchId: Int
@@ -23,7 +29,7 @@ nonisolated enum GraphLayoutEngine {
         /// thicker strokes); it does *not* affect columns — see Pass 2.
         let initialRefName: String?
         /// True when the lane originates from a stash commit. Propagates into
-        /// `LaneOccupation.isStash` so the renderer can draw it dashed.
+        /// `LegacyLaneOccupation.isStash` so the renderer can draw it dashed.
         let isStash: Bool
         var endRow: Int  // resolved by end of Pass 1; defaults to last row if still open
     }
@@ -61,7 +67,7 @@ nonisolated enum GraphLayoutEngine {
         for commits: [Commit],
         refsBySha: [String: [GitRef]] = [:],
         stashShas: Set<String> = []
-    ) -> (rows: [GraphRowLayout], maxLanes: Int) {
+    ) -> (rows: [LegacyGraphRowLayout], maxLanes: Int) {
         guard !commits.isEmpty else { return ([], 1) }
 
         // ── Pass 1 ─────────────────────────────────────────────────────────────
@@ -75,7 +81,7 @@ nonisolated enum GraphLayoutEngine {
         var nextSequentialBranchId = 100_000
 
         func makeBranchId(forSha sha: String) -> Int {
-            if let ref = refsBySha[sha]?.preferredForGraph(),
+            if let ref = refsBySha[sha]?.legacyPreferredForGraph(),
                let id = Self.branchId(for: ref) {
                 return id
             }
@@ -86,7 +92,7 @@ nonisolated enum GraphLayoutEngine {
         func openLane(branchId: Int, currentSha: String, startRow: Int) -> Int {
             let id = nextLaneId
             nextLaneId += 1
-            let initialRef = refsBySha[currentSha]?.preferredForGraph()
+            let initialRef = refsBySha[currentSha]?.legacyPreferredForGraph()
             lanes.append(LogicalLane(
                 id: id,
                 branchId: branchId,
@@ -258,9 +264,9 @@ nonisolated enum GraphLayoutEngine {
         }
 
         // ── Pass 3 ─────────────────────────────────────────────────────────────
-        // Materialize GraphRowLayout per commit using the column assignment.
+        // Materialize LegacyGraphRowLayout per commit using the column assignment.
 
-        var graphRows: [GraphRowLayout] = []
+        var graphRows: [LegacyGraphRowLayout] = []
         graphRows.reserveCapacity(commits.count)
         var maxLanes = 1
 
@@ -268,10 +274,10 @@ nonisolated enum GraphLayoutEngine {
             lanes[id].initialRefName.flatMap(Self.priorityRank(forName:))
         }
 
-        func occupations(_ ids: [Int]) -> [LaneOccupation] {
+        func occupations(_ ids: [Int]) -> [LegacyLaneOccupation] {
             ids.compactMap { id in
                 guard let col = laneColumn[id] else { return nil }
-                return LaneOccupation(
+                return LegacyLaneOccupation(
                     lane: col,
                     branchId: lanes[id].branchId,
                     priorityRank: priorityRank(forLaneId: id),
@@ -299,7 +305,7 @@ nonisolated enum GraphLayoutEngine {
             let totalLanes = (allCols.max() ?? 0) + 1
             maxLanes = max(maxLanes, totalLanes)
 
-            graphRows.append(GraphRowLayout(
+            graphRows.append(LegacyGraphRowLayout(
                 commitLane: commitLane,
                 commitBranchId: commitBranchId,
                 lanesAtTop: lanesAtTop,
@@ -330,10 +336,57 @@ nonisolated enum GraphLayoutEngine {
 private extension Array where Element == GitRef {
     /// Pick the most "interesting" ref to derive a graph color from.
     /// HEAD-tagged > local branch > remote branch > tag.
-    nonisolated func preferredForGraph() -> GitRef? {
+    nonisolated func legacyPreferredForGraph() -> GitRef? {
         if let head = first(where: { $0.isHead }) { return head }
         if let local = first(where: { $0.isLocalBranch }) { return local }
         if let remote = first(where: { $0.isRemoteBranch }) { return remote }
         return first
     }
+}
+
+// MARK: - Row layout (copy of GraphRowLayout.swift)
+
+/// Slot occupied by a logical branch in a particular column at a row boundary.
+nonisolated struct LegacyLaneOccupation: Sendable, Equatable, Hashable {
+    let lane: Int
+    let branchId: Int
+    /// Gitflow priority rank: 0 main/master, 1 develop, 2 release/*, 3 trunk.
+    /// `nil` for ordinary feature/topic branches. Renderer uses this to apply
+    /// fixed-color trunks and thicker strokes for the pinned leftmost columns.
+    var priorityRank: Int? = nil
+    /// True when the lane originates from a stash commit. Renderer draws stash
+    /// lanes with a dashed stroke so they read as "uncommitted side-quest"
+    /// rather than a regular branch.
+    var isStash: Bool = false
+}
+
+nonisolated struct LegacyGraphRowLayout: Sendable, Equatable, Hashable {
+    let commitLane: Int
+    let commitBranchId: Int
+    /// Lanes occupying a slot at the start of the row (drawn from row top to row center).
+    let lanesAtTop: [LegacyLaneOccupation]
+    /// Lanes occupying a slot at the end of the row (drawn from row center to row bottom).
+    let lanesAtBottom: [LegacyLaneOccupation]
+    /// Other lanes (above) merging into `commitLane` at the row center.
+    let mergesIn: [LegacyLaneOccupation]
+    /// Lanes branching out of this commit (below) toward additional parents.
+    let mergesOut: [LegacyLaneOccupation]
+    /// Total lane count to draw (used for width).
+    let totalLanes: Int
+    let isMerge: Bool
+    /// Same semantics as `LegacyLaneOccupation.priorityRank`, applied to the commit's own lane.
+    var commitPriorityRank: Int? = nil
+    /// Same semantics as `LegacyLaneOccupation.isStash`, applied to the commit's own lane.
+    var commitIsStash: Bool = false
+
+    static let empty = LegacyGraphRowLayout(
+        commitLane: 0,
+        commitBranchId: 0,
+        lanesAtTop: [],
+        lanesAtBottom: [],
+        mergesIn: [],
+        mergesOut: [],
+        totalLanes: 1,
+        isMerge: false
+    )
 }

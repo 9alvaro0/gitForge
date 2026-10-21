@@ -31,7 +31,7 @@ struct RepositoryViewModelLogHelperTests {
         #expect(scope == ["HEAD", "refs/heads/feature/a", "refs/heads/feature/b", "--tags", "stashA"])
     }
 
-    @Test("dropStashInternals removes parent[1] and parent[2] but keeps parent[0]")
+    @Test("A loaded page drops each stash's parent[1] and parent[2] but keeps parent[0]")
     func dropStashInternalsRemovesIndexAndUntrackedTrees() {
         let vm = Self.makeVM()
         // Stash commit has 3 parents: real HEAD, index tree, untracked tree.
@@ -40,24 +40,23 @@ struct RepositoryViewModelLogHelperTests {
         let indexParent = "index-tree"
         let untrackedParent = "untracked-tree"
         vm.stashes = [Stash(index: 0, sha: stashSha, subject: "WIP")]
-        vm.history.commits = [
+        vm.history.replaceLog(with: [
             Self.commit(stashSha, parents: [realParent, indexParent, untrackedParent]),
             Self.commit(realParent),
             Self.commit(indexParent),
             Self.commit(untrackedParent),
             Self.commit("unrelated"),
-        ]
-        vm.history.dropStashInternals()
+        ])
         let surviving = Set(vm.history.commits.map(\.sha))
         #expect(surviving == [stashSha, realParent, "unrelated"])
+        #expect(vm.history.loadedRawCount == 5)
     }
 
-    @Test("dropStashInternals is a no-op when there are no stashes")
+    @Test("A loaded page keeps every commit when there are no stashes")
     func dropStashInternalsNoOpWithoutStashes() {
         let vm = Self.makeVM()
         vm.stashes = []
-        vm.history.commits = [Self.commit("a"), Self.commit("b")]
-        vm.history.dropStashInternals()
+        vm.history.replaceLog(with: [Self.commit("a"), Self.commit("b")])
         #expect(vm.history.commits.map(\.sha) == ["a", "b"])
     }
 

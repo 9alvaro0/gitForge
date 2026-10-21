@@ -4,7 +4,7 @@ import Foundation
 extension RepositoryViewModel {
     static var preview: RepositoryViewModel {
         let vm = RepositoryViewModel(repository: Repository.preview)
-        vm.history.commits = Commit.previewSamples
+        vm.history.replaceLog(with: Commit.previewSamples)
         vm.history.selectedCommitId = Commit.previewSamples.first?.id
         vm.history.cacheDetail(CommitDetail.preview, for: Commit.preview.sha)
         vm.refs = GitRef.previewSamples

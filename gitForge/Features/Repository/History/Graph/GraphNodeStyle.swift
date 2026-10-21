@@ -12,20 +12,13 @@ nonisolated enum GraphNodeStyle: Equatable, Sendable {
     /// Dashed square.
     case stash
 
-    static func `for`(_ row: GraphRowLayout, isHeadCommit: Bool) -> GraphNodeStyle {
-        if row.commitIsStash { return .stash }
-        if isHeadCommit { return .head }
-        return row.isMerge ? .merge : .commit
-    }
-}
-
-/// Locates the HEAD branch's lane so it can take the accent colour.
-nonisolated enum GraphHead {
-    /// Branch id of the row holding `headSha`; `nil` when HEAD isn't loaded.
-    static func branchId(headSha: String?, commits: [Commit], layouts: [GraphRowLayout]) -> Int? {
-        guard let headSha,
-              let index = commits.firstIndex(where: { $0.sha == headSha }),
-              layouts.indices.contains(index) else { return nil }
-        return layouts[index].commitBranchId
+    /// A stash keeps its square even at HEAD; otherwise HEAD wins over merge.
+    static func `for`(_ row: GraphRow, isHeadCommit: Bool) -> GraphNodeStyle {
+        switch row.node.kind {
+        case .stash: .stash
+        case _ where isHeadCommit: .head
+        case .merge: .merge
+        case .commit: .commit
+        }
     }
 }

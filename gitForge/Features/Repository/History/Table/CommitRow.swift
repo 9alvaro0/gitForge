@@ -25,7 +25,7 @@ struct CommitRow: View, Equatable {
     }
 
     let commit: Commit
-    let layout: GraphRowLayout
+    let layout: GraphRow
     let maxLanes: Int
     let rowHeight: CGFloat
     let tableLayout: HistoryTableLayout
@@ -51,8 +51,9 @@ struct CommitRow: View, Equatable {
             graphGutter
                 .frame(width: tableLayout.graph, alignment: .leading)
                 // Lanes past a capped gutter clip instead of drawing over
-                // Description.
-                .clipped()
+                // Description; top and bottom stay open for the lines that
+                // cross the gaps between rows.
+                .clipShape(SideClip())
             gap
             HStack(spacing: Spacing.s6) {
                 CommitRowChips(
@@ -64,11 +65,8 @@ struct CommitRow: View, Equatable {
                     // show one chip and "+N".
                     maxNameWidth: min(160, tableLayout.description * 0.3),
                     maxVisible: tableLayout.description < 360 ? 1 : 2,
-                    laneColor: graphStyle.laneColor(
-                        branchId: layout.commitBranchId,
-                        priorityRank: layout.commitPriorityRank,
-                        isStash: layout.commitIsStash
-                    )
+                    // The chips take the colour of the commit's own line.
+                    laneColor: graphStyle.color(for: layout.node.color)
                 )
                 .fixedSize()
                 Text(commit.subject)
@@ -194,9 +192,11 @@ struct CommitRow: View, Equatable {
             row: layout,
             maxLanes: max(maxLanes, 1),
             style: graphStyle,
+            rowSpacing: HistoryTableLayout.rowSpacing,
             isHeadCommit: isHeadCommit,
             isSelected: isSelected,
-            isHovered: hovering
+            isHovered: hovering,
+            isDimmed: dimmed
         )
     }
 
@@ -212,13 +212,22 @@ struct CommitRow: View, Equatable {
     }
 }
 
+/// Clips the sides only. The graph's lines run past the row's top and bottom
+/// into the gaps between rows, where the next row's lines pick them up.
+private nonisolated struct SideClip: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: 0, dy: -rect.height))
+    }
+}
+
 #Preview {
     @Previewable @State var theme = AppTheme()
     let commit = Commit.previewSamples[0]
-    VStack(spacing: 0) {
+    // Spaced like the History table, so the graph lines join across the gaps.
+    VStack(spacing: HistoryTableLayout.rowSpacing) {
         CommitRow(
             commit: commit,
-            layout: [GraphRowLayout].previewSamples[1],
+            layout: [GraphRow].previewSamples[2],
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
@@ -230,7 +239,7 @@ struct CommitRow: View, Equatable {
         )
         CommitRow(
             commit: Commit.previewSamples[1],
-            layout: [GraphRowLayout].previewSamples[2],
+            layout: [GraphRow].previewSamples[3],
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
@@ -242,7 +251,7 @@ struct CommitRow: View, Equatable {
         )
         CommitRow(
             commit: Commit.previewSamples[2],
-            layout: [GraphRowLayout].previewSamples[3],
+            layout: [GraphRow].previewSamples[4],
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),

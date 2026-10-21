@@ -22,10 +22,12 @@ extension RepositoryViewModel {
 
         guard gen == refsGen else { return }
 
-        var refsChanged = false
+        // Compared with what is in place before it is overwritten: the graph only
+        // needs laying out again when what it reads differs.
+        var graphInputChanged = false
         if let refs = refsResult {
+            graphInputChanged = refs != self.refs
             self.refs = refs
-            refsChanged = true
         }
         if let current = currentResult {
             self.currentBranchName = current
@@ -38,13 +40,20 @@ extension RepositoryViewModel {
         }
         // Unlike the branch name, nil here is meaningful (empty repo), so it's
         // always written.
-        self.headSha = headResult
-        // Refs feed into the graph layout (priority lanes — main/develop/
-        // release/* pin to the leftmost columns). When loadInitial and
-        // loadRefs run concurrently the first recomputeGraph fires with an
-        // empty refs dictionary and priority loses, so re-run once refs
-        // actually land.
-        if refsChanged && !history.commits.isEmpty {
+        if headResult != self.headSha {
+            graphInputChanged = true
+            self.headSha = headResult
+        }
+        // Refs and HEAD feed into the graph layout (line names, HEAD, the
+        // trunks' columns and colours). Recompute when either changed, even
+        // before the first log is published: a page still being laid out with
+        // the old ones sees the change and lays itself out again once
+        // published. When both are as they were, the graph already describes
+        // them: laying out the whole log again would only cost a pass (and a
+        // second one for a reload in flight). The recompute keeps the stashes
+        // the loaded log was fetched with, so a stash dropped here stays drawn
+        // as a stash until the log reloads.
+        if graphInputChanged {
             await history.recomputeGraph()
         }
         await loadAheadBehind()
