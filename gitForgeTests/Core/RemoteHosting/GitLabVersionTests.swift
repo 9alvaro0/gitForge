@@ -45,6 +45,19 @@ struct GitLabVersionTests {
         _ = await cache.info(for: "other.example.test", load: load)
         #expect(await calls.value == 2)
     }
+
+    @Test("A failed read isn't kept: the next ask tries again")
+    func failureNotCached() async {
+        let cache = GitLabInstanceInfoCache()
+        let calls = Counter()
+        let failing: @Sendable () async -> GitLabInstanceInfo = {
+            await calls.bump()
+            return .unknown
+        }
+        _ = await cache.info(for: "gitlab.example.test", load: failing)
+        _ = await cache.info(for: "gitlab.example.test", load: failing)
+        #expect(await calls.value == 2)
+    }
 }
 
 private actor Counter {

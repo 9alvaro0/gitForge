@@ -1,0 +1,59 @@
+import SwiftUI
+
+/// Text the user is writing in a review box. Kept in the store, keyed by PR,
+/// so a reload or switching PRs doesn't lose it.
+nonisolated enum ReviewDraftKey: Hashable, Sendable {
+    case review(pullId: String, ReviewVerdict)
+}
+
+nonisolated enum ReviewSubmitResult: Equatable, Sendable {
+    /// Landed; `warning` when its comment didn't (GitLab posts it apart).
+    case submitted(warning: String?)
+    case failed(String)
+    /// Nothing to send (no PR, an empty "Request changes", one already going).
+    case ignored
+}
+
+extension PullRequestStore {
+    var reviewActions: ReviewActions {
+        guard let pull = selected, let host else { return .hidden }
+        let current = detail?.pull.id == pull.id ? detail : nil
+        return .resolve(provider: host.provider, pull: current?.pull ?? pull, currentUser: currentUser,
+                        reviewers: current?.reviewers ?? [], viewerApproval: current?.viewerApproval,
+                        requestChanges: requestChangesSupport)
+    }
+
+    func draftBinding(_ key: ReviewDraftKey) -> Binding<String> {
+        Binding(get: { self.drafts[key] ?? "" }, set: { self.drafts[key] = $0 })
+    }
+
+    /// Approves or requests changes on the selected PR with its draft as the
+    /// comment. The PR is captured up front: switching PRs mid-flight
+    /// doesn't redirect the review, and only reloads the detail it belongs to.
+    func submitReview(_ verdict: ReviewVerdict) async -> ReviewSubmitResult {
+        guard let selectedPull = selected, let host, submittingReview == nil else { return .ignored }
+        let pull = detail?.pull.id == selectedPull.id ? (detail?.pull ?? selectedPull) : selectedPull
+        let key = ReviewDraftKey.review(pullId: pull.id, verdict)
+        let body = drafts[key] ?? ""
+        if verdict == .requestChanges, body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .ignored }
+
+        submittingReview = verdict
+        defer { submittingReview = nil }
+        let provider = makeReviewProvider(host)
+        do {
+            let outcome = try await withToken(host) { token in
+                try await provider.submitReview(host: host, pull: pull, verdict: verdict, body: body, token: token)
+            }
+            guard let warning = outcome else {
+                return .failed(String(localized: "The account's token isn't available. Refresh the list."))
+            }
+            drafts[key] = nil
+            if selected?.id == pull.id { await loadDetail() }
+            return .submitted(warning: warning)
+        } catch {
+            let action: PullRequestAction = verdict == .approve ? .approve : .requestChanges
+            return .failed(PullRequestActionError.from(error).message(for: action, account: currentUser, host: host.host,
+                                                                       isMergeRequest: host.provider == .gitlab))
+        }
+    }
+}
