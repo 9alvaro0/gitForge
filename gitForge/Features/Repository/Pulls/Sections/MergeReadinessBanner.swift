@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// "Merge blocked" / "Waiting" / "Ready to merge" with the reasons and the
-/// check counts. gitForge doesn't merge PRs, so it points to the host.
+/// "Merge blocked" / "Waiting" / "Ready to merge" with the host's reasons
+/// and the check counts.
 struct MergeReadinessBanner: View {
     let readiness: MergeReadiness
-    let hostLabel: String?
 
     @Environment(\.appTheme) private var theme
 
@@ -17,10 +16,12 @@ struct MergeReadinessBanner: View {
                 Text(title)
                     .textRole(.body, weight: .semibold)
                     .foregroundStyle(tint)
-                Text(detail)
-                    .textRole(.callout)
-                    .foregroundStyle(theme.colors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let summary = readiness.summary {
+                    Text(summary)
+                        .textRole(.callout)
+                        .foregroundStyle(theme.colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if readiness.passed + readiness.running + readiness.failed > 0 {
@@ -53,12 +54,6 @@ struct MergeReadinessBanner: View {
         }
     }
 
-    private var detail: String {
-        let reasons = readiness.reasons.isEmpty ? "" : readiness.reasons.joined(separator: " · ").capitalizedFirst + ". "
-        let host = hostLabel ?? String(localized: "the host")
-        return reasons + String(localized: "gitForge doesn’t merge pull requests — open it on \(host) to merge.")
-    }
-
     private var symbol: String {
         switch readiness.kind {
         case .blocked: "xmark.octagon.fill"
@@ -82,8 +77,4 @@ struct MergeReadinessBanner: View {
         case .ready: theme.colors.okSoft
         }
     }
-}
-
-private extension String {
-    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }

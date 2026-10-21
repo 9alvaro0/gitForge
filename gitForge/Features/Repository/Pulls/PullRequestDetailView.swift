@@ -143,9 +143,9 @@ struct PullRequestDetailView: View {
     @ViewBuilder
     private var banner: some View {
         if let pr = store.selected, let detail = store.detail,
-           let readiness = MergeReadiness.evaluate(state: pr.state, mergeable: detail.mergeable,
-                                                   checks: store.checks, reviewers: detail.reviewers) {
-            MergeReadinessBanner(readiness: readiness, hostLabel: store.host?.provider.label)
+           let readiness = MergeReadiness.evaluate(state: pr.state, mergeable: detail.mergeable, checks: store.checks,
+                                                   reviewers: detail.reviewers, hostStatus: detail.hostMergeStatus) {
+            MergeReadinessBanner(readiness: readiness)
         }
     }
 
