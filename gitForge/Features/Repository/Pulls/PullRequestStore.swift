@@ -92,6 +92,13 @@ final class PullRequestStore {
     /// that finds it so reads the detail once more, a moment later.
     @ObservationIgnored private(set) var mergeStatusRecheck: Task<Void, Never>?
     static var mergeStatusRecheckDelay: Duration = .seconds(3)
+    /// While the open PR's CI runs, or the host says it's waiting, its
+    /// checks and merge status are read again this often…
+    static var checksPollInterval: Duration = .seconds(20)
+    /// …at most this many times per load of the PR, so a check stuck in a
+    /// queue doesn't keep reading the host.
+    static var checksPollLimit = 45
+    @ObservationIgnored private var checksPollsLeft = 0
 
     /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
@@ -405,6 +412,7 @@ final class PullRequestStore {
         }
 
         guard gen == detailGen else { return }
+        checksPollsLeft = Self.checksPollLimit
         switch detail {
         case .success(let value): self.detail = value
         case .failure(let error): detailError = Self.message(for: error)
@@ -430,19 +438,55 @@ final class PullRequestStore {
     /// moved on meanwhile. It never schedules another, so it can't loop.
     private func recheckMergeStatusIfComputing(gen: UInt64) {
         guard gen == detailGen, let detail, detail.hostMergeStatus?.stillComputing == true,
-              detail.pull.state == .open || detail.pull.state == .draft, let host else { return }
-        let provider = makeProvider(host)
-        let number = detail.pull.number
+              detail.pull.state == .open || detail.pull.state == .draft else { return }
         mergeStatusRecheck = Task { [weak self] in
             try? await Task.sleep(for: Self.mergeStatusRecheckDelay)
             guard let self, !Task.isCancelled, self.detailGen == gen else { return }
-            // The files, commits and checks already shown stay as they are.
-            let fresh = try? await self.withToken(host) { token in
-                try await provider.fetchDetail(host: host, number: number, token: token)
-            }
-            guard let fresh, !Task.isCancelled, self.detailGen == gen else { return }
-            self.detail = fresh
+            await self.rereadStatus(gen: gen)
         }
+    }
+
+    /// Reads the open PR's checks and merge status again every
+    /// `checksPollInterval` while its CI runs or the host is waiting, up to
+    /// `checksPollLimit` reads per load. Runs as long as the caller's task:
+    /// the detail view ties it to being on screen.
+    func pollWhileRunning() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: Self.checksPollInterval)
+            guard !Task.isCancelled else { return }
+            guard checksPollsLeft > 0, isStatusPending else { continue }
+            checksPollsLeft -= 1
+            await rereadStatus(gen: detailGen)
+        }
+    }
+
+    /// The open PR's CI is still running, or the host is still deciding.
+    private var isStatusPending: Bool {
+        guard let selected, let detail, detail.pull.id == selected.id, !isLoadingDetail,
+              detail.pull.state == .open || detail.pull.state == .draft else { return false }
+        return checks.contains { $0.state == .running || $0.state == .queued } || detail.hostMergeStatus?.verdict == .waiting
+    }
+
+    /// The detail and the checks again, keeping the files and commits
+    /// shown; dropped if the detail moved on meanwhile.
+    private func rereadStatus(gen: UInt64) async {
+        guard let pr = selected, let host else { return }
+        let provider = makeProvider(host)
+        let number = pr.number
+        let read = try? await withToken(host) { token in
+            async let detail = provider.fetchDetail(host: host, number: number, token: token)
+            async let checks = try? provider.fetchChecks(host: host, pull: pr, token: token)
+            return (try await detail, await checks)
+        }
+        guard let read, !Task.isCancelled, gen == detailGen else { return }
+        detail = read.0
+        if let checks = read.1 { self.checks = checks }
+    }
+
+    /// Refresh: the list, and the open PR with it.
+    func refresh() async {
+        await load(force: true)
+        if selected != nil { await loadDetail() }
     }
 
     /// CI of one commit for History's detail, `nil` when there's nothing to

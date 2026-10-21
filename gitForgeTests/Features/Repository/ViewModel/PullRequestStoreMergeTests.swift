@@ -22,21 +22,36 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
     private(set) var merged: Set<Int> = []
     private(set) var detailFetches: [Int: Int] = [:]
     private(set) var fileFetches: [Int: Int] = [:]
+    /// Reads of PR 1's checks (the list's CI lookups read the others).
+    private(set) var checkFetches = 0
+    private(set) var pullsFetches = 0
+    /// PR 1's check states per read, in order; the last repeats.
+    var checkStates: [[CICheck.State]] = [[]]
     private(set) var merges: [(number: Int, input: MergeInput, token: String)] = []
     private(set) var optionFetches = 0
 
-    static func pull(_ number: Int, state: PullRequest.State = .open) -> PullRequest {
+    /// Rows of the list come without a head, so the list's CI lookup skips
+    /// them and only the detail reads PR 1's checks.
+    static func pull(_ number: Int, state: PullRequest.State = .open, inList: Bool = false) -> PullRequest {
         PullRequest(id: "\(number)", number: number, title: "PR \(number)", state: state, authorLogin: "marta",
                     authorAvatarURL: nil, sourceBranch: "feature/\(number)", targetBranch: "main", webURL: nil,
-                    createdAt: nil, updatedAt: nil, headSha: "sha\(number)")
+                    createdAt: nil, updatedAt: nil, headSha: inList ? nil : "sha\(number)")
     }
 
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
-        guard state == .open else { return merged.sorted().map { Self.pull($0, state: .merged) } }
-        return [1, 2, 3].filter { !merged.contains($0) && !hidden.contains($0) }.map { Self.pull($0) }
+        pullsFetches += 1
+        guard state == .open else { return merged.sorted().map { Self.pull($0, state: .merged, inList: true) } }
+        return [1, 2, 3].filter { !merged.contains($0) && !hidden.contains($0) }.map { Self.pull($0, inList: true) }
     }
     func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String { "user-of-\(token)" }
-    func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] { [] }
+    func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] {
+        guard pull.number == 1 else { return [] }
+        checkFetches += 1
+        let states = checkStates.count > 1 ? checkStates.removeFirst() : checkStates.first ?? []
+        return states.enumerated().map { index, state in
+            CICheck(name: "check \(index)", context: nil, state: state, duration: nil, failureMessage: nil, webURL: nil)
+        }
+    }
     func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] { [] }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         detailFetches[number, default: 0] += 1
@@ -83,6 +98,8 @@ struct PullRequestStoreMergeTests {
 
     init() {
         PullRequestStore.mergeStatusRecheckDelay = .zero
+        PullRequestStore.checksPollInterval = .milliseconds(5)
+        PullRequestStore.checksPollLimit = 45
     }
 
     /// A loaded list with PR 1's detail open (loaded directly, so the fetch
@@ -157,6 +174,64 @@ struct PullRequestStoreMergeTests {
         store.select(store.items[1])
         await waitUntil { provider.detailFetches[2] == 2 && !store.isLoadingDetail }
         #expect(provider.detailFetches[2] == 2)
+    }
+
+    // MARK: Live status
+
+    @Test("Running checks are read again until they finish, without the files")
+    func pollUntilChecksFinish() async {
+        provider.checkStates = [[.running], [.running], [.passed]]
+        let store = await loadedStore()
+        let poll = Task { await store.pollWhileRunning() }
+        await waitUntil { store.checks.map(\.state) == [.passed] }
+        try? await Task.sleep(for: .milliseconds(60))
+        poll.cancel()
+        #expect(provider.checkFetches == 3)
+        #expect(provider.fileFetches[1] == 1)
+        #expect(store.mergeReadiness?.canMerge == true)
+    }
+
+    @Test("A settled PR isn't read again")
+    func settledNotPolled() async {
+        provider.checkStates = [[.passed]]
+        let store = await loadedStore()
+        let poll = Task { await store.pollWhileRunning() }
+        try? await Task.sleep(for: .milliseconds(60))
+        poll.cancel()
+        #expect(provider.checkFetches == 1)
+        #expect(provider.detailFetches[1] == 1)
+    }
+
+    @Test("Waiting on the host (GitLab's running pipeline) is read again too")
+    func hostWaitingPolled() async {
+        provider.statuses = [HostMergeStatus(verdict: .waiting, reasons: ["the pipeline is still running"]),
+                             HostMergeStatus(verdict: .ready)]
+        let store = await loadedStore()
+        let poll = Task { await store.pollWhileRunning() }
+        await waitUntil { store.mergeReadiness?.kind == .ready }
+        poll.cancel()
+        #expect(store.mergeReadiness?.canMerge == true)
+    }
+
+    @Test("A check stuck in the queue stops being read after the limit")
+    func pollLimit() async {
+        PullRequestStore.checksPollLimit = 2
+        provider.checkStates = [[.queued]]
+        let store = await loadedStore()
+        let poll = Task { await store.pollWhileRunning() }
+        await waitUntil { provider.checkFetches >= 3 }
+        try? await Task.sleep(for: .milliseconds(100))
+        poll.cancel()
+        #expect(provider.checkFetches == 3)
+    }
+
+    @Test("Refresh reloads the list and the open PR")
+    func refresh() async {
+        let store = await loadedStore()
+        let pulls = provider.pullsFetches
+        await store.refresh()
+        #expect(provider.pullsFetches == pulls + 1)
+        #expect(provider.detailFetches[1] == 2)
     }
 
     // MARK: Options

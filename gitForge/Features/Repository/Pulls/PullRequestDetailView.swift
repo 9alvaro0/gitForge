@@ -66,6 +66,9 @@ struct PullRequestDetailView: View {
         } message: {
             Text(localMergeMessage)
         }
+        // While its CI runs, the open PR's checks and merge status are read
+        // again; only while the detail is on screen.
+        .task(id: store.selected?.id) { await store.pollWhileRunning() }
         // Each opening reads the options afresh: nothing is remembered.
         .sheet(isPresented: $showMergeSheet, onDismiss: store.discardMergeOptions) {
             MergeSheet(store: store)

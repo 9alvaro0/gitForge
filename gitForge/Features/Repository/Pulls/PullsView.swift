@@ -37,7 +37,7 @@ struct PullsView: View {
         .background(theme.colors.bgContent)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { Task { await store.load(force: true) } } label: {
+                Button { Task { await store.refresh() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .labelStyle(.iconOnly)

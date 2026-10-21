@@ -40,3 +40,11 @@ Menores de la revisión, arreglados después a petición de Alvaro (cada uno con
   - Ver estos dos arreglos en la app (la pantalla se bloqueó antes de volver a warp).
   - El paso 3 de la Tarea 6: un merge real en una PR de prueba de un repo personal.
   - La fila de motivo dentro de la hoja (nueva tras los menores) no se ha visto en la app.
+
+## Actualización mientras corre el CI (a petición de Alvaro)
+
+En #19 los checks pasaron, pero la app no lo mostró hasta volver a pulsar la PR: la spec dejaba fuera la actualización en vivo. Alvaro eligió el sondeo:
+- **Cuándo:** mientras la PR abierta tiene checks en curso o en cola, o el host dice que espera, se vuelven a leer el detalle y los checks cada 20 s. Los ficheros y los commits no se vuelven a pedir.
+- **Hasta cuándo:** solo mientras el detalle está en pantalla, y como mucho 45 lecturas por carga de la PR (unos 15 min), para que un check atascado en cola no siga consultando el host.
+- **Refresh** recarga ahora la lista y la PR abierta. Adelanta lo que el plan de la fase 3 preveía.
+- **Tests:** suite 1293/1293.
