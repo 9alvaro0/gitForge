@@ -121,7 +121,7 @@ Mismo aspecto que hoy: cuadrado discontinuo gris y una curva discontinua hasta e
 
 ### 3.7 HEAD suelto
 
-La línea de la columna 0 es la del commit actual, en el color de HEAD, sin nombre. main y develop van al lado como siempre.
+La línea de la columna 0 es la del commit actual, sin nombre. main y develop van al lado como siempre. El color sigue la regla de dueños de §3.2: los commits que no son de ninguna rama llevan el color de HEAD, y si el commit actual pertenece a una rama (también si es su punta), toma el color de esa rama, igual que la columna 0 cambia de color donde tu rama nació de otra (decisión tomada al implementar G1).
 
 ### 3.8 Fuera de lo cargado
 
