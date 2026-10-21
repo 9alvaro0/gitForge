@@ -49,14 +49,27 @@ struct DiffUnifiedContent: View {
                             .id("h-\(hunk.id)")
                         let table = highlighted[hunk.id]
                         let picked = selectedLines[hunk.id] ?? []
-                        ForEach(hunk.lines) { line in
-                            DiffRow(line: line, attributed: table?[line.id],
-                                    isSelected: picked.contains(line.id),
-                                    onToggle: toggle(line, in: hunk),
-                                    onAddComment: addComment(on: line))
+                        // Without annotations the rows are exactly what they
+                        // always were; with them, each line is one view (the
+                        // row and what goes under it), so the stack's count
+                        // per line stays constant.
+                        if let lineAnnotations {
+                            ForEach(hunk.lines) { line in
+                                VStack(alignment: .leading, spacing: 0) {
+                                    DiffRow(line: line, attributed: table?[line.id],
+                                            isSelected: picked.contains(line.id),
+                                            onToggle: toggle(line, in: hunk),
+                                            onAddComment: addComment(on: line, lineAnnotations))
+                                    annotation(under: line, lineAnnotations, width: geo.size.width)
+                                }
                                 .id("h-\(hunk.id)-l-\(line.id)")
-                            if let lineAnnotations {
-                                annotation(under: line, in: hunk, lineAnnotations, width: geo.size.width)
+                            }
+                        } else {
+                            ForEach(hunk.lines) { line in
+                                DiffRow(line: line, attributed: table?[line.id],
+                                        isSelected: picked.contains(line.id),
+                                        onToggle: toggle(line, in: hunk))
+                                    .id("h-\(hunk.id)-l-\(line.id)")
                             }
                         }
                     }
@@ -128,20 +141,18 @@ extension DiffUnifiedContent {
 
     /// What goes under `line`, as wide as the viewport (not the widest line).
     @ViewBuilder
-    private func annotation(under line: DiffLine, in hunk: DiffHunk, _ annotations: DiffLineAnnotations,
-                            width: CGFloat) -> some View {
+    private func annotation(under line: DiffLine, _ annotations: DiffLineAnnotations, width: CGFloat) -> some View {
         let refs = annotations.matches(line)
         if !refs.isEmpty {
             annotations.content(refs)
                 .frame(width: width, alignment: .leading)
-                .id("h-\(hunk.id)-l-\(line.id)-a")
         }
     }
 
     /// The "+" on any hunk line but "No newline at end of file": a removed
     /// line on the old side, the rest on the new.
-    private func addComment(on line: DiffLine) -> (() -> Void)? {
-        guard let onAddComment = lineAnnotations?.onAddComment,
+    private func addComment(on line: DiffLine, _ annotations: DiffLineAnnotations) -> (() -> Void)? {
+        guard let onAddComment = annotations.onAddComment,
               let side = DiffLineRef.commentSide(for: line) else { return nil }
         return { onAddComment(line, side) }
     }
