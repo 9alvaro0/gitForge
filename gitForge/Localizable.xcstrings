@@ -407,6 +407,38 @@
         }
       }
     },
+    "%@, %lld open comments" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$lld comentarios abiertos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$lld comentários abertos"
+          }
+        }
+      }
+    },
+    "%@, 1 open comment" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, 1 comentario abierto"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, 1 comentário aberto"
+          }
+        }
+      }
+    },
     "%@, current branch" : {
       "localizations" : {
         "es" : {
@@ -3642,6 +3674,22 @@
         }
       }
     },
+    "Comment" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentar"
+          }
+        }
+      }
+    },
     "Comment (optional)" : {
       "localizations" : {
         "es" : {
@@ -3654,6 +3702,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Comentário (opcional)"
+          }
+        }
+      }
+    },
+    "Comment on line %lld…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentar la línea %lld…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentar a linha %lld…"
+          }
+        }
+      }
+    },
+    "Comment on this line" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentar esta línea"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentar esta linha"
+          }
+        }
+      }
+    },
+    "Comments not on the current diff (%lld)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentarios fuera del diff actual (%lld)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentários fora do diff atual (%lld)"
           }
         }
       }
@@ -4567,6 +4663,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível carregar"
+          }
+        }
+      }
+    },
+    "Couldn't load comments" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar los comentarios"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível carregar os comentários"
           }
         }
       }
@@ -7582,6 +7694,22 @@
         }
       }
     },
+    "Hide" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar"
+          }
+        }
+      }
+    },
     "Hide commit detail" : {
       "localizations" : {
         "es" : {
@@ -10579,6 +10707,54 @@
         }
       }
     },
+    "Other comments" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros comentarios"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outros comentários"
+          }
+        }
+      }
+    },
+    "Other comments, %lld open" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros comentarios, %lld abiertos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outros comentários, %lld abertos"
+          }
+        }
+      }
+    },
+    "Other comments, 1 open" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros comentarios, 1 abierto"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outros comentários, 1 aberto"
+          }
+        }
+      }
+    },
     "Other trusted certificates" : {
       "localizations" : {
         "es" : {
@@ -10623,6 +10799,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nossa, %lld linhas"
+          }
+        }
+      }
+    },
+    "Outdated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactualizado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desatualizado"
+          }
+        }
+      }
+    },
+    "Outdated · line %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactualizado · línea %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desatualizado · linha %lld"
           }
         }
       }
@@ -12070,6 +12278,38 @@
         }
       }
     },
+    "Reply" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder"
+          }
+        }
+      }
+    },
+    "Reply…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder…"
+          }
+        }
+      }
+    },
     "Report Issue" : {
       "localizations" : {
         "es" : {
@@ -12520,6 +12760,22 @@
         }
       }
     },
+    "Resolve" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolver"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolver"
+          }
+        }
+      }
+    },
     "Resolve conflicts" : {
       "localizations" : {
         "es" : {
@@ -12628,6 +12884,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Resolvido"
+          }
+        }
+      }
+    },
+    "Resolved by %@ · %lld comments" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resuelto por %1$@ · %2$lld comentarios"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolvido por %1$@ · %2$lld comentários"
+          }
+        }
+      }
+    },
+    "Resolved by %@ · 1 comment" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resuelto por %@ · 1 comentario"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolvido por %@ · 1 comentário"
+          }
+        }
+      }
+    },
+    "Resolved · %lld comments" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resuelto · %lld comentarios"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolvido · %lld comentários"
+          }
+        }
+      }
+    },
+    "Resolved · 1 comment" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resuelto · 1 comentario"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolvido · 1 comentário"
           }
         }
       }
@@ -13509,6 +13829,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Clonagem superficial (git clone --depth 1): mais rápida, mas o histórico só mostra o commit mais recente até fazer fetch de mais"
+          }
+        }
+      }
+    },
+    "Show" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar"
           }
         }
       }
@@ -16090,6 +16426,22 @@
         }
       }
     },
+    "Unresolve" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reabrir"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reabrir"
+          }
+        }
+      }
+    },
     "Unstage" : {
       "localizations" : {
         "es" : {
@@ -18647,6 +18999,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "não corresponde ao certificado em que confiou para este host"
+          }
+        }
+      }
+    },
+    "line %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "línea %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "linha %lld"
           }
         }
       }
