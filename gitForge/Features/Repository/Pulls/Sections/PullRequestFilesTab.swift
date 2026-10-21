@@ -36,13 +36,11 @@ struct PullRequestFilesTab: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onAppear {
-                if selectedPath == nil { selectedPath = files.first?.path ?? listIDs.first }
-            }
+            // The tab outlives a PR switch: the list comes back on another
+            // PR's files, still holding the old path.
+            .onAppear { selectedPath = Self.selection(keeping: selectedPath, ids: listIDs, files: files) }
             .onChange(of: listIDs) { _, ids in
-                if let current = selectedPath, !ids.contains(current) {
-                    selectedPath = files.first?.path ?? ids.first
-                }
+                selectedPath = Self.selection(keeping: selectedPath, ids: ids, files: files)
             }
         }
     }
@@ -81,6 +79,13 @@ struct PullRequestFilesTab: View {
                 scrollProxy: proxy
             ) { selectedPath = $0 }
         }
+    }
+
+    /// `current` while it's still listed; otherwise the first file, or
+    /// "Other comments" when there's nothing else.
+    static func selection(keeping current: String?, ids: [String], files: [PullRequestFileChange]) -> String? {
+        if let current, ids.contains(current) { return current }
+        return files.first?.path ?? ids.first
     }
 
     private func select(_ id: String) {
