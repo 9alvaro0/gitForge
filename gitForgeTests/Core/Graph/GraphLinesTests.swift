@@ -166,6 +166,15 @@ struct GraphLinesTests {
         #expect(["feature/x", "release", "hotfix", "mainline", "origin/main"].allSatisfy { GraphPriority.rank($0) == 4 })
     }
 
+    @Test("The page end of a row is the first page end past it, or the end of the log")
+    func pageEndSearch() {
+        let log = (0..<12).map { "c\($0) c\($0 + 1)" }.joined(separator: "\n")
+        let input = GraphInput(commits: GraphFixture.commits(log), pageEnds: [2, 5, 9])
+        let expected = [2, 2, 5, 5, 5, 9, 9, 9, 9, 12, 12, 12]
+        #expect((0..<12).map { input.pageEnd(containing: $0) } == expected)
+        #expect(GraphInput(commits: GraphFixture.commits(log), pageEnds: [12]).pageEnd(containing: 11) == 12)
+    }
+
     @Test("Input helpers: head branch, page boundaries and first-occurrence row index")
     func inputHelpers() {
         let commits = GraphFixture.commits("a b\nb c\nc\nb")

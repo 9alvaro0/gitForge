@@ -25,9 +25,11 @@ nonisolated extension GraphInput {
     /// columns up front.
     var firstPageEnd: Int { pageEnds.first ?? commits.count }
 
-    /// End of the page that holds `row`.
+    /// End of the page that holds `row`: the first page end past it, or the
+    /// end of the log. Binary search, since the engine asks once per merge.
     func pageEnd(containing row: Int) -> Int {
-        pageEnds.first { $0 > row } ?? commits.count
+        let next = pageEnds.upperBound(of: row)
+        return next < pageEnds.count ? pageEnds[next] : commits.count
     }
 
     /// Row of every commit by sha. A sha that appears twice keeps its first row.
@@ -38,6 +40,20 @@ nonisolated extension GraphInput {
             rows[commit.sha] = row
         }
         return rows
+    }
+}
+
+nonisolated extension Array where Element == Int {
+    /// Index of the first element greater than `value`, or `count` when none
+    /// is. The array must be ascending; O(log n).
+    func upperBound(of value: Int) -> Int {
+        var low = 0
+        var high = count
+        while low < high {
+            let middle = low + (high - low) / 2
+            if self[middle] > value { high = middle } else { low = middle + 1 }
+        }
+        return low
     }
 }
 
