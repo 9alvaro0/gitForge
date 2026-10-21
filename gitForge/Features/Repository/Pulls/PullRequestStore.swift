@@ -74,6 +74,23 @@ final class PullRequestStore {
     /// What the user is typing in the review boxes (`ReviewDraftKey`).
     var drafts: [ReviewDraftKey: String] = [:]
 
+    // MARK: Merge
+    /// What the merge sheet offers, read when it opens.
+    var mergeOptions: MergeOptions?
+    var mergeOptionsError: String?
+    var isLoadingMergeOptions = false
+    /// What the user set in the merge sheet.
+    var mergeDraft: MergeDraft?
+    var isMerging = false
+    /// Just merged here: the PR stays in the detail though it left the
+    /// list, until the user picks another (`pullToAutoSelect`).
+    var keepsSelectionOutsideList = false
+    /// GitHub works mergeability out in the background: the detail is read
+    /// again once per selection while it says so.
+    private var mergeStatusRechecked = false
+    @ObservationIgnored private(set) var mergeStatusRecheck: Task<Void, Never>?
+    static var mergeStatusRecheckDelay: Duration = .seconds(3)
+
     /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
     private let auth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
@@ -323,6 +340,7 @@ final class PullRequestStore {
         detailGen &+= 1
         selected = pr
         clearDetail()
+        clearMerge()
         detailTask?.cancel()
         detailTask = Task { [weak self] in await self?.loadDetail() }
     }
@@ -336,6 +354,16 @@ final class PullRequestStore {
         isLoadingDetail = false
         selected = nil
         clearDetail()
+        clearMerge()
+    }
+
+    /// The PR the list should open: the first row when nothing is selected
+    /// or the selection left the list — unless it left because it was just
+    /// merged here.
+    func pullToAutoSelect() -> PullRequest? {
+        guard let selected else { return visibleItems.first }
+        if visibleItems.contains(where: { $0.id == selected.id }) || keepsSelectionOutsideList { return nil }
+        return visibleItems.first
     }
 
     /// Fetch the detail payloads in parallel, with the list's token (the
@@ -392,6 +420,20 @@ final class PullRequestStore {
         if case .success(let value) = checks { self.checks = value }
         let readSupport = await support
         if gen == detailGen { requestChangesSupport = readSupport }
+        recheckMergeStatusIfComputing(gen: gen)
+    }
+
+    /// One more read, a moment later, while GitHub still works out an open
+    /// PR's mergeability; dropped if the detail moved on meanwhile.
+    private func recheckMergeStatusIfComputing(gen: UInt64) {
+        guard gen == detailGen, !mergeStatusRechecked, let detail, detail.hostMergeStatus?.stillComputing == true,
+              detail.pull.state == .open || detail.pull.state == .draft else { return }
+        mergeStatusRechecked = true
+        mergeStatusRecheck = Task { [weak self] in
+            try? await Task.sleep(for: Self.mergeStatusRecheckDelay)
+            guard let self, !Task.isCancelled, self.detailGen == gen else { return }
+            await self.loadDetail()
+        }
     }
 
     /// CI of one commit for History's detail, `nil` when there's nothing to
@@ -461,6 +503,7 @@ final class PullRequestStore {
         requestChangesSupport = nil
         submittingReview = nil
         drafts = [:]
+        isMerging = false
     }
 
     private func clearDetail() {
@@ -471,12 +514,23 @@ final class PullRequestStore {
         detailError = nil
     }
 
+    private func clearMerge() {
+        mergeOptions = nil
+        mergeOptionsError = nil
+        isLoadingMergeOptions = false
+        mergeDraft = nil
+        keepsSelectionOutsideList = false
+        mergeStatusRechecked = false
+        mergeStatusRecheck?.cancel()
+        mergeStatusRecheck = nil
+    }
+
     private static func capture<T: Sendable>(_ block: @Sendable () async throws -> T) async -> Result<T, Error> {
         do { return .success(try await block()) }
         catch { return .failure(error) }
     }
 
-    private static func message(for error: Error) -> String {
+    static func message(for error: Error) -> String {
         if let typed = error as? PullRequestFetchError {
             return typed.errorDescription ?? String(localized: "Request failed")
         }

@@ -19,6 +19,7 @@ nonisolated struct HostMergeStatus: Equatable, Sendable {
     static var checking: String { String(localized: "checking mergeability…") }
     static var conflicts: String { String(localized: "conflicts with the target branch") }
     static var draft: String { String(localized: "still a draft") }
+    static var notAllowedYet: String { String(localized: "the host doesn't allow merging yet") }
 }
 
 /// How GitHub merges a PR, as its API names them.

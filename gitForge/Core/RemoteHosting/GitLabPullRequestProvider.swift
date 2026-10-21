@@ -197,7 +197,7 @@ extension GitLabPullRequestProvider {
         case "title_regex": String(localized: "the title doesn't match the project's rule")
         case "commits_status": String(localized: "commits don't meet the project's rules")
         case "locked_paths", "locked_lfs_files": String(localized: "touches locked files")
-        default: String(localized: "the host doesn't allow merging yet")
+        default: HostMergeStatus.notAllowedYet
         }
     }
 

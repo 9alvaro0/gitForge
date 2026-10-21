@@ -29,7 +29,11 @@ nonisolated struct MergeReadiness: Equatable, Sendable {
     /// The reasons as the banner's sentence: "1 failing check · ….", or
     /// `nil` when there are none.
     var summary: String? {
-        guard !reasons.isEmpty else { return nil }
+        reasons.isEmpty ? nil : Self.sentence(reasons)
+    }
+
+    /// Reasons joined with " · ", capitalized, with a full stop.
+    static func sentence(_ reasons: [String]) -> String {
         let joined = reasons.joined(separator: " · ")
         return joined.prefix(1).uppercased() + joined.dropFirst() + "."
     }
