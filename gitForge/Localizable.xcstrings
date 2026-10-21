@@ -68,6 +68,22 @@
         }
       }
     },
+    "%@ default" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por defecto de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predefinição do %@"
+          }
+        }
+      }
+    },
     "%@ folder" : {
       "localizations" : {
         "es" : {
@@ -536,6 +552,22 @@
         }
       }
     },
+    "%lld checks failing (not required)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld comprobaciones fallidas (no obligatorias)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld verificações falhadas (não obrigatórias)"
+          }
+        }
+      }
+    },
     "%lld commits" : {
       "localizations" : {
         "es" : {
@@ -884,6 +916,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 verificação"
+          }
+        }
+      }
+    },
+    "1 check failing (not required)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 comprobación fallida (no obligatoria)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 verificação falhada (não obrigatória)"
           }
         }
       }
@@ -3722,6 +3770,22 @@
         }
       }
     },
+    "Commit title" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Título del commit"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Título do commit"
+          }
+        }
+      }
+    },
     "Commit to detached HEAD" : {
       "localizations" : {
         "es" : {
@@ -4939,6 +5003,22 @@
         }
       }
     },
+    "Create merge commit" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear commit de fusión"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Criar commit de integração"
+          }
+        }
+      }
+    },
     "Create tag" : {
       "localizations" : {
         "es" : {
@@ -5192,6 +5272,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Eliminar"
+          }
+        }
+      }
+    },
+    "Delete %@ after merging" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar %@ después de fusionar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar %@ depois de integrar"
           }
         }
       }
@@ -7774,6 +7870,22 @@
         }
       }
     },
+    "Into %@ from %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En %1$@ desde %2$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em %1$@ a partir de %2$@"
+          }
+        }
+      }
+    },
     "Invalid branch name “%@”." : {
       "localizations" : {
         "es" : {
@@ -8336,6 +8448,22 @@
         }
       }
     },
+    "Merge %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusionar %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integrar %@"
+          }
+        }
+      }
+    },
     "Merge %@ into %@" : {
       "localizations" : {
         "es" : {
@@ -8396,6 +8524,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Integração bloqueada"
+          }
+        }
+      }
+    },
+    "Merge commit" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit de fusión"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit de integração"
+          }
+        }
+      }
+    },
+    "Merge commit message" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensaje del commit de fusión"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensagem do commit de integração"
           }
         }
       }
@@ -8480,6 +8640,38 @@
         }
       }
     },
+    "Merge this merge request" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusionar esta merge request"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integrar este merge request"
+          }
+        }
+      }
+    },
+    "Merge this pull request" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusionar esta pull request"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integrar este pull request"
+          }
+        }
+      }
+    },
     "Merge: replays %@ into %@ as a new merge commit. History is preserved.\n\nRebase: rewrites every commit on %@ on top of %@. If %@ is already pushed, you'll need a force push afterwards.\n\nEither action may switch branches first if the destination isn't checked out." : {
       "comment" : "source, target, source, target, source branch names",
       "localizations" : {
@@ -8497,6 +8689,22 @@
         }
       }
     },
+    "Merged %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ fusionada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ integrado"
+          }
+        }
+      }
+    },
     "Merged %@ into %@" : {
       "localizations" : {
         "es" : {
@@ -8509,6 +8717,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ integrado em %2$@"
+          }
+        }
+      }
+    },
+    "Merged %@, but %@ couldn't be deleted." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ fusionada, pero no se ha podido eliminar %2$@."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ integrado, mas não foi possível eliminar %2$@."
+          }
+        }
+      }
+    },
+    "Merge…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusionar…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integrar…"
           }
         }
       }
@@ -11284,6 +11524,22 @@
         }
       }
     },
+    "Rebase and merge" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer rebase y fusionar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fazer rebase e integrar"
+          }
+        }
+      }
+    },
     "Rebase current branch onto this" : {
       "localizations" : {
         "es" : {
@@ -13993,6 +14249,70 @@
         }
       }
     },
+    "Squash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash"
+          }
+        }
+      }
+    },
+    "Squash and merge" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer squash y fusionar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fazer squash e integrar"
+          }
+        }
+      }
+    },
+    "Squash commit message" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensaje del commit de squash"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensagem do commit de squash"
+          }
+        }
+      }
+    },
+    "Squash commits" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer squash de los commits"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fazer squash dos commits"
+          }
+        }
+      }
+    },
     "Stage" : {
       "localizations" : {
         "es" : {
@@ -15350,6 +15670,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Este ficheiro não está monitorizado e não é texto — abra-o numa app externa para o inspecionar."
+          }
+        }
+      }
+    },
+    "This project always squashes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este proyecto siempre hace squash"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este projeto faz sempre squash"
           }
         }
       }
@@ -16811,6 +17147,22 @@
         }
       }
     },
+    "a reviewer requested changes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "un revisor ha pedido cambios"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "um revisor pediu alterações"
+          }
+        }
+      }
+    },
     "account.status.ok" : {
       "localizations" : {
         "en" : {
@@ -16877,6 +17229,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "todos selecionados"
+          }
+        }
+      }
+    },
+    "all threads must be resolved" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "hay que resolver todos los hilos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "é preciso resolver todas as conversas"
           }
         }
       }
@@ -16961,6 +17329,22 @@
         }
       }
     },
+    "blocked by another merge request" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bloqueada por otra merge request"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bloqueado por outro merge request"
+          }
+        }
+      }
+    },
     "both" : {
       "localizations" : {
         "es" : {
@@ -17005,6 +17389,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ramo"
+          }
+        }
+      }
+    },
+    "branch is out of date with %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "la rama no está al día con %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "o ramo não está atualizado com %@"
+          }
+        }
+      }
+    },
+    "branch protection rules" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "reglas de protección de rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "regras de proteção de ramo"
           }
         }
       }
@@ -17074,6 +17490,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Remotos"
+          }
+        }
+      }
+    },
+    "can't merge before its scheduled time" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no se puede fusionar antes de la hora programada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "não pode ser integrado antes da hora agendada"
+          }
+        }
+      }
+    },
+    "checking mergeability…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "comprobando si se puede fusionar…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a verificar se pode ser integrado…"
           }
         }
       }
@@ -17471,6 +17919,22 @@
         }
       }
     },
+    "commits don't meet the project's rules" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "los commits no cumplen las reglas del proyecto"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "os commits não cumprem as regras do projeto"
+          }
+        }
+      }
+    },
     "conflict.hunk.change" : {
       "localizations" : {
         "en" : {
@@ -17634,6 +18098,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "expira a %@"
+          }
+        }
+      }
+    },
+    "external status checks must pass" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "las comprobaciones de estado externas deben pasar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "as verificações de estado externas têm de passar"
           }
         }
       }
@@ -17967,22 +18447,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O gitForge não conseguiu ler este repositório. Pode tentar clonar mesmo assim."
-          }
-        }
-      }
-    },
-    "gitForge doesn’t merge pull requests — open it on %@ to merge." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "gitForge no fusiona pull requests: ábrela en %@ para fusionarla."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O gitForge não integra pull requests — abra-o em %@ para integrar."
           }
         }
       }
@@ -18381,6 +18845,54 @@
         }
       }
     },
+    "needs a linked Jira issue" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "necesita una incidencia de Jira enlazada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "precisa de um issue do Jira associado"
+          }
+        }
+      }
+    },
+    "needs a rebase onto the target branch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "necesita un rebase sobre la rama de destino"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "precisa de um rebase sobre o ramo de destino"
+          }
+        }
+      }
+    },
+    "needs approval" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "necesita aprobación"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "precisa de aprovação"
+          }
+        }
+      }
+    },
     "next scope" : {
       "localizations" : {
         "es" : {
@@ -18442,6 +18954,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "não ligado"
+          }
+        }
+      }
+    },
+    "not open" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no está abierta"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "não está aberto"
           }
         }
       }
@@ -18975,6 +19503,22 @@
         }
       }
     },
+    "security policies aren't met" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no cumple las políticas de seguridad"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "não cumpre as políticas de segurança"
+          }
+        }
+      }
+    },
     "selected" : {
       "localizations" : {
         "es" : {
@@ -19109,6 +19653,70 @@
         }
       }
     },
+    "the host doesn't allow merging yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "el servidor aún no permite fusionar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "o servidor ainda não permite integrar"
+          }
+        }
+      }
+    },
+    "the pipeline is still running" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "la pipeline aún se está ejecutando"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a pipeline ainda está em execução"
+          }
+        }
+      }
+    },
+    "the pipeline must pass" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "la pipeline debe pasar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a pipeline tem de passar"
+          }
+        }
+      }
+    },
+    "the title doesn't match the project's rule" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "el título no cumple la regla del proyecto"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "o título não cumpre a regra do projeto"
+          }
+        }
+      }
+    },
     "theirs" : {
       "localizations" : {
         "es" : {
@@ -19153,6 +19761,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "apenas token"
+          }
+        }
+      }
+    },
+    "touches locked files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "toca archivos bloqueados"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "altera ficheiros bloqueados"
           }
         }
       }
