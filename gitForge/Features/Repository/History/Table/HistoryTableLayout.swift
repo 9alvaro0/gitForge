@@ -12,6 +12,9 @@ nonisolated struct HistoryTableLayout: Equatable, Sendable {
     static let trailingPadding: CGFloat = 12
     /// Space between adjacent columns (where the resize handles live).
     static let gap: CGFloat = 8
+    /// Space between adjacent rows. The graph's lines cross it: each row's
+    /// graph reaches half of it above and below (`GraphColumnView`).
+    static let rowSpacing: CGFloat = 1
     static let minDescription: CGFloat = 200
 
     let graph: CGFloat

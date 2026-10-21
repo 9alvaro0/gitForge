@@ -384,12 +384,20 @@ final class HistoryStore {
     }
 
     /// Removes stash *internal* commits — `parent[1]` (index tree) and
-    /// `parent[2]` (untracked tree) of each stash — from the rows at `start`
-    /// and below. Those are git plumbing the user never asked for; surfacing
-    /// them as separate rows clutters the log. The stash commit itself stays
-    /// as the dashed square. Every loaded stash counts, so a stash on an
-    /// earlier page still loses the internals that land on a later one.
-    func dropStashInternals(from start: Int = 0) {
+    /// `parent[2]` (untracked tree) of each stash — from the whole log. Those
+    /// are git plumbing the user never asked for; surfacing them as separate
+    /// rows clutters the log. The stash commit itself stays as the dashed
+    /// square. Only for a log that starts over: once pages are drawn,
+    /// `appendPage` drops from the new rows alone.
+    func dropStashInternals() {
+        dropStashInternals(from: 0)
+    }
+
+    /// `dropStashInternals()` for the rows at `start` and below. Private so
+    /// nothing can remove a row from a page already drawn without the page
+    /// ends (`graphPageEnds`) following. Every loaded stash counts, so a stash
+    /// on an earlier page still loses the internals that land on a later one.
+    private func dropStashInternals(from start: Int) {
         let stashShas = Set(stashes.map(\.sha))
         guard !stashShas.isEmpty else { return }
         var internals: Set<String> = []

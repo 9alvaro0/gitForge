@@ -140,7 +140,7 @@ struct CommitGraphTable: View {
             )
             ScrollViewReader { proxy in
                 ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                    LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(spacing: HistoryTableLayout.rowSpacing, pinnedViews: [.sectionHeaders]) {
                         Section {
                             if workingCopyDirty {
                                 UncommittedRow(
@@ -150,12 +150,9 @@ struct CommitGraphTable: View {
                                     onSelect: { onUncommittedSelect?() }
                                 )
                             }
-                            // Indices, not `Array(commits.enumerated())`: that
-                            // copied the whole log (and hashed every sha) on each
-                            // re-render. `.id(sha)` keeps the identity
-                            // `scrollTo(sha)` and row state rely on.
-                            ForEach(commits.indices, id: \.self) { idx in
-                                let commit = commits[idx]
+                            // Rows are identified by sha (see `CommitRowList`);
+                            // `scrollTo(sha)` below relies on it.
+                            CommitRowList(commits: commits, onLastRowAppear: onAppear) { idx, commit in
                                 CommitRow(
                                     commit: commit,
                                     layout: layouts[safe: idx] ?? .empty,
@@ -177,10 +174,6 @@ struct CommitGraphTable: View {
                                     onBranchDrop: onBranchDrop
                                 )
                                 .equatable()
-                                .id(commit.sha)
-                                // Only the last row can page in more; firing for
-                                // every row spawned a Task per row scrolled past.
-                                .onAppear { if idx == commits.count - 1 { onAppear?(commit) } }
                             }
                         } header: {
                             CommitTableHeader(
