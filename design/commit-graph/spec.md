@@ -177,7 +177,7 @@ Cada cambio de columna es una curva en S cúbica que ocupa exactamente una fila,
 - **Unión directa (§3.3):** la S sale del nodo del merge y entra en la columna de destino en el centro de la fila siguiente.
 - **Pista propia:** una S para salir del merge hacia la columna de la pista, la vertical, y otra S para entrar en P.
 
-Las filas son vistas separadas (un `Canvas` por fila). Una S entre dos centros de fila se parte en el borde entre filas: por simetría, en `t = 0.5` cae justo en el borde, a medio camino en horizontal. Cada fila dibuja su mitad.
+Las filas son vistas separadas (un `Canvas` por fila). Una S entre dos centros de fila se parte en el punto medio entre filas: por simetría, en `t = 0.5` cae justo ahí, a medio camino en horizontal. Cada fila dibuja su mitad. La tabla deja 1 pt de separación entre filas, así que el `Canvas` de cada fila mide una fila más esa separación (el paso entre centros) y se centra en la fila: cada mitad llega al centro del hueco y las líneas no se cortan (decisión tomada en la verificación visual de G1).
 
 ### 5.2 Hueco en los cruces
 
