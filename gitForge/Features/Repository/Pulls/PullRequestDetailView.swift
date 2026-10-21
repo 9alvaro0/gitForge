@@ -143,7 +143,7 @@ struct PullRequestDetailView: View {
                 case .commits:
                     PullRequestCommitsTab(commits: store.commits, loading: store.isLoadingDetail)
                 case .files:
-                    PullRequestFilesTab(files: store.files, loading: store.isLoadingDetail)
+                    PullRequestFilesTab(store: store)
                 }
             }
         }

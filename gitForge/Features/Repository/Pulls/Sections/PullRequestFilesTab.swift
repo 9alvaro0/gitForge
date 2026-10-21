@@ -1,17 +1,26 @@
 import SwiftUI
 
+/// The PR's files over the selected one's diff, with its review threads:
+/// under their lines, above the diff when they aren't on it, and in "Other
+/// comments" when their file isn't in the list.
 struct PullRequestFilesTab: View {
-    let files: [PullRequestFileChange]
-    let loading: Bool
+    let store: PullRequestStore
+
+    /// The list id of "Other comments": no path can be empty.
+    static let otherCommentsID = ""
 
     @Environment(\.appTheme) private var theme
     @State private var selectedPath: String?
     @State private var diffViewMode: DiffPane.ViewMode = .unified
     @FocusState private var listFocused: Bool
 
+    private var files: [PullRequestFileChange] { store.files }
+    private var hasOtherComments: Bool { !store.placedThreads.other.isEmpty }
+    private var listIDs: [String] { (hasOtherComments ? [Self.otherCommentsID] : []) + files.map(\.path) }
+
     var body: some View {
-        if files.isEmpty {
-            if loading {
+        if files.isEmpty && !hasOtherComments {
+            if store.isLoadingDetail {
                 placeholderList
             } else {
                 EmptyState(symbol: "square.and.pencil", title: String(localized: "No files changed"))
@@ -23,16 +32,16 @@ struct PullRequestFilesTab: View {
                 fileList
                     .frame(height: fileListHeight)
                 Rectangle().fill(theme.colors.separator).frame(height: 1)
-                diffPane
+                detailPane
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onAppear {
-                if selectedPath == nil { selectedPath = files.first?.path }
+                if selectedPath == nil { selectedPath = files.first?.path ?? listIDs.first }
             }
-            .onChange(of: files) { _, newFiles in
-                if let current = selectedPath, !newFiles.contains(where: { $0.path == current }) {
-                    selectedPath = newFiles.first?.path
+            .onChange(of: listIDs) { _, ids in
+                if let current = selectedPath, !ids.contains(current) {
+                    selectedPath = files.first?.path ?? ids.first
                 }
             }
         }
@@ -40,21 +49,25 @@ struct PullRequestFilesTab: View {
 
     /// Up to about seven rows, then it scrolls.
     private var fileListHeight: CGFloat {
-        CGFloat(min(files.count, 7)) * theme.density.metrics.rowFile + Spacing.s6 * 2
+        CGFloat(min(listIDs.count, 7)) * theme.density.metrics.rowFile + Spacing.s6 * 2
     }
 
     private var fileList: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    if hasOtherComments {
+                        PullRequestOtherCommentsRow(openThreads: store.placedThreads.otherOpenCount,
+                                                    isSelected: selectedPath == Self.otherCommentsID,
+                                                    onSelect: { select(Self.otherCommentsID) })
+                            .id(Self.otherCommentsID)
+                    }
                     ForEach(files) { file in
                         PullRequestFileRow(
                             file: file,
                             isSelected: file.path == selectedPath,
-                            onSelect: {
-                                selectedPath = file.path
-                                listFocused = true
-                            }
+                            openThreads: store.placedThreads.openCount(for: file.path),
+                            onSelect: { select(file.path) }
                         )
                         .id(file.path)
                     }
@@ -62,12 +75,17 @@ struct PullRequestFilesTab: View {
                 .padding(Spacing.s6)
             }
             .listKeyboardNavigation(
-                ids: files.map(\.path),
+                ids: listIDs,
                 selection: selectedPath,
                 isFocused: $listFocused,
                 scrollProxy: proxy
             ) { selectedPath = $0 }
         }
+    }
+
+    private func select(_ id: String) {
+        selectedPath = id
+        listFocused = true
     }
 
     private static let placeholderSamples: [PullRequestFileChange] = [
@@ -92,8 +110,45 @@ struct PullRequestFilesTab: View {
         .skeleton(true)
     }
 
-    private var diffPane: some View {
-        let selected = files.first(where: { $0.path == selectedPath })
+    // MARK: Detail
+
+    @ViewBuilder
+    private var detailPane: some View {
+        VStack(spacing: 0) {
+            if let error = store.threadsError {
+                threadsErrorBar(error)
+            }
+            if selectedPath == Self.otherCommentsID {
+                OtherCommentsList(store: store, threads: store.placedThreads.other)
+            } else {
+                let selected = files.first(where: { $0.path == selectedPath })
+                if let selected, let fileLevel = store.placedThreads.fileLevel[selected.path], !fileLevel.isEmpty {
+                    FileThreadsSection(store: store, threads: fileLevel)
+                        .id(selected.path)
+                }
+                diffPane(selected)
+            }
+        }
+    }
+
+    /// The diff keeps showing when the threads can't load.
+    private func threadsErrorBar(_ error: String) -> some View {
+        HStack(spacing: Spacing.s8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(theme.colors.warn)
+            Text("Couldn't load comments")
+                .textRole(.callout, weight: .semibold)
+                .foregroundStyle(theme.colors.textPrimary)
+            Spacer(minLength: 0)
+            GFButton(title: String(localized: "Retry"), size: .small) { Task { await store.loadThreads() } }
+        }
+        .padding(.horizontal, Spacing.s12)
+        .padding(.vertical, Spacing.s6)
+        .background(theme.colors.warnSoft)
+        .help(error)
+    }
+
+    private func diffPane(_ selected: PullRequestFileChange?) -> some View {
         let hunks: [DiffHunk] = {
             guard let patch = selected?.patch, !patch.isEmpty else { return [] }
             return DiffParser.parse(patch)
@@ -102,22 +157,50 @@ struct PullRequestFilesTab: View {
             file: selected?.path,
             status: selected.map { StatusTag.Kind(pullRequestFile: $0.status) },
             hunks: hunks,
+            lineAnnotations: selected.map(annotations(for:)),
             viewMode: $diffViewMode
+        )
+    }
+
+    /// The file's threads under their lines, the open new-comment box with
+    /// them, and the "+" on every hunk line. The content reads the store in
+    /// its own views, so typing doesn't redraw the diff.
+    private func annotations(for file: PullRequestFileChange) -> DiffLineAnnotations {
+        var refs = Set(store.placedThreads.inline[file.path]?.keys.map { $0 } ?? [])
+        if let target = store.composerTarget, target.path == file.path { refs.insert(target.ref) }
+        let store = store
+        return DiffLineAnnotations(
+            refs: refs,
+            content: { AnyView(DiffLineThreads(store: store, path: file.path, refs: $0)) },
+            onAddComment: { line, side in
+                store.composerTarget = CommentTarget.make(path: file.path, oldPath: file.oldPath, line: line, side: side)
+            }
         )
     }
 }
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    PullRequestFilesTab(files: PullRequestFileChange.previewSamples, loading: false)
+    PullRequestFilesTab(store: .previewWithDetail)
+        .previewAppState(.preview)
         .frame(width: 1200, height: 720)
+        .background(theme.colors.bgElevated)
+        .appTheme(theme)
+}
+
+#Preview("Threads") {
+    @Previewable @State var theme = AppTheme()
+    PullRequestFilesTab(store: .previewWithThreads)
+        .previewAppState(.preview)
+        .frame(width: 900, height: 720)
         .background(theme.colors.bgElevated)
         .appTheme(theme)
 }
 
 #Preview("Loading") {
     @Previewable @State var theme = AppTheme()
-    PullRequestFilesTab(files: [], loading: true)
+    PullRequestFilesTab(store: .previewLoadingDetail)
+        .previewAppState(.preview)
         .frame(width: 1200, height: 720)
         .background(theme.colors.bgElevated)
         .appTheme(theme)
