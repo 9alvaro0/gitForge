@@ -303,7 +303,7 @@ struct PullRequestStoreMergeTests {
         store.detail?.hostMergeStatus = HostMergeStatus(verdict: .blocked, reasons: ["all threads must be resolved"])
         #expect(store.mergeBlockedReason == "All threads must be resolved.")
         #expect(store.mergeSheetBlockedReason == "All threads must be resolved.")
-        #expect(await store.merge() == .failed("All threads must be resolved."))
+        #expect(await store.merge() == .failed("#1: All threads must be resolved."))
     }
 
     @Test("Options that can't load say why")
@@ -320,7 +320,7 @@ struct PullRequestStoreMergeTests {
     func blocked() async {
         provider.statuses = [HostMergeStatus(verdict: .blocked, reasons: ["all threads must be resolved"])]
         let store = await preparedStore()
-        #expect(await store.merge() == .failed("All threads must be resolved."))
+        #expect(await store.merge() == .failed("#1: All threads must be resolved."))
         #expect(provider.merges.isEmpty)
     }
 
@@ -329,7 +329,7 @@ struct PullRequestStoreMergeTests {
         provider.viewerCanMerge = false
         let store = await preparedStore()
         #expect(store.mergeReadiness?.canMerge == false)
-        #expect(await store.merge() == .failed("Your account can't merge it."))
+        #expect(await store.merge() == .failed("#1: Your account can't merge it."))
         #expect(provider.merges.isEmpty)
     }
 
@@ -377,7 +377,7 @@ struct PullRequestStoreMergeTests {
         let store = await preparedStore()
         provider.mergeErrors = [PullRequestFetchError.server(409, "{}")]
         let fetches = provider.detailFetches[1] ?? 0
-        #expect(await store.merge() == .headChanged("New commits were pushed — review them before merging."))
+        #expect(await store.merge() == .headChanged("#1: New commits were pushed — review them before merging."))
         #expect(provider.detailFetches[1] == fetches + 1)
         #expect(store.selected?.state == .open)
         #expect(store.items.map(\.number) == [1, 2, 3])
@@ -387,7 +387,7 @@ struct PullRequestStoreMergeTests {
     func notFound() async {
         let store = await preparedStore()
         provider.mergeErrors = [PullRequestFetchError.notFound]
-        #expect(await store.merge() == .failed("Your account (user-of-t1 on github.com) can't merge this pull request."))
+        #expect(await store.merge() == .failed("#1: Your account (user-of-t1 on github.com) can't merge this pull request."))
     }
 
     @Test("Merged even if the reload fails: the PR reads as merged, not mergeable")
@@ -404,7 +404,7 @@ struct PullRequestStoreMergeTests {
     func forbidden() async {
         let store = await preparedStore()
         provider.mergeErrors = [PullRequestFetchError.forbidden]
-        #expect(await store.merge() == .failed("Your account (user-of-t1 on github.com) can't merge this pull request."))
+        #expect(await store.merge() == .failed("#1: Your account (user-of-t1 on github.com) can't merge this pull request."))
         #expect(store.mergeDraft != nil)
     }
 

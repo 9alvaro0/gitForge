@@ -12,7 +12,9 @@ nonisolated enum ThreadActionResult: Equatable, Sendable {
 
 extension PullRequestStore {
     /// Reads the selected PR's threads. A failure only sets `threadsError`:
-    /// the detail and the diff stay as they are.
+    /// the detail and the diff stay as they are, and so do the threads,
+    /// unless they were read against another diff (their lines may be other
+    /// code now).
     func loadThreads() async {
         guard let pull = selected, let host else { return }
         threadsGen &+= 1
@@ -29,9 +31,11 @@ extension PullRequestStore {
             }
             guard gen == threadsGen, detailGen == self.detailGen, let read else { return }
             threads = read
+            threadsHead = shown?.pull.headSha
             threadsError = nil
         } catch {
             guard gen == threadsGen, detailGen == self.detailGen else { return }
+            if threadsHead != shown?.pull.headSha { threads = [] }
             threadsError = Self.message(for: error)
         }
     }
@@ -113,13 +117,13 @@ extension PullRequestStore {
                          _ call: (String) async throws -> Void) async -> ThreadActionResult {
         do {
             guard try await withToken(host, call) != nil else {
-                return .failed(String(localized: "The account's token isn't available. Refresh the list."))
+                return .failed(Self.naming(pull, on: host, String(localized: "The account's token isn't available. Refresh the list.")))
             }
             return .done
         } catch {
             let failure = PullRequestActionError.from(error)
-            let message = failure.message(for: action, account: currentUser, host: host.host,
-                                          isMergeRequest: host.provider == .gitlab)
+            let message = Self.naming(pull, on: host, failure.message(for: action, account: currentUser, host: host.host,
+                                                                      isMergeRequest: host.provider == .gitlab))
             switch failure {
             case .changedOnHost:
                 if selected?.id == pull.id { await loadThreads() }

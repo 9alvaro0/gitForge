@@ -32,6 +32,7 @@ extension PullRequestStore {
     /// Approves or requests changes on the selected PR with its draft as the
     /// comment. The PR is captured up front: switching PRs mid-flight
     /// doesn't redirect the review, and only reloads the detail it belongs to.
+    /// It answers as soon as the host does; the reload follows on its own.
     func submitReview(_ verdict: ReviewVerdict) async -> ReviewSubmitResult {
         guard let selectedPull = selected, let host, submittingReview == nil else { return .ignored }
         let pull = detail?.pull.id == selectedPull.id ? (detail?.pull ?? selectedPull) : selectedPull
@@ -47,24 +48,27 @@ extension PullRequestStore {
                 try await provider.submitReview(host: host, pull: pull, verdict: verdict, body: body, token: token)
             }
             guard let warning = outcome else {
-                return .failed(String(localized: "The account's token isn't available. Refresh the list."))
+                return .failed(Self.naming(pull, on: host, String(localized: "The account's token isn't available. Refresh the list.")))
             }
             // A comment that didn't post stays as a draft so it isn't lost.
             if warning == nil { drafts[key] = nil }
-            if selected?.id == pull.id { await loadDetail() }
-            return .submitted(warning: warning)
+            if selected?.id == pull.id {
+                reviewPanel = nil
+                reloadDetailInBackground()
+            }
+            return .submitted(warning: warning.map { Self.naming(pull, on: host, $0) })
         } catch {
             let failure = PullRequestActionError.from(error)
             // The PR moved on the host: show what it is now. The draft stays.
             switch failure {
             case .headChanged, .changedOnHost, .rejected:
-                if selected?.id == pull.id { await loadDetail() }
+                if selected?.id == pull.id { reloadDetailInBackground() }
             case .forbidden, .pendingReview, .other:
                 break
             }
             let action: PullRequestAction = verdict == .approve ? .approve : .requestChanges
-            return .failed(failure.message(for: action, account: currentUser, host: host.host,
-                                           isMergeRequest: host.provider == .gitlab))
+            return .failed(Self.naming(pull, on: host, failure.message(for: action, account: currentUser, host: host.host,
+                                                                      isMergeRequest: host.provider == .gitlab)))
         }
     }
 }

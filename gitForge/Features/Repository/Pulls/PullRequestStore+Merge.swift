@@ -80,9 +80,9 @@ extension PullRequestStore {
     /// list and the detail reload, and the PR stays selected.
     func merge() async -> MergeResult {
         guard let selectedPull = selected, let host, !isMerging else { return .ignored }
-        if let reason = mergeBlockedReason { return .failed(reason) }
-        guard let options = mergeOptions, let draft = mergeDraft else { return .ignored }
         let pull = detail?.pull ?? selectedPull
+        if let reason = mergeBlockedReason { return .failed(Self.naming(pull, on: host, reason)) }
+        guard let options = mergeOptions, let draft = mergeDraft else { return .ignored }
         let input = draft.input(options: options, headSha: pull.headSha)
         let ref = host.provider.reference(pull.number)
 
@@ -94,7 +94,7 @@ extension PullRequestStore {
                 try await provider.merge(host: host, pull: pull, input: input, token: token)
             }
             guard let outcome else {
-                return .failed(String(localized: "The account's token isn't available. Refresh the list."))
+                return .failed(Self.naming(pull, on: host, String(localized: "The account's token isn't available. Refresh the list.")))
             }
             if selected?.id == pull.id {
                 keepsSelectionOutsideList = true
@@ -126,8 +126,8 @@ extension PullRequestStore {
             case .forbidden, .pendingReview, .other:
                 break
             }
-            let message = failure.message(for: .merge, account: currentUser, host: host.host,
-                                          isMergeRequest: host.provider == .gitlab)
+            let message = Self.naming(pull, on: host, failure.message(for: .merge, account: currentUser, host: host.host,
+                                                                      isMergeRequest: host.provider == .gitlab))
             return failure == .headChanged ? .headChanged(message) : .failed(message)
         }
     }

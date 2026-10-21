@@ -155,6 +155,30 @@ struct PullRequestStoreThreadsTests {
         #expect(store.threadsError == nil)
     }
 
+    @Test("A Refresh that changed the diff and couldn't reload the threads drops them: their lines may be other code now")
+    func failedReloadOnNewDiff() async {
+        provider.heads = ["sha1", "sha2"]
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        #expect(store.placedThreads.inline["f1.swift"] != nil)
+        provider.threadErrors = [PullRequestFetchError.server(500, "x")]
+        await store.refresh()
+        #expect(store.threadsError != nil)
+        #expect(store.threads.isEmpty)
+        #expect(store.placedThreads == .empty)
+    }
+
+    @Test("A failed thread reload on the same diff keeps the threads where they were")
+    func failedReloadOnSameDiff() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        provider.threadErrors = [PullRequestFetchError.server(500, "x")]
+        await store.refresh()
+        #expect(store.threadsError != nil)
+        #expect(store.threads.map(\.id) == ["T1"])
+        #expect(store.placedThreads.inline["f1.swift"]?[DiffLineRef(side: .new, line: 3)]?.map(\.id) == ["T1"])
+    }
+
     @Test("Refresh keeps the draft and the open composer")
     func refreshKeepsComposer() async {
         let store = await loadedStore()
@@ -235,7 +259,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         store.drafts[.reply(pullId: "1", threadId: "T1")] = "Done"
         provider.writeErrors = [PullRequestFetchError.notFound]
-        #expect(await store.reply(to: store.threads[0]) == .changedOnHost("It changed on the host since it loaded. Reloaded."))
+        #expect(await store.reply(to: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded. Reloaded."))
         #expect(store.drafts[.reply(pullId: "1", threadId: "T1")] == "Done")
         #expect(provider.threadFetches[1] == 2)
     }
@@ -246,7 +270,7 @@ struct PullRequestStoreThreadsTests {
         store.drafts[.comment(pullId: "1", target: Self.target)] = "x"
         provider.writeErrors = [PullRequestActionError.forbidden]
         #expect(await store.addComment(at: Self.target)
-                == .failed("Your account (user-of-t1 on github.com) can't comment on this pull request."))
+                == .failed("#1: Your account (user-of-t1 on github.com) can't comment on this pull request."))
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == "x")
         #expect(provider.threadFetches[1] == 1)
     }
@@ -256,7 +280,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         store.drafts[.comment(pullId: "1", target: Self.target)] = "x"
         provider.writeErrors = [PullRequestActionError.headChanged]
-        #expect(await store.addComment(at: Self.target) == .changedOnHost("New commits were pushed — review them and try again."))
+        #expect(await store.addComment(at: Self.target) == .changedOnHost("#1: New commits were pushed — review them and try again."))
         #expect(provider.detailFetches[1] == 2)
         #expect(provider.threadFetches[1] == 2)
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == "x")
@@ -294,7 +318,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         provider.threads[1] = []
         provider.writeErrors = [PullRequestActionError.changedOnHost]
-        #expect(await store.setResolved(true, thread: store.threads[0]) == .changedOnHost("It changed on the host since it loaded. Reloaded."))
+        #expect(await store.setResolved(true, thread: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded. Reloaded."))
         #expect(store.threads.isEmpty)
     }
 
@@ -329,6 +353,20 @@ struct PullRequestStoreThreadsTests {
         #expect(store.threads.map(\.id) == ["T2"])
         #expect(provider.threadFetches[1] == 1)
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == nil)
+    }
+
+    @Test("A refusal that lands after switching PRs names the PR it was on")
+    func refusalAfterSwitchNamesItsPR() async throws {
+        let store = await loadedStore()
+        store.drafts[.comment(pullId: "1", target: Self.target)] = "On PR 1"
+        let gate = AsyncGate()
+        provider.gate = gate
+        provider.writeErrors = [PullRequestActionError.forbidden]
+        let send = Task { await store.addComment(at: Self.target) }
+        await gate.waiting()
+        store.select(try #require(store.items.last))
+        gate.open()
+        #expect(await send.value == .failed("#1: Your account (user-of-t1 on github.com) can't comment on this pull request."))
     }
 
     @Test("Resolving two threads in a row: both reach the host")
