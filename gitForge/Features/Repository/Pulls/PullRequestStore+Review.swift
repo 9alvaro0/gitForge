@@ -47,13 +47,22 @@ extension PullRequestStore {
             guard let warning = outcome else {
                 return .failed(String(localized: "The account's token isn't available. Refresh the list."))
             }
-            drafts[key] = nil
+            // A comment that didn't post stays as a draft so it isn't lost.
+            if warning == nil { drafts[key] = nil }
             if selected?.id == pull.id { await loadDetail() }
             return .submitted(warning: warning)
         } catch {
+            let failure = PullRequestActionError.from(error)
+            // The PR moved on the host: show what it is now. The draft stays.
+            switch failure {
+            case .headChanged, .changedOnHost, .rejected:
+                if selected?.id == pull.id { await loadDetail() }
+            case .forbidden, .pendingReview, .other:
+                break
+            }
             let action: PullRequestAction = verdict == .approve ? .approve : .requestChanges
-            return .failed(PullRequestActionError.from(error).message(for: action, account: currentUser, host: host.host,
-                                                                       isMergeRequest: host.provider == .gitlab))
+            return .failed(failure.message(for: action, account: currentUser, host: host.host,
+                                           isMergeRequest: host.provider == .gitlab))
         }
     }
 }

@@ -135,6 +135,70 @@ struct GitLabReviewFlowTests {
         #expect(warning == "Approved, but the comment couldn't be posted: Server returned 500: boom")
     }
 
+    @Test("A refused approval (GitLab's 401) with a working token reads as refused, not as a dead token")
+    func approvalRefused() async {
+        let (server, provider, host, pull) = Self.setUp()
+        server.on("POST", "\(Self.mr)/approve", status: 401, body: Data(#"{"message":"401 Unauthorized"}"#.utf8))
+        server.on("GET", "/api/v4/user", fixture: "gitlab-user")
+        await #expect(throws: PullRequestActionError.rejected(GitLabPullRequestProvider.approvalRefusedReason)) {
+            try await provider.submitReview(host: host, pull: pull, verdict: .approve, body: "LGTM", token: "t")
+        }
+        #expect(server.requests("POST", "\(Self.mr)/notes").isEmpty)
+    }
+
+    @Test("A 401 on approve with a dead token stays a 401, so the token gets refreshed")
+    func approvalDeadToken() async {
+        let (server, provider, host, pull) = Self.setUp()
+        server.on("POST", "\(Self.mr)/approve", status: 401, body: Data("{}".utf8))
+        server.on("GET", "/api/v4/user", status: 401, body: Data("{}".utf8))
+        await #expect(throws: PullRequestFetchError.unauthorized) {
+            try await provider.submitReview(host: host, pull: pull, verdict: .approve, body: "", token: "t")
+        }
+    }
+
+    /// Version 17.5 and a schema with the mutation; the first two GraphQL
+    /// answers are the probe's, then `mutation`.
+    private static func withMutation(_ server: StubServer, mutation: String) {
+        server.on("GET", "/api/v4/version", fixture: "gitlab-version")
+        server.on("POST", "/api/graphql", fixture: "gitlab-graphql-mutations")
+        server.on("POST", "/api/graphql", body: Data(mutation.utf8))
+    }
+
+    @Test("With the mutation: the mutation, then the comment as a plain note")
+    func mutationThenNote() async throws {
+        let (server, provider, host, pull) = Self.setUp()
+        Self.withMutation(server, mutation: #"{"data":{"mergeRequestRequestChanges":{"errors":[]}}}"#)
+        server.on("POST", "\(Self.mr)/notes", status: 201, body: Data("{}".utf8))
+        let warning = try await provider.submitReview(host: host, pull: pull, verdict: .requestChanges, body: "Add tests", token: "t")
+        #expect(warning == nil)
+        let graphQL = server.requests("POST", "/api/graphql")
+        #expect(graphQL.count == 2)
+        #expect((graphQL.last?.json?["query"] as? String)?.contains("mergeRequestRequestChanges") == true)
+        #expect(server.requests("POST", "\(Self.mr)/notes").map { $0.json?["body"] as? String } == ["Add tests"])
+    }
+
+    @Test("The mutation's errors refuse the review and post no note", arguments: [
+        #"{"data":{"mergeRequestRequestChanges":{"errors":["You don't have permission"]}}}"#,
+        #"{"errors":[{"message":"You don't have permission"}]}"#,
+    ])
+    func mutationRefused(answer: String) async {
+        let (server, provider, host, pull) = Self.setUp()
+        Self.withMutation(server, mutation: answer)
+        await #expect(throws: PullRequestActionError.rejected("You don't have permission")) {
+            try await provider.submitReview(host: host, pull: pull, verdict: .requestChanges, body: "Add tests", token: "t")
+        }
+        #expect(server.requests("POST", "\(Self.mr)/notes").isEmpty)
+    }
+
+    @Test("With the mutation, a failed comment is a warning")
+    func mutationNoteFails() async throws {
+        let (server, provider, host, pull) = Self.setUp()
+        Self.withMutation(server, mutation: #"{"data":{"mergeRequestRequestChanges":{"errors":[]}}}"#)
+        server.on("POST", "\(Self.mr)/notes", status: 500, body: Data("boom".utf8))
+        let warning = try await provider.submitReview(host: host, pull: pull, verdict: .requestChanges, body: "Add tests", token: "t")
+        #expect(warning == "Requested changes, but the comment couldn't be posted: Server returned 500: boom")
+    }
+
     @Test("17.3+ without the mutation: one note with the quick action")
     func quickActionNote() async throws {
         let (server, provider, host, pull) = Self.setUp()
@@ -143,7 +207,8 @@ struct GitLabReviewFlowTests {
         server.on("POST", "\(Self.mr)/notes", status: 201, body: Data("{}".utf8))
         #expect(await provider.requestChangesSupport(host: host, token: "t") == .supported)
         _ = try await provider.submitReview(host: host, pull: pull, verdict: .requestChanges, body: "Add tests", token: "t")
-        #expect(server.requests("POST", "\(Self.mr)/notes").count == 1)
+        #expect(server.requests("POST", "\(Self.mr)/notes").map { $0.json?["body"] as? String }
+                == ["Add tests\n\n/submit_review requested_changes"])
         #expect(server.requests("POST", "\(Self.mr)/approve").isEmpty)
     }
 

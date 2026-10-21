@@ -14,8 +14,16 @@ extension GitLabPullRequestProvider: PullRequestReviewProvider {
                       body: String, token: String) async throws -> String? {
         switch verdict {
         case .approve:
-            _ = try await RemoteAPI.send(Self.approveRequest(host: host, number: pull.number, sha: pull.headSha, token: token),
-                                         session: session)
+            do {
+                _ = try await RemoteAPI.send(Self.approveRequest(host: host, number: pull.number, sha: pull.headSha, token: token),
+                                             session: session)
+            } catch PullRequestFetchError.unauthorized {
+                // A refusal, unless the token itself is dead: then `/user`
+                // throws the 401 on and the store refreshes the token.
+                _ = try await RemoteAPI.send(Self.makeRequest(url: URL(string: "\(Self.base(for: host))/user"), token: token),
+                                             session: session)
+                throw PullRequestActionError.rejected(Self.approvalRefusedReason)
+            }
             return await postComment(body, host: host, number: pull.number, token: token) {
                 String(localized: "Approved, but the comment couldn't be posted: \($0)")
             }
@@ -89,6 +97,12 @@ extension GitLabPullRequestProvider: PullRequestReviewProvider {
 
     nonisolated static var requestChangesUnsupportedReason: String {
         String(localized: "Requesting changes needs GitLab 17.3 or later")
+    }
+
+    /// GitLab answers 401 when it refuses an approval: already approved,
+    /// not eligible, or the project asks for the user's password.
+    nonisolated static var approvalRefusedReason: String {
+        String(localized: "the approval wasn't accepted. It may already be approved, or the project asks for your password to approve.")
     }
 
     nonisolated static let requestChangesProbe = #"query { __type(name: "Mutation") { fields { name } } }"#

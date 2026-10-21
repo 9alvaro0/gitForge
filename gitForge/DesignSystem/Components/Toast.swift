@@ -25,6 +25,8 @@ nonisolated struct ToastAction: Equatable, Sendable {
         case reconnectAccount(instanceId: UUID, accountId: UUID?)
         case openAccounts
         case openURL(URL)
+        /// Puts the text on the pasteboard (a comment that didn't post).
+        case copyText(String)
     }
     let title: String
     let route: Route

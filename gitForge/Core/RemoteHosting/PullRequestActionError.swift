@@ -35,10 +35,15 @@ nonisolated enum PullRequestActionError: Error, Equatable, Sendable {
         }
     }
 
-    /// What the host said: `message` (a string, or GitLab's field → [reasons]),
-    /// then `error`, then the body itself, cut short.
+    /// What the host said: GitHub's `errors` (its `message` is a generic
+    /// "Unprocessable Entity"), then `message` (a string, or GitLab's
+    /// field → [reasons]), then `error`, then the body itself, cut short.
     static func hostMessage(fromBody body: String) -> String {
         if let object = try? JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any] {
+            let reasons = (object["errors"] as? [Any] ?? []).compactMap { item in
+                item as? String ?? (item as? [String: Any])?["message"] as? String
+            }
+            if !reasons.isEmpty { return reasons.joined(separator: "; ") }
             if let message = object["message"] as? String { return message }
             if let fields = object["message"] as? [String: [String]] {
                 let reasons = fields.keys.sorted().flatMap { fields[$0] ?? [] }

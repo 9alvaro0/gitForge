@@ -49,6 +49,9 @@ struct ShellView: View {
                         appState.ui.openSettings(at: .accounts)
                     case .openURL(let url):
                         openURL(url)
+                    case .copyText(let text):
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
                     }
                 })
                     .padding(.bottom, Spacing.s16)

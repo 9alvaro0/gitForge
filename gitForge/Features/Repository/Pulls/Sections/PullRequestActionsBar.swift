@@ -112,15 +112,22 @@ struct PullRequestActionsBar: View {
     }
 
     /// The toast names the PR the review went to, read before the await.
+    /// A verdict that landed without its comment gets a lasting toast that
+    /// can copy the comment, since its panel may not open again.
     private func submit(_ verdict: ReviewVerdict) {
         let done = verdict == .approve ? String(localized: "Approved \(reference)")
                                        : String(localized: "Requested changes on \(reference)")
+        let comment = store.drafts[.review(pullId: store.selected?.id ?? "", verdict)] ?? ""
         Task {
             switch await store.submitReview(verdict) {
-            case .submitted(let warning):
+            case .submitted(let warning?):
                 openPanel = nil
-                appState.ui.activeToast = warning.map { ToastMessage(message: $0, kind: .warn) }
-                    ?? ToastMessage(message: done, kind: .ok)
+                appState.ui.activeToast = ToastMessage(
+                    message: warning, kind: .error,
+                    action: ToastAction(title: String(localized: "Copy comment"), route: .copyText(comment)))
+            case .submitted(nil):
+                openPanel = nil
+                appState.ui.activeToast = ToastMessage(message: done, kind: .ok)
             case .failed(let message):
                 appState.ui.activeToast = ToastMessage(message: message, kind: .error)
             case .ignored:

@@ -13,6 +13,10 @@ struct PullRequestActionErrorTests {
         (.server(406, #"{"message":{"base":["Branch cannot be merged"]}}"#), .rejected("Branch cannot be merged")),
         (.server(422, #"{"error":"sha does not match"}"#), .rejected("sha does not match")),
         (.server(500, "boom"), .other("Server returned 500: boom")),
+        (.server(422, #"{"message":"Unprocessable Entity","errors":["Can not approve your own pull request"]}"#),
+         .rejected("Can not approve your own pull request")),
+        (.server(422, #"{"message":"Validation Failed","errors":[{"resource":"PullRequestReview","code":"custom","message":"Commit id is not part of the pull request"}]}"#),
+         .rejected("Commit id is not part of the pull request")),
     ])
     func mapping(input: PullRequestFetchError, expected: PullRequestActionError) {
         #expect(PullRequestActionError.from(input) == expected)

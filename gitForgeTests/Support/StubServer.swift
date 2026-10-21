@@ -17,6 +17,13 @@ final class StubServer: @unchecked Sendable {
         var headers: [String: String]
         /// Fields of a form-encoded body.
         var form: [String: String]
+        /// The raw body, for JSON payloads.
+        var body: Data = Data()
+
+        /// The body as a JSON object, when it is one.
+        var json: [String: Any]? {
+            (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+        }
 
         func header(_ name: String) -> String? {
             headers.first { $0.key.caseInsensitiveCompare(name) == .orderedSame }?.value
@@ -68,8 +75,9 @@ final class StubServer: @unchecked Sendable {
     fileprivate func answer(_ request: URLRequest) -> Response {
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path ?? "/"
+        let body = StubURLProtocol.body(of: request)
         let recorded = Request(method: method, path: path, headers: request.allHTTPHeaderFields ?? [:],
-                               form: Self.form(StubURLProtocol.body(of: request)))
+                               form: Self.form(body), body: body)
         let key = "\(method) \(path)"
         return lock.withLock {
             log.append(recorded)

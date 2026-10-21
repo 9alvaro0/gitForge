@@ -55,6 +55,12 @@ private final class FakeReviewProvider: PullRequestReviewProvider, @unchecked Se
     }
 }
 
+/// The tokens `auth` was told were rejected.
+@MainActor
+private final class AuthLog {
+    var rejected: [String] = []
+}
+
 @Suite("PullRequestStore — reviews", .serialized)
 @MainActor
 struct PullRequestStoreReviewTests {
@@ -62,14 +68,19 @@ struct PullRequestStoreReviewTests {
 
     private let provider = ReviewFakeProvider()
     private let reviews = FakeReviewProvider()
+    private let auth = AuthLog()
 
     /// A loaded list with PR 1's detail open (loaded directly, so the fetch
     /// count is deterministic).
     private func loadedStore() async -> PullRequestStore {
         let provider = provider
         let reviews = reviews
+        let auth = auth
         let store = PullRequestStore(cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
-                                     auth: { _, rejected in rejected == nil ? .token("t1") : .token("t2") },
+                                     auth: { _, rejected in
+                                         if let rejected { auth.rejected.append(rejected) }
+                                         return rejected == nil ? .token("t1") : .token("t2")
+                                     },
                                      resolveHost: { Self.host },
                                      makeProvider: { _ in provider },
                                      makeReviewProvider: { _ in reviews })
@@ -141,6 +152,34 @@ struct PullRequestStoreReviewTests {
         #expect(provider.detailFetches[2] == 1)
         #expect(provider.detailFetches[1] == 1)
         #expect(store.detail?.pull.number == 2)
+    }
+
+    @Test("A refused review never asks for a fresh token, and reloads the detail")
+    func refused() async {
+        let store = await loadedStore()
+        reviews.errors = [PullRequestActionError.rejected("the approval wasn't accepted")]
+        #expect(await store.submitReview(.approve) == .failed("The host refused: the approval wasn't accepted"))
+        #expect(auth.rejected.isEmpty)
+        #expect(provider.detailFetches[1] == 2)
+    }
+
+    @Test("New commits on the host: says so, reloads the detail and keeps the draft")
+    func headChanged() async {
+        let store = await loadedStore()
+        store.drafts[.review(pullId: "1", .requestChanges)] = "Add tests"
+        reviews.errors = [PullRequestFetchError.server(409, "{}")]
+        #expect(await store.submitReview(.requestChanges) == .failed("New commits were pushed — review them and try again."))
+        #expect(provider.detailFetches[1] == 2)
+        #expect(store.drafts[.review(pullId: "1", .requestChanges)] == "Add tests")
+    }
+
+    @Test("A verdict that landed without its comment keeps the comment's draft")
+    func warningKeepsDraft() async {
+        let store = await loadedStore()
+        store.drafts[.review(pullId: "1", .approve)] = "LGTM"
+        reviews.warning = "Approved, but the comment couldn't be posted: boom"
+        #expect(await store.submitReview(.approve) == .submitted(warning: "Approved, but the comment couldn't be posted: boom"))
+        #expect(store.drafts[.review(pullId: "1", .approve)] == "LGTM")
     }
 
     @Test("Request changes support is read with the detail")

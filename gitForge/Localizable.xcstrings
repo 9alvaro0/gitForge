@@ -4251,6 +4251,22 @@
         }
       }
     },
+    "Copy comment" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comentario"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comentário"
+          }
+        }
+      }
+    },
     "Copy filename" : {
       "localizations" : {
         "es" : {
@@ -18977,6 +18993,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "credenciais do sistema"
+          }
+        }
+      }
+    },
+    "the approval wasn't accepted. It may already be approved, or the project asks for your password to approve." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "la aprobación no se ha aceptado. Puede que ya esté aprobada o que el proyecto pida tu contraseña para aprobar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a aprovação não foi aceite. Pode já estar aprovado ou o projeto pede a sua palavra-passe para aprovar."
           }
         }
       }
