@@ -88,6 +88,8 @@ struct ShellView: View {
                                                                                      accounts: appState.accounts.accounts))
             appState.catalog.activeViewModel?.remoteFailure = nil
         }
+        // A pull refused over local changes asks instead of failing.
+        .pullDiscardPrompt()
         // Same idea for success: commit, fetch, pull and push confirm what
         // landed, wherever they were started from.
         .onChange(of: appState.catalog.activeViewModel?.operationSuccess) { _, success in

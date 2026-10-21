@@ -82,14 +82,62 @@ extension RepositoryViewModel {
             operationSuccess = .pull(upstream: upstream, changed: headBefore != headAfter)
             return true
         } catch {
-            remoteFailure = RemoteFailure.from(error)
             // A failed pull may have left a merge in progress (MERGE_HEAD).
             // Refresh the integration cluster so the Conflicts view paints
             // the unmerged paths immediately, instead of waiting on the
-            // next watcher tick.
+            // next watcher tick. The fresh status also names the files a
+            // refusal over local changes points at.
             await refreshAfterIntegration()
+            if let request = discardRequest(for: error, rebase: rebase, ffOnly: ffOnly) {
+                pullDiscardRequest = request
+            } else {
+                remoteFailure = RemoteFailure.from(error)
+            }
             return false
         }
+    }
+
+    /// Discards the files a refused pull pointed at, then runs that pull
+    /// again. Untracked files go to the Trash, like the staging Discard.
+    /// Same return contract as `fetch()`.
+    @discardableResult
+    func discardBlockingChangesAndPull(_ request: PullDiscardRequest) async -> Bool {
+        guard remoteOperation == nil, !isMutating else { return false }
+        pullDiscardRequest = nil
+        let tracked = request.files.filter { !$0.isUntracked }
+        let untracked = request.files.filter(\.isUntracked)
+        isMutating = true
+        do {
+            try await cli.restoreFromHead(paths: tracked.flatMap(\.allPaths))
+            try await cli.deleteUntracked(paths: untracked.map(\.path))
+        } catch {
+            isMutating = false
+            remoteFailure = .other(error.userMessage)
+            await workingCopy.refreshStatus()
+            return false
+        }
+        isMutating = false
+        return await pull(rebase: request.rebase, ffOnly: request.ffOnly)
+    }
+
+    /// The question to ask when `error` is git refusing to pull over local
+    /// changes, built from the current status: the files git named, or for
+    /// a rebase every tracked change. `nil` when it's another failure or
+    /// none of those files shows up in the status.
+    private func discardRequest(for error: Error, rebase: Bool, ffOnly: Bool) -> PullDiscardRequest? {
+        guard let blocking = BlockingLocalChanges(error: error) else { return nil }
+        let changed = workingCopy.status.files
+        let files: [WorkingCopyFile]
+        switch blocking {
+        case .paths(let paths):
+            let named = Set(paths)
+            files = changed.filter { $0.allPaths.contains(where: named.contains) }
+        case .allTrackedChanges:
+            files = changed.filter { !$0.isUntracked }
+        }
+        guard !files.isEmpty else { return nil }
+        return PullDiscardRequest(files: files, refusedByRebase: blocking == .allTrackedChanges,
+                                  rebase: rebase, ffOnly: ffOnly)
     }
 
     /// Same return contract as `fetch()`.
