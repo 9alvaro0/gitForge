@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Testing
 @testable import gitForge
 
@@ -119,13 +120,14 @@ struct PullRequestStoreThreadsTests {
                                            side: .new)!
 
     /// A loaded list with PR 1's detail and threads open.
-    private func loadedStore() async -> PullRequestStore {
+    private func loadedStore(parsePatch: @escaping @Sendable (String) -> [DiffHunk] = { DiffParser.parse($0) }) async -> PullRequestStore {
         let provider = provider
         let store = PullRequestStore(cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
                                      auth: { _, rejected in rejected == nil ? .token("t1") : .token("t2") },
                                      resolveHost: { Self.host },
                                      makeProvider: { _ in provider },
-                                     makeReviewProvider: { _ in provider })
+                                     makeReviewProvider: { _ in provider },
+                                     parsePatch: parsePatch)
         await store.load(force: true)
         store.selected = store.items.first
         await store.loadDetail()
@@ -205,6 +207,54 @@ struct PullRequestStoreThreadsTests {
         #expect(store.replyingThreadId == "T1")
         #expect(store.drafts[.reply(pullId: "1", threadId: "T1")] == "Half a sentence")
         #expect(store.threads.map(\.id) == ["T1"])
+    }
+
+    @Test("Typing in one box doesn't touch what reads another; the box's own readers hear it, its first write too")
+    func draftsObservedPerBox() async {
+        let store = await loadedStore()
+        let first = ReviewDraftKey.reply(pullId: "1", threadId: "T1")
+        let other = ReviewDraftKey.reply(pullId: "1", threadId: "T2")
+        let changes = CallCount()
+        withObservationTracking { _ = store.drafts[first] } onChange: { changes.add() }
+        store.drafts[other] = "typing elsewhere"
+        #expect(changes.value == 0)
+        store.drafts[first] = "x"
+        #expect(changes.value == 1)
+
+        withObservationTracking { _ = store.drafts[first] } onChange: { changes.add() }
+        store.drafts[first] = nil
+        #expect(changes.value == 2)
+    }
+
+    @Test("A box takes the focus when it opens; back on screen, only if it left with it")
+    func focusOnOpenOnly() async {
+        let store = await loadedStore()
+        let key = ReviewDraftKey.comment(pullId: "1", target: Self.target)
+        #expect(!store.claimFocus(key))
+        store.composerTarget = Self.target
+        #expect(store.claimFocus(key))
+        // Scrolled away while the user was elsewhere: coming back doesn't steal it.
+        store.composerLeft(key, hadFocus: false)
+        #expect(!store.claimFocus(key))
+        // Scrolled away mid-sentence: coming back, the user can go on typing.
+        store.composerLeft(key, hadFocus: true)
+        #expect(store.claimFocus(key))
+        // Closed with the focus: nothing left to take it back.
+        store.composerTarget = nil
+        store.composerLeft(key, hadFocus: true)
+        #expect(!store.claimFocus(key))
+    }
+
+    @Test("Opening a reply box again takes the focus again")
+    func replyFocusOnReopen() async {
+        let store = await loadedStore()
+        let key = ReviewDraftKey.reply(pullId: "1", threadId: "T1")
+        store.replyingThreadId = "T1"
+        #expect(store.claimFocus(key))
+        #expect(!store.claimFocus(key))
+        store.replyingThreadId = nil
+        store.replyingThreadId = "T1"
+        #expect(store.claimFocus(key))
     }
 
     @Test("Opening a box closes the other one; their drafts stay")
@@ -310,6 +360,18 @@ struct PullRequestStoreThreadsTests {
 
         #expect(await store.setResolved(false, thread: store.threads[0]) == .done)
         #expect(!store.threads[0].isResolved && store.threads[0].resolvedBy == nil && store.threads[0].canResolve)
+    }
+
+    @Test("Resolving a thread or a Refresh with the same diff places the threads without parsing the patch again")
+    func placingDoesNotReparse() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let parses = CallCount()
+        let store = await loadedStore(parsePatch: { parses.add(); return DiffParser.parse($0) })
+        #expect(parses.value == 1)
+        #expect(await store.setResolved(true, thread: store.threads[0]) == .done)
+        await store.refresh()
+        #expect(parses.value == 1)
+        #expect(store.placedThreads.inline["f1.swift"]?[DiffLineRef(side: .new, line: 3)]?.map(\.id) == ["T1"])
     }
 
     @Test("Resolving a thread someone deleted reloads the threads")

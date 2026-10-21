@@ -57,6 +57,26 @@ struct ThreadPlacementTests {
         #expect(placed.otherOpenCount == 1)
     }
 
+    @Test("Placing threads again parses each patch once; a new patch is parsed again")
+    func parsesEachPatchOnce() {
+        let parses = CallCount()
+        var index = DiffLineIndex(parse: { parses.add(); return DiffParser.parse($0) })
+        let open = [Self.thread("t", ref: .init(side: .new, line: 12))]
+        _ = ThreadPlacement.place(open, in: [Self.file], index: &index)
+        let resolved = ThreadPlacement.place([Self.thread("t", ref: .init(side: .new, line: 12), resolved: true)],
+                                             in: [Self.file], index: &index)
+        #expect(parses.value == 1)
+        #expect(resolved.inline["Sources/Retry.swift"]?[.init(side: .new, line: 12)]?.map(\.id) == ["t"])
+
+        // New commits took line 12 away.
+        let pushed = PullRequestFileChange(path: "Sources/Retry.swift", oldPath: "Sources/Old.swift", status: .renamed,
+                                           additions: 1, deletions: 1, patch: "@@ -10,2 +10,2 @@\n let a = 1\n-let b = 2\n+let b = 5")
+        let placed = ThreadPlacement.place(open, in: [pushed], index: &index)
+        #expect(parses.value == 2)
+        #expect(placed.fileLevel["Sources/Retry.swift"]?.map(\.id) == ["t"])
+        #expect(placed.inline.isEmpty)
+    }
+
     @Test("Comment targets keep both numbers on context lines and refuse no-newline")
     func targets() {
         let context = DiffLine(id: 0, kind: .context, content: "x", oldLineNumber: 10, newLineNumber: 10)

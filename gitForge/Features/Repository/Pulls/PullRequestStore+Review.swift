@@ -8,6 +8,41 @@ nonisolated enum ReviewDraftKey: Hashable, Sendable {
     case comment(pullId: String, target: CommentTarget)
 }
 
+/// What the user is typing in the review boxes, one observed box per
+/// draft: a keystroke redraws only the views that read that draft, not
+/// every "Reply…" field on screen.
+@MainActor
+final class ReviewDrafts {
+    @Observable @MainActor
+    final class Box {
+        var text: String?
+    }
+
+    private var boxes: [ReviewDraftKey: Box] = [:]
+
+    subscript(key: ReviewDraftKey) -> String? {
+        get { box(key).text }
+        set {
+            let box = box(key)
+            if box.text != newValue { box.text = newValue }
+        }
+    }
+
+    /// Every draft goes (a repo switch).
+    func removeAll() {
+        for box in boxes.values where box.text != nil { box.text = nil }
+    }
+
+    /// Made on the first read too, so a view that read a draft before it
+    /// was written hears its first write.
+    private func box(_ key: ReviewDraftKey) -> Box {
+        if let box = boxes[key] { return box }
+        let box = Box()
+        boxes[key] = box
+        return box
+    }
+}
+
 nonisolated enum ReviewSubmitResult: Equatable, Sendable {
     /// Landed; `warning` when its comment didn't (GitLab posts it apart).
     case submitted(warning: String?)

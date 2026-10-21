@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A thread wired to the store: its reply draft, the open box, sending and
 /// resolving, and the toast when the host says no. Reads the store in its
-/// own body, so typing or sending doesn't redraw the diff around it.
+/// own body, so sending doesn't redraw the diff around it; the draft is
+/// read only by the box showing it, so typing doesn't redraw the card.
 struct ReviewThreadCard: View {
     let store: PullRequestStore
     let thread: ReviewThread
@@ -19,7 +20,9 @@ struct ReviewThreadCard: View {
                          onStartReply: { store.replyingThreadId = thread.id },
                          onCancelReply: { store.replyingThreadId = nil },
                          onReply: reply,
-                         onToggleResolved: toggleResolved)
+                         onToggleResolved: toggleResolved,
+                         claimsFocus: { store.claimFocus(key) },
+                         onReplyLeave: { store.composerLeft(key, hadFocus: $0) })
     }
 
     private func reply() {
@@ -79,6 +82,8 @@ struct NewCommentBox: View {
                        placeholder: String(localized: "Comment on line \(target.ref.line)…"),
                        sendTitle: String(localized: "Comment"), requiresText: true,
                        sending: store.sendingDrafts.contains(key),
+                       claimsFocus: { store.claimFocus(key) },
+                       onLeave: { store.composerLeft(key, hadFocus: $0) },
                        onSend: send, onCancel: { store.composerTarget = nil })
             .padding(Spacing.s12)
             .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.bgElevated))

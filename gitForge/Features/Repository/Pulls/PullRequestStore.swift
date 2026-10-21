@@ -79,21 +79,38 @@ final class PullRequestStore {
     /// with its own state, and a relayout would close the panel.
     var reviewPanel: ReviewVerdict?
     /// What the user is typing in the review boxes (`ReviewDraftKey`).
-    var drafts: [ReviewDraftKey: String] = [:]
+    let drafts = ReviewDrafts()
 
     // MARK: Threads
     /// The selected PR's review threads; `placedThreads` says where each shows.
     var threads: [ReviewThread] = [] { didSet { placeThreads() } }
     private(set) var placedThreads: PlacedThreads = .empty
+    /// The lines of the selected PR's patches, for `placedThreads`.
+    @ObservationIgnored private var lineIndex = DiffLineIndex()
     var isLoadingThreads = false
     /// Why the threads didn't load. The diff shows all the same.
     var threadsError: String?
     /// The line a new comment is being written on. One box is open at a
     /// time (their shortcuts would collide): opening it closes the reply
     /// box, whose draft stays.
-    var composerTarget: CommentTarget? { didSet { if composerTarget != nil { replyingThreadId = nil } } }
+    var composerTarget: CommentTarget? {
+        didSet {
+            guard let composerTarget else { return }
+            replyingThreadId = nil
+            focusRequest = .comment(pullId: selected?.id ?? "", target: composerTarget)
+        }
+    }
     /// The thread whose reply box is open.
-    var replyingThreadId: String? { didSet { if replyingThreadId != nil { composerTarget = nil } } }
+    var replyingThreadId: String? {
+        didSet {
+            guard let replyingThreadId else { return }
+            composerTarget = nil
+            focusRequest = .reply(pullId: selected?.id ?? "", threadId: replyingThreadId)
+        }
+    }
+    /// The box that takes the focus when it next comes on screen: one just
+    /// opened, or one that went off screen with it (`claimFocus`).
+    @ObservationIgnored var focusRequest: ReviewDraftKey?
     /// The comments and replies being sent.
     var sendingDrafts: Set<ReviewDraftKey> = []
     /// The threads being resolved or reopened.
@@ -149,6 +166,7 @@ final class PullRequestStore {
     private let suggestInstance: @MainActor () async -> InstanceSuggestion?
     private let makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
     let makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider
+    private let parsePatch: @Sendable (String) -> [DiffHunk]
     private var detailTask: Task<Void, Never>?
     private var ciTask: Task<Void, Never>?
     /// Bumped by every list load so a slow CI fill for an older list drops
@@ -171,19 +189,24 @@ final class PullRequestStore {
     ///   - resolveHost / suggestInstance / makeProvider: default to the repo's
     ///     `origin` against the built-in instances and the real GitHub /
     ///     GitLab clients; tests pass fakes.
+    ///   - parsePatch: reads a file's patch to place the threads on its lines;
+    ///     tests count the reads.
     init(cli: GitCLI,
          auth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          silentAuth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
          suggestInstance: (@MainActor () async -> InstanceSuggestion?)? = nil,
          makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) },
-         makeReviewProvider: @escaping @MainActor (RemoteHost) -> PullRequestReviewProvider = { PullRequestReviewProviderFactory.make(for: $0) }) {
+         makeReviewProvider: @escaping @MainActor (RemoteHost) -> PullRequestReviewProvider = { PullRequestReviewProviderFactory.make(for: $0) },
+         parsePatch: @escaping @Sendable (String) -> [DiffHunk] = { DiffParser.parse($0) }) {
         self.auth = auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.silentAuth = silentAuth ?? auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
         self.suggestInstance = suggestInstance ?? { nil }
         self.makeProvider = makeProvider
         self.makeReviewProvider = makeReviewProvider
+        self.parsePatch = parsePatch
+        lineIndex = DiffLineIndex(parse: parsePatch)
     }
 
     /// Asks `auth` for a token and updates the connect state; nil = no token.
@@ -632,7 +655,7 @@ final class PullRequestStore {
         supportGen &+= 1
         requestChangesSupport = nil
         submittingReview = nil
-        drafts = [:]
+        drafts.removeAll()
         sendingDrafts = []
         resolvingThreadIds = []
         isMerging = false
@@ -648,16 +671,18 @@ final class PullRequestStore {
         threadsGen &+= 1
         threads = []
         threadsHead = nil
+        lineIndex = DiffLineIndex(parse: parsePatch)
         threadsError = nil
         isLoadingThreads = false
         composerTarget = nil
         replyingThreadId = nil
+        focusRequest = nil
         filesDetail = nil
         reviewPanel = nil
     }
 
     private func placeThreads() {
-        placedThreads = ThreadPlacement.place(threads, in: files)
+        placedThreads = ThreadPlacement.place(threads, in: files, index: &lineIndex)
     }
 
     private func clearMerge() {

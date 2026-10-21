@@ -86,6 +86,33 @@ extension PullRequestStore {
         return outcome
     }
 
+    // MARK: Focus
+
+    /// Whether the box for `key` takes the focus as it comes on screen: once
+    /// when it opens, and again only if it went off screen with it (scrolled
+    /// away mid-sentence). Otherwise scrolling it back would take the focus
+    /// from wherever the user is now.
+    func claimFocus(_ key: ReviewDraftKey) -> Bool {
+        guard focusRequest == key else { return false }
+        focusRequest = nil
+        return true
+    }
+
+    /// The box for `key` went off screen, with or without the focus. A box
+    /// that closed has nothing to come back to.
+    func composerLeft(_ key: ReviewDraftKey, hadFocus: Bool) {
+        guard hadFocus, isOpen(key) else { return }
+        focusRequest = key
+    }
+
+    private func isOpen(_ key: ReviewDraftKey) -> Bool {
+        switch key {
+        case .comment(let pullId, let target): selected?.id == pullId && composerTarget == target
+        case .reply(let pullId, let threadId): selected?.id == pullId && replyingThreadId == threadId
+        case .review(let pullId, let verdict): selected?.id == pullId && reviewPanel == verdict
+        }
+    }
+
     // MARK: Sending
 
     /// Sends the trimmed draft under `key`, once at a time per draft. The

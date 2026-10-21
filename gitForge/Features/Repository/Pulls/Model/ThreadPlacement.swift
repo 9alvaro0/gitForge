@@ -21,9 +21,34 @@ nonisolated struct PlacedThreads: Equatable, Sendable {
     var otherOpenCount: Int { other.count { !$0.isResolved } }
 }
 
+/// The lines each file's patch has, parsed once per patch: the threads
+/// are placed again with every change to them (a resolve, a reload), and
+/// the patch usually hasn't changed.
+nonisolated struct DiffLineIndex {
+    private let parse: @Sendable (String) -> [DiffHunk]
+    private var byPath: [String: (patch: String, refs: Set<DiffLineRef>)] = [:]
+
+    init(parse: @escaping @Sendable (String) -> [DiffHunk] = { DiffParser.parse($0) }) {
+        self.parse = parse
+    }
+
+    mutating func refs(path: String, patch: String) -> Set<DiffLineRef> {
+        if let known = byPath[path], known.patch == patch { return known.refs }
+        let refs = Set(parse(patch).flatMap(\.lines).flatMap(DiffLineRef.refs(for:)))
+        byPath[path] = (patch, refs)
+        return refs
+    }
+}
+
 /// Spreads threads over the PR's files (spec §4.3).
 nonisolated enum ThreadPlacement {
     static func place(_ threads: [ReviewThread], in files: [PullRequestFileChange]) -> PlacedThreads {
+        var index = DiffLineIndex()
+        return place(threads, in: files, index: &index)
+    }
+
+    static func place(_ threads: [ReviewThread], in files: [PullRequestFileChange],
+                      index: inout DiffLineIndex) -> PlacedThreads {
         var placed = PlacedThreads()
         // Each patch parsed once, however many threads it carries.
         var lineRefs: [String: Set<DiffLineRef>] = [:]
@@ -38,7 +63,7 @@ nonisolated enum ThreadPlacement {
                 continue
             }
             let refs = lineRefs[file.path] ?? {
-                let all = Set(DiffParser.parse(patch).flatMap(\.lines).flatMap(DiffLineRef.refs(for:)))
+                let all = index.refs(path: file.path, patch: patch)
                 lineRefs[file.path] = all
                 return all
             }()
