@@ -10,9 +10,13 @@ enum GraphFixture {
         text.split(whereSeparator: \.isNewline).compactMap { line in
             let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
             guard let sha = words.first else { return nil }
-            return Commit(sha: sha, parentShas: Array(words.dropFirst()), authorName: "T",
-                          authorEmail: "t@t", authorDate: Date(timeIntervalSince1970: 0), subject: sha)
+            return commit(sha, parents: Array(words.dropFirst()))
         }
+    }
+
+    static func commit(_ sha: String, parents: [String]) -> Commit {
+        Commit(sha: sha, parentShas: parents, authorName: "T",
+               authorEmail: "t@t", authorDate: Date(timeIntervalSince1970: 0), subject: sha)
     }
 
     static func local(_ name: String, _ sha: String, head: Bool = false,
@@ -75,6 +79,61 @@ enum GraphFixture {
             tag("v1.0.1", "mergeHotfixMain"),
             tag("v1.1", "mergeRelMain"),
         ]
+    }
+
+    /// A reproducible history for the performance benchmark, newest first: `main`
+    /// plus up to `branches` feature branches alive at the same time. Built from
+    /// the oldest commit to the newest:
+    /// - a root on `main`;
+    /// - then, per `random % 10`: 0-5 a commit on a random active feature (a new
+    ///   one cut from the tip of `main` while fewer than `branches` are active),
+    ///   6-7 a commit on `main`, 8-9 a merge of a random active feature into
+    ///   `main` (parents: tip of `main`, tip of the feature) that retires the
+    ///   feature. A merge with no active feature becomes a commit on `main`.
+    /// Shas are `c<row>`, so `c0` is the newest commit. Refs: `main` (HEAD) and
+    /// the features still active.
+    static func synthetic(commits count: Int, branches: Int,
+                          seed: UInt64) -> (commits: [Commit], refs: [GitRef]) {
+        precondition(count > 0 && branches > 0, "A synthetic history needs commits and branches")
+        var random = SplitMix64(seed: seed)
+        // Indices count from the root (0); shas count from the newest commit.
+        func sha(_ created: Int) -> String { "c\(count - 1 - created)" }
+
+        var parents: [[Int]] = [[]]
+        parents.reserveCapacity(count)
+        var mainTip = 0
+        var active: [(name: String, tip: Int)] = []
+        var featuresCreated = 0
+        while parents.count < count {
+            let created = parents.count
+            switch random.int(in: 0...9) {
+            case 0...5:
+                if active.count < branches {
+                    active.append((name: "feature/f\(featuresCreated)", tip: created))
+                    featuresCreated += 1
+                    parents.append([mainTip])
+                } else {
+                    let slot = random.int(in: 0...(active.count - 1))
+                    parents.append([active[slot].tip])
+                    active[slot].tip = created
+                }
+            case 8...9 where !active.isEmpty:
+                let slot = random.int(in: 0...(active.count - 1))
+                parents.append([mainTip, active[slot].tip])
+                active.remove(at: slot)
+                mainTip = created
+            default:
+                parents.append([mainTip])
+                mainTip = created
+            }
+        }
+
+        let commits = (0..<count).reversed().map { created in
+            commit(sha(created), parents: parents[created].map(sha))
+        }
+        let refs = [local("main", sha(mainTip), head: true)]
+            + active.map { local($0.name, sha($0.tip)) }
+        return (commits, refs)
     }
 
     static func row(_ sha: String, in commits: [Commit]) -> Int {
