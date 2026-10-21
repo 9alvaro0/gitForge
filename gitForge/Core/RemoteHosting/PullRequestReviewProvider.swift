@@ -27,3 +27,13 @@ protocol PullRequestReviewProvider: Sendable {
     func submitReview(host: RemoteHost, pull: PullRequest, verdict: ReviewVerdict,
                       body: String, token: String) async throws -> String?
 }
+
+/// Resolves the review writes for a `RemoteHost`.
+enum PullRequestReviewProviderFactory {
+    static func make(for host: RemoteHost) -> PullRequestReviewProvider {
+        switch host.provider {
+        case .github: GitHubPullRequestProvider()
+        case .gitlab: GitLabPullRequestProvider()
+        }
+    }
+}

@@ -11,6 +11,8 @@ nonisolated struct PullRequestDetail: Sendable, Equatable {
     /// Provider's mergeability hint. `nil` when unknown / still computing.
     let mergeable: Bool?
     let ciStatus: CIStatus?
+    /// GitLab: whether the signed-in user may approve, and already did.
+    var viewerApproval: ViewerApproval? = nil
 
     struct Reviewer: Sendable, Equatable, Identifiable, Hashable {
         enum State: Sendable, Equatable, Hashable {
