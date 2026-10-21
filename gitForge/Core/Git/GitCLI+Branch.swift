@@ -5,11 +5,13 @@ extension GitCLI {
         // `git checkout -b` is one operation: git refuses if the switch would
         // be unsafe (dirty worktree, etc.) without leaving an orphan branch.
         // Splitting `branch` + `checkout` left orphans behind on partial fail.
-        var args: [String] = checkout ? ["checkout", "-b"] : ["branch"]
-        args.append(Self.endOfOptions)
-        args.append(name)
-        if let startingAt { args.append(startingAt) }
-        try await run(args)
+        // `-b` takes the next argument verbatim as its value, so the name has
+        // to follow it directly (a leading `-` is then rejected as an invalid
+        // name, not read as a flag); the guard goes before the start point.
+        let args: [String] = checkout
+            ? ["checkout", "-b", name, Self.endOfOptions]
+            : ["branch", Self.endOfOptions, name]
+        try await run(args + (startingAt.map { [$0] } ?? []))
     }
 
     func checkout(branch: String) async throws {
