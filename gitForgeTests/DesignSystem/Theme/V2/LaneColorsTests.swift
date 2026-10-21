@@ -53,4 +53,36 @@ struct LaneColorsTests {
         #expect(LaneColors.hex(.lane0, dark: false) == 0x2F86EA)
         #expect(LaneColors.hex(.lane5, dark: false) == 0x8E4FD0)
     }
+
+    @Test("The pool per accent", arguments: [
+        (AccentSwatch.violet, [LaneColors.Lane.lane2, .lane4, .lane6, .lane7]),
+        (.green, [.lane2, .lane5, .lane6, .lane7]),
+        (.coral, [.lane4, .lane5, .lane6]),
+        (.blue, [.lane2, .lane5, .lane6, .lane7]),
+    ])
+    func pool(accent: AccentSwatch, expected: [LaneColors.Lane]) {
+        #expect(LaneColors.pool(accent: accent) == expected)
+    }
+
+    @Test("A trunk too close to the accent switches to lane 4")
+    func trunkSwap() {
+        #expect(LaneColors.trunkLane(.lane0, accent: .blue) == .lane4)
+        #expect(LaneColors.trunkLane(.lane0, accent: .violet) == .lane0)
+        #expect(LaneColors.trunkLane(.lane3, accent: .coral) == .lane3)
+    }
+
+    @Test("Every graph lane reaches 3:1 on the content background", arguments: [true, false])
+    func graphicsContrast(dark: Bool) {
+        let background: UInt32 = dark ? 0x18181C : 0xFFFFFF
+        for lane in LaneColors.Lane.allCases where lane != .lane1 {
+            #expect(ColorMath.contrast(LaneColors.hex(lane, dark: dark), background) >= 3, "\(lane) dark=\(dark)")
+        }
+    }
+
+    @Test("New and changed lane values")
+    func newValues() {
+        #expect(LaneColors.hex(.lane6, dark: true) == 0x8CCF6B && LaneColors.hex(.lane6, dark: false) == 0x3F8F2A)
+        #expect(LaneColors.hex(.lane7, dark: true) == 0xF07B5A && LaneColors.hex(.lane7, dark: false) == 0xC8502C)
+        #expect(LaneColors.hex(.lane3, dark: false) == 0xC08410)
+    }
 }
