@@ -181,7 +181,12 @@ Las filas son vistas separadas (un `Canvas` por fila). Una S entre dos centros d
 
 ### 5.2 Hueco en los cruces
 
-Cada trazo lleva por debajo un borde del color de fondo de 1,5 pt a cada lado. Así, donde una línea pasa sobre otra se abre un pequeño hueco en la de debajo. Las verticales de las líneas se dibujan por encima de las curvas, de modo que las curvas pasan por debajo. El borde no actúa en un radio de 9 pt alrededor de cada nodo, para que las líneas que llegan a un mismo commit se unan limpias.
+Cada trazo lleva por debajo un borde del color de fondo de 1,5 pt a cada lado. Así, donde una línea pasa sobre otra se abre un pequeño hueco en la de debajo. Las verticales de las líneas se dibujan por encima de las curvas, de modo que las curvas pasan por debajo. El borde no actúa en un radio de 12 pt (10 pt en densidad compacta) alrededor del nodo de la fila, para que las líneas que llegan a un mismo commit se unan limpias. Tampoco actúa en ese radio alrededor del punto donde una curva se une a otra línea en el centro de una fila sin commit: una unión que se funde con una línea que ya pasa (§3.3).
+
+**(Decidido en G2)** El radio iba a ser de 9 pt alrededor de cada nodo. Pero una curva de una columna que llega al mismo punto que una vertical va dentro del borde de esta hasta 11,2 pt de ese punto (9,3 pt en compacto), así que con 9 pt el borde le mordía el lado de dentro. Con 12 y 10 pt queda cubierta con margen, y el cruce real más cercano (a 13,5 pt, 11,1 en compacto) conserva todo su hueco. Una unión fundida no tiene nodo: sin su propio círculo, el borde de la vertical cortaba el final de la curva y las dos líneas se veían separadas. Además:
+
+- Cada fila borra solo lo que ella misma ha dibujado, así que el fondo de la fila (selección o hover) nunca se agujerea.
+- Las verticales sólidas pasan la unión entre filas tanto como el trazo de una curva puede pasarla (el ancho del trazo). Así, en un cruce justo en la unión, la vertical queda encima a los dos lados y no queda una astilla de la curva en el hueco.
 
 **(Decisión mía)** Se queda el hueco sutil. Con curvas, un cruce ya se lee como una X, y el hueco solo ayuda en los cruces casi paralelos. Si en la app real no aporta, se quita.
 
@@ -189,7 +194,7 @@ Cada trazo lleva por debajo un borde del color de fondo de 1,5 pt a cada lado. A
 
 ### 5.3 Nodos y métricas
 
-Sin cambios en formas ni en `GraphMetrics`, salvo lo necesario para que el halo de selección no se recorte en densidad compacta. El nodo fantasma es nuevo: hueco y discontinuo, del tamaño del nodo de commit.
+Sin cambios en formas ni en `GraphMetrics`, salvo los valores del hueco de §5.2 y lo necesario para que el halo de selección no se recorte en densidad compacta. El nodo fantasma es nuevo: hueco y discontinuo, del tamaño del nodo de commit.
 
 ### 5.4 Colores
 

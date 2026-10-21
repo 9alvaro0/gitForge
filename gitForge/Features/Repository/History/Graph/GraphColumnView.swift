@@ -90,8 +90,8 @@ struct GraphColumnView: View {
     var isHeadCommit = false
     var isSelected = false
     var isHovered = false
-    /// The row is drawn translucent (`CommitRow` dims it), so its curve
-    /// halves stop on the joints instead of overlapping the neighbours'
+    /// The row is drawn translucent (`CommitRow` dims it), so its halves
+    /// stop on the joints instead of overlapping the neighbours'
     /// (`GraphRowGeometry.overlapsJoints`).
     var isDimmed = false
 
@@ -120,7 +120,8 @@ struct GraphColumnView: View {
 /// its node.
 ///
 /// `nonisolated` because the canvas renders off the main actor. Nothing here
-/// allocates per step beyond the step's own path.
+/// allocates per step beyond the step's own path, which serves both its
+/// crossing band and its stroke.
 nonisolated struct GraphRowPainter {
     let style: GraphStyle
     let size: CGSize
@@ -133,32 +134,71 @@ nonisolated struct GraphRowPainter {
     /// The row's centre, where its node sits.
     private var center: CGFloat { size.height / 2 }
 
-    /// Curves first, then the straight halves (`GraphRowGeometry`).
+    /// Curves first, then the straight halves (`GraphRowGeometry`), each
+    /// clearing a band of the row's background under itself first, so a half
+    /// drawn earlier that it crosses shows a gap on either side of it (§5.2).
     func drawSteps(of row: GraphRow, in context: inout GraphicsContext) {
-        let edge = style.metrics.edgeWidth
+        let metrics = style.metrics
+        let edge = metrics.edgeWidth
         // Butt caps: a half ends flat where the next one starts, on a joint
         // or at the row centre (under the node, or where a line passes
         // through with a vertical tangent), and the canvas no longer clips a
         // cap that would reach past a joint. Round caps would also eat the
         // gaps of a dash.
         let solid = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round)
+        // The band is the stroke widened by the gap on each side, and stays
+        // whole under a dashed stroke. Butt caps too, so it ends where the
+        // half does.
+        let band = StrokeStyle(lineWidth: edge + 2 * metrics.crossingGap, lineCap: .butt, lineJoin: .round)
         let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints)
         // A dashed half is a dash and a gap of half the geometry's period each
         // (`GraphRowGeometry.dashPeriod`), starting at the phase the geometry
         // gives it, so the pattern runs on across the joints between rows.
         // The pattern is built once, the first time a half needs it.
         var dash: [CGFloat] = []
-        geometry.forEachSegment(of: row) { segment, step, dashPhase in
-            // `.ghost` is drawn solid until its own style lands (G2).
-            guard step.stroke == .stash else {
-                context.stroke(segment.path, with: .color(style.color(for: step.color)), style: solid)
-                return
+        // Every half goes into one layer, and the band erases only in it:
+        // what the row drew before, never the row's background (its
+        // selection, hover or drop highlight) behind the canvas.
+        context.drawLayer { layer in
+            let eraser = crossingEraser(for: row, geometry: geometry, in: layer)
+            geometry.forEachSegment(of: row) { segment, step, dashPhase in
+                let path = segment.path
+                eraser?.stroke(path, with: .color(.black), style: band)
+                let shading = GraphicsContext.Shading.color(style.color(for: step.color))
+                // `.ghost` is drawn solid until its own style lands (G2).
+                guard step.stroke == .stash else {
+                    layer.stroke(path, with: shading, style: solid)
+                    return
+                }
+                if dash.isEmpty { dash = [geometry.dashPeriod / 2, geometry.dashPeriod / 2] }
+                layer.stroke(path, with: shading, style: StrokeStyle(lineWidth: edge, lineCap: .butt,
+                                                                     lineJoin: .round, dash: dash,
+                                                                     dashPhase: dashPhase))
             }
-            if dash.isEmpty { dash = [geometry.dashPeriod / 2, geometry.dashPeriod / 2] }
-            context.stroke(segment.path, with: .color(style.color(for: step.color)),
-                           style: StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round,
-                                              dash: dash, dashPhase: dashPhase))
         }
+    }
+
+    /// A copy of `layer` that erases whatever it strokes, except within
+    /// `crossingNodeClearance` of the points where the row's lines meet
+    /// (`GraphRowGeometry.forEachCrossingClearanceCenter`), so they join
+    /// cleanly. Nil when there is no crossing gap: nothing to erase. Built
+    /// once per row, with the row's one clearance path.
+    private func crossingEraser(for row: GraphRow, geometry: GraphRowGeometry,
+                                in layer: GraphicsContext) -> GraphicsContext? {
+        let metrics = style.metrics
+        guard metrics.crossingGap > 0 else { return nil }
+        let radius = metrics.crossingNodeClearance
+        var clearance = Path()
+        geometry.forEachCrossingClearanceCenter(of: row) { center in
+            clearance.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius,
+                                            width: 2 * radius, height: 2 * radius))
+        }
+        var eraser = layer
+        // Non-zero fill, so circles that overlap (or come twice) make one
+        // region; inverted, the eraser acts only outside it.
+        eraser.clip(to: clearance, options: .inverse)
+        eraser.blendMode = .destinationOut
+        return eraser
     }
 
     /// The node on top of the steps (spec v2 §4.5). Selection gets a soft halo

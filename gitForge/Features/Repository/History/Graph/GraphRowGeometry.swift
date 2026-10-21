@@ -32,12 +32,14 @@ nonisolated enum GraphSegment: Equatable, Sendable {
 ///
 /// The canvas is centred on its row, so its centre is the row's centre, and
 /// reaches `bleed` past each joint, so no stroke that ends at or past a
-/// joint is cut by the canvas edge. A straight half ends flat on its joint,
-/// where the neighbour's half of the same line starts. A curve half runs
-/// `overlap` past its joint along the same S (`GraphCurve`): a curve's end
-/// is slanted, so two halves that only touched there would show a faint
-/// antialiased seam along it; overlapping, each row draws the whole joint
-/// itself, even under a neighbour's selection or hover background. The overlap is the same curve in the same colour, so it can't
+/// joint is cut by the canvas edge, nor the crossing band around it (§5.2).
+/// A curve half runs `overlap` past its joint along the same S
+/// (`GraphCurve`): a curve's end is slanted, so two halves that only touched
+/// there would show a faint antialiased seam along it; overlapping, each row
+/// draws the whole joint itself, even under a neighbour's selection or hover
+/// background. A straight half runs `straightOverlap` past its joint, so a
+/// line passing over a crossing right on the joint stays on top on both
+/// sides of it. An overlap is the same line in the same colour, so it can't
 /// be seen while the rows are opaque (`overlapsJoints`).
 ///
 /// A dashed step (`isDashed`) has no overlap: two translucent strokes laid
@@ -49,7 +51,7 @@ nonisolated struct GraphRowGeometry {
     let style: GraphStyle
     /// The canvas: the gutter's width, one row pitch plus `bleed` above and below.
     let size: CGSize
-    /// Whether the curve halves overlap their neighbours' past the joints.
+    /// Whether the solid halves overlap their neighbours' past the joints.
     /// Off for a row drawn translucent (dimmed): two translucent rows would
     /// show their overlap twice as strong, so its halves stop exactly on the
     /// joint, where the halves of an S meet with the same tangent.
@@ -65,13 +67,25 @@ nonisolated struct GraphRowGeometry {
         metrics.edgeWidth / 2
     }
 
-    /// Room past each joint for the overlap, half the stroke around its end
-    /// and `antialiasMargin`, rounded up to a whole point so the canvas edge
-    /// keeps the pixel alignment it has without the bleed. Edges are the only
-    /// strokes that reach the joints; nodes and their rings sit around the
-    /// centre.
+    /// How far a solid straight half runs past its joint: as far as a curve
+    /// half's stroke can reach past it. A curve half runs `overlap` past the
+    /// joint, measured down the S, but its butt end is slanted, so a corner of
+    /// its stroke reaches up to half the stroke further. Each row can only
+    /// erase what it drew itself, so where an S crosses a straight right on
+    /// the joint, the straight's band (§5.2) has to run past that corner, or
+    /// a sliver of the curve shows in the gap on the neighbour's side.
+    static func straightOverlap(for metrics: GraphMetrics) -> CGFloat {
+        overlap(for: metrics) + metrics.edgeWidth / 2
+    }
+
+    /// Room past each joint for a curve half's overlap, the stroke and the
+    /// crossing band around its end, and `antialiasMargin`, rounded up to a
+    /// whole point so the canvas edge keeps the pixel alignment it has without
+    /// the bleed. A straight's end is flat, so it reaches only its own
+    /// overlap. Edges are the only strokes that reach the joints; nodes and
+    /// their rings sit around the centre.
     static func bleed(for metrics: GraphMetrics) -> CGFloat {
-        (overlap(for: metrics) + metrics.edgeWidth / 2 + antialiasMargin).rounded(.up)
+        (overlap(for: metrics) + metrics.edgeWidth / 2 + metrics.crossingGap + antialiasMargin).rounded(.up)
     }
 
     /// Room for the antialiased fringe of a stroke.
@@ -120,14 +134,16 @@ nonisolated struct GraphRowGeometry {
     /// The phase is how far into the dash pattern (`dashPeriod`) the half's
     /// start lies, as `StrokeStyle.dashPhase` takes it; 0 for a solid half,
     /// which has no pattern. A dashed half that leaves the row, or a straight
-    /// one that arrives, starts at 0: a straight half is half a pitch long, a
-    /// whole number of periods, so the one above ends its pattern complete.
+    /// one that arrives, starts at 0: a dashed straight half runs from joint
+    /// to centre, half a pitch, a whole number of periods, so the one above
+    /// ends its pattern complete.
     /// A dashed curve that arrives carries on where the half of the row above
     /// stopped. That one, the mirror of this half, is as long, so the pattern
     /// ends at its length modulo the period. At the row's centre the pattern
     /// starts over, which nobody sees under the node.
     func forEachSegment(of row: GraphRow, _ body: (GraphSegment, GraphStep, _ dashPhase: CGFloat) -> Void) {
         let solidOverlap = overlapsJoints ? Self.overlap(for: style.metrics) : 0
+        let straightOverlap = overlapsJoints ? Self.straightOverlap(for: style.metrics) : 0
         let period = dashPeriod
         for step in row.stepsAbove where step.from != step.to {
             let dashed = Self.isDashed(step)
@@ -144,11 +160,31 @@ nonisolated struct GraphRowGeometry {
         }
         for step in row.stepsAbove where step.from == step.to {
             let x = style.laneCenter(step.to)
-            body(.line(from: CGPoint(x: x, y: jointAbove), to: CGPoint(x: x, y: center)), step, 0)
+            let past = Self.isDashed(step) ? 0 : straightOverlap
+            body(.line(from: CGPoint(x: x, y: jointAbove - past), to: CGPoint(x: x, y: center)), step, 0)
         }
         for step in row.stepsBelow where step.from == step.to {
             let x = style.laneCenter(step.from)
-            body(.line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: jointBelow)), step, 0)
+            let past = Self.isDashed(step) ? 0 : straightOverlap
+            body(.line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: jointBelow + past)), step, 0)
+        }
+    }
+
+    /// Calls `body` with the centre of each circle, `crossingNodeClearance`
+    /// in radius, where the crossing band leaves lines alone (§5.2): first
+    /// the row's node, where its lines meet, then each point where a curve
+    /// half meets the row's centre away from the node. There a join fuses
+    /// with a line already passing (§3.3), or a line is born from one, and
+    /// the line the curve meets would otherwise cut its end off. A point can
+    /// come more than once. Allocates nothing.
+    func forEachCrossingClearanceCenter(of row: GraphRow, _ body: (CGPoint) -> Void) {
+        let node = row.node.column
+        body(CGPoint(x: style.laneCenter(node), y: center))
+        for step in row.stepsAbove where step.from != step.to && step.to != node {
+            body(CGPoint(x: style.laneCenter(step.to), y: center))
+        }
+        for step in row.stepsBelow where step.from != step.to && step.from != node {
+            body(CGPoint(x: style.laneCenter(step.from), y: center))
         }
     }
 

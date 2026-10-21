@@ -17,8 +17,8 @@ struct GraphRowGeometryTests {
 
     /// The geometry of a row of `density`, in a canvas sized as the table sizes
     /// it. Regular: lane `n` is centred at `14 + 14 n`; a 28 pt row plus the
-    /// 1 pt gap is a 29 pt pitch, and with the 3 pt bleed past each joint the
-    /// canvas is 35 pt tall, its centre at 17.5 and its joints at 3 and 32.
+    /// 1 pt gap is a 29 pt pitch, and with the 4 pt bleed past each joint the
+    /// canvas is 37 pt tall, its centre at 18.5 and its joints at 4 and 33.
     private static func geometry(_ density: DensityMetrics = .regular, overlapsJoints: Bool = true) -> GraphRowGeometry {
         let pitch = density.rowList + HistoryTableLayout.rowSpacing
         let height = GraphRowGeometry.canvasHeight(pitch: pitch, metrics: density.graph)
@@ -54,7 +54,7 @@ struct GraphRowGeometryTests {
         .curve(start: bezier.start, control1: bezier.control1, control2: bezier.control2, end: bezier.end)
     }
 
-    @Test("The canvas reaches past each joint far enough for the overlap and the stroke around it",
+    @Test("The canvas reaches past each joint far enough for the overlap and the stroke and band around it",
           arguments: [DensityMetrics.regular, .compact])
     func bleed(density: DensityMetrics) {
         let metrics = density.graph
@@ -62,6 +62,10 @@ struct GraphRowGeometryTests {
         let bleed = GraphRowGeometry.bleed(for: metrics)
         #expect(overlap >= metrics.edgeWidth / 2)
         #expect(bleed >= overlap + metrics.edgeWidth / 2 + GraphRowGeometry.antialiasMargin)
+        // A curve's crossing band reaches past its slanted end as far as its stroke, and the gap further.
+        #expect(bleed >= overlap + metrics.edgeWidth / 2 + metrics.crossingGap + GraphRowGeometry.antialiasMargin)
+        // A straight's ends are flat: it reaches only as far as `straightOverlap`.
+        #expect(bleed >= GraphRowGeometry.straightOverlap(for: metrics) + GraphRowGeometry.antialiasMargin)
         #expect(bleed == bleed.rounded())
         // The node stays on the row's centre, the joints in the middle of the gaps.
         let geometry = Self.geometry(density)
@@ -73,30 +77,91 @@ struct GraphRowGeometryTests {
 
     @Test("A straight step above runs from the joint above to the centre; below, from the centre to the joint below")
     func straightHalves() {
+        // Each runs 2 pt past its joint (`straightOverlap`).
         let segments = Self.segments(Self.row(above: [Self.step(0, 0)], below: [Self.step(0, 0), Self.step(1, 1)]))
         #expect(segments.map(\.0) == [
-            .line(from: CGPoint(x: 14, y: 3), to: CGPoint(x: 14, y: 17.5)),
-            .line(from: CGPoint(x: 14, y: 17.5), to: CGPoint(x: 14, y: 32)),
-            .line(from: CGPoint(x: 28, y: 17.5), to: CGPoint(x: 28, y: 32)),
+            .line(from: CGPoint(x: 14, y: 2), to: CGPoint(x: 14, y: 18.5)),
+            .line(from: CGPoint(x: 14, y: 18.5), to: CGPoint(x: 14, y: 35)),
+            .line(from: CGPoint(x: 28, y: 18.5), to: CGPoint(x: 28, y: 35)),
         ])
-        // A dimmed row draws the same straight halves.
+        // A dimmed row's halves stop exactly on the joints.
         let dimmed = Self.segments(Self.row(above: [Self.step(0, 0)], below: [Self.step(0, 0), Self.step(1, 1)]),
                                    in: Self.geometry(overlapsJoints: false))
-        #expect(dimmed.map(\.0) == segments.map(\.0))
+        #expect(dimmed.map(\.0) == [
+            .line(from: CGPoint(x: 14, y: 4), to: CGPoint(x: 14, y: 18.5)),
+            .line(from: CGPoint(x: 14, y: 18.5), to: CGPoint(x: 14, y: 33)),
+            .line(from: CGPoint(x: 28, y: 18.5), to: CGPoint(x: 28, y: 33)),
+        ])
+    }
+
+    @Test("Solid straight halves run past their joints too; dimmed rows' don't", arguments: [DensityMetrics.regular, .compact])
+    func straightsOverlap(density: DensityMetrics) {
+        let metrics = density.graph
+        // As far as a curve's overlap plus half the stroke: the whole stroke, 2 pt regular and 1.75 compact.
+        let straightOverlap = GraphRowGeometry.straightOverlap(for: metrics)
+        #expect(straightOverlap == GraphRowGeometry.overlap(for: metrics) + metrics.edgeWidth / 2)
+        #expect(straightOverlap == metrics.edgeWidth)
+        for overlapsJoints in [true, false] {
+            let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
+            let x = geometry.style.laneCenter(1)
+            for stroke in [GraphStroke.solid, .stash, .ghost] {
+                let step = Self.step(1, 1, stroke)
+                // Dashed halves never run past a joint (`dashedNoOverlap`), nor a dimmed row's.
+                let past = overlapsJoints && stroke == .solid ? straightOverlap : 0
+                let halves = Self.segments(Self.row(above: [step], below: [step]), in: geometry).map(\.0)
+                #expect(halves == [
+                    .line(from: CGPoint(x: x, y: geometry.jointAbove - past), to: CGPoint(x: x, y: geometry.center)),
+                    .line(from: CGPoint(x: x, y: geometry.center), to: CGPoint(x: x, y: geometry.jointBelow + past)),
+                ], "\(stroke), overlapsJoints \(overlapsJoints)")
+            }
+        }
+    }
+
+    @Test("The bleed makes room for the crossing gap", arguments: [DensityMetrics.regular, .compact])
+    func bleedHoldsTheGap(density: DensityMetrics) {
+        #expect(GraphRowGeometry.bleed(for: density.graph) == 4)
+    }
+
+    @Test("Crossings clear a 1.5 pt band beside each line, except within 12 pt (10 compact) of where lines meet",
+          arguments: [(DensityMetrics.regular, 12.0), (.compact, 10.0)])
+    func crossingMetrics(density: DensityMetrics, clearance: CGFloat) {
+        #expect(density.graph.crossingGap == 1.5)
+        #expect(density.graph.crossingNodeClearance == clearance)
+    }
+
+    @Test("The crossing gap leaves alone the node and every point where a curve meets the row's centre away from it")
+    func crossingClearanceCenters() {
+        let geometry = Self.geometry()
+        func centers(_ row: GraphRow) -> [CGPoint] {
+            var all: [CGPoint] = []
+            geometry.forEachCrossingClearanceCenter(of: row) { all.append($0) }
+            return all
+        }
+        let node = CGPoint(x: 14, y: 18.5)
+        // Curves into and out of the node, and straights: the node alone.
+        #expect(centers(Self.row(above: [Self.step(2, 0), Self.step(1, 1)], below: [Self.step(0, 1), Self.step(1, 1)]))
+                == [node])
+        // A join fused with the line passing in column 1 (§3.3), and a line born from the one in column 2:
+        // each meets the other line at the centre, away from the node.
+        #expect(centers(Self.row(above: [Self.step(0, 0), Self.step(0, 1), Self.step(1, 1), Self.step(2, 2)],
+                                 below: [Self.step(0, 0), Self.step(1, 1), Self.step(2, 2), Self.step(2, 3)]))
+                == [node, CGPoint(x: 28, y: 18.5), CGPoint(x: 42, y: 18.5)])
+        // A row with nothing but its node.
+        #expect(centers(Self.row()) == [node])
     }
 
     @Test("A step above draws the arriving half of its S; a step below the leaving half, over the full pitch and past the joints")
     func curveHalves() {
         let segments = Self.segments(Self.row(above: [Self.step(1, 0)], below: [Self.step(0, 2)]))
         #expect(segments.map(\.0) == [
-            Self.curve(GraphCurve.arriving(fromX: 28, toX: 14, center: 17.5, height: 29, overlap: 1)),
-            Self.curve(GraphCurve.leaving(fromX: 14, toX: 42, center: 17.5, height: 29, overlap: 1)),
+            Self.curve(GraphCurve.arriving(fromX: 28, toX: 14, center: 18.5, height: 29, overlap: 1)),
+            Self.curve(GraphCurve.leaving(fromX: 14, toX: 42, center: 18.5, height: 29, overlap: 1)),
         ])
         let dimmed = Self.segments(Self.row(above: [Self.step(1, 0)], below: [Self.step(0, 2)]),
                                    in: Self.geometry(overlapsJoints: false))
         #expect(dimmed.map(\.0) == [
-            Self.curve(GraphCurve.arriving(fromX: 28, toX: 14, center: 17.5, height: 29)),
-            Self.curve(GraphCurve.leaving(fromX: 14, toX: 42, center: 17.5, height: 29)),
+            Self.curve(GraphCurve.arriving(fromX: 28, toX: 14, center: 18.5, height: 29)),
+            Self.curve(GraphCurve.leaving(fromX: 14, toX: 42, center: 18.5, height: 29)),
         ])
     }
 
@@ -108,9 +173,11 @@ struct GraphRowGeometryTests {
         #expect(steps == [above[1], below[1], above[0], below[0]])
     }
 
-    @Test("Every half stays inside the canvas with its whole stroke", arguments: [DensityMetrics.regular, .compact])
+    @Test("Every half stays inside the canvas with its whole stroke and crossing band",
+          arguments: [DensityMetrics.regular, .compact])
     func strokeInsideTheCanvas(density: DensityMetrics) {
         let halfStroke = density.graph.edgeWidth / 2
+        let margin = GraphRowGeometry.antialiasMargin
         let row = Self.row(above: [Self.step(0, 0), Self.step(2, 0), Self.step(0, 3), Self.step(5, 1),
                                    Self.step(4, 3, .stash)],
                            below: [Self.step(0, 0), Self.step(0, 1), Self.step(3, 2), Self.step(1, 6),
@@ -118,8 +185,13 @@ struct GraphRowGeometryTests {
         for overlapsJoints in [true, false] {
             let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
             for (segment, _) in Self.segments(row, in: geometry) {
+                // A curve's stroke and band reach up or down at most their half width from it, antialiased; a
+                // straight's ends are flat, so it reaches no further than them.
+                let reach: CGFloat = if case .curve = segment { halfStroke + density.graph.crossingGap } else { 0 }
                 for point in segment.samples {
                     #expect(point.y - halfStroke >= 0 && point.y + halfStroke <= geometry.size.height, "\(segment)")
+                    #expect(point.y - reach - margin >= 0 && point.y + reach + margin <= geometry.size.height,
+                            "\(segment)")
                 }
             }
         }
@@ -280,12 +352,13 @@ struct GraphRowGeometryTests {
     func dashedNoOverlap(density: DensityMetrics, overlapsJoints: Bool) {
         let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
         let solidOverlap = overlapsJoints ? GraphRowGeometry.overlap(for: density.graph) : 0
-        for (from, to) in [(0, 2), (3, 1), (0, 1), (6, 0)] {
+        let straightOverlap = overlapsJoints ? GraphRowGeometry.straightOverlap(for: density.graph) : 0
+        for (from, to) in [(0, 2), (3, 1), (0, 1), (6, 0), (2, 2)] {
             for stroke in [GraphStroke.stash, .ghost, .solid] {
                 let step = Self.step(from, to, stroke)
                 let upper = Self.segments(Self.row(below: [step]), in: geometry)[0].0
                 let lower = Self.segments(Self.row(above: [step]), in: geometry)[0].0
-                let past = GraphRowGeometry.isDashed(step) ? 0 : solidOverlap
+                let past = GraphRowGeometry.isDashed(step) ? 0 : (from == to ? straightOverlap : solidOverlap)
                 #expect(abs(upper.samples.last!.y - (geometry.jointBelow + past)) < 1e-9, "\(step) leaving")
                 #expect(abs(lower.samples.first!.y - (geometry.jointAbove - past)) < 1e-9, "\(step) arriving")
             }
@@ -316,11 +389,12 @@ struct GraphRowGeometryTests {
     /// the half the next row arrives with (in its own canvas, one pitch
     /// down), draw one step across the joint between the rows.
     ///
-    /// A straight step: two verticals meeting on the joint. A curve: both
-    /// halves on the step's one S, from the upper row's centre and to the
-    /// lower row's, each running past the joint by the overlap (none for a
-    /// dimmed row, and none for a dashed step, which would draw the overlap
-    /// twice over). Running past by half the stroke or more also puts
+    /// A straight step: two verticals at the step's x, each running past the
+    /// joint by `straightOverlap`. A curve: both halves on the step's one S,
+    /// from the upper row's centre and to the lower row's, each running past
+    /// the joint by the overlap. Neither runs past for a dimmed row, nor for a
+    /// dashed step, which would draw the overlap twice over: then the halves
+    /// meet on the joint. Running past by half the stroke or more also puts
     /// everything a half leaves to the other row, stroke included, on the
     /// other row's side of the joint.
     private static func expectJoin(_ upper: GraphSegment, _ lower: GraphSegment, of step: GraphStep,
@@ -331,9 +405,12 @@ struct GraphRowGeometryTests {
         let lower = lower.offset(by: pitch)
         guard step.from != step.to else {
             let x = style.laneCenter(step.from)
-            #expect(upper == .line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: geometry.jointBelow)),
+            let past = geometry.overlapsJoints && !GraphRowGeometry.isDashed(step)
+                ? GraphRowGeometry.straightOverlap(for: style.metrics) : 0
+            #expect(upper == .line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: geometry.jointBelow + past)),
                     sourceLocation: sourceLocation)
-            #expect(lower == .line(from: CGPoint(x: x, y: geometry.jointBelow), to: CGPoint(x: x, y: center + pitch)),
+            #expect(lower == .line(from: CGPoint(x: x, y: geometry.jointBelow - past),
+                                   to: CGPoint(x: x, y: center + pitch)),
                     sourceLocation: sourceLocation)
             return
         }
