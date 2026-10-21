@@ -84,6 +84,10 @@ struct GraphColumnView: View {
     let row: GraphRow
     let maxLanes: Int
     var style = GraphStyle()
+    /// Gap between this row and its neighbours (`HistoryTableLayout.rowSpacing`).
+    /// The canvas reaches half of it above and below the row, so the lines of
+    /// adjacent rows meet in the middle of the gap instead of stopping short of it.
+    var rowSpacing: CGFloat = 0
     var isHeadCommit = false
     var isSelected = false
     var isHovered = false
@@ -99,14 +103,15 @@ struct GraphColumnView: View {
             painter.drawSteps(of: row, in: &context)
             painter.drawNode(row.node, as: node, isSelected: isSelected, isHovered: isHovered, in: &context)
         }
+        // One row pitch tall and centred on the row: the layout keeps the row's
+        // height, the canvas overhangs half the gap on each side.
+        .padding(.vertical, -rowSpacing / 2)
         .frame(width: style.gutterWidth(lanes: maxLanes), alignment: .leading)
     }
 }
 
-/// Paints one graph row into a `Canvas`. Every step runs from one row centre
-/// to the next and both rows draw half of it: this row draws the arriving
-/// half of each `stepsAbove` (top edge to centre) and the leaving half of each
-/// `stepsBelow` (centre to bottom edge), and the halves meet on the boundary.
+/// Paints one graph row into a `Canvas` one row pitch tall
+/// (`GraphRowGeometry`): the row's halves of its steps, then its node.
 ///
 /// `nonisolated` because the canvas renders off the main actor. Nothing here
 /// allocates per step beyond the step's own path.
@@ -119,35 +124,19 @@ nonisolated struct GraphRowPainter {
     /// Dash of the stash node's square.
     private static let stashNodeDash: [CGFloat] = [2.5, 2]
 
+    /// The row's centre, where its node sits.
     private var center: CGFloat { size.height / 2 }
 
-    /// Curves first, then the straight segments, so a line passing through
-    /// stays on top of the curves that cross it.
+    /// Curves first, then the straight halves (`GraphRowGeometry`).
     func drawSteps(of row: GraphRow, in context: inout GraphicsContext) {
         let edge = style.metrics.edgeWidth
         let solid = StrokeStyle(lineWidth: edge, lineCap: .round, lineJoin: .round)
         // Butt caps: round caps would eat the gaps of a 3–3 dash.
         let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: Self.stashDash)
-
-        func stroke(_ path: Path, _ step: GraphStep) {
+        GraphRowGeometry(style: style, size: size).forEachSegment(of: row) { segment, step in
             // `.ghost` is drawn solid until its own style lands (G2).
-            context.stroke(path, with: .color(style.color(for: step.color)),
+            context.stroke(segment.path, with: .color(style.color(for: step.color)),
                            style: step.stroke == .stash ? dashed : solid)
-        }
-
-        for step in row.stepsAbove where step.from != step.to {
-            stroke(curve(GraphCurve.arriving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to),
-                                             center: center, height: size.height)), step)
-        }
-        for step in row.stepsBelow where step.from != step.to {
-            stroke(curve(GraphCurve.leaving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to),
-                                            center: center, height: size.height)), step)
-        }
-        for step in row.stepsAbove where step.from == step.to {
-            stroke(vertical(at: style.laneCenter(step.to), from: 0, to: center), step)
-        }
-        for step in row.stepsBelow where step.from == step.to {
-            stroke(vertical(at: style.laneCenter(step.from), from: center, to: size.height), step)
         }
     }
 
@@ -195,27 +184,15 @@ nonisolated struct GraphRowPainter {
             context.stroke(square, with: .color(color), style: StrokeStyle(lineWidth: 1.5, dash: Self.stashNodeDash))
         }
     }
-
-    private func curve(_ bezier: GraphCurve.Bezier) -> Path {
-        var path = Path()
-        path.move(to: bezier.start)
-        path.addCurve(to: bezier.end, control1: bezier.control1, control2: bezier.control2)
-        return path
-    }
-
-    private func vertical(at x: CGFloat, from top: CGFloat, to bottom: CGFloat) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: x, y: top))
-        path.addLine(to: CGPoint(x: x, y: bottom))
-        return path
-    }
 }
 
 #Preview {
     let rows = [GraphRow].previewSamples
-    VStack(spacing: 0) {
+    // Spaced like the History table, so the lines cross the gaps between rows.
+    VStack(spacing: HistoryTableLayout.rowSpacing) {
         ForEach(rows.indices, id: \.self) { index in
-            GraphColumnView(row: rows[index], maxLanes: 2, isHeadCommit: index == 0, isSelected: index == 3)
+            GraphColumnView(row: rows[index], maxLanes: 2, rowSpacing: HistoryTableLayout.rowSpacing,
+                            isHeadCommit: index == 0, isSelected: index == 3)
                 .frame(height: 28)
         }
     }

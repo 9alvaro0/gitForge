@@ -51,8 +51,9 @@ struct CommitRow: View, Equatable {
             graphGutter
                 .frame(width: tableLayout.graph, alignment: .leading)
                 // Lanes past a capped gutter clip instead of drawing over
-                // Description.
-                .clipped()
+                // Description; top and bottom stay open for the lines that
+                // cross the gaps between rows.
+                .clipShape(SideClip())
             gap
             HStack(spacing: Spacing.s6) {
                 CommitRowChips(
@@ -191,6 +192,7 @@ struct CommitRow: View, Equatable {
             row: layout,
             maxLanes: max(maxLanes, 1),
             style: graphStyle,
+            rowSpacing: HistoryTableLayout.rowSpacing,
             isHeadCommit: isHeadCommit,
             isSelected: isSelected,
             isHovered: hovering
@@ -209,10 +211,19 @@ struct CommitRow: View, Equatable {
     }
 }
 
+/// Clips the sides only. The graph's lines run past the row's top and bottom
+/// into the gaps between rows, where the next row's lines pick them up.
+private nonisolated struct SideClip: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: 0, dy: -rect.height))
+    }
+}
+
 #Preview {
     @Previewable @State var theme = AppTheme()
     let commit = Commit.previewSamples[0]
-    VStack(spacing: 0) {
+    // Spaced like the History table, so the graph lines join across the gaps.
+    VStack(spacing: HistoryTableLayout.rowSpacing) {
         CommitRow(
             commit: commit,
             layout: [GraphRow].previewSamples[2],
