@@ -211,9 +211,85 @@ struct HistoryStoreGraphTests {
         engine.gate(0).open()
         #expect(await published)
         #expect(vm.history.commits.map(\.sha) == ["c", "b", "a"])
-        // Staged with the old HEAD, so it laid itself out again: page, recompute, follow-up.
+        // Staged with the old HEAD, so it laid itself out again before install: page, recompute, page again.
         Self.expectPublished(vm.history)
         #expect(engine.calls == 3)
+    }
+
+    @Test("A refs change landing during a reload's layout pass is installed only with the new refs")
+    func refsChangeDuringReload() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "c", head: true), GraphFixture.local("topic", "b")]
+        vm.headSha = "c"
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb a\na"))
+        let engine = Self.hold(vm, passes: [0, 2])
+        async let published = vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("d c\nc b\nb a\na")))
+        await engine.gate(0).waiting()
+        // `refresh()`: loadRefs lands a checkout while the reload is laid out.
+        vm.refs = [GraphFixture.local("main", "c"), GraphFixture.local("topic", "b", head: true)]
+        vm.headSha = "b"
+        await vm.history.recomputeGraph()
+        engine.gate(0).open()
+        await engine.gate(2).waiting()
+        // The pass with the old HEAD is done, but nothing laid out with it was shown.
+        #expect(vm.history.commits.map(\.sha) == ["c", "b", "a"])
+        Self.expectPublished(vm.history)
+        engine.gate(2).open()
+        #expect(await published)
+        #expect(vm.history.commits.map(\.sha) == ["d", "c", "b", "a"])
+        Self.expectPublished(vm.history)
+        #expect(engine.calls == 3)
+    }
+
+    @Test("An older publish never writes its follow-up state over a newer reload")
+    func olderPublishCannotOverwrite() async {
+        let vm = Self.makeVM()
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb"))
+        let engine = Self.hold(vm, passes: [0, 2])
+        vm.history.hasMore = true
+        // A short final page that would end pagination…
+        async let older = vm.history.publish(vm.history.stageNextPage(GraphFixture.commits("z"))) {
+            vm.history.hasMore = false
+        }
+        await engine.gate(0).waiting()
+        // …is laid out while a checkout's refs land, so it needs another pass.
+        await vm.history.recomputeGraph()
+        engine.gate(0).open()
+        await engine.gate(2).waiting()
+        // A newer reload publishes a full first page meanwhile.
+        vm.history.logGen &+= 1
+        #expect(await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("d c\nc b\nb"))) {
+            vm.history.hasMore = true
+        })
+        engine.gate(2).open()
+        #expect(await older == false)
+        #expect(vm.history.hasMore)
+        #expect(vm.history.commits.map(\.sha) == ["d", "c", "b"])
+        Self.expectPublished(vm.history)
+    }
+
+    @Test("loadInitial never resets a selection made after a newer reload published")
+    func loadInitialKeepsLaterSelection() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            for index in 0..<3 { try repo.commit("c\(index)", files: ["f.txt": "\(index)\n"]) }
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        let engine = Self.hold(vm, passes: [0, 1])
+        async let initial: Void = vm.history.loadInitial()
+        await engine.gate(0).waiting()
+        // Refs land while the first page is laid out, so its pass runs again.
+        await vm.history.recomputeGraph()
+        engine.gate(0).open()
+        await engine.gate(1).waiting()
+        // A reload publishes meanwhile and the user picks a commit.
+        await vm.history.reloadLog()
+        let picked = try #require(vm.history.commits.last?.sha)
+        vm.history.selectedCommitId = picked
+        engine.gate(1).open()
+        await initial
+        #expect(vm.history.selectedCommitId == picked)
+        Self.expectPublished(vm.history)
     }
 
     @Test("A reload superseded by a newer one never publishes over it")

@@ -29,9 +29,10 @@ final class HistoryStore {
     /// (`publish(_:)`); only tests and previews set it directly.
     var commits: [Commit] = [] {
         // `uniquingKeysWith: { _, new in new }` instead of
-        // `uniqueKeysWithValues:` — the latter traps on duplicate ids, and a
-        // duplicate would only happen if the `--skip` invariant in
-        // `loadedRawCount` ever leaks. Don't crash the app on a leak.
+        // `uniqueKeysWithValues:` — the latter traps on duplicate ids. The
+        // loaders can't produce one (`HistoryLog.appending` skips commits a
+        // log that grew between pages repeats), but tests and previews set
+        // `commits` directly. Don't crash the app on a duplicate.
         didSet {
             commitsById = Dictionary(commits.map { ($0.id, $0) },
                                      uniquingKeysWith: { _, new in new })
@@ -241,10 +242,15 @@ final class HistoryStore {
     //   • `recomputeGraph()` (refs, HEAD or palette changed) lays out the
     //     published log and lands only while `graphLayoutGen` is unchanged:
     //     a newer recompute or a log published meanwhile drops it. It also
-    //     bumps `graphInputRevision`; a log staged before that bump
-    //     recomputes once more right after it is published. So neither loses
-    //     the other: a recompute that starts during a page load is either
-    //     already in the page's input or runs again on the new log.
+    //     bumps `graphInputRevision`; a log whose layout pass ends after that
+    //     bump is laid out again from the current inputs before it is
+    //     installed, so a stale layout is never shown. Neither loses the
+    //     other: a recompute that starts during a page load either is already
+    //     in the page's input or makes the page lay itself out again.
+    //   • What goes with a published log (`hasMore`, the selection,
+    //     `hasLoadedLogForCurrentScope`) is written in `publish`'s `then`, in
+    //     the same main-actor turn as the install. A load that was
+    //     superseded writes nothing, so it can't overwrite a newer one.
     //   • Each loading flag is cleared by the operation that set it, always.
     //     The ops are non-reentrant (guarded on their own flag), so there's
     //     no newer owner to protect; clearing only "if gen still matches"
@@ -284,9 +290,10 @@ final class HistoryStore {
             let scope = fetchScope()
             let page = try await cli.log(limit: pageSize, skip: 0, refs: scope.refs)
             guard gen == logGen else { return }
-            guard await publish(stageFirstPage(page, stashShas: scope.stashShas, logGen: gen)) else { return }
-            hasMore = page.count == pageSize
-            selectedCommitId = commits.first?.id
+            await publish(stageFirstPage(page, stashShas: scope.stashShas, logGen: gen)) {
+                hasMore = page.count == pageSize
+                selectedCommitId = commits.first?.id
+            }
         } catch {
             guard gen == logGen else { return }
             loadError = error.userMessage
@@ -318,12 +325,13 @@ final class HistoryStore {
             let scope = fetchScope()
             let page = try await cli.log(limit: pageSize, skip: 0, refs: scope.refs)
             guard gen == logGen else { return }
-            guard await publish(stageFirstPage(page, stashShas: scope.stashShas, logGen: gen)) else { return }
-            hasMore = page.count == pageSize
-            if let prev = previousSelection, commitsById[prev] == nil {
-                selectedCommitId = commits.first?.id
+            await publish(stageFirstPage(page, stashShas: scope.stashShas, logGen: gen)) {
+                hasMore = page.count == pageSize
+                if let prev = previousSelection, commitsById[prev] == nil {
+                    selectedCommitId = commits.first?.id
+                }
+                hasLoadedLogForCurrentScope = true
             }
-            hasLoadedLogForCurrentScope = true
         } catch {
             guard gen == logGen else { return }
             loadError = error.userMessage
@@ -355,8 +363,7 @@ final class HistoryStore {
         let next = try await cli.log(limit: pageSize, skip: loadedRawCount, refs: scope.refs)
         guard gen == logGen, base == logRevision else { return nil }
         let staged = stageNextPage(next, scopeStashShas: scope.stashShas, logGen: gen, baseRevision: base)
-        guard await publish(staged) else { return nil }
-        hasMore = next.count == pageSize
+        guard await publish(staged, then: { hasMore = next.count == pageSize }) else { return nil }
         return next
     }
 
@@ -372,7 +379,8 @@ final class HistoryStore {
         /// `logRevision` an appended page was built on; nil for a log that
         /// starts over.
         let baseRevision: UInt64?
-        /// `graphInputRevision` when `input` was snapshotted.
+        /// `graphInputRevision` when `input` was snapshotted: if it has moved
+        /// by the time the pass ends, `publish` lays the log out again.
         let inputRevision: UInt64
     }
 
@@ -406,17 +414,36 @@ final class HistoryStore {
     /// Lays `staged` out off the main actor, then publishes the log and its
     /// graph in one main-actor turn: `commits`, `loadedRawCount`,
     /// `graphPageEnds`, `loadedStashShas`, `graphLayouts` and
-    /// `graphMaxLanes`. Returns false, publishing nothing, when a newer
-    /// reload superseded it or (for a page) another log was published since
-    /// its base. When a recompute was asked for after it was staged, its
-    /// input may be stale, so it recomputes once more.
+    /// `graphMaxLanes`, followed by `finish`, the caller's own state that
+    /// goes with this log (`hasMore`, the selection…). Nothing is awaited
+    /// between the install and `finish`, so a newer load can't publish in
+    /// between and be overwritten.
+    ///
+    /// If refs, HEAD or the palette changed during a pass (a recompute was
+    /// asked for), the log is laid out again from the current ones before
+    /// anything is shown, as many times as it takes. Returns false, running
+    /// nothing, when a newer reload superseded it or (for a page) another log
+    /// was published since its base.
     @discardableResult
-    func publish(_ staged: StagedLog) async -> Bool {
-        let layout = await layOut(staged.input)
-        guard staged.logGen == logGen, staged.baseRevision.map({ $0 == logRevision }) ?? true else { return false }
-        install(staged.log, layout)
-        if staged.inputRevision != graphInputRevision { await relayout() }
-        return true
+    func publish(_ staged: StagedLog, then finish: @MainActor () -> Void = {}) async -> Bool {
+        var revision = staged.inputRevision
+        var layout = await layOut(staged.input)
+        while isWanted(staged) {
+            guard revision != graphInputRevision else {
+                install(staged.log, layout)
+                finish()
+                return true
+            }
+            revision = graphInputRevision
+            layout = await layOut(graphInput(for: staged.log))
+        }
+        return false
+    }
+
+    /// Whether `staged` can still be published: no newer reload started, and
+    /// for a page, the log it was built on is still the published one.
+    private func isWanted(_ staged: StagedLog) -> Bool {
+        staged.logGen == logGen && (staged.baseRevision.map { $0 == logRevision } ?? true)
     }
 
     /// Swaps in a fresh first page and its graph, laid out on the caller's
