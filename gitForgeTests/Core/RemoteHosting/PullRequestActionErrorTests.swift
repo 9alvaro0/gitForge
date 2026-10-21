@@ -36,6 +36,21 @@ struct PullRequestActionErrorTests {
         #expect(PullRequestActionError.from(input) == expected)
     }
 
+    @Test("A change on the host doesn't claim a reload the caller may skip")
+    func changedOnHostCopy() {
+        #expect(PullRequestActionError.changedOnHost.message(for: .resolve, account: nil, host: "github.com", isMergeRequest: false)
+                == "It changed on the host since it loaded.")
+    }
+
+    @Test("A GraphQL FORBIDDEN error is a refusal, like a 403")
+    func graphQLForbidden() {
+        struct Payload: Decodable { let ok: Bool }
+        let answer = #"{"data":null,"errors":[{"type":"FORBIDDEN","message":"marta does not have the correct permissions to execute `ResolveReviewThread`"}]}"#
+        #expect(throws: PullRequestFetchError.forbidden) {
+            try RemoteAPI.decodeGraphQL(Data(answer.utf8), as: Payload.self)
+        }
+    }
+
     @Test("A body that isn't JSON is quoted, cut to 200 characters")
     func plainBody() {
         let long = String(repeating: "x", count: 250)

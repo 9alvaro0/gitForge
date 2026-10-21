@@ -69,7 +69,8 @@ nonisolated enum PullRequestActionError: Error, Equatable, Sendable {
         case .pendingReview:
             return String(localized: "You have a pending review started on GitHub. Submit or discard it there first.")
         case .changedOnHost:
-            return String(localized: "It changed on the host since it loaded. Reloaded.")
+            // No "reloaded": the caller skips the reload when the PR is no longer shown.
+            return String(localized: "It changed on the host since it loaded.")
         case .rejected(let reason):
             return String(localized: "The host refused: \(reason)")
         case .other(let message):

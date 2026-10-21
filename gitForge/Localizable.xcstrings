@@ -8030,18 +8030,18 @@
         }
       }
     },
-    "It changed on the host since it loaded. Reloaded." : {
+    "It changed on the host since it loaded." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ha cambiado en el servidor desde que se cargó. Se ha recargado."
+            "value" : "Ha cambiado en el servidor desde que se cargó."
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Foi alterado no servidor desde que foi carregado. Foi recarregado."
+            "value" : "Foi alterado no servidor desde que foi carregado."
           }
         }
       }
@@ -15558,6 +15558,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A instância é removida do gitForge."
+          }
+        }
+      }
+    },
+    "The merge request's details didn't load. Refresh and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los detalles de la merge request no se han cargado. Actualiza e inténtalo de nuevo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os detalhes do merge request não foram carregados. Atualize e tente novamente."
           }
         }
       }
