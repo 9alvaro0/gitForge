@@ -73,6 +73,9 @@ final class RepositoryViewModel {
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
     var remoteOperation: RemoteOperation?
     var remoteFailure: RemoteFailure?
+    /// A pull refused over local changes, waiting for the user to discard
+    /// them; `ShellView` asks and clears it.
+    var pullDiscardRequest: PullDiscardRequest?
     /// Last commit / fetch / pull / push that finished cleanly; `ShellView`
     /// shows it as a success toast and clears it. The silent auto-fetch
     /// never sets it.

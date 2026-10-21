@@ -23,6 +23,13 @@ extension GitCLI {
         try await runInBatches(["checkout", "HEAD", "--"], paths: paths)
     }
 
+    /// Puts index and worktree back to HEAD for tracked paths: staged and
+    /// unstaged changes both go, and a path HEAD doesn't have (a staged new
+    /// file) is removed from both.
+    func restoreFromHead(paths: [String]) async throws {
+        try await runInBatches(["restore", "--source=HEAD", "--staged", "--worktree", "--"], paths: paths)
+    }
+
     /// Bytes of paths per git run. macOS caps a process's arguments plus
     /// environment at `ARG_MAX` (1 MB); staging tens of thousands of files
     /// in one run failed to launch.

@@ -5596,6 +5596,22 @@
         }
       }
     },
+    "Discard and Pull" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar y hacer pull"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar e fazer pull"
+          }
+        }
+      }
+    },
     "Discard changes" : {
       "localizations" : {
         "es" : {
@@ -5628,6 +5644,22 @@
         }
       }
     },
+    "Discard changes to %lld files and pull?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Descartar los cambios de %lld archivos y hacer pull?"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar as alterações de %lld ficheiros e fazer pull?"
+          }
+        }
+      }
+    },
     "Discard changes to %lld files?" : {
       "localizations" : {
         "es" : {
@@ -5640,6 +5672,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Descartar as alterações de %lld ficheiros?"
+          }
+        }
+      }
+    },
+    "Discard changes to 1 file and pull?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Descartar los cambios de 1 archivo y hacer pull?"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar as alterações de 1 ficheiro e fazer pull?"
           }
         }
       }
@@ -10628,6 +10676,22 @@
         }
       }
     },
+    "Pull and rebase needs every tracked change out of the way. These files will lose their local changes:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull con rebase necesita que no haya cambios en archivos con seguimiento. Estos archivos perderán sus cambios locales:"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O pull com rebase precisa de que não haja alterações em ficheiros seguidos. Estes ficheiros vão perder as alterações locais:"
+          }
+        }
+      }
+    },
     "Pull rejected" : {
       "localizations" : {
         "es" : {
@@ -14534,6 +14598,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A operação foi cancelada."
+          }
+        }
+      }
+    },
+    "The pull would overwrite these files. Their local changes will be lost:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El pull sobrescribiría estos archivos. Se perderán sus cambios locales:"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O pull substituiria estes ficheiros. As alterações locais serão perdidas:"
           }
         }
       }
@@ -18833,6 +18913,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“Predefinição do sistema” segue o idioma definido nas Definições do Sistema."
+          }
+        }
+      }
+    },
+    "…and %lld more" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "…y %lld más"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "…e mais %lld"
           }
         }
       }
