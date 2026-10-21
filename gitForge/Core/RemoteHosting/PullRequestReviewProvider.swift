@@ -26,6 +26,15 @@ protocol PullRequestReviewProvider: Sendable {
     /// Returns a warning when the verdict landed but its comment didn't.
     func submitReview(host: RemoteHost, pull: PullRequest, verdict: ReviewVerdict,
                       body: String, token: String) async throws -> String?
+
+    /// The methods, squash policy and message defaults the merge sheet
+    /// offers, read when it opens.
+    func fetchMergeOptions(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail,
+                           commits: [PullRequestCommit], token: String) async throws -> MergeOptions
+
+    /// Merges with `input`, then deletes the source branch if asked. A
+    /// failed deletion doesn't undo the merge: it comes back as `branchDeleted == false`.
+    func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome
 }
 
 /// Resolves the review writes for a `RemoteHost`.

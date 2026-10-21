@@ -3,6 +3,10 @@ import Foundation
 /// GitHub REST v3 implementation of `PullRequestProvider`.
 /// API reference: https://docs.github.com/en/rest/pulls/pulls
 struct GitHubPullRequestProvider: PullRequestProvider {
+    /// Used by the merge writes, so tests can point them at a stub server;
+    /// the reads predate it and use `RemoteAPI.session`.
+    var session: URLSession = RemoteAPI.session
+
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
         guard var components = URLComponents(string: "\(Self.base(for: host))/repos/\(host.slug)/pulls") else {
             throw PullRequestFetchError.network("bad URL")
