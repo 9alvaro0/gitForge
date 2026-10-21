@@ -1,27 +1,40 @@
 import SwiftUI
 
-/// Everything a graph row needs to paint itself in the v2 style (redesign
-/// spec §4.5), resolved once per table render instead of once per row.
+/// Everything a graph row needs to paint itself (graph v3 spec §5), resolved
+/// once per table render instead of once per row or per step. The table
+/// rebuilds it on every render, so a new accent or appearance always lands.
 nonisolated struct GraphStyle: Equatable, Sendable {
-    var metrics: GraphMetrics = .regular
-    var accent: AccentSwatch = .violet
-    /// `theme.colors.accent`, the HEAD lane colour.
-    var accentColor: Color = .accentColor
-    var dark: Bool = true
+    let metrics: GraphMetrics
+    let accent: AccentSwatch
+    /// `theme.colors.accent`, the colour of HEAD's line.
+    let accentColor: Color
+    let dark: Bool
     /// Fill behind hollow nodes; matches the table background.
-    var nodeFill: Color = .black
-    /// Branch id whose lane is HEAD's, so it takes the accent.
-    var headBranchId: Int?
+    let nodeFill: Color
+    /// Every role's colour, resolved here so drawing a step is a lookup and
+    /// never rebuilds the pool.
+    private let palette: Palette
 
-    func laneColor(branchId: Int, priorityRank: Int?, isStash: Bool) -> Color {
-        if isStash { return LaneColors.stash(dark: dark) }
-        let assignment = LaneColors.assignment(
-            branchId: branchId,
-            priorityRank: priorityRank,
-            isHead: branchId == headBranchId,
-            accent: accent
-        )
-        return LaneColors.color(assignment, dark: dark, accent: accentColor)
+    init(metrics: GraphMetrics = .regular, accent: AccentSwatch = .violet,
+         accentColor: Color = .accentColor, dark: Bool = true, nodeFill: Color = .black) {
+        self.metrics = metrics
+        self.accent = accent
+        self.accentColor = accentColor
+        self.dark = dark
+        self.nodeFill = nodeFill
+        palette = Palette(accent: accent, accentColor: accentColor, dark: dark)
+    }
+
+    /// The colour a role is drawn with: the same as
+    /// `LaneColors.color(for:accent:accentColor:dark:)`, without its per-call cost.
+    func color(for role: GraphColorRole) -> Color {
+        switch role {
+        case .head: palette.head
+        case .main: palette.main
+        case .develop: palette.develop
+        case .stash, .neutral: palette.muted
+        case .pool(let index): palette.poolColor(index)
+        }
     }
 
     func laneCenter(_ lane: Int) -> CGFloat {
@@ -32,10 +45,43 @@ nonisolated struct GraphStyle: Equatable, Sendable {
     func gutterWidth(lanes: Int) -> CGFloat {
         2 * metrics.firstLaneX + CGFloat(max(lanes, 1) - 1) * metrics.laneWidth
     }
+
+    nonisolated private struct Palette: Equatable, Sendable {
+        let head: Color
+        let main: Color
+        let develop: Color
+        /// Stashes and lines nobody owns.
+        let muted: Color
+        /// In `GraphColorRole.pool` index order.
+        let pool: [Color]
+
+        init(accent: AccentSwatch, accentColor: Color, dark: Bool) {
+            func resolve(_ role: GraphColorRole) -> Color {
+                LaneColors.color(for: role, accent: accent, accentColor: accentColor, dark: dark)
+            }
+            head = resolve(.head)
+            main = resolve(.main)
+            develop = resolve(.develop)
+            muted = resolve(.neutral)
+            pool = LaneColors.pool(accent: accent).map {
+                LaneColors.color(.lane($0), dark: dark, accent: accentColor)
+            }
+        }
+
+        /// Wraps like `LaneColors.color(for:)`: the engine's indices can briefly
+        /// outrun a smaller pool after the accent changes, until the graph
+        /// recomputes with the new palette size.
+        func poolColor(_ index: Int) -> Color {
+            guard !pool.isEmpty else { return muted }
+            return pool[((index % pool.count) + pool.count) % pool.count]
+        }
+    }
 }
 
+/// One row of the commit graph: its halves of the steps that cross it, then
+/// the commit's node (§5.1, §5.3).
 struct GraphColumnView: View {
-    let row: GraphRowLayout
+    let row: GraphRow
     let maxLanes: Int
     var style = GraphStyle()
     var isHeadCommit = false
@@ -49,188 +95,127 @@ struct GraphColumnView: View {
         let isSelected = isSelected
         let isHovered = isHovered
         Canvas { context, size in
-            let center = size.height / 2
-            let bottom = size.height
-            let edge = style.metrics.edgeWidth
-
-            let mergesInLanes = Set(row.mergesIn.map(\.lane))
-            let lanesAtTopSet = Set(row.lanesAtTop.map(\.lane))
-            // A merges-out lane only replaces its own vertical when the parent is brand new
-            // (didn't exist in a lane above this row). Existing parent lanes keep their
-            // continuation line; the merge curve draws ON TOP of it.
-            let newMergesOutLanes = Set(row.mergesOut.map(\.lane)).subtracting(lanesAtTopSet)
-            // A merge-in landing in the SAME column as the commit lane already paints
-            // the row's top half in the merge-in style; skipping the commit spine
-            // keeps a solid spine from over-painting a dashed stash tail.
-            let commitInTop = lanesAtTopSet.contains(row.commitLane)
-                && !mergesInLanes.contains(row.commitLane)
-            let commitInBottom = row.lanesAtBottom.contains { $0.lane == row.commitLane }
-
-            func color(for occ: LaneOccupation) -> Color {
-                style.laneColor(branchId: occ.branchId, priorityRank: occ.priorityRank, isStash: occ.isStash)
-            }
-            // Stashes ride dashed lanes: "a saved working state, not a branch".
-            func strokeStyle(stash: Bool) -> StrokeStyle {
-                stash
-                    // Butt caps: round caps would eat the gaps of a 3–3 dash.
-                    ? StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: [3, 3])
-                    : StrokeStyle(lineWidth: edge, lineCap: .round, lineJoin: .round)
-            }
-            // Orthogonal routing with a small rounded corner: lanes read as
-            // "right angle in, right angle out", not as bezier S-curves.
-            let cornerRadius: CGFloat = 4.0
-
-            for occ in row.lanesAtTop where occ.lane != row.commitLane && !mergesInLanes.contains(occ.lane) {
-                var path = Path()
-                path.move(to: CGPoint(x: style.laneCenter(occ.lane), y: 0))
-                path.addLine(to: CGPoint(x: style.laneCenter(occ.lane), y: center))
-                context.stroke(path, with: .color(color(for: occ)), style: strokeStyle(stash: occ.isStash))
-            }
-
-            for occ in row.lanesAtBottom where occ.lane != row.commitLane && !newMergesOutLanes.contains(occ.lane) {
-                var path = Path()
-                path.move(to: CGPoint(x: style.laneCenter(occ.lane), y: center))
-                path.addLine(to: CGPoint(x: style.laneCenter(occ.lane), y: bottom))
-                context.stroke(path, with: .color(color(for: occ)), style: strokeStyle(stash: occ.isStash))
-            }
-
-            // Merge-in: vertical from the row top, a rounded right angle, then a
-            // horizontal into the commit node. Degenerate same-column case is a
-            // straight vertical (no hook).
-            let commitX = style.laneCenter(row.commitLane)
-            for occ in row.mergesIn {
-                let startX = style.laneCenter(occ.lane)
-                var path = Path()
-                if abs(startX - commitX) < 0.5 {
-                    path.move(to: CGPoint(x: startX, y: 0))
-                    path.addLine(to: CGPoint(x: startX, y: center))
-                } else {
-                    let dir: CGFloat = startX > commitX ? -1 : 1
-                    path.move(to: CGPoint(x: startX, y: 0))
-                    path.addLine(to: CGPoint(x: startX, y: center - cornerRadius))
-                    path.addQuadCurve(
-                        to: CGPoint(x: startX + dir * cornerRadius, y: center),
-                        control: CGPoint(x: startX, y: center)
-                    )
-                    path.addLine(to: CGPoint(x: commitX, y: center))
-                }
-                context.stroke(path, with: .color(color(for: occ)), style: strokeStyle(stash: occ.isStash))
-            }
-
-            // Merge-out: a brand-new lane leaves the node horizontally and turns
-            // down; an existing lane just gets a horizontal connector.
-            for occ in row.mergesOut {
-                let endX = style.laneCenter(occ.lane)
-                var path = Path()
-                if newMergesOutLanes.contains(occ.lane) {
-                    let dir: CGFloat = endX > commitX ? 1 : -1
-                    path.move(to: CGPoint(x: commitX, y: center))
-                    path.addLine(to: CGPoint(x: endX - dir * cornerRadius, y: center))
-                    path.addQuadCurve(
-                        to: CGPoint(x: endX, y: center + cornerRadius),
-                        control: CGPoint(x: endX, y: center)
-                    )
-                    path.addLine(to: CGPoint(x: endX, y: bottom))
-                } else {
-                    path.move(to: CGPoint(x: commitX, y: center))
-                    path.addLine(to: CGPoint(x: endX, y: center))
-                }
-                context.stroke(path, with: .color(color(for: occ)), style: strokeStyle(stash: occ.isStash))
-            }
-
-            // The commit's own spine: top half only if it came from above, bottom
-            // half only if it continues; tips and roots get no phantom stub.
-            let commitColor = style.laneColor(
-                branchId: row.commitBranchId,
-                priorityRank: row.commitPriorityRank,
-                isStash: row.commitIsStash
-            )
-            if commitInTop {
-                var path = Path()
-                path.move(to: CGPoint(x: commitX, y: 0))
-                path.addLine(to: CGPoint(x: commitX, y: center))
-                context.stroke(path, with: .color(commitColor), style: strokeStyle(stash: row.commitIsStash))
-            }
-            if commitInBottom {
-                var path = Path()
-                path.move(to: CGPoint(x: commitX, y: center))
-                path.addLine(to: CGPoint(x: commitX, y: bottom))
-                context.stroke(path, with: .color(commitColor), style: strokeStyle(stash: row.commitIsStash))
-            }
-
-            // Node (spec §4.5). Selection gets a soft halo in the lane colour,
-            // hover a thin ring.
-            let m = style.metrics
-            let nodeCenter = CGPoint(x: commitX, y: center)
-            let outer: CGFloat = {
-                switch node {
-                case .head:  return m.headOuterRadius
-                case .stash: return m.stashSize / 2
-                default:     return m.nodeRadius
-                }
-            }()
-            func circle(_ r: CGFloat) -> Path {
-                Path(ellipseIn: CGRect(x: nodeCenter.x - r, y: nodeCenter.y - r, width: r * 2, height: r * 2))
-            }
-            if isSelected {
-                context.fill(circle(outer + m.selectHaloOutset), with: .color(commitColor.opacity(m.selectHaloOpacity)))
-            } else if isHovered {
-                context.stroke(circle(outer + m.hoverRingOutset),
-                               with: .color(commitColor.opacity(m.hoverRingOpacity)),
-                               lineWidth: m.hoverRingWidth)
-            }
-            switch node {
-            case .commit:
-                context.fill(circle(m.nodeRadius), with: .color(commitColor))
-            case .merge:
-                let ring = circle(m.nodeRadius - edge / 2)
-                context.fill(ring, with: .color(style.nodeFill))
-                context.stroke(ring, with: .color(commitColor), lineWidth: edge)
-            case .head:
-                let ring = circle(m.headOuterRadius - 0.75)
-                context.fill(ring, with: .color(style.nodeFill))
-                context.stroke(ring, with: .color(commitColor), lineWidth: 1.5)
-                context.fill(circle(m.headInnerRadius), with: .color(commitColor))
-            case .stash:
-                let side = m.stashSize
-                let square = Path(
-                    roundedRect: CGRect(x: nodeCenter.x - side / 2, y: nodeCenter.y - side / 2, width: side, height: side),
-                    cornerRadius: GraphMetrics.squareMarkRadius
-                )
-                context.fill(square, with: .color(style.nodeFill))
-                context.stroke(square, with: .color(commitColor),
-                               style: StrokeStyle(lineWidth: 1.5, dash: [2.5, 2]))
-            }
+            let painter = GraphRowPainter(style: style, size: size)
+            painter.drawSteps(of: row, in: &context)
+            painter.drawNode(row.node, as: node, isSelected: isSelected, isHovered: isHovered, in: &context)
         }
         .frame(width: style.gutterWidth(lanes: maxLanes), alignment: .leading)
     }
 }
 
+/// Paints one graph row into a `Canvas`. Every step runs from one row centre
+/// to the next and both rows draw half of it: this row draws the arriving
+/// half of each `stepsAbove` (top edge to centre) and the leaving half of each
+/// `stepsBelow` (centre to bottom edge), and the halves meet on the boundary.
+///
+/// `nonisolated` because the canvas renders off the main actor. Nothing here
+/// allocates per step beyond the step's own path.
+nonisolated struct GraphRowPainter {
+    let style: GraphStyle
+    let size: CGSize
+
+    /// Dash of the side step from a stash into its commit.
+    private static let stashDash: [CGFloat] = [3, 3]
+    /// Dash of the stash node's square.
+    private static let stashNodeDash: [CGFloat] = [2.5, 2]
+
+    private var center: CGFloat { size.height / 2 }
+
+    /// Curves first, then the straight segments, so a line passing through
+    /// stays on top of the curves that cross it.
+    func drawSteps(of row: GraphRow, in context: inout GraphicsContext) {
+        let edge = style.metrics.edgeWidth
+        let solid = StrokeStyle(lineWidth: edge, lineCap: .round, lineJoin: .round)
+        // Butt caps: round caps would eat the gaps of a 3–3 dash.
+        let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: Self.stashDash)
+
+        func stroke(_ path: Path, _ step: GraphStep) {
+            // `.ghost` is drawn solid until its own style lands (G2).
+            context.stroke(path, with: .color(style.color(for: step.color)),
+                           style: step.stroke == .stash ? dashed : solid)
+        }
+
+        for step in row.stepsAbove where step.from != step.to {
+            stroke(curve(GraphCurve.arriving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to),
+                                             center: center, height: size.height)), step)
+        }
+        for step in row.stepsBelow where step.from != step.to {
+            stroke(curve(GraphCurve.leaving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to),
+                                            center: center, height: size.height)), step)
+        }
+        for step in row.stepsAbove where step.from == step.to {
+            stroke(vertical(at: style.laneCenter(step.to), from: 0, to: center), step)
+        }
+        for step in row.stepsBelow where step.from == step.to {
+            stroke(vertical(at: style.laneCenter(step.from), from: center, to: size.height), step)
+        }
+    }
+
+    /// The node on top of the steps (spec v2 §4.5). Selection gets a soft halo
+    /// in the node's colour, hover a thin ring.
+    func drawNode(_ node: GraphNode, as shape: GraphNodeStyle, isSelected: Bool, isHovered: Bool,
+                  in context: inout GraphicsContext) {
+        let m = style.metrics
+        let color = style.color(for: node.color)
+        let nodeCenter = CGPoint(x: style.laneCenter(node.column), y: center)
+        let outer: CGFloat = switch shape {
+        case .head: m.headOuterRadius
+        case .stash: m.stashSize / 2
+        case .commit, .merge: m.nodeRadius
+        }
+        func circle(_ r: CGFloat) -> Path {
+            Path(ellipseIn: CGRect(x: nodeCenter.x - r, y: nodeCenter.y - r, width: r * 2, height: r * 2))
+        }
+        if isSelected {
+            context.fill(circle(outer + m.selectHaloOutset), with: .color(color.opacity(m.selectHaloOpacity)))
+        } else if isHovered {
+            context.stroke(circle(outer + m.hoverRingOutset),
+                           with: .color(color.opacity(m.hoverRingOpacity)),
+                           lineWidth: m.hoverRingWidth)
+        }
+        switch shape {
+        case .commit:
+            context.fill(circle(m.nodeRadius), with: .color(color))
+        case .merge:
+            let ring = circle(m.nodeRadius - m.edgeWidth / 2)
+            context.fill(ring, with: .color(style.nodeFill))
+            context.stroke(ring, with: .color(color), lineWidth: m.edgeWidth)
+        case .head:
+            let ring = circle(m.headOuterRadius - 0.75)
+            context.fill(ring, with: .color(style.nodeFill))
+            context.stroke(ring, with: .color(color), lineWidth: 1.5)
+            context.fill(circle(m.headInnerRadius), with: .color(color))
+        case .stash:
+            let side = m.stashSize
+            let square = Path(
+                roundedRect: CGRect(x: nodeCenter.x - side / 2, y: nodeCenter.y - side / 2, width: side, height: side),
+                cornerRadius: GraphMetrics.squareMarkRadius
+            )
+            context.fill(square, with: .color(style.nodeFill))
+            context.stroke(square, with: .color(color), style: StrokeStyle(lineWidth: 1.5, dash: Self.stashNodeDash))
+        }
+    }
+
+    private func curve(_ bezier: GraphCurve.Bezier) -> Path {
+        var path = Path()
+        path.move(to: bezier.start)
+        path.addCurve(to: bezier.end, control1: bezier.control1, control2: bezier.control2)
+        return path
+    }
+
+    private func vertical(at x: CGFloat, from top: CGFloat, to bottom: CGFloat) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: x, y: top))
+        path.addLine(to: CGPoint(x: x, y: bottom))
+        return path
+    }
+}
+
 #Preview {
-    let sample: [GraphRowLayout] = [
-        GraphRowLayout(
-            commitLane: 0, commitBranchId: 0, lanesAtTop: [],
-            lanesAtBottom: [LaneOccupation(lane: 0, branchId: 0), LaneOccupation(lane: 1, branchId: 1)],
-            mergesIn: [], mergesOut: [LaneOccupation(lane: 1, branchId: 1)],
-            totalLanes: 2, isMerge: false
-        ),
-        GraphRowLayout(
-            commitLane: 0, commitBranchId: 0,
-            lanesAtTop: [LaneOccupation(lane: 0, branchId: 0), LaneOccupation(lane: 1, branchId: 1)],
-            lanesAtBottom: [LaneOccupation(lane: 0, branchId: 0), LaneOccupation(lane: 1, branchId: 1)],
-            mergesIn: [], mergesOut: [], totalLanes: 2, isMerge: false
-        ),
-        GraphRowLayout(
-            commitLane: 0, commitBranchId: 0,
-            lanesAtTop: [LaneOccupation(lane: 0, branchId: 0), LaneOccupation(lane: 1, branchId: 1)],
-            lanesAtBottom: [LaneOccupation(lane: 0, branchId: 0)],
-            mergesIn: [LaneOccupation(lane: 1, branchId: 1)], mergesOut: [],
-            totalLanes: 2, isMerge: true
-        ),
-    ]
+    let rows = [GraphRow].previewSamples
     VStack(spacing: 0) {
-        ForEach(0..<sample.count, id: \.self) { idx in
-            GraphColumnView(row: sample[idx], maxLanes: 2, isHeadCommit: idx == 0, isSelected: idx == 1)
+        ForEach(rows.indices, id: \.self) { index in
+            GraphColumnView(row: rows[index], maxLanes: 2, isHeadCommit: index == 0, isSelected: index == 3)
                 .frame(height: 28)
         }
     }

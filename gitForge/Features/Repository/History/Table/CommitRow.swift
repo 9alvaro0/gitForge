@@ -25,7 +25,7 @@ struct CommitRow: View, Equatable {
     }
 
     let commit: Commit
-    let layout: GraphRowLayout
+    let layout: GraphRow
     let maxLanes: Int
     let rowHeight: CGFloat
     let tableLayout: HistoryTableLayout
@@ -64,11 +64,8 @@ struct CommitRow: View, Equatable {
                     // show one chip and "+N".
                     maxNameWidth: min(160, tableLayout.description * 0.3),
                     maxVisible: tableLayout.description < 360 ? 1 : 2,
-                    laneColor: graphStyle.laneColor(
-                        branchId: layout.commitBranchId,
-                        priorityRank: layout.commitPriorityRank,
-                        isStash: layout.commitIsStash
-                    )
+                    // The chips take the colour of the commit's own line.
+                    laneColor: graphStyle.color(for: layout.node.color)
                 )
                 .fixedSize()
                 Text(commit.subject)
@@ -218,7 +215,7 @@ struct CommitRow: View, Equatable {
     VStack(spacing: 0) {
         CommitRow(
             commit: commit,
-            layout: [GraphRowLayout].previewSamples[1],
+            layout: [GraphRow].previewSamples[2],
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
@@ -230,7 +227,7 @@ struct CommitRow: View, Equatable {
         )
         CommitRow(
             commit: Commit.previewSamples[1],
-            layout: [GraphRowLayout].previewSamples[2],
+            layout: [GraphRow].previewSamples[3],
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
@@ -242,7 +239,7 @@ struct CommitRow: View, Equatable {
         )
         CommitRow(
             commit: Commit.previewSamples[2],
-            layout: [GraphRowLayout].previewSamples[3],
+            layout: [GraphRow].previewSamples[4],
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),

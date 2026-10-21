@@ -125,6 +125,11 @@ struct HistoryView: View {
         }
         .animation(Motion.fast, value: dropTracker.intent)
         .environment(\.branchDropTracker, dropTracker)
+        // The engine spreads lines over the accent's pool; a new accent with a
+        // different pool size recolours the graph.
+        .task(id: theme.accentSwatch) {
+            await viewModel.history.setGraphPaletteSize(LaneColors.pool(accent: theme.accentSwatch).count)
+        }
         .navigationTitle("History")
         // New pages bring more of the focused history; a reload may drop it.
         .onChange(of: focusRefreshKey) { refreshFocus() }

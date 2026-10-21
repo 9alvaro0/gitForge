@@ -27,7 +27,10 @@ struct BranchLaneGlyph: View {
     private var resolved: Color {
         switch color {
         case .accent: theme.colors.accent
-        case .lane(let lane): Color(hex: LaneColors.hex(lane, dark: theme.effectiveMode == .dark))
+        // A trunk whose colour sits near the accent switches lane, as in the graph.
+        case .lane(let lane):
+            Color(hex: LaneColors.hex(LaneColors.trunkLane(lane, accent: theme.accentSwatch),
+                                      dark: theme.effectiveMode == .dark))
         case .neutral: theme.colors.textTertiary
         }
     }

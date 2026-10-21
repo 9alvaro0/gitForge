@@ -13,7 +13,7 @@ import SwiftUI
 /// and WHEN, so any boundary the eye lands on is draggable.
 struct CommitGraphTable: View {
     let commits: [Commit]
-    let layouts: [GraphRowLayout]
+    let layouts: [GraphRow]
     /// Widest row of the graph (`HistoryStore.graphMaxLanes`, computed
     /// once per layout pass). Recomputing it here walked every layout, and
     /// did so for each row SwiftUI built — O(visible rows × commits) on every
@@ -92,15 +92,15 @@ struct CommitGraphTable: View {
         max(columnMin, min(lanesWidth, viewport * maxAutomaticGraphShare))
     }
 
-    /// v2 graph look (spec §4.5). Built once per render in `body`.
+    /// Graph look (graph v3 spec §5). Built once per render in `body`, which
+    /// also resolves the role colours once for every row.
     private func makeGraphStyle() -> GraphStyle {
         GraphStyle(
             metrics: theme.density.metrics.graph,
             accent: theme.accentSwatch,
             accentColor: theme.colors.accent,
             dark: theme.effectiveMode == .dark,
-            nodeFill: theme.colors.bgContent,
-            headBranchId: GraphHead.branchId(headSha: headSha, commits: commits, layouts: layouts)
+            nodeFill: theme.colors.bgContent
         )
     }
 

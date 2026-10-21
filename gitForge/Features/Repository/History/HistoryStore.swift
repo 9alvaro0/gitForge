@@ -10,6 +10,10 @@ protocol HistoryRefsSource: AnyObject {
     var stashes: [Stash] { get set }
     var unmergedLocalBranchRefs: [String] { get set }
     var refsBySha: [String: [GitRef]] { get }
+    /// Every ref, as `GitCLI.refs()` returns them: the graph names its lines from these.
+    var refs: [GitRef] { get }
+    /// Commit HEAD points at, detached or not.
+    var headSha: String? { get }
 }
 
 /// History: the paged log, its graph layout, the commit detail cache, the
@@ -86,8 +90,17 @@ final class HistoryStore {
     private(set) var loadingDetailFor: String?
 
     // MARK: Graph
-    var graphLayouts: [GraphRowLayout] = []
+    /// One row per commit, in the order of `commits`.
+    var graphLayouts: [GraphRow] = []
+    /// Columns the graph uses (`GraphLayout.columnCount`), at least 1.
     var graphMaxLanes: Int = 1
+    /// Row index one past the end of each loaded page, as `GraphInput.pageEnds`
+    /// wants it: only the first page reserves columns, so loading the next
+    /// page leaves every row already drawn as it was (§3.9).
+    private(set) var graphPageEnds: [Int] = []
+    /// Pool colours for the current accent. Starts at the violet pool;
+    /// `HistoryView` sets the real one from the theme.
+    private(set) var graphPaletteSize: Int = LaneColors.pool(accent: .violet).count
     /// Bumped at the start of every `recomputeGraph()` call. The layout work
     /// runs off-actor (50k commits would otherwise stutter the scroll on
     /// page load); the post-await guard drops stale results when the user
@@ -134,7 +147,10 @@ final class HistoryStore {
     func purge() {
         commits = []
         commitsById = [:]
+        // Drop any layout still computing for the old log.
+        graphLayoutGen &+= 1
         graphLayouts = []
+        graphPageEnds = []
         detailCache.removeAll()
         detailCacheOrder.removeAll()
         inFlightDetails.removeAll()
@@ -215,9 +231,7 @@ final class HistoryStore {
             }
             let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
             guard gen == logGen else { return }
-            commits = page
-            loadedRawCount = page.count
-            dropStashInternals()
+            replaceLog(with: page)
             hasMore = page.count == pageSize
             selectedCommitId = commits.first?.id
             await recomputeGraph()
@@ -251,9 +265,7 @@ final class HistoryStore {
             refsSource?.unmergedLocalBranchRefs = freshUnmerged
             let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
             guard gen == logGen else { return }
-            commits = page
-            loadedRawCount = page.count
-            dropStashInternals()
+            replaceLog(with: page)
             hasMore = page.count == pageSize
             if let prev = previousSelection, commitsById[prev] == nil {
                 selectedCommitId = commits.first?.id
@@ -288,9 +300,7 @@ final class HistoryStore {
     private func paginateNextPage(gen: UInt64, pageSize: Int) async throws -> [Commit]? {
         let next = try await cli.log(limit: pageSize, skip: loadedRawCount, refs: graphScope())
         guard gen == logGen else { return nil }
-        loadedRawCount += next.count
-        commits.append(contentsOf: next)
-        dropStashInternals()
+        appendPage(next)
         hasMore = next.count == pageSize
         await recomputeGraph()
         return next
@@ -298,23 +308,65 @@ final class HistoryStore {
 
     // MARK: Graph
 
+    /// Swaps in a fresh first page: the log starts over, and so do its pages.
+    func replaceLog(with page: [Commit]) {
+        commits = page
+        loadedRawCount = page.count
+        dropStashInternals()
+        graphPageEnds = [commits.count]
+    }
+
+    /// Appends the next page. Stash internals are dropped from the new rows
+    /// only: removing a row from a page already drawn would move every row
+    /// below it (§3.9).
+    func appendPage(_ page: [Commit]) {
+        let start = commits.count
+        loadedRawCount += page.count
+        commits.append(contentsOf: page)
+        dropStashInternals(from: start)
+        // A page that adds no rows (all stash internals, or none at all) adds
+        // no page end, so the list stays strictly ascending.
+        if commits.count > (graphPageEnds.last ?? 0) {
+            graphPageEnds.append(commits.count)
+        }
+    }
+
+    /// What the engine lays out: the loaded log and its pages, HEAD, the refs
+    /// that name the lines, the stashes and the size of the palette.
+    func graphInput() -> GraphInput {
+        GraphInput(commits: commits,
+                   pageEnds: graphPageEnds,
+                   headSha: refsSource?.headSha,
+                   refs: refsSource?.refs ?? [],
+                   stashShas: Set(stashes.map(\.sha)),
+                   paletteSize: graphPaletteSize)
+    }
+
+    /// Pool colours for the current accent (`LaneColors.pool(accent:).count`).
+    /// The engine spreads ordinary lines over that many colours, so a new
+    /// size recomputes the graph; the same size does nothing.
+    func setGraphPaletteSize(_ size: Int) async {
+        guard size != graphPaletteSize else { return }
+        graphPaletteSize = size
+        await recomputeGraph()
+    }
+
     /// Moves the (O(n)) layout computation off the main actor so a paginate
-    /// or reload over 50k commits doesn't stutter the scroll view. The result
-    /// is gated by `graphLayoutGen` so an older detached compute can't
-    /// stomp a fresher one when the user scrolls fast enough to enqueue
-    /// multiple page loads in flight.
+    /// or reload over 50k commits doesn't stutter the scroll view. The input
+    /// is snapshotted here, on the main actor, so the log, its pages and the
+    /// refs always describe the same moment. The result is gated by
+    /// `graphLayoutGen`: every change to the log recomputes, so a page
+    /// appended while this pass runs starts a newer one and this result is
+    /// dropped instead of landing on rows it doesn't describe.
     func recomputeGraph() async {
         graphLayoutGen &+= 1
         let gen = graphLayoutGen
-        let stashShas = Set(stashes.map(\.sha))
-        let commitsSnapshot = commits
-        let refsSnapshot = refsSource?.refsBySha ?? [:]
-        let result = await Task.detached { @Sendable in
-            GraphLayoutEngine.layouts(for: commitsSnapshot, refsBySha: refsSnapshot, stashShas: stashShas)
+        let input = graphInput()
+        let layout = await Task.detached { @Sendable in
+            CommitGraphEngine.layout(input)
         }.value
         guard gen == graphLayoutGen else { return }
-        graphLayouts = result.rows
-        graphMaxLanes = max(1, result.maxLanes)
+        apply(layout)
     }
 
     /// Synchronous variant used by SwiftUI previews and any caller that
@@ -323,18 +375,21 @@ final class HistoryStore {
     /// actor free.
     func recomputeGraphSync() {
         graphLayoutGen &+= 1
-        let stashShas = Set(stashes.map(\.sha))
-        let result = GraphLayoutEngine.layouts(for: commits, refsBySha: refsSource?.refsBySha ?? [:],
-                                               stashShas: stashShas)
-        graphLayouts = result.rows
-        graphMaxLanes = max(1, result.maxLanes)
+        apply(CommitGraphEngine.layout(graphInput()))
+    }
+
+    private func apply(_ layout: GraphLayout) {
+        graphLayouts = layout.rows
+        graphMaxLanes = max(1, layout.columnCount)
     }
 
     /// Removes stash *internal* commits — `parent[1]` (index tree) and
-    /// `parent[2]` (untracked tree) of each stash. Those are git plumbing
-    /// the user never asked for; surfacing them as separate rows clutters
-    /// the log. The stash commit itself stays as the dashed dot.
-    func dropStashInternals() {
+    /// `parent[2]` (untracked tree) of each stash — from the rows at `start`
+    /// and below. Those are git plumbing the user never asked for; surfacing
+    /// them as separate rows clutters the log. The stash commit itself stays
+    /// as the dashed square. Every loaded stash counts, so a stash on an
+    /// earlier page still loses the internals that land on a later one.
+    func dropStashInternals(from start: Int = 0) {
         let stashShas = Set(stashes.map(\.sha))
         guard !stashShas.isEmpty else { return }
         var internals: Set<String> = []
@@ -345,7 +400,9 @@ final class HistoryStore {
             }
         }
         guard !internals.isEmpty else { return }
-        commits.removeAll { internals.contains($0.sha) }
+        let start = min(max(start, 0), commits.count)
+        guard commits[start...].contains(where: { internals.contains($0.sha) }) else { return }
+        commits[start...].removeAll { internals.contains($0.sha) }
     }
 
     // MARK: Detail
