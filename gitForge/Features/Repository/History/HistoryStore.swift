@@ -108,7 +108,8 @@ final class HistoryStore {
     /// assign the log and its graph in the same main-actor turn, and a
     /// recompute only lands on the log it was computed for.
     var graphLayouts: [GraphRow] = []
-    /// Columns the graph uses (`GraphLayout.columnCount`), at least 1.
+    /// Columns the graph assigns, reserved ones included
+    /// (`GraphLayout.columnCount`), at least 1.
     var graphMaxLanes: Int = 1
     /// Row index one past the end of each loaded page, as `GraphInput.pageEnds`
     /// wants it: only the first page reserves columns, so loading the next
