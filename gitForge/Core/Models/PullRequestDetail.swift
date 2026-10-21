@@ -18,6 +18,9 @@ nonisolated struct PullRequestDetail: Sendable, Equatable {
     /// Whether the source branch lives in the target repo (not a fork);
     /// `nil` when unknown (a deleted fork).
     var headInSameRepo: Bool? = nil
+    /// Whether the signed-in account may merge it (GitHub: write access to
+    /// the repo; GitLab: `user.can_merge`); `nil` when unknown.
+    var viewerCanMerge: Bool? = nil
 
     struct Reviewer: Sendable, Equatable, Identifiable, Hashable {
         enum State: Sendable, Equatable, Hashable {

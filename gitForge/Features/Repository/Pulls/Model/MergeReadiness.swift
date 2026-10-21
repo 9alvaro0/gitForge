@@ -22,9 +22,12 @@ nonisolated struct MergeReadiness: Equatable, Sendable {
     let failed: Int
     /// The verdict came from the host, not from gitForge's own reading.
     var fromHost = false
+    /// The host says the signed-in account may merge (or doesn't say).
+    var accountCanMerge = true
 
-    /// Merge… is offered only when the host itself says it can merge.
-    var canMerge: Bool { fromHost && kind == .ready }
+    /// Merge… is offered only when the host itself says it can merge, and
+    /// doesn't say the account can't.
+    var canMerge: Bool { fromHost && kind == .ready && accountCanMerge }
 
     /// The reasons as the banner's sentence: "1 failing check · ….", or
     /// `nil` when there are none.
@@ -42,7 +45,8 @@ nonisolated struct MergeReadiness: Equatable, Sendable {
                          mergeable: Bool?,
                          checks: [CICheck],
                          reviewers: [PullRequestDetail.Reviewer],
-                         hostStatus: HostMergeStatus? = nil) -> MergeReadiness? {
+                         hostStatus: HostMergeStatus? = nil,
+                         viewerCanMerge: Bool? = nil) -> MergeReadiness? {
         guard state == .open || state == .draft else { return nil }
         let failed = checks.filter { $0.state == .failed }.count
         let running = checks.filter { $0.state == .running || $0.state == .queued }.count
@@ -77,6 +81,9 @@ nonisolated struct MergeReadiness: Equatable, Sendable {
         }
 
         var reasons: [String] = []
+        // A draft never merges, whatever the host says: GitHub reports a
+        // draft's `mergeable_state` as `clean`.
+        if state == .draft, !hostStatus.reasons.contains(HostMergeStatus.draft) { reasons.append(HostMergeStatus.draft) }
         // GitHub's `blocked` names no rule: say what gitForge can see.
         if hostStatus.includesLocalReasons { reasons += checksAndReviews + waiting }
         reasons += hostStatus.reasons
@@ -84,11 +91,16 @@ nonisolated struct MergeReadiness: Equatable, Sendable {
             reasons.append(failed == 1 ? String(localized: "1 check failing (not required)")
                                        : String(localized: "\(failed) checks failing (not required)"))
         }
+        // The PR's state stands for everyone; the account's rights only
+        // decide Merge…, and the banner says so.
+        if viewerCanMerge == false { reasons.append(String(localized: "your account can't merge it")) }
         let kind: Kind = switch hostStatus.verdict {
+        case _ where state == .draft: .blocked
         case .ready: .ready
         case .waiting: .waiting
         case .blocked: .blocked
         }
-        return MergeReadiness(kind: kind, reasons: reasons, passed: passed, running: running, failed: failed, fromHost: true)
+        return MergeReadiness(kind: kind, reasons: reasons, passed: passed, running: running, failed: failed,
+                              fromHost: true, accountCanMerge: viewerCanMerge != false)
     }
 }

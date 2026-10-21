@@ -19925,6 +19925,22 @@
         }
       }
     },
+    "your account can't merge it" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tu cuenta no puede fusionarla"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a sua conta não pode integrá-lo"
+          }
+        }
+      }
+    },
     "· edited by hand · replaces the picks" : {
       "localizations" : {
         "es" : {

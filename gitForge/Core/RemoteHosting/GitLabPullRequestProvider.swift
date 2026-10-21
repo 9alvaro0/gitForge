@@ -323,6 +323,8 @@ private struct GitLabMRDetailDTO: Decodable {
     let detailed_merge_status: String?
     let source_project_id: Int?
     let target_project_id: Int?
+    /// The signed-in user's standing on this MR.
+    let user: Viewer?
     let head_pipeline: Pipeline?
     let sha: String?
 
@@ -330,6 +332,7 @@ private struct GitLabMRDetailDTO: Decodable {
         let username: String?
         let avatar_url: String?
     }
+    struct Viewer: Decodable { let can_merge: Bool? }
     struct Pipeline: Decodable {
         let status: String?      // "success", "failed", "running", "canceled", …
         let web_url: String?
@@ -390,7 +393,8 @@ private struct GitLabMRDetailDTO: Decodable {
             mergeable: mergeable,
             ciStatus: ci,
             hostMergeStatus: GitLabPullRequestProvider.mergeStatus(detailed: detailed_merge_status, legacy: merge_status),
-            headInSameRepo: source_project_id.flatMap { source in target_project_id.map { $0 == source } }
+            headInSameRepo: source_project_id.flatMap { source in target_project_id.map { $0 == source } },
+            viewerCanMerge: user?.can_merge
         )
     }
 }

@@ -109,6 +109,22 @@ struct PullRequestDetailMergeFieldsTests {
         #expect(gone.hostMergeStatus?.stillComputing == true)
     }
 
+    @Test("GitHub: whether the account can merge comes from the repo's permissions")
+    func gitHubViewerCanMerge() {
+        #expect(GitHubPullRequestProvider.parseViewerCanMerge(Data(#"{"permissions":{"admin":false,"push":true,"pull":true}}"#.utf8)) == true)
+        #expect(GitHubPullRequestProvider.parseViewerCanMerge(Data(#"{"permissions":{"admin":false,"push":false,"pull":true}}"#.utf8)) == false)
+        #expect(GitHubPullRequestProvider.parseViewerCanMerge(Data(#"{"full_name":"octo/app"}"#.utf8)) == nil)
+        #expect(GitHubPullRequestProvider.parseViewerCanMerge(Data("not json".utf8)) == nil)
+    }
+
+    @Test("GitLab: whether the account can merge comes with the MR")
+    func gitLabViewerCanMerge() throws {
+        let fields = #"{"id":1,"iid":9,"title":"T","state":"opened","source_branch":"f","target_branch":"main""#
+        #expect(try GitLabPullRequestProvider.parseDetail(Data((fields + #","user":{"can_merge":false}}"#).utf8)).viewerCanMerge == false)
+        #expect(try GitLabPullRequestProvider.parseDetail(Data((fields + #","user":{"can_merge":true}}"#).utf8)).viewerCanMerge == true)
+        #expect(try GitLabPullRequestProvider.parseDetail(Data((fields + "}").utf8)).viewerCanMerge == nil)
+    }
+
     private static func gitLab(detailed: String?, legacy: String?, source: Int?, target: Int?) -> Data {
         var fields = [#""id":1"#, #""iid":9"#, #""title":"Add retry""#, #""state":"opened""#,
                       #""source_branch":"feat/sync-retry""#, #""target_branch":"main""#]

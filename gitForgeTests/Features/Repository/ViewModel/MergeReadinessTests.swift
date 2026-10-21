@@ -98,6 +98,30 @@ struct MergeReadinessTests {
                                         hostStatus: HostMergeStatus(verdict: .ready)) == nil)
     }
 
+    @Test("A draft never merges, even when the host calls it clean (GitHub does)")
+    func draftOverHostReady() {
+        let readiness = MergeReadiness.evaluate(state: .draft, mergeable: true, checks: [], reviewers: [],
+                                                hostStatus: HostMergeStatus(verdict: .ready))
+        #expect(readiness?.kind == .blocked)
+        #expect(readiness?.reasons == ["still a draft"])
+        #expect(readiness?.canMerge == false)
+        // GitLab's draft_status already says so: not twice.
+        #expect(MergeReadiness.evaluate(state: .draft, mergeable: true, checks: [], reviewers: [],
+                                        hostStatus: HostMergeStatus(verdict: .blocked, reasons: ["still a draft"]))?.reasons
+                == ["still a draft"])
+    }
+
+    @Test("An account that can't merge: the PR's state stands, Merge… doesn't, and the banner says why")
+    func accountCantMerge() {
+        let readiness = MergeReadiness.evaluate(state: .open, mergeable: true, checks: [], reviewers: [],
+                                                hostStatus: HostMergeStatus(verdict: .ready), viewerCanMerge: false)
+        #expect(readiness?.kind == .ready)
+        #expect(readiness?.canMerge == false)
+        #expect(readiness?.summary == "Your account can't merge it.")
+        #expect(MergeReadiness.evaluate(state: .open, mergeable: true, checks: [], reviewers: [],
+                                        hostStatus: HostMergeStatus(verdict: .ready), viewerCanMerge: true)?.canMerge == true)
+    }
+
     @Test("Without the host's say, nothing merges from here")
     func noHostStatus() {
         #expect(MergeReadiness.evaluate(state: .open, mergeable: true, checks: [], reviewers: [])?.canMerge == false)

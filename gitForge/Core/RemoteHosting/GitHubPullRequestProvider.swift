@@ -38,7 +38,11 @@ struct GitHubPullRequestProvider: PullRequestProvider {
         // approvals from /reviews (the PR object only lists who's requested).
         async let ciStatus = try? fetchCIStatus(host: host, sha: dto.head.sha, token: token)
         async let reviews = try? fetchReviews(host: host, number: number, token: token)
+        // Merging needs write access, which only the repo says.
+        async let repo = try? RemoteAPI.send(Self.makeRequest(url: URL(string: "\(Self.base(for: host))/repos/\(host.slug)"),
+                                                              token: token))
         var detail = dto.toModel(ciStatus: await ciStatus)
+        detail.viewerCanMerge = await repo.flatMap(Self.parseViewerCanMerge)
         guard let reviews = await reviews else { return detail }
         detail.reviewers = Self.reviewers(requested: (dto.requested_reviewers ?? []).map(\.login), reviews: reviews)
         return detail
@@ -156,6 +160,16 @@ extension GitHubPullRequestProvider {
     /// The PR object alone: no CI status, reviewers as requested.
     static func parseDetail(_ data: Data) throws -> PullRequestDetail {
         try decodeDetail(data).toModel(ciStatus: nil)
+    }
+
+    /// The repo's `permissions.push` for the signed-in account; `nil` when
+    /// the answer doesn't say (no permissions block, not JSON).
+    nonisolated static func parseViewerCanMerge(_ data: Data) -> Bool? {
+        nonisolated struct Repo: Decodable {
+            let permissions: Permissions?
+            struct Permissions: Decodable { let push: Bool? }
+        }
+        return (try? JSONDecoder().decode(Repo.self, from: data))?.permissions?.push
     }
 
     fileprivate static func decodeDetail(_ data: Data) throws -> GitHubPullDetailDTO {

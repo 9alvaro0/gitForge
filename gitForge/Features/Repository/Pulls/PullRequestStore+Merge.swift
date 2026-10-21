@@ -17,7 +17,8 @@ extension PullRequestStore {
     var mergeReadiness: MergeReadiness? {
         guard let selected, let detail, detail.pull.id == selected.id else { return nil }
         return .evaluate(state: detail.pull.state, mergeable: detail.mergeable, checks: checks,
-                         reviewers: detail.reviewers, hostStatus: detail.hostMergeStatus)
+                         reviewers: detail.reviewers, hostStatus: detail.hostMergeStatus,
+                         viewerCanMerge: detail.viewerCanMerge)
     }
 
     /// Reads what the merge sheet offers and starts a fresh draft: the

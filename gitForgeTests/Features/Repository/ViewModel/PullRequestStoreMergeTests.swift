@@ -8,6 +8,7 @@ import Testing
 private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewProvider, @unchecked Sendable {
     var statuses: [HostMergeStatus?] = [HostMergeStatus(verdict: .ready)]
     var headInSameRepo: Bool? = true
+    var viewerCanMerge: Bool?
     /// Left out of the open list, as if closed elsewhere.
     var hidden: Set<Int> = []
     var mergeErrors: [Error] = []
@@ -38,7 +39,8 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
         let isMerged = merged.contains(number)
         return PullRequestDetail(pull: Self.pull(number, state: isMerged ? .merged : .open), descriptionMarkdown: nil,
                                  labels: [], reviewers: [], assignees: [], mergeable: true, ciStatus: nil,
-                                 hostMergeStatus: isMerged ? nil : status, headInSameRepo: headInSameRepo)
+                                 hostMergeStatus: isMerged ? nil : status, headInSameRepo: headInSameRepo,
+                                 viewerCanMerge: viewerCanMerge)
     }
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] { [] }
     func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] { [] }
@@ -164,6 +166,15 @@ struct PullRequestStoreMergeTests {
         provider.statuses = [HostMergeStatus(verdict: .blocked, reasons: ["all threads must be resolved"])]
         let store = await preparedStore()
         #expect(await store.merge() == .failed("All threads must be resolved."))
+        #expect(provider.merges.isEmpty)
+    }
+
+    @Test("An account the host says can't merge: Merge… is off and nothing is sent")
+    func accountCantMerge() async {
+        provider.viewerCanMerge = false
+        let store = await preparedStore()
+        #expect(store.mergeReadiness?.canMerge == false)
+        #expect(await store.merge() == .failed("Your account can't merge it."))
         #expect(provider.merges.isEmpty)
     }
 
