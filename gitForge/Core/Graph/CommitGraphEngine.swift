@@ -192,9 +192,12 @@ private nonisolated struct StepEmitter {
         add(at: parentRow - 1, from: column, to: nodeColumn(parentRow), color: color, stroke: stroke)
     }
 
-    /// The parent's row when it sits right below the merge.
+    /// The parent's row when it sits right below the merge, which only a sticky
+    /// track can do: otherwise that parent is either on the merge's own line,
+    /// so it is the first parent and adds no connection, or on another line with
+    /// nothing in between, which makes a join.
     private func directParentRow(_ track: GraphTrack) -> Int? {
-        guard let parentRow = track.parentRow, parentRow == track.mergeRow + 1 else { return nil }
+        guard track.sticky, let parentRow = track.parentRow, parentRow == track.mergeRow + 1 else { return nil }
         return parentRow
     }
 

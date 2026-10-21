@@ -237,4 +237,39 @@ struct GraphColoringTests {
         #expect(forward.roleOfOwner == backward.roleOfOwner)
         #expect(forward.roleOfOwner.count == 7)
     }
+
+    @Test("A stretch on the first page keeps its colour when the next page loads")
+    func nextPageNeighbours() {
+        // Columns: main 0; x, y and a 1 in turn; origin/x 2 on page 2 only. x takes pool(0) and its remote copies
+        // it at once; y takes pool(1), so usage ties when a decides. a runs past the end of page 1 and forks on
+        // page 2, two rows below origin/x: unclipped, its window would reach the copied pool(0) and a would
+        // change to pool(1) when page 2 loads. Page 1 alone gives pool(0), so that is what it must keep (§3.9).
+        let commits = GraphFixture.commits("""
+            m0 m1
+            x1 m1
+            m1 m2
+            y1 m2
+            m2 m3
+            m3 m4
+            a1 a2
+            a2 m6
+            m4 m5
+            ox m5
+            m5 m6
+            m6
+            """)
+        let refs = [GraphFixture.local("main", "m0", head: true),
+                    GraphFixture.local("feature/x", "x1", upstream: "origin/feature/x", ahead: 5, behind: 1),
+                    GraphFixture.remote("origin/feature/x", "ox"),
+                    GraphFixture.local("feature/y", "y1"), GraphFixture.local("feature/a", "a1")]
+        let firstPage = coloring(GraphInput(commits: Array(commits.prefix(8)), pageEnds: [8], headSha: "m0",
+                                            refs: refs, paletteSize: 2))
+        let bothPages = coloring(GraphInput(commits: commits, pageEnds: [8, 12], headSha: "m0", refs: refs,
+                                            paletteSize: 2))
+        #expect(firstPage.role(.branch("feature/a")) == .pool(0))
+        #expect(bothPages.role(.branch("feature/x")) == .pool(0))
+        #expect(bothPages.role(.remote("origin/feature/x")) == .pool(0))
+        #expect(bothPages.role(.branch("feature/y")) == .pool(1))
+        #expect(bothPages.role(.branch("feature/a")) == .pool(0))
+    }
 }

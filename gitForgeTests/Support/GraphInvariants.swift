@@ -81,6 +81,20 @@ enum GraphInvariants {
                                   + "\(row.node.column): \(row.stepsBelow)")
             }
         }
+
+        for (index, row) in rows.enumerated() {
+            // 7. Each boundary is sorted by `(from, to)`.
+            let pairs = row.stepsBelow.map { [$0.from, $0.to] }
+            if pairs != pairs.sorted(by: { $0.lexicographicallyPrecedes($1) }) {
+                violations.append("Boundary \(index) is not sorted by (from, to): \(row.stepsBelow)")
+            }
+
+            // 8. The width is one past the rightmost column of the node and its steps.
+            let rightmost = (row.stepsAbove + row.stepsBelow).reduce(row.node.column) { max($0, $1.from, $1.to) }
+            if row.width != rightmost + 1 {
+                violations.append("Row \(index): width \(row.width), but its rightmost column is \(rightmost)")
+            }
+        }
         return violations
     }
 

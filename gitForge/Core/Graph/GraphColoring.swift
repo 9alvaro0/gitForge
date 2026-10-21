@@ -28,6 +28,10 @@ nonisolated struct GraphColoring: Sendable {
     /// within two rows. It keeps that index on all its stretches. When every
     /// index is taken around it, the least used of all wins.
     ///
+    /// The search stops at the end of the page the stretch starts on, so loading
+    /// the next page never changes a colour already drawn (§3.9). Later stretches
+    /// still see the earlier ones around them.
+    ///
     /// Tracks are not stretches: only drawn lines count as neighbours.
     static func assign(_ input: GraphInput, lines: GraphLines, columns: GraphColumns) -> GraphColoring {
         let headBranch = input.headBranch
@@ -60,9 +64,13 @@ nonisolated struct GraphColoring: Sendable {
         for stretch in stretches.sorted(by: { ($0.top, $0.line) < ($1.top, $1.line) }) {
             // A remote that follows a branch gets its role from it.
             guard roles[stretch.owner] == nil, localOfRemote[stretch.owner] == nil else { continue }
+            // Nothing from a later page may decide this stretch's colour (§3.9): its own
+            // extent and the window around it stop at the end of the page it starts on.
+            let pageLast = input.pageEnd(containing: stretch.top) - 1
+            let windowEnd = min(min(stretch.bottom, pageLast) + 2, pageLast)
             var taken = Array(repeating: false, count: paletteSize)
             for column in [stretch.column - 1, stretch.column + 1] {
-                for next in neighbours.overlapping(column: column, from: stretch.top - 2, to: stretch.bottom + 2) {
+                for next in neighbours.overlapping(column: column, from: stretch.top - 2, to: windowEnd) {
                     if case .pool(let index)? = roles[next.owner] {
                         taken[index] = true
                     }

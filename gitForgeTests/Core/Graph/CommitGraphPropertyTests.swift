@@ -34,25 +34,12 @@ struct CommitGraphPropertyTests {
         var failures = 0
         for seed in Self.seeds {
             let history = RandomHistory(seed: seed)
-            let full = history.input
-            guard full.pageEnds.count == 2 else { continue }
-            let split = full.pageEnds[0]
-            guard !Self.startsOnLaterPage(full, firstPageEnd: split) else { continue }
+            guard Self.isPagingCase(history.input) else { continue }
             checked += 1
-
-            var firstPage = full
-            firstPage.commits = Array(full.commits.prefix(split))
-            firstPage.pageEnds = [split]
-            let before = CommitGraphEngine.layout(firstPage).rows
-            let after = CommitGraphEngine.layout(full).rows
-            // The last row of the first page may change below its node: a line that ran
-            // past the end now forks, or a track now enters its parent.
-            let last = split - 1
-            if Array(after.prefix(last)) != Array(before.prefix(last)) || after[last].node != before[last].node
-                || after[last].stepsAbove != before[last].stepsAbove {
+            if let change = Self.pagingChange(history.input) {
                 failures += 1
                 if failures <= Self.reportedFailures {
-                    Issue.record(Comment(rawValue: "\(history)\nThe first \(split) rows changed when page 2 loaded"))
+                    Issue.record(Comment(rawValue: "\(history)\n\(change)"))
                 }
             }
         }
@@ -60,11 +47,50 @@ struct CommitGraphPropertyTests {
         #expect(checked > 500)
     }
 
+    /// Histories that once changed colours on page 1 when page 2 loaded: a stretch
+    /// near the end of page 1 saw a page-2 neighbour whose owner already had a
+    /// colour (seed 11407 through HEAD's line, seed 29410 through a remote that
+    /// copies its local branch's colour).
+    @Test("Page-1 colours ignore page-2 neighbours", arguments: [UInt64(11_407), 29_410])
+    func pagingRegression(seed: UInt64) {
+        let history = RandomHistory(seed: seed)
+        #expect(Self.isPagingCase(history.input))
+        if let change = Self.pagingChange(history.input) {
+            Issue.record(Comment(rawValue: "\(history)\n\(change)"))
+        }
+    }
+
+    /// Two pages, and not the shape deferred to G3 (`startsOnLaterPage`).
+    private static func isPagingCase(_ input: GraphInput) -> Bool {
+        input.pageEnds.count == 2 && !startsOnLaterPage(input, firstPageEnd: input.pageEnds[0])
+    }
+
+    /// What loading the second page changed in the first, or nil when it only added
+    /// rows below. The last row of the first page may change below its node: a
+    /// line that ran past the end now forks, or a track now enters its parent.
+    private static func pagingChange(_ full: GraphInput) -> String? {
+        let split = full.pageEnds[0]
+        var firstPage = full
+        firstPage.commits = Array(full.commits.prefix(split))
+        firstPage.pageEnds = [split]
+        let before = CommitGraphEngine.layout(firstPage).rows
+        let after = CommitGraphEngine.layout(full).rows
+        let last = split - 1
+        for row in 0..<last where after[row] != before[row] {
+            return "Row \(row) changed when page 2 loaded:\nbefore \(before[row])\nafter  \(after[row])"
+        }
+        if after[last].node != before[last].node || after[last].stepsAbove != before[last].stepsAbove {
+            return "Row \(last), the last of page 1, changed above its centre when page 2 loaded:\n"
+                + "before \(before[last])\nafter  \(after[last])"
+        }
+        return nil
+    }
+
     /// A local branch whose upstream's tip is on the first page while its own tip
-    /// is not. It has no line until its tip loads (Task 1 starts a branch only from
-    /// a loaded tip), so page 2 can move what page 1 drew. Deferred to G3: in G1
-    /// the default scope loads no remote-only commits, so this needs an upstream
-    /// tip that another local branch reaches.
+    /// loads on the second. It has no line until its tip loads (Task 1 starts a
+    /// branch only from a loaded tip), so page 2 can move what page 1 drew.
+    /// Deferred to G3: in G1 the default scope loads no remote-only commits, so
+    /// this needs an upstream tip that another local branch reaches.
     private static func startsOnLaterPage(_ input: GraphInput, firstPageEnd: Int) -> Bool {
         let rowOf = input.rowIndex()
         var remoteRows: [String: Int] = [:]
@@ -73,8 +99,9 @@ struct CommitGraphPropertyTests {
         }
         return input.refs.contains { ref in
             guard ref.isLocalBranch, let upstream = ref.upstream,
-                  let upstreamRow = remoteRows[upstream], upstreamRow < firstPageEnd else { return false }
-            return (rowOf[ref.targetSha] ?? Int.max) >= firstPageEnd
+                  let upstreamRow = remoteRows[upstream], upstreamRow < firstPageEnd,
+                  let localRow = rowOf[ref.targetSha] else { return false }
+            return localRow >= firstPageEnd
         }
     }
 }
