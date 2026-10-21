@@ -129,6 +129,30 @@ struct GraphColoringTests {
         #expect(c.role(.branch("feature/c")) == .pool(1))
     }
 
+    @Test("A line avoids the colour of the line to its right as well as the one to its left")
+    func neighbourExclusionOnTheRight() {
+        // Columns: t 0 (rows 0-3), r 1 (rows 1-6), w 2 (rows 2-5) and s 0 (rows 4-7, t having ended above it).
+        // t takes pool(0), r avoids it and takes pool(1), and w, beside r, avoids pool(1). Usage is then [2, 1],
+        // so s would take pool(1) if nothing stopped it. Column -1 is empty: only r, in column s + 1, can forbid
+        // pool(1), which leaves s on pool(0).
+        let c = coloring(GraphInput(commits: GraphFixture.commits("""
+            t0 t1
+            r0 r1
+            w0 w1
+            t1
+            s0 s1
+            w1
+            r1
+            s1
+            """), refs: [GraphFixture.local("feature/t", "t0"), GraphFixture.local("feature/r", "r0"),
+                         GraphFixture.local("feature/w", "w0"), GraphFixture.local("feature/s", "s0")],
+            paletteSize: 2))
+        #expect(c.role(.branch("feature/t")) == .pool(0))
+        #expect(c.role(.branch("feature/r")) == .pool(1))
+        #expect(c.role(.branch("feature/w")) == .pool(0))
+        #expect(c.role(.branch("feature/s")) == .pool(0))
+    }
+
     @Test("A neighbour counts from two rows above or below a line, and not from three",
           arguments: [(fillers: 0, expected: GraphColorRole.pool(1)), (fillers: 1, expected: .pool(0))])
     func neighbourMargin(fillers: Int, expected: GraphColorRole) {

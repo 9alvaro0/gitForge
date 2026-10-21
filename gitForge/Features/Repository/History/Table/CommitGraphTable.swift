@@ -14,10 +14,11 @@ import SwiftUI
 struct CommitGraphTable: View {
     let commits: [Commit]
     let layouts: [GraphRow]
-    /// Widest row of the graph (`HistoryStore.graphMaxLanes`, computed
-    /// once per layout pass). Recomputing it here walked every layout, and
-    /// did so for each row SwiftUI built — O(visible rows × commits) on every
-    /// re-render of History.
+    /// Column count of the whole graph layout (`HistoryStore.graphMaxLanes`,
+    /// taken once per layout pass; it includes columns reserved for HEAD and
+    /// the trunks, so it can exceed the widest row). Recomputing it here walked
+    /// every layout, and did so for each row SwiftUI built — O(visible rows ×
+    /// commits) on every re-render of History.
     let maxLanes: Int
     let refsBySha: [String: [GitRef]]
     let currentBranch: String?

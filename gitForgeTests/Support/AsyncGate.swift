@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 /// Holds async work until the test opens it. `wait()` suspends until
 /// `open()`; `waiting()` returns once something is suspended in `wait()`.
@@ -29,11 +30,16 @@ final class AsyncGate: @unchecked Sendable {
         pending.forEach { $0.resume() }
     }
 
-    /// Returns once a caller is suspended in `wait()` (or after `timeout`).
-    func waiting(timeout: Duration = .seconds(3)) async {
+    /// Returns once a caller is suspended in `wait()`. If none gets there within
+    /// `timeout` it records an issue and returns, so a slow run fails here and
+    /// not on a later assertion that depended on the caller being suspended.
+    func waiting(timeout: Duration = .seconds(3), sourceLocation: SourceLocation = #_sourceLocation) async {
         let deadline = ContinuousClock.now.advanced(by: timeout)
         while !isWaiting, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(5))
+        }
+        if !isWaiting {
+            Issue.record("No caller was suspended in the gate's wait() within \(timeout)", sourceLocation: sourceLocation)
         }
     }
 }

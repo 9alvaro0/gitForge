@@ -65,7 +65,10 @@ nonisolated struct GraphRow: Sendable, Hashable {
 /// The whole graph: one row per commit, in the order of `GraphInput.commits`.
 nonisolated struct GraphLayout: Sendable, Equatable {
     let rows: [GraphRow]
-    /// Columns in use across all rows, at least 1.
+    /// Columns the layout takes up, at least 1. It counts every column assigned,
+    /// including those reserved for HEAD and the trunks (§3.9), which may hold no
+    /// drawn line on some rows or even on all of them, so it can be wider than the
+    /// widest row.
     let columnCount: Int
 
     static let empty = GraphLayout(rows: [], columnCount: 1)

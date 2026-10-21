@@ -10,7 +10,8 @@ nonisolated struct GraphColumns: Sendable {
     var columnOfLine: [Int]
     /// Column of each entry of `GraphConnections.tracks`.
     var columnOfTrack: [Int]
-    /// Columns in use, at least 1.
+    /// Columns assigned, at least 1. Columns reserved for HEAD and the trunks
+    /// count even when nothing is drawn in them on some rows or at all.
     var count: Int
 
     /// Assigns columns in two passes, so that nothing already placed ever moves
