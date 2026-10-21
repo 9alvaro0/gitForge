@@ -56,12 +56,12 @@ struct PullRequestActionsBar: View {
         Menu {
             switch actions.approve {
             case .hidden: EmptyView()
-            case .available: Button("Approve…") { openPanel = .approve }
+            case .available: Button("Approve…") { presentFromMenu(.approve) }
             case .approved: Button("Approved") {}.disabled(true)
             }
             switch actions.requestChanges {
             case .hidden: EmptyView()
-            case .available: Button("Request changes…") { openPanel = .requestChanges }
+            case .available: Button("Request changes…") { presentFromMenu(.requestChanges) }
             case .unavailable(let reason): Button("Request changes (\(reason))") {}.disabled(true)
             }
         } label: {
@@ -75,6 +75,12 @@ struct PullRequestActionsBar: View {
     }
 
     private var busy: Bool { store.submittingReview != nil }
+
+    /// A menu item's action runs while the menu is still closing, and a
+    /// popover asked for in that moment never shows: open it on the next turn.
+    private func presentFromMenu(_ verdict: ReviewVerdict) {
+        DispatchQueue.main.async { openPanel = verdict }
+    }
 
     private var panelShown: Binding<Bool> {
         Binding(get: { openPanel != nil }, set: { if !$0 { openPanel = nil } })
