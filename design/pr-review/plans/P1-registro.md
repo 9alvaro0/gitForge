@@ -22,6 +22,14 @@ Con arreglos: 1 crítico, 4 importantes y 9 menores. Arreglados en una pasada, c
 
 Menores diferidos: copy del aviso de comentario fallido; cuerpos sin recortar en errores de estados desconocidos; el popover espera a la recarga completa; el primer detalle de GitLab espera a la sonda; una sonda fallida se guarda como "sin mutación"; un cambio de disposición de la cabecera puede cerrar el popover; los toasts de error no nombran la PR.
 
+## Prueba en la app (warp, PR #16579 de otra persona; nada enviado)
+
+- **Ancho completo:** "Pedir cambios" y "Aprobar" en la misma línea que el resto; el panel de aprobar se abre, escribe y Esc lo cierra.
+- **Pedir cambios:** el botón está desactivado vacío y con solo espacios, y se activa con texto. Cancelar cierra el panel.
+- **Ventana estrecha:** la cabecera pasa a dos líneas con "Revisar ▾", sin textos cortados.
+- **Arreglado tras la prueba:** elegir "Aprobar…" en el menú "Revisar" no abría el panel (macOS descarta un popover pedido mientras el menú se cierra); ahora se abre en el siguiente ciclo, comprobado en la app. El campo vacío mostraba una barra de scroll fantasma con ratón conectado; se ocultan los indicadores (sin comprobar visualmente: Alvaro pasó a usar la app).
+- **Fallo previo encontrado (fuera de esta fase):** "Hacer checkout de la rama" en una PR cuya rama no existe en local falla siempre: `git checkout -b --end-of-options <rama> <origen>` no es válido; `--end-of-options` tiene que ir después del nombre.
+
 ## Pendiente de Alvaro
 
 - Comprobar en la app: popover desde el menú "Review", ⌘↩ y Esc en el campo, ayuda del botón desactivado, modo claro.
