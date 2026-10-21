@@ -28,7 +28,28 @@ Menores diferidos:
 - `ThreadPlacement` vuelve a parsear los patches con cada cambio de hilos (también al resolver uno).
 - Un 400 de GitLab al comentar muestra el JSON del servidor en lugar de su mensaje.
 
+## Prueba en la app (warp, PRs de otras personas; nada enviado)
+
+- **Bien:**
+  - Hilos bajo su línea en vista unificada (#16150, línea 73) y dividida (línea 127, a todo el ancho).
+  - El "+" sale solo en la fila bajo el puntero, sobre la columna del signo, y se mueve con él; no sale en el lado vacío de una fila dividida.
+  - Un hilo resuelto plegado ("Resuelto por … · 2 comentarios") se despliega con "Mostrar" y se pliega con "Ocultar" (#16571).
+  - El bloque "Comentarios fuera del diff actual" plegado, con "Desactualizado · línea N" y scroll propio (#16150, 4 hilos; #16558, 20).
+  - "Otros comentarios" como primera fila, agrupado por ruta (#16306).
+  - Contador de hilos abiertos por fichero (6 en tech.md, 22 en architecture.md; ninguno donde todo está resuelto).
+  - Sin "Resolver" ni "Reabrir": la cuenta no puede resolver hilos en warp (`viewerCanResolve: false`).
+  - Esc con el cursor dentro del campo cierra la caja y conserva el borrador; Refresh no cierra la caja abierta ni borra el texto.
+  - Claro y oscuro. Un fichero de 1051 líneas con hilos salta a la mitad sin huecos.
+  - History con diff dividido y huecos, igual que antes.
+- **Arreglado tras la prueba:**
+  - La caja que abre el "+" o "Responder…" no cogía el foco si la lista de ficheros lo tenía (lo normal tras pulsar un fichero): lo tecleado no entraba. Se pide otra vez cuando la caja ya está en pantalla, como hace la paleta de comandos. Comprobado en la app.
+  - Al cambiar de PR con la pestaña Archivos abierta no quedaba ningún fichero seleccionado (la selección era una ruta de la PR anterior). Venía de antes de esta fase. Ahora se selecciona el primero. Test en rojo primero; comprobado en la app.
+  - Suite 1357/1357, build sin warnings.
+- **No probado:**
+  - ⌘↩: enviaría un comentario real.
+  - Un diff de más de 5000 líneas: ninguna PR abierta de warp tiene uno (el mayor, 1200).
+  - Staging y Stashes: warp no tiene cambios ni stashes. El camino sin anotaciones no cambia en el código.
+
 ## Pendiente de Alvaro
 
-- Prueba en la app (cierra tu gitForge instalado): hilos en vista unificada y dividida, el "+" al pasar el ratón, un resuelto plegado, el bloque outdated, "Other comments", el contador por fichero, ⌘↩ y Esc (sobre todo Esc dentro del campo de texto), claro y oscuro, un diff de más de 5000 líneas, y que Staging, History y Stashes se ven igual.
-- Paso 3 de la Tarea 8: comentar, contestar, resolver y reabrir de verdad en una PR de prueba de GitHub y en una MR de gitlab.com, y comprobar la regla de outdated de GitLab (Ruling 2) con un push.
+- Paso 3 de la Tarea 8: comentar, contestar, resolver y reabrir de verdad en una PR de prueba de GitHub y en una MR de gitlab.com (también ⌘↩), y comprobar la regla de outdated de GitLab (Ruling 2) con un push.
