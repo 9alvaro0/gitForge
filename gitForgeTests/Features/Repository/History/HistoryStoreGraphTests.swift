@@ -292,6 +292,67 @@ struct HistoryStoreGraphTests {
         Self.expectPublished(vm.history)
     }
 
+    @Test("loadRefs lays the graph out again only when the refs or HEAD it read differ from the current ones")
+    func loadRefsRelayoutsOnlyOnChange() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            for index in 0..<3 { try repo.commit("c\(index)", files: ["f.txt": "\(index)\n"]) }
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        // A published log: with none, a recompute has nothing to lay out.
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb"))
+        let engine = Self.hold(vm, passes: [])
+
+        // The first load brings the refs and HEAD in.
+        await vm.loadRefs()
+        #expect(!vm.refs.isEmpty && vm.headSha != nil)
+        #expect(engine.calls == 1)
+
+        // Nothing moved: the same refs and HEAD, so no pass.
+        await vm.loadRefs()
+        #expect(engine.calls == 1)
+
+        // A new ref.
+        try await repo.gitAsync("branch", "topic")
+        await vm.loadRefs()
+        #expect(engine.calls == 2)
+
+        // HEAD leaves its branch: the refs and HEAD both change.
+        try await repo.gitAsync("checkout", "-q", "--detach", "HEAD~1")
+        await vm.loadRefs()
+        #expect(engine.calls == 3)
+
+        // A detached HEAD moves to another commit: the refs stay and only HEAD changes.
+        let refs = vm.refs
+        let head = vm.headSha
+        try await repo.gitAsync("checkout", "-q", "--detach", "HEAD~1")
+        await vm.loadRefs()
+        #expect(vm.refs == refs)
+        #expect(vm.headSha != head)
+        #expect(engine.calls == 4)
+    }
+
+    @Test("A loadRefs that reads the same refs during a reload's layout pass adds no pass; one that reads new refs does",
+          arguments: [(changesRefs: false, passes: 1), (changesRefs: true, passes: 2)])
+    func loadRefsDuringReload(changesRefs: Bool, passes: Int) async throws {
+        let repo = try await GitTestRepo.make { try $0.commit("c0", files: ["f.txt": "0\n"]) }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        if changesRefs { try await repo.gitAsync("branch", "topic") }
+        let engine = Self.hold(vm, passes: [0])
+        async let published = vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("c b\nb")))
+        await engine.gate(0).waiting()
+        // `refresh()` reads the refs while the reload is laid out. New ones make the page lay itself out again
+        // before it is installed (the recompute adds no pass of its own: no log is published yet); the same
+        // ones add nothing.
+        await vm.loadRefs()
+        engine.gate(0).open()
+        #expect(await published)
+        #expect(engine.calls == passes)
+        Self.expectPublished(vm.history)
+    }
+
     @Test("A reload superseded by a newer one never publishes over it")
     func supersededReload() async {
         let vm = Self.makeVM()
