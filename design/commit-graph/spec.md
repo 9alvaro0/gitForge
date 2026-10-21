@@ -94,7 +94,7 @@ Equivalencia útil para implementar de forma incremental: recorrer las filas de 
 
 Para cada padre extra P de un merge M:
 
-- **Unión directa:** si ningún commit de la línea de P queda estrictamente entre M y P, y esa línea no es la de M, el conector entra directamente en la línea de P. Si P es la punta de su línea, la línea se alarga hacia arriba hasta la fila de M; es el caso típico de una feature mergeada, cuya línea empieza en su merge.
+- **Unión directa:** si ningún commit de la línea de P queda estrictamente entre M y P, y esa línea no es la de M, el conector entra directamente en la línea de P. Si P es la punta de su línea, la línea se alarga hacia arriba hasta la fila de M; es el caso típico de una feature mergeada, cuya línea empieza en su merge. Si la línea de P ya pasa por la fila de M (por ejemplo, main mergea develop y develop sigue avanzando), el conector se funde con ella en la fila siguiente: las dos llegan al mismo commit P sin nada en medio, así que no es una unión falsa.
 - **Pista propia:** en cualquier otro caso, el conector baja por su propia columna desde M hasta P y entra en el nodo de P desde un lado.
 - Los merges de más de dos padres aplican la regla a cada padre extra.
 - **Padre aún no cargado (decisión mía):** se dibuja como pista propia hasta el borde inferior. Cuando P se cargue, la conexión sigue siendo una pista (no se convierte en unión directa), para cumplir §3.9.

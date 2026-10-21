@@ -726,7 +726,7 @@ enum GraphInvariants {   // test target
 Registra un `Issue` por cada regla rota:
 1. `rows.count == commits.count`.
 2. Para cada fila `b < n − 1`, `rows[b].stepsBelow == rows[b + 1].stepsAbove`.
-3. En cada frontera, cada `to` distinto de la columna del nodo de abajo aparece una sola vez, y cada `from` distinto de la columna del nodo de arriba también. Esta es la regla de "una línea por columna".
+3. En cada frontera, cada `to` distinto de la columna del nodo de abajo aparece una sola vez, y cada `from` distinto de la columna del nodo de arriba también. Esta es la regla de "una línea por columna". Única excepción: un `to` repetido formado por un paso recto `c → c` más curvas de unión que salen de la columna del nodo de arriba (una unión que se funde con una línea que ya pasa, spec §3.3).
 4. Continuidad: `Set(stepsAbove.map(\.to)) − {node.column} == Set(stepsBelow.map(\.from)) − {node.column}` en cada fila salvo la primera.
 5. Un nodo recibe un paso desde arriba si y solo si algún hijo cargado lo tiene como padre (contando el primer padre de las stashes, sin contar los internos).
 6. Un nodo con padres tiene algún paso por debajo que sale de su columna.
