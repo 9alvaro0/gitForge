@@ -10,24 +10,34 @@ struct PullRequestDetailHeader: View {
     let labels: [String]
     let checkingOut: Bool
     let onCheckout: () -> Void
-    /// Review (and merge) buttons, between "Check out branch" and "Open on …".
-    var actions: AnyView = AnyView(EmptyView())
+    /// Review and merge buttons, between "Check out branch" and "Open on …";
+    /// `compact` folds the review ones into a menu.
+    var actions: (_ compact: Bool) -> AnyView = { _ in AnyView(EmptyView()) }
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
-            // The buttons share the state line while they fit, then take
-            // a line of their own rather than cutting their titles.
+            // The buttons share the state line while they fit, then take a
+            // line of their own, then fold the review ones into a menu, then
+            // wrap, rather than cutting their titles.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: Spacing.s8) {
                     identity
                     Spacer(minLength: Spacing.s16)
-                    buttons
+                    buttons(compact: false)
                 }
                 VStack(alignment: .leading, spacing: Spacing.s8) {
                     identity
-                    HStack(spacing: Spacing.s8) { buttons }
+                    HStack(spacing: Spacing.s8) { buttons(compact: false) }
+                }
+                VStack(alignment: .leading, spacing: Spacing.s8) {
+                    identity
+                    HStack(spacing: Spacing.s8) { buttons(compact: true) }
+                }
+                VStack(alignment: .leading, spacing: Spacing.s8) {
+                    identity
+                    FlowLayout(spacing: Spacing.s8) { buttons(compact: true) }
                 }
             }
             Text(pullRequest.title)
@@ -57,12 +67,12 @@ struct PullRequestDetailHeader: View {
     }
 
     @ViewBuilder
-    private var buttons: some View {
+    private func buttons(compact: Bool) -> some View {
         GFButton(title: checkingOut ? String(localized: "Checking out…") : String(localized: "Check out branch"),
                  disabled: checkingOut || pullRequest.state == .merged, action: onCheckout)
             .help("Fetch and check out \(pullRequest.sourceBranch)")
             .fixedSize()
-        actions
+        actions(compact)
         if let url = pullRequest.webURL {
             GFButton(title: hostLabel.map { String(localized: "Open on \($0)") } ?? String(localized: "Open on the web"),
                      systemImage: "arrow.up.right") {

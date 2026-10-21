@@ -11,6 +11,7 @@ struct PullRequestDetailView: View {
     @Environment(\.appTheme) private var theme
     @State private var tab: Tab = .checks
     @State private var showLocalMergeConfirm = false
+    @State private var showMergeSheet = false
     @State private var checkingOut = false
 
     enum Tab: String, DetailTab, Identifiable {
@@ -38,7 +39,9 @@ struct PullRequestDetailView: View {
                         labels: store.detail?.labels ?? [],
                         checkingOut: checkingOut,
                         onCheckout: { Task { await runCheckout() } },
-                        actions: AnyView(PullRequestActionsBar(store: store))
+                        actions: { compact in
+                            AnyView(PullRequestActionsBar(store: store, compact: compact, onMerge: { showMergeSheet = true }))
+                        }
                     )
                     tabBar
                 }
@@ -63,6 +66,16 @@ struct PullRequestDetailView: View {
         } message: {
             Text(localMergeMessage)
         }
+        // Each opening reads the options afresh: nothing is remembered.
+        .sheet(isPresented: $showMergeSheet, onDismiss: discardMergeOptions) {
+            MergeSheet(store: store)
+        }
+    }
+
+    private func discardMergeOptions() {
+        store.mergeOptions = nil
+        store.mergeDraft = nil
+        store.mergeOptionsError = nil
     }
 
     /// Underlined tabs with counts, as in the artboard.
@@ -142,9 +155,7 @@ struct PullRequestDetailView: View {
 
     @ViewBuilder
     private var banner: some View {
-        if let pr = store.selected, let detail = store.detail,
-           let readiness = MergeReadiness.evaluate(state: pr.state, mergeable: detail.mergeable, checks: store.checks,
-                                                   reviewers: detail.reviewers, hostStatus: detail.hostMergeStatus) {
+        if let readiness = store.mergeReadiness {
             MergeReadinessBanner(readiness: readiness)
         }
     }

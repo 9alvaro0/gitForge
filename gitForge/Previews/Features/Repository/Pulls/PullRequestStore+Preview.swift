@@ -33,3 +33,31 @@ extension PullRequestStore {
         return store
     }
 }
+
+@MainActor
+extension PullRequestStore {
+    /// The merge sheet over a GitHub PR the host lets merge, options loaded.
+    static var previewMergeGitHub: PullRequestStore {
+        let store = previewWithDetail
+        store.detail?.hostMergeStatus = HostMergeStatus(verdict: .ready)
+        let options = MergeOptions(kind: .github(methods: [.squash, .merge, .rebase]), canDeleteSourceBranch: true,
+                                   defaultsByMethod: [.squash: [.title: "Add pull request detail view (#42)"],
+                                                      .merge: [.body: "Add pull request detail view"]],
+                                   initialMethod: .squash, initialSquash: false)
+        store.mergeOptions = options
+        store.mergeDraft = MergeDraft(options: options)
+        return store
+    }
+
+    /// The merge sheet over a GitLab MR whose project fast-forwards and
+    /// always squashes.
+    static var previewMergeGitLab: PullRequestStore {
+        let store = previewMergeGitHub
+        store.host = .previewGitLab
+        let options = MergeOptions(kind: .gitlab(method: .fastForward, squash: .always), canDeleteSourceBranch: true,
+                                   initialMethod: nil, initialSquash: true)
+        store.mergeOptions = options
+        store.mergeDraft = MergeDraft(options: options)
+        return store
+    }
+}
