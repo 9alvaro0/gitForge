@@ -81,7 +81,7 @@ Una **línea** es una cadena de primeros padres. Dos nociones distintas que el p
 
 1. HEAD (la rama actual o, con HEAD suelto, el commit actual).
 2. Ramas locales, por prioridad: `main`/`master`/`trunk`, `develop`/`dev`, `release/*`, `hotfix/*`, el resto. Dentro de la misma prioridad, la punta más **abajo** primero y, a igualdad, por nombre. Así, una rama de la que salen otras apiladas encima se queda con sus commits. El tronco remoto de §3.1 entra aquí con la prioridad de su tronco.
-3. Ramas remotas que no continúan una local (§4.1), de arriba abajo.
+3. Ramas remotas que no continúan una local (§4.1), la punta más abajo primero (como las locales dentro de un nivel).
 4. Commits sin reclamar (ramas borradas, tags sueltos): cada uno abre una línea sin nombre, de arriba abajo.
 
 Una stash solo reclama su propio commit. Si su padre no tiene dueño, lo reclama una línea normal sin nombre. Así una stash nunca pinta de discontinuo la línea de una rama (es la protección que ya existe hoy y debe mantenerse).
