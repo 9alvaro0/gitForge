@@ -12,6 +12,9 @@ struct DiffRow: View {
     /// Toggles the pick; nil where lines can't be picked (context lines,
     /// diffs without hunk actions).
     var onToggle: (() -> Void)? = nil
+    /// Starts a review comment on this line; nil: no "+" (and no hover
+    /// tracking) on the row.
+    var onAddComment: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
@@ -39,6 +42,8 @@ struct DiffRow: View {
                 Rectangle().fill(theme.colors.accent).frame(width: 3).allowsHitTesting(false)
             }
         }
+        .modifier(DiffRowCommentButton(onAdd: onAddComment,
+                                       leading: (DiffGutter.unifiedNumber + DiffGutter.numberTrailing) * 2))
         .modifier(DiffRowPick(isSelected: isSelected, onToggle: onToggle))
     }
 }

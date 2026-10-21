@@ -14,6 +14,8 @@ struct DiffSplitContent: View {
     var expandedGaps: Set<Int> = []
     var fileLines: [String] = []
     var onExpandGap: (Int) -> Void = { _ in }
+    /// Content under rows, full width, and the "+" on each half (pull requests).
+    var lineAnnotations: DiffLineAnnotations? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -36,12 +38,14 @@ struct DiffSplitContent: View {
                         let table = highlighted[hunk.id]
                         ForEach(Array(splitRows(for: hunk).enumerated()), id: \.offset) { idx, row in
                             HStack(alignment: .top, spacing: 0) {
-                                DiffSplitCell(line: row.left,  side: .left,  attributed: row.left.flatMap  { table?[$0.id] })
+                                DiffSplitCell(line: row.left,  side: .left,  attributed: row.left.flatMap  { table?[$0.id] },
+                                              onAddComment: addComment(on: row.left, left: true))
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                 Rectangle()
                                     .fill(theme.colors.separator)
                                     .frame(width: 1)
-                                DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] })
+                                DiffSplitCell(line: row.right, side: .right, attributed: row.right.flatMap { table?[$0.id] },
+                                              onAddComment: addComment(on: row.right, left: false))
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             }
                             // Both halves stretch to the taller one, so a line
@@ -49,6 +53,9 @@ struct DiffSplitContent: View {
                             // tint or hatch the same height.
                             .fixedSize(horizontal: false, vertical: true)
                             .id("h-\(hunk.id)-r-\(idx)")
+                            if let lineAnnotations {
+                                annotation(under: row, at: idx, in: hunk, lineAnnotations)
+                            }
                         }
                     }
                     gapSection(before: hunks.count)
@@ -60,6 +67,25 @@ struct DiffSplitContent: View {
 }
 
 extension DiffSplitContent {
+    /// What goes under a row, across both halves.
+    @ViewBuilder
+    private func annotation(under row: SplitRow, at index: Int, in hunk: DiffHunk,
+                            _ annotations: DiffLineAnnotations) -> some View {
+        let refs = annotations.matches(left: row.left, right: row.right)
+        if !refs.isEmpty {
+            annotations.content(refs)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .id("h-\(hunk.id)-r-\(index)-a")
+        }
+    }
+
+    /// The "+" on a half: it comments on that half's side.
+    private func addComment(on line: DiffLine?, left: Bool) -> (() -> Void)? {
+        guard let onAddComment = lineAnnotations?.onAddComment, let line,
+              let side = DiffLineAnnotations.splitCommentSide(for: line, left: left) else { return nil }
+        return { onAddComment(line, side) }
+    }
+
     @ViewBuilder
     private func gapSection(before index: Int) -> some View {
         if let gap = gaps.first(where: { $0.beforeHunk == index }) {

@@ -19,6 +19,8 @@ struct DiffUnifiedContent: View {
     var expandedGaps: Set<Int> = []
     var fileLines: [String] = []
     var onExpandGap: (Int) -> Void = { _ in }
+    /// Content under lines and the "+" for comments (pull requests).
+    var lineAnnotations: DiffLineAnnotations? = nil
 
     @Environment(\.appPreferences) private var preferences
     @Environment(\.appTheme) private var theme
@@ -50,8 +52,12 @@ struct DiffUnifiedContent: View {
                         ForEach(hunk.lines) { line in
                             DiffRow(line: line, attributed: table?[line.id],
                                     isSelected: picked.contains(line.id),
-                                    onToggle: toggle(line, in: hunk))
+                                    onToggle: toggle(line, in: hunk),
+                                    onAddComment: addComment(on: line))
                                 .id("h-\(hunk.id)-l-\(line.id)")
+                            if let lineAnnotations {
+                                annotation(under: line, in: hunk, lineAnnotations, width: geo.size.width)
+                            }
                         }
                     }
                     gapSection(before: hunks.count)
@@ -118,6 +124,26 @@ extension DiffUnifiedContent {
                            onExpand: { onExpandGap(gap.id) })
                 .id("g-\(gap.id)")
         }
+    }
+
+    /// What goes under `line`, as wide as the viewport (not the widest line).
+    @ViewBuilder
+    private func annotation(under line: DiffLine, in hunk: DiffHunk, _ annotations: DiffLineAnnotations,
+                            width: CGFloat) -> some View {
+        let refs = annotations.matches(line)
+        if !refs.isEmpty {
+            annotations.content(refs)
+                .frame(width: width, alignment: .leading)
+                .id("h-\(hunk.id)-l-\(line.id)-a")
+        }
+    }
+
+    /// The "+" on any hunk line but "No newline at end of file": a removed
+    /// line on the old side, the rest on the new.
+    private func addComment(on line: DiffLine) -> (() -> Void)? {
+        guard let onAddComment = lineAnnotations?.onAddComment,
+              let side = DiffLineRef.commentSide(for: line) else { return nil }
+        return { onAddComment(line, side) }
     }
 
     /// Only added and removed lines can be picked.
