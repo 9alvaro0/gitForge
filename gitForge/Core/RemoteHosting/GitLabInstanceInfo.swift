@@ -12,23 +12,25 @@ nonisolated struct GitLabInstanceInfo: Sendable, Equatable {
 }
 
 /// Instance info per host for the app's lifetime. Concurrent asks for the
-/// same host share one load. A read that learned nothing (offline, an
-/// expired token) isn't kept, so the next detail tries again.
+/// same host share one load. A read that `load` says not to keep (a request
+/// failed: offline, an expired token, a failed probe) is used once, so the
+/// next detail tries again.
 actor GitLabInstanceInfoCache {
     static let shared = GitLabInstanceInfoCache()
 
     private var known: [String: GitLabInstanceInfo] = [:]
-    private var loading: [String: Task<GitLabInstanceInfo, Never>] = [:]
+    private var loading: [String: Task<(info: GitLabInstanceInfo, keep: Bool), Never>] = [:]
 
-    func info(for host: String, load: @escaping @Sendable () async -> GitLabInstanceInfo) async -> GitLabInstanceInfo {
+    func info(for host: String,
+              load: @escaping @Sendable () async -> (info: GitLabInstanceInfo, keep: Bool)) async -> GitLabInstanceInfo {
         if let info = known[host] { return info }
-        if let task = loading[host] { return await task.value }
+        if let task = loading[host] { return await task.value.info }
         let task = Task { await load() }
         loading[host] = task
-        let info = await task.value
-        if info != .unknown { known[host] = info }
+        let loaded = await task.value
+        if loaded.keep { known[host] = loaded.info }
         loading[host] = nil
-        return info
+        return loaded.info
     }
 
     func reset() {

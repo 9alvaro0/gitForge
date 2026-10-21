@@ -182,10 +182,10 @@ struct ReviewThreadWriteFlowTests {
         }
     }
 
-    @Test("GitLab: no diff refs, nothing sent")
+    @Test("GitLab: without the detail's diff refs nothing is sent, and the error says the detail didn't load")
     func gitLabNoRefs() async {
         let (server, provider, host) = Self.gitLab()
-        await #expect(throws: PullRequestActionError.headChanged) {
+        await #expect(throws: PullRequestActionError.other("The merge request's details didn't load. Refresh and try again.")) {
             try await provider.addComment(host: host, pull: Self.pull, detail: nil, target: Self.target, body: "x", token: "t")
         }
         #expect(server.requests.isEmpty)
@@ -228,5 +228,17 @@ struct ReviewThreadWriteFlowTests {
         await #expect(throws: PullRequestActionError.rejected("Resource not accessible by integration")) {
             try await otherProvider.setResolved(true, host: otherHost, pull: Self.pull, thread: Self.thread("PRRT_x"), token: "t")
         }
+    }
+
+    @Test("GitHub: resolving without permission (GraphQL FORBIDDEN) reads as not allowed")
+    func gitHubResolveForbidden() async {
+        let (server, provider, host) = Self.gitHub()
+        server.on("POST", "/api/graphql", body: Data(#"""
+        {"data":{"resolveReviewThread":null},"errors":[{"type":"FORBIDDEN","path":["resolveReviewThread"],"message":"marta does not have the correct permissions to execute `ResolveReviewThread`"}]}
+        """#.utf8))
+        let error = await #expect(throws: (any Error).self) {
+            try await provider.setResolved(true, host: host, pull: Self.pull, thread: Self.thread("PRRT_x"), token: "t")
+        }
+        #expect(error.map(PullRequestActionError.from) == .forbidden)
     }
 }

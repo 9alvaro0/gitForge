@@ -41,8 +41,9 @@ protocol PullRequestReviewProvider: Sendable {
     func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, token: String) async throws -> [ReviewThread]
 
     /// Posts `body` on `target`'s line, published right away. Pinned to the
-    /// head shown (`detail`'s, else `pull`'s): without one it throws
-    /// `PullRequestActionError.headChanged` and sends nothing.
+    /// head shown (`detail`'s, else `pull`'s): without one it throws and
+    /// sends nothing (GitHub `headChanged`; GitLab, whose head comes only
+    /// with the detail, says the detail didn't load).
     func addComment(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, target: CommentTarget,
                     body: String, token: String) async throws
 

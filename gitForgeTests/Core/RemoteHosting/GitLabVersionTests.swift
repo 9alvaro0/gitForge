@@ -36,9 +36,9 @@ struct GitLabVersionTests {
     func cacheOnce() async {
         let cache = GitLabInstanceInfoCache()
         let calls = Counter()
-        let load: @Sendable () async -> GitLabInstanceInfo = {
+        let load: @Sendable () async -> (info: GitLabInstanceInfo, keep: Bool) = {
             await calls.bump()
-            return GitLabInstanceInfo(version: GitLabVersion(major: 17, minor: 5), hasRequestChangesMutation: false)
+            return (GitLabInstanceInfo(version: GitLabVersion(major: 17, minor: 5), hasRequestChangesMutation: false), keep: true)
         }
         _ = await cache.info(for: "gitlab.example.test", load: load)
         _ = await cache.info(for: "gitlab.example.test", load: load)
@@ -50,11 +50,12 @@ struct GitLabVersionTests {
     func failureNotCached() async {
         let cache = GitLabInstanceInfoCache()
         let calls = Counter()
-        let failing: @Sendable () async -> GitLabInstanceInfo = {
+        let info = GitLabInstanceInfo(version: GitLabVersion(major: 17, minor: 5), hasRequestChangesMutation: false)
+        let failing: @Sendable () async -> (info: GitLabInstanceInfo, keep: Bool) = {
             await calls.bump()
-            return .unknown
+            return (info, keep: false)
         }
-        _ = await cache.info(for: "gitlab.example.test", load: failing)
+        #expect(await cache.info(for: "gitlab.example.test", load: failing) == info)
         _ = await cache.info(for: "gitlab.example.test", load: failing)
         #expect(await calls.value == 2)
     }

@@ -12,10 +12,11 @@ extension GitLabPullRequestProvider {
         return Self.threads(from: discussions, currentHead: detail?.diffRefs?.headSha)
     }
 
-    /// A new discussion positioned against the MR's current `diff_refs`.
+    /// A new discussion positioned against the MR's current `diff_refs`,
+    /// which come with the detail: without them nothing is sent.
     func addComment(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, target: CommentTarget,
                     body: String, token: String) async throws {
-        guard let refs = detail?.diffRefs else { throw PullRequestActionError.headChanged }
+        guard let refs = detail?.diffRefs else { throw PullRequestActionError.other(Self.missingDiffRefsReason) }
         try await sendWrite(Self.newDiscussionRequest(host: host, number: pull.number, refs: refs, target: target,
                                                       body: body, token: token), host: host, token: token)
     }
@@ -49,6 +50,11 @@ extension GitLabPullRequestProvider {
     }
 
     // MARK: Requests
+
+    /// The detail failed while the files loaded: the comment has no head to pin.
+    nonisolated static var missingDiffRefsReason: String {
+        String(localized: "The merge request's details didn't load. Refresh and try again.")
+    }
 
     nonisolated static func discussionsRequest(host: RemoteHost, number: Int, page: Int, token: String) -> URLRequest {
         var components = URLComponents(string: discussionsPath(host, number))

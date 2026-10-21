@@ -21,7 +21,8 @@ extension RemoteAPI {
     }
 
     /// The `data` of a GraphQL answer. GraphQL reports failures with a 200
-    /// and an `errors` list: the first message becomes the error.
+    /// and an `errors` list: GitHub's `FORBIDDEN` type is a refusal like a
+    /// 403; otherwise the first message becomes the error.
     nonisolated static func decodeGraphQL<T: Decodable>(_ data: Data, as type: T.Type) throws -> T {
         let envelope: GraphQLEnvelope<T>
         do {
@@ -30,6 +31,7 @@ extension RemoteAPI {
             throw PullRequestFetchError.decoding(error.localizedDescription)
         }
         if let first = envelope.errors?.first {
+            if first.type == "FORBIDDEN" { throw PullRequestFetchError.forbidden }
             throw PullRequestFetchError.server(200, first.message)
         }
         guard let value = envelope.data else {
@@ -73,5 +75,8 @@ nonisolated private struct GraphQLEnvelope<T: Decodable>: Decodable {
     let data: T?
     let errors: [Message]?
 
-    struct Message: Decodable { let message: String }
+    struct Message: Decodable {
+        let message: String
+        let type: String?
+    }
 }
