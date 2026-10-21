@@ -234,6 +234,28 @@ struct GitLabReviewFlowTests {
         #expect(server.requests("POST", "\(Self.mr)/approve").isEmpty)
     }
 
+    @Test("A probe that failed isn't remembered: the next ask probes again until one answers")
+    func failedProbeRetried() async {
+        let (server, provider, host, _) = Self.setUp()
+        server.on("GET", "/api/v4/version", fixture: "gitlab-version")
+        server.on("POST", "/api/graphql", status: 502, body: Data("<html>Bad gateway</html>".utf8))
+        server.on("POST", "/api/graphql", fixture: "gitlab-graphql-mutations")
+        for _ in 0..<3 { _ = await provider.requestChangesSupport(host: host, token: "t") }
+        #expect(server.requests("POST", "/api/graphql").count == 2)
+    }
+
+    @Test("A probe that answered without the mutation is remembered", arguments: [
+        #"{"data":{"__type":{"fields":[{"name":"mergeRequestAccept"}]}}}"#,
+        #"{"errors":[{"message":"Introspection is disabled"}]}"#,
+    ])
+    func answeredProbeKept(answer: String) async {
+        let (server, provider, host, _) = Self.setUp()
+        server.on("GET", "/api/v4/version", fixture: "gitlab-version")
+        server.on("POST", "/api/graphql", body: Data(answer.utf8))
+        for _ in 0..<2 { _ = await provider.requestChangesSupport(host: host, token: "t") }
+        #expect(server.requests("POST", "/api/graphql").count == 1)
+    }
+
     @Test("Before 17.3 nothing is posted and the reason comes back")
     func oldInstance() async {
         let (server, provider, host, pull) = Self.setUp()

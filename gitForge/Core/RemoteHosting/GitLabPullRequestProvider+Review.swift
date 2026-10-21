@@ -47,17 +47,18 @@ extension GitLabPullRequestProvider: PullRequestReviewProvider {
     // MARK: Steps
 
     /// Loaded once per host: `/version`, then the GraphQL probe only where
-    /// the mutation can exist. Any failure reads as an older instance.
+    /// the mutation can exist. Any failure reads as an older instance, and
+    /// isn't kept: an unreadable `/version`, or a probe that got no answer
+    /// (one that answers without the mutation is kept).
     private func instanceInfo(host: RemoteHost, token: String) async -> GitLabInstanceInfo {
         await GitLabInstanceInfoCache.shared.info(for: host.host) { [session] in
             let version = try? await RemoteAPI.send(Self.versionRequest(host: host, token: token), session: session)
-            guard let parsed = version.flatMap(Self.parseVersion), parsed >= .requestChanges else {
-                return Self.instanceInfo(version: version, mutations: nil)
-            }
+            guard let parsed = version.flatMap(Self.parseVersion) else { return (.unknown, keep: false) }
+            guard parsed >= .requestChanges else { return (Self.instanceInfo(version: version, mutations: nil), keep: true) }
             let probe = RemoteAPI.graphQL(Self.makeRequest(url: nil, token: token), endpoint: Self.graphQLEndpoint(for: host),
                                           query: Self.requestChangesProbe, variables: [String: String]())
             let mutations = try? await RemoteAPI.send(probe, session: session)
-            return Self.instanceInfo(version: version, mutations: mutations)
+            return (Self.instanceInfo(version: version, mutations: mutations), keep: mutations != nil)
         }
     }
 
