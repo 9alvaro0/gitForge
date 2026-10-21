@@ -3,6 +3,10 @@ import Foundation
 /// GitHub REST v3 implementation of `PullRequestProvider`.
 /// API reference: https://docs.github.com/en/rest/pulls/pulls
 struct GitHubPullRequestProvider: PullRequestProvider {
+    /// Used by the merge writes, so tests can point them at a stub server;
+    /// the reads predate it and use `RemoteAPI.session`.
+    var session: URLSession = RemoteAPI.session
+
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
         guard var components = URLComponents(string: "\(Self.base(for: host))/repos/\(host.slug)/pulls") else {
             throw PullRequestFetchError.network("bad URL")
@@ -28,28 +32,20 @@ struct GitHubPullRequestProvider: PullRequestProvider {
         let url = URL(string: "\(Self.base(for: host))/repos/\(host.slug)/pulls/\(number)")
         let request = Self.makeRequest(url: url, token: token)
         let data = try await RemoteAPI.send(request)
-        let dto: GitHubPullDetailDTO
-        do {
-            dto = try JSONDecoder().decode(GitHubPullDetailDTO.self, from: data)
-        } catch {
-            throw PullRequestFetchError.decoding(error.localizedDescription)
-        }
+        let dto = try Self.decodeDetail(data)
 
         // CI status comes from a separate endpoint on the PR's head SHA;
         // approvals from /reviews (the PR object only lists who's requested).
         async let ciStatus = try? fetchCIStatus(host: host, sha: dto.head.sha, token: token)
         async let reviews = try? fetchReviews(host: host, number: number, token: token)
-        let detail = dto.toModel(ciStatus: await ciStatus)
+        // Merging needs write access, which only the repo says.
+        async let repo = try? RemoteAPI.send(Self.makeRequest(url: URL(string: "\(Self.base(for: host))/repos/\(host.slug)"),
+                                                              token: token))
+        var detail = dto.toModel(ciStatus: await ciStatus)
+        detail.viewerCanMerge = await repo.flatMap(Self.parseViewerCanMerge)
         guard let reviews = await reviews else { return detail }
-        return PullRequestDetail(
-            pull: detail.pull,
-            descriptionMarkdown: detail.descriptionMarkdown,
-            labels: detail.labels,
-            reviewers: Self.reviewers(requested: (dto.requested_reviewers ?? []).map(\.login), reviews: reviews),
-            assignees: detail.assignees,
-            mergeable: detail.mergeable,
-            ciStatus: detail.ciStatus
-        )
+        detail.reviewers = Self.reviewers(requested: (dto.requested_reviewers ?? []).map(\.login), reviews: reviews)
+        return detail
     }
 
     func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String {
@@ -161,6 +157,52 @@ struct GitHubPullRequestProvider: PullRequestProvider {
 // MARK: - Parsers (static so the tests can feed them fixtures)
 
 extension GitHubPullRequestProvider {
+    /// The PR object alone: no CI status, reviewers as requested.
+    static func parseDetail(_ data: Data) throws -> PullRequestDetail {
+        try decodeDetail(data).toModel(ciStatus: nil)
+    }
+
+    /// The repo's `permissions.push` for the signed-in account; `nil` when
+    /// the answer doesn't say (no permissions block, not JSON).
+    nonisolated static func parseViewerCanMerge(_ data: Data) -> Bool? {
+        nonisolated struct Repo: Decodable {
+            let permissions: Permissions?
+            struct Permissions: Decodable { let push: Bool? }
+        }
+        return (try? JSONDecoder().decode(Repo.self, from: data))?.permissions?.push
+    }
+
+    fileprivate static func decodeDetail(_ data: Data) throws -> GitHubPullDetailDTO {
+        do {
+            return try JSONDecoder().decode(GitHubPullDetailDTO.self, from: data)
+        } catch {
+            throw PullRequestFetchError.decoding(error.localizedDescription)
+        }
+    }
+
+    /// `mergeable_state` (spec §5). `blocked` doesn't say which rule, so the
+    /// reasons gitForge knows go with it; anything unknown is still being
+    /// worked out on GitHub's side.
+    nonisolated static func mergeStatus(mergeableState: String?, targetBranch: String) -> HostMergeStatus {
+        switch mergeableState {
+        case "clean", "has_hooks":
+            return HostMergeStatus(verdict: .ready)
+        case "unstable":
+            return HostMergeStatus(verdict: .ready, failingChecksOptional: true)
+        case "blocked":
+            return HostMergeStatus(verdict: .blocked, reasons: [String(localized: "branch protection rules")],
+                                   includesLocalReasons: true)
+        case "behind":
+            return HostMergeStatus(verdict: .blocked, reasons: [String(localized: "branch is out of date with \(targetBranch)")])
+        case "dirty":
+            return HostMergeStatus(verdict: .blocked, reasons: [HostMergeStatus.conflicts])
+        case "draft":
+            return HostMergeStatus(verdict: .blocked, reasons: [HostMergeStatus.draft])
+        default:
+            return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking], stillComputing: true)
+        }
+    }
+
     static func parseCheckRuns(_ data: Data) throws -> [CICheck] {
         struct DTO: Decodable {
             let check_runs: [Run]
@@ -344,6 +386,7 @@ private struct GitHubPullDetailDTO: Decodable {
     let base: Ref
     let body: String?
     let mergeable: Bool?
+    let mergeable_state: String?
     let labels: [Label]?
     let requested_reviewers: [User]?
     let assignees: [User]?
@@ -352,12 +395,23 @@ private struct GitHubPullDetailDTO: Decodable {
         let login: String
         let avatar_url: String?
     }
-    struct Ref: Decodable { let ref: String }
+    struct Repo: Decodable { let full_name: String }
+    struct Ref: Decodable {
+        let ref: String
+        let repo: Repo?
+    }
     struct HeadRef: Decodable {
         let ref: String
         let sha: String
+        /// `null` once the fork it came from is deleted.
+        let repo: Repo?
     }
     struct Label: Decodable { let name: String }
+
+    var headInSameRepo: Bool? {
+        guard let head = head.repo?.full_name, let base = base.repo?.full_name else { return nil }
+        return head.caseInsensitiveCompare(base) == .orderedSame
+    }
 
     func toModel(ciStatus: CIStatus?) -> PullRequestDetail {
         let mappedState: PullRequest.State = {
@@ -389,7 +443,9 @@ private struct GitHubPullDetailDTO: Decodable {
             reviewers: (requested_reviewers ?? []).map { .init(login: $0.login, state: .pending) },
             assignees: (assignees ?? []).map(\.login),
             mergeable: mergeable,
-            ciStatus: ciStatus
+            ciStatus: ciStatus,
+            hostMergeStatus: GitHubPullRequestProvider.mergeStatus(mergeableState: mergeable_state, targetBranch: base.ref),
+            headInSameRepo: headInSameRepo
         )
     }
 }

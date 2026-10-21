@@ -3,16 +3,24 @@ import Foundation
 /// Extended view of a `PullRequest`: description, reviewers, labels, mergeability
 /// and CI status. Fetched on-demand when the user opens a row.
 nonisolated struct PullRequestDetail: Sendable, Equatable {
-    let pull: PullRequest
+    var pull: PullRequest
     let descriptionMarkdown: String?
     let labels: [String]
-    let reviewers: [Reviewer]
+    var reviewers: [Reviewer]
     let assignees: [String]
     /// Provider's mergeability hint. `nil` when unknown / still computing.
     let mergeable: Bool?
     let ciStatus: CIStatus?
     /// GitLab: whether the signed-in user may approve, and already did.
     var viewerApproval: ViewerApproval? = nil
+    /// The host's say on merging; `nil` when it doesn't give one.
+    var hostMergeStatus: HostMergeStatus? = nil
+    /// Whether the source branch lives in the target repo (not a fork);
+    /// `nil` when unknown (a deleted fork).
+    var headInSameRepo: Bool? = nil
+    /// Whether the signed-in account may merge it (GitHub: write access to
+    /// the repo; GitLab: `user.can_merge`); `nil` when unknown.
+    var viewerCanMerge: Bool? = nil
 
     struct Reviewer: Sendable, Equatable, Identifiable, Hashable {
         enum State: Sendable, Equatable, Hashable {

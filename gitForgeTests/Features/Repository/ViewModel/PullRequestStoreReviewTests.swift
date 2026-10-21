@@ -53,6 +53,15 @@ private final class FakeReviewProvider: PullRequestReviewProvider, @unchecked Se
         landed.append(call)
         return warning
     }
+
+    func fetchMergeOptions(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail,
+                           commits: [PullRequestCommit], token: String) async throws -> MergeOptions {
+        MergeOptions(kind: .github(methods: [.squash]), canDeleteSourceBranch: true, initialMethod: .squash, initialSquash: false)
+    }
+
+    func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome {
+        MergeOutcome(branchDeleted: input.deleteSourceBranch)
+    }
 }
 
 /// The tokens `auth` was told were rejected.

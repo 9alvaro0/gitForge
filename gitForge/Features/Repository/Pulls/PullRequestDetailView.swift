@@ -11,6 +11,7 @@ struct PullRequestDetailView: View {
     @Environment(\.appTheme) private var theme
     @State private var tab: Tab = .checks
     @State private var showLocalMergeConfirm = false
+    @State private var showMergeSheet = false
     @State private var checkingOut = false
 
     enum Tab: String, DetailTab, Identifiable {
@@ -38,7 +39,9 @@ struct PullRequestDetailView: View {
                         labels: store.detail?.labels ?? [],
                         checkingOut: checkingOut,
                         onCheckout: { Task { await runCheckout() } },
-                        actions: AnyView(PullRequestActionsBar(store: store))
+                        actions: { compact in
+                            AnyView(PullRequestActionsBar(store: store, compact: compact, onMerge: { showMergeSheet = true }))
+                        }
                     )
                     tabBar
                 }
@@ -62,6 +65,13 @@ struct PullRequestDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(localMergeMessage)
+        }
+        // While its CI runs, the open PR's checks and merge status are read
+        // again; only while the detail is on screen.
+        .task(id: store.selected?.id) { await store.pollWhileRunning() }
+        // Each opening reads the options afresh: nothing is remembered.
+        .sheet(isPresented: $showMergeSheet, onDismiss: store.discardMergeOptions) {
+            MergeSheet(store: store)
         }
     }
 
@@ -142,10 +152,8 @@ struct PullRequestDetailView: View {
 
     @ViewBuilder
     private var banner: some View {
-        if let pr = store.selected, let detail = store.detail,
-           let readiness = MergeReadiness.evaluate(state: pr.state, mergeable: detail.mergeable,
-                                                   checks: store.checks, reviewers: detail.reviewers) {
-            MergeReadinessBanner(readiness: readiness, hostLabel: store.host?.provider.label)
+        if let readiness = store.mergeReadiness {
+            MergeReadinessBanner(readiness: readiness)
         }
     }
 

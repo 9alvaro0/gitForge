@@ -37,7 +37,7 @@ struct PullsView: View {
         .background(theme.colors.bgContent)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { Task { await store.load(force: true) } } label: {
+                Button { Task { await store.refresh() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .labelStyle(.iconOnly)
@@ -83,12 +83,10 @@ struct PullsView: View {
                 .background(theme.colors.bgElevated)
             }
         }
-        // Open the first PR so the detail isn't blank on arrival.
+        // Open the first PR so the detail isn't blank on arrival (a PR just
+        // merged here stays open though it left the list).
         .task(id: store.visibleItems.map(\.id)) {
-            if store.selected == nil || !store.visibleItems.contains(where: { $0.id == store.selected?.id }),
-               let first = store.visibleItems.first {
-                store.select(first)
-            }
+            if let next = store.pullToAutoSelect() { store.select(next) }
         }
     }
 

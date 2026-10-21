@@ -14,7 +14,7 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable {
     let id: String           // provider-specific stable id (number or "iid:...")
     let number: Int          // user-visible number (#42)
     let title: String
-    let state: State
+    var state: State
     let authorLogin: String?
     let authorAvatarURL: URL?
     let sourceBranch: String

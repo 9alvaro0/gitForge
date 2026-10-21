@@ -1,23 +1,31 @@
 import SwiftUI
 
-/// Request changes / Approve in the detail header, each opening a panel for
-/// the review comment. Too narrow for both buttons, they fold into a
-/// "Review" menu rather than cutting their titles.
+/// Request changes / Approve / Merge… in the detail header. The review
+/// buttons open a panel for the comment; Merge… opens the merge sheet, only
+/// active when the host says it can merge. `compact` (the header is too
+/// narrow) folds the review buttons into a "Review" menu rather than
+/// cutting their titles.
 struct PullRequestActionsBar: View {
     let store: PullRequestStore
+    var compact = false
+    /// Opens the merge sheet, which the detail owns so a header relayout
+    /// can't close it.
+    var onMerge: () -> Void = {}
 
     @Environment(AppState.self) private var appState
     @State private var openPanel: ReviewVerdict?
 
     var body: some View {
         let actions = store.reviewActions
-        if actions != .hidden {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Spacing.s8) {
+        if actions != .hidden || showsMerge {
+            HStack(spacing: Spacing.s8) {
+                if !compact {
                     requestChangesButton(actions.requestChanges)
                     approveButton(actions.approve)
+                } else if actions != .hidden {
+                    reviewMenu(actions)
                 }
-                reviewMenu(actions)
+                mergeButton
             }
             .popover(isPresented: panelShown, arrowEdge: .bottom) {
                 if let verdict = openPanel { panel(verdict) }
@@ -75,6 +83,32 @@ struct PullRequestActionsBar: View {
     }
 
     private var busy: Bool { store.submittingReview != nil }
+
+    // MARK: Merge
+
+    /// Merge… is there while the PR is open or a draft, yours or not.
+    private var showsMerge: Bool {
+        guard let pull = store.selected else { return false }
+        let state = store.detail?.pull.id == pull.id ? (store.detail?.pull.state ?? pull.state) : pull.state
+        return state == .open || state == .draft
+    }
+
+    @ViewBuilder
+    private var mergeButton: some View {
+        if showsMerge {
+            GFButton(title: String(localized: "Merge…"), style: .primary,
+                     disabled: store.mergeBlockedReason != nil || store.isMerging, action: onMerge)
+                .help(mergeHelp)
+        }
+    }
+
+    /// Why it can't merge, as the banner says; otherwise (or while the
+    /// detail loads) what it does.
+    private var mergeHelp: String {
+        if store.mergeReadiness != nil, let reason = store.mergeBlockedReason { return reason }
+        return store.host?.provider == .gitlab ? String(localized: "Merge this merge request")
+                                               : String(localized: "Merge this pull request")
+    }
 
     /// A menu item's action runs while the menu is still closing, and a
     /// popover asked for in that moment never shows: open it on the next turn.

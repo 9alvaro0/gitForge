@@ -74,6 +74,36 @@ final class PullRequestStore {
     /// What the user is typing in the review boxes (`ReviewDraftKey`).
     var drafts: [ReviewDraftKey: String] = [:]
 
+    // MARK: Merge
+    /// What the merge sheet offers, read when it opens.
+    var mergeOptions: MergeOptions?
+    var mergeOptionsError: String?
+    var isLoadingMergeOptions = false
+    /// What the user set in the merge sheet.
+    var mergeDraft: MergeDraft?
+    var isMerging = false
+    /// Just merged here: the PR stays in the detail though it left the
+    /// list, until the user picks another (`pullToAutoSelect`).
+    var keepsSelectionOutsideList = false
+    /// Bumped when the sheet's options are dropped (closed, another PR):
+    /// a read still in flight then lands nowhere.
+    @ObservationIgnored var mergeOptionsGen: UInt64 = 0
+    /// The host may still be working mergeability out: each detail load
+    /// that finds it so reads the detail once more, a moment later.
+    @ObservationIgnored private(set) var mergeStatusRecheck: Task<Void, Never>?
+    static var mergeStatusRecheckDelay: Duration = .seconds(3)
+    /// While the open PR's CI runs, or the host says it's waiting, its
+    /// checks and merge status are read again this often…
+    static var checksPollInterval: Duration = .seconds(20)
+    /// …at most this many times per load of the PR, so a check stuck in a
+    /// queue doesn't keep reading the host.
+    static var checksPollLimit = 45
+    @ObservationIgnored private var checksPollsLeft = 0
+    /// The host works the merge status out again a moment after the checks
+    /// finish: while it still says blocked, it's read this many more times.
+    static let settleReads = 2
+    @ObservationIgnored private var settleReadsLeft = 0
+
     /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
     private let auth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
@@ -323,6 +353,7 @@ final class PullRequestStore {
         detailGen &+= 1
         selected = pr
         clearDetail()
+        clearMerge()
         detailTask?.cancel()
         detailTask = Task { [weak self] in await self?.loadDetail() }
     }
@@ -336,6 +367,16 @@ final class PullRequestStore {
         isLoadingDetail = false
         selected = nil
         clearDetail()
+        clearMerge()
+    }
+
+    /// The PR the list should open: the first row when nothing is selected
+    /// or the selection left the list — unless it left because it was just
+    /// merged here.
+    func pullToAutoSelect() -> PullRequest? {
+        guard let selected else { return visibleItems.first }
+        if visibleItems.contains(where: { $0.id == selected.id }) || keepsSelectionOutsideList { return nil }
+        return visibleItems.first
     }
 
     /// Fetch the detail payloads in parallel, with the list's token (the
@@ -375,6 +416,8 @@ final class PullRequestStore {
         }
 
         guard gen == detailGen else { return }
+        checksPollsLeft = Self.checksPollLimit
+        settleReadsLeft = 0
         switch detail {
         case .success(let value): self.detail = value
         case .failure(let error): detailError = Self.message(for: error)
@@ -392,6 +435,72 @@ final class PullRequestStore {
         if case .success(let value) = checks { self.checks = value }
         let readSupport = await support
         if gen == detailGen { requestChangesSupport = readSupport }
+        recheckMergeStatusIfComputing(gen: gen)
+    }
+
+    /// One more read of the detail alone, a moment later, while the host
+    /// still works out an open PR's mergeability; dropped if the detail
+    /// moved on meanwhile. It never schedules another, so it can't loop.
+    private func recheckMergeStatusIfComputing(gen: UInt64) {
+        guard gen == detailGen, let detail, detail.hostMergeStatus?.stillComputing == true,
+              detail.pull.state == .open || detail.pull.state == .draft else { return }
+        mergeStatusRecheck = Task { [weak self] in
+            try? await Task.sleep(for: Self.mergeStatusRecheckDelay)
+            guard let self, !Task.isCancelled, self.detailGen == gen else { return }
+            await self.rereadStatus(gen: gen)
+        }
+    }
+
+    /// Reads the open PR's checks and merge status again every
+    /// `checksPollInterval` while its CI runs or the host is waiting, up to
+    /// `checksPollLimit` reads per load. Runs as long as the caller's task:
+    /// the detail view ties it to being on screen.
+    func pollWhileRunning() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: Self.checksPollInterval)
+            guard !Task.isCancelled else { return }
+            guard checksPollsLeft > 0, isStatusPending else { continue }
+            checksPollsLeft -= 1
+            let wasRunning = checksRunning
+            if !wasRunning, detail?.hostMergeStatus?.verdict == .blocked { settleReadsLeft -= 1 }
+            await rereadStatus(gen: detailGen)
+            if wasRunning, !checksRunning { settleReadsLeft = Self.settleReads }
+        }
+    }
+
+    /// The open PR's CI is still running, the host is still deciding, or
+    /// the checks just finished and the host may not have caught up.
+    private var isStatusPending: Bool {
+        guard let selected, let detail, detail.pull.id == selected.id, !isLoadingDetail,
+              detail.pull.state == .open || detail.pull.state == .draft else { return false }
+        let verdict = detail.hostMergeStatus?.verdict
+        return checksRunning || verdict == .waiting || (verdict == .blocked && settleReadsLeft > 0)
+    }
+
+    private var checksRunning: Bool {
+        checks.contains { $0.state == .running || $0.state == .queued }
+    }
+
+    /// The detail and the checks again, keeping the files and commits
+    /// shown; dropped if the detail moved on meanwhile.
+    private func rereadStatus(gen: UInt64) async {
+        guard let pr = selected, let host else { return }
+        let provider = makeProvider(host)
+        let number = pr.number
+        let read = try? await withToken(host) { token in
+            async let detail = provider.fetchDetail(host: host, number: number, token: token)
+            async let checks = try? provider.fetchChecks(host: host, pull: pr, token: token)
+            return (try await detail, await checks)
+        }
+        guard let read, !Task.isCancelled, gen == detailGen else { return }
+        detail = read.0
+        if let checks = read.1 { self.checks = checks }
+    }
+
+    /// Refresh: the list, and the open PR with it.
+    func refresh() async {
+        await load(force: true)
+        if selected != nil { await loadDetail() }
     }
 
     /// CI of one commit for History's detail, `nil` when there's nothing to
@@ -461,6 +570,7 @@ final class PullRequestStore {
         requestChangesSupport = nil
         submittingReview = nil
         drafts = [:]
+        isMerging = false
     }
 
     private func clearDetail() {
@@ -471,12 +581,23 @@ final class PullRequestStore {
         detailError = nil
     }
 
+    private func clearMerge() {
+        mergeOptionsGen &+= 1
+        mergeOptions = nil
+        mergeOptionsError = nil
+        isLoadingMergeOptions = false
+        mergeDraft = nil
+        keepsSelectionOutsideList = false
+        mergeStatusRecheck?.cancel()
+        mergeStatusRecheck = nil
+    }
+
     private static func capture<T: Sendable>(_ block: @Sendable () async throws -> T) async -> Result<T, Error> {
         do { return .success(try await block()) }
         catch { return .failure(error) }
     }
 
-    private static func message(for error: Error) -> String {
+    static func message(for error: Error) -> String {
         if let typed = error as? PullRequestFetchError {
             return typed.errorDescription ?? String(localized: "Request failed")
         }

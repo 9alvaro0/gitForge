@@ -86,15 +86,9 @@ struct GitLabPullRequestProvider: PullRequestProvider {
             url: URL(string: "\(Self.base(for: host))/projects/\(Self.encodeSlug(host))/merge_requests/\(number)/approvals"),
             token: token))
         let data = try await RemoteAPI.send(request)
-        let dto: GitLabMRDetailDTO
-        do {
-            dto = try JSONDecoder().decode(GitLabMRDetailDTO.self, from: data)
-        } catch {
-            throw PullRequestFetchError.decoding(error.localizedDescription)
-        }
         let approvalsData = await approvals
         let approvedBy = approvalsData.flatMap { try? Self.parseApprovers($0) } ?? []
-        var detail = dto.toModel(approvedBy: approvedBy)
+        var detail = try Self.parseDetail(data, approvedBy: approvedBy)
         detail.viewerApproval = approvalsData.flatMap(Self.parseViewerApproval)
         return detail
     }
@@ -150,6 +144,63 @@ struct GitLabPullRequestProvider: PullRequestProvider {
 // MARK: - Parsers (static so the tests can feed them fixtures)
 
 extension GitLabPullRequestProvider {
+    static func parseDetail(_ data: Data, approvedBy: [String] = []) throws -> PullRequestDetail {
+        do {
+            return try JSONDecoder().decode(GitLabMRDetailDTO.self, from: data).toModel(approvedBy: approvedBy)
+        } catch {
+            throw PullRequestFetchError.decoding(error.localizedDescription)
+        }
+    }
+
+    /// `detailed_merge_status` (GitLab 15.6+, spec §5), else the older
+    /// `merge_status`; `nil` when neither is there.
+    nonisolated static func mergeStatus(detailed: String?, legacy: String?) -> HostMergeStatus? {
+        if let detailed {
+            switch detailed {
+            case "mergeable":
+                return HostMergeStatus(verdict: .ready)
+            case "checking", "unchecked", "preparing", "approvals_syncing":
+                return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking], stillComputing: true)
+            case "ci_still_running":
+                return HostMergeStatus(verdict: .waiting, reasons: [String(localized: "the pipeline is still running")])
+            default:
+                return HostMergeStatus(verdict: .blocked, reasons: [blockedReason(detailed)])
+            }
+        }
+        switch legacy {
+        case nil:
+            return nil
+        case "can_be_merged":
+            return HostMergeStatus(verdict: .ready)
+        case "cannot_be_merged":
+            return HostMergeStatus(verdict: .blocked, reasons: [HostMergeStatus.conflicts])
+        default:
+            return HostMergeStatus(verdict: .waiting, reasons: [HostMergeStatus.checking], stillComputing: true)
+        }
+    }
+
+    nonisolated private static func blockedReason(_ status: String) -> String {
+        switch status {
+        case "not_approved": String(localized: "needs approval")
+        case "ci_must_pass": String(localized: "the pipeline must pass")
+        case "discussions_not_resolved": String(localized: "all threads must be resolved")
+        case "conflict": HostMergeStatus.conflicts
+        case "draft_status": HostMergeStatus.draft
+        case "need_rebase": String(localized: "needs a rebase onto the target branch")
+        case "requested_changes": String(localized: "a reviewer requested changes")
+        case "blocked_status", "merge_request_blocked": String(localized: "blocked by another merge request")
+        case "not_open": String(localized: "not open")
+        case "external_status_checks": String(localized: "external status checks must pass")
+        case "merge_time": String(localized: "can't merge before its scheduled time")
+        case "jira_association_missing": String(localized: "needs a linked Jira issue")
+        case "security_policy_violations": String(localized: "security policies aren't met")
+        case "title_regex": String(localized: "the title doesn't match the project's rule")
+        case "commits_status": String(localized: "commits don't meet the project's rules")
+        case "locked_paths", "locked_lfs_files": String(localized: "touches locked files")
+        default: HostMergeStatus.notAllowedYet
+        }
+    }
+
     static func parseLatestPipelineId(_ data: Data) throws -> Int? {
         struct Pipeline: Decodable { let id: Int }
         return try JSONDecoder().decode([Pipeline].self, from: data).first?.id
@@ -269,6 +320,11 @@ private struct GitLabMRDetailDTO: Decodable {
     let reviewers: [User]?
     let assignees: [User]?
     let merge_status: String?
+    let detailed_merge_status: String?
+    let source_project_id: Int?
+    let target_project_id: Int?
+    /// The signed-in user's standing on this MR.
+    let user: Viewer?
     let head_pipeline: Pipeline?
     let sha: String?
 
@@ -276,6 +332,7 @@ private struct GitLabMRDetailDTO: Decodable {
         let username: String?
         let avatar_url: String?
     }
+    struct Viewer: Decodable { let can_merge: Bool? }
     struct Pipeline: Decodable {
         let status: String?      // "success", "failed", "running", "canceled", …
         let web_url: String?
@@ -334,7 +391,10 @@ private struct GitLabMRDetailDTO: Decodable {
             reviewers: GitLabPullRequestProvider.reviewers(requested: (reviewers ?? []).compactMap(\.username), approvedBy: approvedBy),
             assignees: (assignees ?? []).compactMap(\.username),
             mergeable: mergeable,
-            ciStatus: ci
+            ciStatus: ci,
+            hostMergeStatus: GitLabPullRequestProvider.mergeStatus(detailed: detailed_merge_status, legacy: merge_status),
+            headInSameRepo: source_project_id.flatMap { source in target_project_id.map { $0 == source } },
+            viewerCanMerge: user?.can_merge
         )
     }
 }
