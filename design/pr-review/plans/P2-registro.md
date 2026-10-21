@@ -47,4 +47,5 @@ En #19 los checks pasaron, pero la app no lo mostró hasta volver a pulsar la PR
 - **Cuándo:** mientras la PR abierta tiene checks en curso o en cola, o el host dice que espera, se vuelven a leer el detalle y los checks cada 20 s. Los ficheros y los commits no se vuelven a pedir.
 - **Hasta cuándo:** solo mientras el detalle está en pantalla, y como mucho 45 lecturas por carga de la PR (unos 15 min), para que un check atascado en cola no siga consultando el host.
 - **Refresh** recarga ahora la lista y la PR abierta. Adelanta lo que el plan de la fase 3 preveía.
-- **Tests:** suite 1293/1293.
+- **Probado en la app con #19:** los checks pasaron a "Superada" por sí solos, pero el banner se quedó en "bloqueada". GitHub recalcula `mergeable_state` unos segundos después de que acaben los checks, y el sondeo ya se había parado. Ahora, cuando los checks terminan y el host sigue diciendo `blocked`, se lee dos veces más.
+- **Tests:** suite 1295/1295.

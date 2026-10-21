@@ -191,6 +191,32 @@ struct PullRequestStoreMergeTests {
         #expect(store.mergeReadiness?.canMerge == true)
     }
 
+    @Test("After the checks finish, a host still saying blocked is read again until it catches up")
+    func pollUntilHostCatchesUp() async {
+        let lagging = HostMergeStatus(verdict: .blocked, reasons: ["branch protection rules"], includesLocalReasons: true)
+        provider.checkStates = [[.running], [.passed]]
+        provider.statuses = [lagging, lagging, HostMergeStatus(verdict: .ready)]
+        let store = await loadedStore()
+        let poll = Task { await store.pollWhileRunning() }
+        await waitUntil { store.mergeReadiness?.canMerge == true }
+        try? await Task.sleep(for: .milliseconds(60))
+        poll.cancel()
+        #expect(store.mergeReadiness?.canMerge == true)
+        #expect(provider.detailFetches[1] == 3)
+    }
+
+    @Test("Blocked for good after the checks finish: two more reads, then it stops")
+    func blockedAfterChecksStops() async {
+        provider.checkStates = [[.running], [.failed]]
+        provider.statuses = [HostMergeStatus(verdict: .blocked, reasons: ["branch protection rules"], includesLocalReasons: true)]
+        let store = await loadedStore()
+        let poll = Task { await store.pollWhileRunning() }
+        await waitUntil { provider.detailFetches[1] ?? 0 >= 4 }
+        try? await Task.sleep(for: .milliseconds(60))
+        poll.cancel()
+        #expect(provider.detailFetches[1] == 4)
+    }
+
     @Test("A settled PR isn't read again")
     func settledNotPolled() async {
         provider.checkStates = [[.passed]]

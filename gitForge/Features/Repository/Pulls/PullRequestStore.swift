@@ -99,6 +99,10 @@ final class PullRequestStore {
     /// queue doesn't keep reading the host.
     static var checksPollLimit = 45
     @ObservationIgnored private var checksPollsLeft = 0
+    /// The host works the merge status out again a moment after the checks
+    /// finish: while it still says blocked, it's read this many more times.
+    static let settleReads = 2
+    @ObservationIgnored private var settleReadsLeft = 0
 
     /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
@@ -413,6 +417,7 @@ final class PullRequestStore {
 
         guard gen == detailGen else { return }
         checksPollsLeft = Self.checksPollLimit
+        settleReadsLeft = 0
         switch detail {
         case .success(let value): self.detail = value
         case .failure(let error): detailError = Self.message(for: error)
@@ -456,15 +461,24 @@ final class PullRequestStore {
             guard !Task.isCancelled else { return }
             guard checksPollsLeft > 0, isStatusPending else { continue }
             checksPollsLeft -= 1
+            let wasRunning = checksRunning
+            if !wasRunning, detail?.hostMergeStatus?.verdict == .blocked { settleReadsLeft -= 1 }
             await rereadStatus(gen: detailGen)
+            if wasRunning, !checksRunning { settleReadsLeft = Self.settleReads }
         }
     }
 
-    /// The open PR's CI is still running, or the host is still deciding.
+    /// The open PR's CI is still running, the host is still deciding, or
+    /// the checks just finished and the host may not have caught up.
     private var isStatusPending: Bool {
         guard let selected, let detail, detail.pull.id == selected.id, !isLoadingDetail,
               detail.pull.state == .open || detail.pull.state == .draft else { return false }
-        return checks.contains { $0.state == .running || $0.state == .queued } || detail.hostMergeStatus?.verdict == .waiting
+        let verdict = detail.hostMergeStatus?.verdict
+        return checksRunning || verdict == .waiting || (verdict == .blocked && settleReadsLeft > 0)
+    }
+
+    private var checksRunning: Bool {
+        checks.contains { $0.state == .running || $0.state == .queued }
     }
 
     /// The detail and the checks again, keeping the files and commits
