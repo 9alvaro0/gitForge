@@ -87,10 +87,10 @@ final class PullRequestStore {
     var composerTarget: CommentTarget? { didSet { if composerTarget != nil { replyingThreadId = nil } } }
     /// The thread whose reply box is open.
     var replyingThreadId: String? { didSet { if replyingThreadId != nil { composerTarget = nil } } }
-    /// The comment or reply being sent.
-    var sendingDraft: ReviewDraftKey?
-    /// The thread being resolved or reopened.
-    var resolvingThreadId: String?
+    /// The comments and replies being sent.
+    var sendingDrafts: Set<ReviewDraftKey> = []
+    /// The threads being resolved or reopened.
+    var resolvingThreadIds: Set<String> = []
     /// The detail the files were read with. New comments are pinned to the
     /// diff on screen, though the CI poll may have read a newer head since.
     private(set) var filesDetail: PullRequestDetail?
@@ -451,8 +451,12 @@ final class PullRequestStore {
         }
         switch files {
         case .success(let value):
+            let shownHead = filesDetail?.pull.id == pr.id ? filesDetail?.pull.headSha : nil
             self.files = value
             filesDetail = try? detail.get()
+            // New commits: the open new-comment box's line number may be
+            // other code now, so it closes. Its draft stays.
+            if let shownHead, let head = filesDetail?.pull.headSha, head != shownHead { composerTarget = nil }
         case .failure(let error): if detailError == nil { detailError = Self.message(for: error) }
         }
         // Checks are a nice-to-have: a failure leaves the tab empty rather
@@ -599,8 +603,8 @@ final class PullRequestStore {
         requestChangesSupport = nil
         submittingReview = nil
         drafts = [:]
-        sendingDraft = nil
-        resolvingThreadId = nil
+        sendingDrafts = []
+        resolvingThreadIds = []
         isMerging = false
     }
 

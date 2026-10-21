@@ -69,6 +69,25 @@ extension ReviewThreadParsingTests {
         #expect(threads.allSatisfy { $0.replyToCommentId == nil })
     }
 
+    @Test("GitLab file and image discussions are kept, above their file")
+    func gitLabFileLevel() throws {
+        let data = Data(#"""
+        [{"id": "dfile", "notes": [{"id": 1, "type": "DiffNote", "body": "Split this file?", "system": false,
+          "resolvable": true, "resolved": false,
+          "position": {"head_sha": "head2", "position_type": "file", "old_path": "a.swift", "new_path": "a.swift"}}]},
+         {"id": "dimage", "notes": [{"id": 2, "type": "DiffNote", "body": "Blurry", "system": false,
+          "resolvable": true, "resolved": false,
+          "position": {"head_sha": "head2", "position_type": "image", "old_path": "logo.png", "new_path": "logo.png",
+                       "x": 10, "y": 20, "width": 100, "height": 100}}]}]
+        """#.utf8)
+        let threads = try GitLabPullRequestProvider.parseDiscussions(data, currentHead: "head2")
+        #expect(threads.map(\.id) == ["dfile", "dimage"])
+        #expect(threads.allSatisfy { $0.ref == nil && $0.originalLine == nil && !$0.isOutdated })
+        let file = PullRequestFileChange(path: "a.swift", oldPath: nil, status: .modified, additions: 1, deletions: 0,
+                                         patch: "@@ -1 +1,2 @@\n a\n+b")
+        #expect(ThreadPlacement.place(threads, in: [file]).fileLevel["a.swift"]?.map(\.id) == ["dfile"])
+    }
+
     @Test("Without a known head nothing is outdated")
     func gitLabNoHead() throws {
         let threads = try GitLabPullRequestProvider.parseDiscussions(Fixture.data("gitlab-discussions"), currentHead: nil)

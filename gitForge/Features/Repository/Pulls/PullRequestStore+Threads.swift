@@ -61,11 +61,11 @@ extension PullRequestStore {
     }
 
     /// Resolves or reopens `thread`, then updates it in place: the host
-    /// doesn't need asking again.
+    /// doesn't need asking again. Other threads can be resolved meanwhile.
     func setResolved(_ resolved: Bool, thread: ReviewThread) async -> ThreadActionResult {
-        guard let pull = selected, let host, resolvingThreadId == nil else { return .ignored }
-        resolvingThreadId = thread.id
-        defer { resolvingThreadId = nil }
+        guard let pull = selected, let host, !resolvingThreadIds.contains(thread.id) else { return .ignored }
+        resolvingThreadIds.insert(thread.id)
+        defer { resolvingThreadIds.remove(thread.id) }
         let provider = makeReviewProvider(host)
         let outcome = await perform(.resolve, pull: pull, host: host) { token in
             try await provider.setResolved(resolved, host: host, pull: pull, thread: thread, token: token)
@@ -84,19 +84,20 @@ extension PullRequestStore {
 
     // MARK: Sending
 
-    /// One send at a time, of the trimmed draft under `key`. The draft goes
-    /// once it's posted, whichever PR is on screen by then; the box closes
-    /// and the threads reload only if its PR still is.
+    /// Sends the trimmed draft under `key`, once at a time per draft. The
+    /// draft goes once it's posted, whichever PR is on screen by then; the
+    /// box closes and the threads reload only if its PR still is, and the
+    /// next send doesn't wait for that reload.
     private func send(_ key: ReviewDraftKey, pull: PullRequest, host: RemoteHost,
                       _ call: (PullRequestReviewProvider, _ body: String, _ token: String) async throws -> Void,
                       onSent: (PullRequestStore) -> Void) async -> ThreadActionResult {
-        guard sendingDraft == nil else { return .ignored }
+        guard !sendingDrafts.contains(key) else { return .ignored }
         let body = (drafts[key] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return .ignored }
-        sendingDraft = key
-        defer { sendingDraft = nil }
+        sendingDrafts.insert(key)
         let provider = makeReviewProvider(host)
         let outcome = await perform(.comment, pull: pull, host: host) { token in try await call(provider, body, token) }
+        sendingDrafts.remove(key)
         guard outcome == .done else { return outcome }
         drafts[key] = nil
         if selected?.id == pull.id {

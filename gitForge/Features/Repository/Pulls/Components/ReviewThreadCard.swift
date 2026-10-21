@@ -14,8 +14,8 @@ struct ReviewThreadCard: View {
         let key = ReviewDraftKey.reply(pullId: store.selected?.id ?? "", threadId: thread.id)
         ReviewThreadView(thread: thread, header: header, replyText: store.draftBinding(key),
                          isReplying: store.replyingThreadId == thread.id,
-                         sending: store.sendingDraft == key,
-                         resolving: store.resolvingThreadId == thread.id,
+                         sending: store.sendingDrafts.contains(key),
+                         resolving: store.resolvingThreadIds.contains(thread.id),
                          onStartReply: { store.replyingThreadId = thread.id },
                          onCancelReply: { store.replyingThreadId = nil },
                          onReply: reply,
@@ -78,7 +78,7 @@ struct NewCommentBox: View {
         ReviewComposer(text: store.draftBinding(key),
                        placeholder: String(localized: "Comment on line \(target.ref.line)…"),
                        sendTitle: String(localized: "Comment"), requiresText: true,
-                       sending: store.sendingDraft == key,
+                       sending: store.sendingDrafts.contains(key),
                        onSend: send, onCancel: { store.composerTarget = nil })
             .padding(Spacing.s12)
             .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.bgElevated))

@@ -16,6 +16,8 @@ private final class ThreadsFakeProvider: PullRequestProvider, PullRequestReviewP
     var threadErrors: [Error] = []
     var writeErrors: [Error] = []
     var gate: AsyncGate?
+    /// Holds thread reads (after the first) until the test opens it.
+    var threadsGate: AsyncGate?
     /// PR 1's head per detail read, in order; the last repeats.
     var heads = ["sha1"]
     /// PR 1's check states per read, in order; the last repeats.
@@ -67,6 +69,7 @@ private final class ThreadsFakeProvider: PullRequestProvider, PullRequestReviewP
 
     func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, token: String) async throws -> [ReviewThread] {
         threadFetches[pull.number, default: 0] += 1
+        if let threadsGate, threadFetches[pull.number, default: 0] > 1 { await threadsGate.wait() }
         if !threadErrors.isEmpty { throw threadErrors.removeFirst() }
         return threads[pull.number] ?? []
     }
@@ -201,7 +204,7 @@ struct PullRequestStoreThreadsTests {
         #expect(provider.calls == [.comment(number: 1, target: Self.target, body: "Why not 5?", head: "sha1")])
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == nil)
         #expect(store.composerTarget == nil)
-        #expect(store.sendingDraft == nil)
+        #expect(store.sendingDrafts.isEmpty)
         #expect(provider.threadFetches[1] == 2)
     }
 
@@ -279,7 +282,7 @@ struct PullRequestStoreThreadsTests {
         #expect(store.threads[0].canUnresolve && !store.threads[0].canResolve)
         #expect(store.placedThreads.openCount(for: "f1.swift") == 0)
         #expect(provider.threadFetches[1] == 1)
-        #expect(store.resolvingThreadId == nil)
+        #expect(store.resolvingThreadIds.isEmpty)
 
         #expect(await store.setResolved(false, thread: store.threads[0]) == .done)
         #expect(!store.threads[0].isResolved && store.threads[0].resolvedBy == nil && store.threads[0].canResolve)
@@ -326,6 +329,70 @@ struct PullRequestStoreThreadsTests {
         #expect(store.threads.map(\.id) == ["T2"])
         #expect(provider.threadFetches[1] == 1)
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == nil)
+    }
+
+    @Test("Resolving two threads in a row: both reach the host")
+    func twoResolves() async {
+        provider.threads[1] = [Self.thread("T1"), Self.thread("T2", line: 4)]
+        let store = await loadedStore()
+        let gate = AsyncGate()
+        provider.gate = gate
+        let first = Task { await store.setResolved(true, thread: store.threads[0]) }
+        await gate.waiting()
+        let second = Task { await store.setResolved(true, thread: store.threads[1]) }
+        await waitUntil { provider.calls.count == 2 }
+        #expect(store.resolvingThreadIds == ["T1", "T2"])
+        gate.open()
+        #expect(await first.value == .done)
+        #expect(await second.value == .done)
+        #expect(store.threads.allSatisfy { $0.isResolved })
+    }
+
+    @Test("A send still going on one PR doesn't block one on another")
+    func sendsOnTwoPRs() async throws {
+        let store = await loadedStore()
+        store.drafts[.comment(pullId: "1", target: Self.target)] = "On PR 1"
+        let gate = AsyncGate()
+        provider.gate = gate
+        let first = Task { await store.addComment(at: Self.target) }
+        await gate.waiting()
+        store.select(try #require(store.items.last))
+        await waitUntil { store.detail?.pull.number == 2 && !store.isLoadingDetail }
+        let target2 = try #require(CommentTarget.make(path: "f2.swift", oldPath: nil, line: DiffLine(
+            id: 2, kind: .added, content: "c", oldLineNumber: nil, newLineNumber: 3), side: .new))
+        store.drafts[.comment(pullId: "2", target: target2)] = "On PR 2"
+        let second = Task { await store.addComment(at: target2) }
+        await waitUntil { provider.calls.count == 2 }
+        gate.open()
+        #expect(await first.value == .done)
+        #expect(await second.value == .done)
+    }
+
+    @Test("Once posted, the box is free again while the threads reload")
+    func sendFreedBeforeReload() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        store.replyingThreadId = "T1"
+        store.drafts[.reply(pullId: "1", threadId: "T1")] = "Done"
+        let gate = AsyncGate()
+        provider.threadsGate = gate
+        let send = Task { await store.reply(to: store.threads[0]) }
+        await gate.waiting()
+        #expect(store.sendingDrafts.isEmpty)
+        #expect(store.replyingThreadId == nil)
+        gate.open()
+        #expect(await send.value == .done)
+    }
+
+    @Test("New commits on Refresh close the new-comment box: its line may be other code now; the draft stays")
+    func newHeadClosesComposer() async {
+        provider.heads = ["sha1", "sha2"]
+        let store = await loadedStore()
+        store.composerTarget = Self.target
+        store.drafts[.comment(pullId: "1", target: Self.target)] = "WIP"
+        await store.refresh()
+        #expect(store.composerTarget == nil)
+        #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == "WIP")
     }
 
     @Test("A new head read by the CI poll doesn't move comments off the diff on screen")

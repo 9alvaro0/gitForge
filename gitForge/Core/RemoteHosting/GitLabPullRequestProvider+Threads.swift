@@ -113,13 +113,16 @@ extension GitLabPullRequestProvider {
         }
     }
 
-    /// Discussions opened by a text `DiffNote`; their comments are the notes
+    /// Discussions opened by a `DiffNote`; their comments are the notes
     /// people wrote (GitLab threads "changed this line" system notes in).
+    /// File and image comments have no line: they go above their file.
     nonisolated fileprivate static func threads(from discussions: [GitLabDiscussionDTO], currentHead: String?) -> [ReviewThread] {
         discussions.compactMap { discussion in
             guard let first = discussion.notes.first, first.type == "DiffNote", first.system != true,
-                  let position = first.position, position.position_type == "text" else { return nil }
-            let ref = position.new_line.map { DiffLineRef(side: .new, line: $0) }
+                  let position = first.position,
+                  ["text", "file", "image"].contains(position.position_type) else { return nil }
+            let onLine = position.position_type == "text"
+            let ref = !onLine ? nil : position.new_line.map { DiffLineRef(side: .new, line: $0) }
                 ?? position.old_line.map { DiffLineRef(side: .old, line: $0) }
             let path = position.new_path ?? position.old_path ?? ""
             let comments = discussion.notes.filter { $0.system != true }.map { note in
@@ -130,7 +133,7 @@ extension GitLabPullRequestProvider {
             let resolvable = first.resolvable ?? false
             return ReviewThread(id: discussion.id, path: path,
                                 oldPath: position.old_path.flatMap { $0 == path ? nil : $0 },
-                                ref: ref, originalLine: position.new_line ?? position.old_line,
+                                ref: ref, originalLine: onLine ? position.new_line ?? position.old_line : nil,
                                 isResolved: first.resolved ?? false,
                                 isOutdated: currentHead.map { position.head_sha != $0 } ?? false,
                                 resolvedBy: first.resolved_by?.username, comments: comments,
