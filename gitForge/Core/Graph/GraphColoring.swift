@@ -54,7 +54,7 @@ nonisolated struct GraphColoring: Sendable {
         guard paletteSize > 0 else { return GraphColoring(roleOfOwner: roles) }
 
         let headOwner = headBranch.map(GraphOwner.branch) ?? .head
-        let stretches = stretches(input, lines: lines, columns: columns, headOwner: headOwner)
+        let stretches = makeStretches(input, lines: lines, columns: columns, headOwner: headOwner)
         let neighbours = StretchesByColumn(stretches)
         var usage = Array(repeating: 0, count: paletteSize)
         for stretch in stretches.sorted(by: { ($0.top, $0.line) < ($1.top, $1.line) }) {
@@ -63,7 +63,7 @@ nonisolated struct GraphColoring: Sendable {
             var taken = Array(repeating: false, count: paletteSize)
             for column in [stretch.column - 1, stretch.column + 1] {
                 for next in neighbours.overlapping(column: column, from: stretch.top - 2, to: stretch.bottom + 2) {
-                    if case .pool(let index)? = roles[next.owner], index < paletteSize {
+                    if case .pool(let index)? = roles[next.owner] {
                         taken[index] = true
                     }
                 }
@@ -104,15 +104,20 @@ private nonisolated extension GraphColoring {
     /// For each remote owner in the graph, the local branch it follows: the one
     /// whose upstream it is, provided that branch has a role to give, which is
     /// a fixed one or a place in the graph to get one from the palette. With
-    /// several branches on one remote, the first in ref order wins.
+    /// several branches on one remote, the lowest priority rank wins and then
+    /// the name, so the order of the refs never matters.
     static func remoteFollowers(_ input: GraphInput, owners: Set<GraphOwner>, headBranch: String?) -> [GraphOwner: GraphOwner] {
         var localOfRemote: [GraphOwner: GraphOwner] = [:]
         for ref in input.refs where ref.isLocalBranch {
             guard let upstream = ref.upstream else { continue }
             let remote = GraphOwner.remote(upstream)
             let local = GraphOwner.branch(ref.name)
-            guard owners.contains(remote), localOfRemote[remote] == nil,
+            guard owners.contains(remote),
                   owners.contains(local) || fixedRole(of: local, headBranch: headBranch) != nil else { continue }
+            if case .branch(let followed)? = localOfRemote[remote],
+               (GraphPriority.rank(followed), followed) <= (GraphPriority.rank(ref.name), ref.name) {
+                continue
+            }
             localOfRemote[remote] = local
         }
         return localOfRemote
@@ -147,7 +152,7 @@ private nonisolated extension GraphColoring {
     /// - HEAD's line has one per group of consecutive rows with the same colour
     ///   owner. Each segment between two commits takes the colour of the one
     ///   above it, so a stretch runs on to the first row of the next one.
-    static func stretches(_ input: GraphInput, lines: GraphLines, columns: GraphColumns, headOwner: GraphOwner) -> [Stretch] {
+    static func makeStretches(_ input: GraphInput, lines: GraphLines, columns: GraphColumns, headOwner: GraphOwner) -> [Stretch] {
         let lastRow = input.commits.count - 1
         var stretches: [Stretch] = []
         for (index, line) in lines.lines.enumerated() {
