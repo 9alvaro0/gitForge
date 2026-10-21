@@ -53,7 +53,7 @@ final class PullRequestStore {
     var selected: PullRequest?
     var detail: PullRequestDetail?
     var commits: [PullRequestCommit] = []
-    var files: [PullRequestFileChange] = []
+    var files: [PullRequestFileChange] = [] { didSet { placeThreads() } }
     var checks: [CICheck] = []
     var isLoadingDetail = false
     var detailError: String?
@@ -73,6 +73,29 @@ final class PullRequestStore {
     var submittingReview: ReviewVerdict?
     /// What the user is typing in the review boxes (`ReviewDraftKey`).
     var drafts: [ReviewDraftKey: String] = [:]
+
+    // MARK: Threads
+    /// The selected PR's review threads; `placedThreads` says where each shows.
+    var threads: [ReviewThread] = [] { didSet { placeThreads() } }
+    private(set) var placedThreads: PlacedThreads = .empty
+    var isLoadingThreads = false
+    /// Why the threads didn't load. The diff shows all the same.
+    var threadsError: String?
+    /// The line a new comment is being written on. One box is open at a
+    /// time (their shortcuts would collide): opening it closes the reply
+    /// box, whose draft stays.
+    var composerTarget: CommentTarget? { didSet { if composerTarget != nil { replyingThreadId = nil } } }
+    /// The thread whose reply box is open.
+    var replyingThreadId: String? { didSet { if replyingThreadId != nil { composerTarget = nil } } }
+    /// The comment or reply being sent.
+    var sendingDraft: ReviewDraftKey?
+    /// The thread being resolved or reopened.
+    var resolvingThreadId: String?
+    /// The detail the files were read with. New comments are pinned to the
+    /// diff on screen, though the CI poll may have read a newer head since.
+    private(set) var filesDetail: PullRequestDetail?
+    /// Bumped by every thread load and by `select`: an older load lands nowhere.
+    @ObservationIgnored var threadsGen: UInt64 = 0
 
     // MARK: Merge
     /// What the merge sheet offers, read when it opens.
@@ -427,7 +450,9 @@ final class PullRequestStore {
         case .failure(let error): if detailError == nil { detailError = Self.message(for: error) }
         }
         switch files {
-        case .success(let value): self.files = value
+        case .success(let value):
+            self.files = value
+            filesDetail = try? detail.get()
         case .failure(let error): if detailError == nil { detailError = Self.message(for: error) }
         }
         // Checks are a nice-to-have: a failure leaves the tab empty rather
@@ -436,6 +461,9 @@ final class PullRequestStore {
         let readSupport = await support
         if gen == detailGen { requestChangesSupport = readSupport }
         recheckMergeStatusIfComputing(gen: gen)
+        // After the detail: GitLab tells outdated threads apart by its head.
+        guard gen == detailGen else { return }
+        await loadThreads()
     }
 
     /// One more read of the detail alone, a moment later, while the host
@@ -497,7 +525,8 @@ final class PullRequestStore {
         if let checks = read.1 { self.checks = checks }
     }
 
-    /// Refresh: the list, and the open PR with it.
+    /// Refresh: the list, and the open PR with it, threads included. What
+    /// the user is writing (`drafts`) and the open box stay.
     func refresh() async {
         await load(force: true)
         if selected != nil { await loadDetail() }
@@ -570,15 +599,29 @@ final class PullRequestStore {
         requestChangesSupport = nil
         submittingReview = nil
         drafts = [:]
+        sendingDraft = nil
+        resolvingThreadId = nil
         isMerging = false
     }
 
+    /// The drafts stay: they're keyed by PR.
     private func clearDetail() {
         detail = nil
         commits = []
         files = []
         checks = []
         detailError = nil
+        threadsGen &+= 1
+        threads = []
+        threadsError = nil
+        isLoadingThreads = false
+        composerTarget = nil
+        replyingThreadId = nil
+        filesDetail = nil
+    }
+
+    private func placeThreads() {
+        placedThreads = ThreadPlacement.place(threads, in: files)
     }
 
     private func clearMerge() {
