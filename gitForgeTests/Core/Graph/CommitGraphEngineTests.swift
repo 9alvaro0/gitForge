@@ -154,6 +154,43 @@ struct CommitGraphEngineTests {
         #expect(rows.map(\.width) == [3, 3, 3, 3])
     }
 
+    @Test("A join into a line that already passes fuses with it below the merge")
+    func fusedJoin() {
+        // main merges develop at d2, then develop moves on to d3 above the merge.
+        let input = GraphInput(commits: GraphFixture.commits("d3 d2\nM m1 d2\nm1 base\nd2 base\nbase"), headSha: "M",
+                               refs: [GraphFixture.local("main", "M", head: true), GraphFixture.local("develop", "d3")])
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.rows[1].stepsBelow == [GraphStep(from: 0, to: 0, color: .head, stroke: .solid),
+                                              GraphStep(from: 0, to: 1, color: .develop, stroke: .solid),
+                                              GraphStep(from: 1, to: 1, color: .develop, stroke: .solid)])
+    }
+
+    @Test("The invariants accept a repeated landing only for joins fusing with a straight line",
+          arguments: [
+              // (steps on the boundary, landings that must be reported) with the node above
+              // in column 0 and the node below in column 2.
+              ([(1, 1), (0, 1)], 0),
+              ([(1, 1), (0, 1), (0, 1)], 0),
+              ([(1, 1), (3, 1)], 1),
+              ([(0, 1), (0, 1)], 1),
+              ([(1, 1), (0, 1), (3, 1)], 1),
+          ])
+    func fusedJoinExemption(steps: [(Int, Int)], reported: Int) {
+        let node = { (column: Int) in GraphNode(column: column, kind: .commit, color: .neutral, isGhost: false) }
+        let below = steps.map { GraphStep(from: $0.0, to: $0.1, color: .neutral, stroke: .solid) }
+        let input = GraphInput(commits: GraphFixture.commits("a\nb"))
+        let layout = GraphLayout(rows: [GraphRow(node: node(0), stepsAbove: [], stepsBelow: below, width: 4),
+                                        GraphRow(node: node(2), stepsAbove: below, stepsBelow: [], width: 4)],
+                                 columnCount: 4)
+        #expect(GraphInvariants.violations(layout, input).filter { $0.contains("reach column") }.count == reported)
+        // Below the last row nothing can join, so the same steps there are always reported.
+        let bottom = GraphLayout(rows: [GraphRow(node: node(0), stepsAbove: [], stepsBelow: below, width: 4)],
+                                 columnCount: 4)
+        #expect(GraphInvariants.violations(bottom, GraphInput(commits: GraphFixture.commits("a")))
+            .filter { $0.contains("reach column") }.count == 1)
+    }
+
     @Test("A track to the first row of the next page enters it in one step")
     func trackIntoNextPage() {
         let commits = GraphFixture.commits("a m\nm b x\nx c\nb c\nc")

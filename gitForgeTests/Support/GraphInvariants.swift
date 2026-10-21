@@ -32,12 +32,15 @@ enum GraphInvariants {
                                   + "\(rows[boundary + 1].stepsAbove)")
             }
 
-            // 3. One line per column: away from the nodes, no two steps leave or reach the same column.
-            //    Below the last row there is no node, so every column reached must be unique.
-            for column in repeated(steps.map(\.from), except: rows[boundary].node.column) {
+            // 3. One line per column: away from the nodes, no two steps leave or reach the same column,
+            //    except where a merge join fuses with a line that already passes (§3.3). Below the
+            //    last row there is no node, so every column reached there must be unique.
+            let upperColumn = rows[boundary].node.column
+            for column in repeated(steps.map(\.from), except: upperColumn) {
                 violations.append("Boundary \(boundary): several steps leave column \(column): \(steps)")
             }
-            for column in repeated(steps.map(\.to), except: isLast ? nil : rows[boundary + 1].node.column) {
+            for column in repeated(steps.map(\.to), except: isLast ? nil : rows[boundary + 1].node.column)
+            where isLast || !isFusedJoin(steps.filter { $0.to == column }, column: column, upperColumn: upperColumn) {
                 violations.append("Boundary \(boundary): several steps reach column \(column): \(steps)")
             }
         }
@@ -79,6 +82,16 @@ enum GraphInvariants {
             }
         }
         return violations
+    }
+
+    /// The one shape where several steps may reach a column with no node: a
+    /// merge join fusing with a line that already passes (§3.3). That is one
+    /// straight step down `column` plus join curves from the node above. A join
+    /// always lands on a loaded row, so this never applies below the last row.
+    private static func isFusedJoin(_ landing: [GraphStep], column: Int, upperColumn: Int) -> Bool {
+        let straights = landing.filter { $0.from == column }
+        let joins = landing.filter { $0.from != column }
+        return straights.count == 1 && joins.allSatisfy { $0.from == upperColumn }
     }
 
     /// Values that appear more than once, leaving `exempt` out, ascending.
