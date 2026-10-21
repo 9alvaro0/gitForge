@@ -39,12 +39,13 @@ extension RepositoryViewModel {
         // Unlike the branch name, nil here is meaningful (empty repo), so it's
         // always written.
         self.headSha = headResult
-        // Refs feed into the graph layout (priority lanes — main/develop/
-        // release/* pin to the leftmost columns). When loadInitial and
-        // loadRefs run concurrently the first recomputeGraph fires with an
-        // empty refs dictionary and priority loses, so re-run once refs
-        // actually land.
-        if refsChanged && !history.commits.isEmpty {
+        // Refs feed into the graph layout (line names, HEAD, the trunks'
+        // columns and colours). Recompute even before the first log is
+        // published: a page still being laid out with the old refs sees the
+        // change and lays itself out again once published. The recompute
+        // keeps the stashes the loaded log was fetched with, so a stash
+        // dropped here stays drawn as a stash until the log reloads.
+        if refsChanged {
             await history.recomputeGraph()
         }
         await loadAheadBehind()

@@ -25,6 +25,8 @@ protocol HistoryRefsSource: AnyObject {
 @MainActor
 final class HistoryStore {
     // MARK: Log
+    /// The published log. The loaders publish it together with its graph
+    /// (`publish(_:)`); only tests and previews set it directly.
     var commits: [Commit] = [] {
         // `uniquingKeysWith: { _, new in new }` instead of
         // `uniqueKeysWithValues:` — the latter traps on duplicate ids, and a
@@ -42,9 +44,17 @@ final class HistoryStore {
     var hasMore = true
     var loadError: String?
     /// Raw commits produced by `git log` for the current scope, *before*
-    /// `dropStashInternals` shrinks `commits`. Used as `--skip` so the next
-    /// page can't overlap with what's already loaded.
+    /// stash internals were dropped from `commits` (`HistoryLog.rawCount`).
+    /// Used as `--skip` so the next page can't overlap with what's already
+    /// loaded.
     var loadedRawCount: Int = 0
+    /// Stash commits of the published log (`HistoryLog.stashShas`): what the
+    /// graph draws as stashes until the log is replaced, whatever the live
+    /// stash list says meanwhile.
+    private(set) var loadedStashShas: Set<String> = []
+    /// Bumped each time a log is published or purged. An append staged on an
+    /// older log is dropped instead of landing on rows it wasn't fetched for.
+    private(set) var logRevision: UInt64 = 0
     /// Drives the History skeleton. Kept separate from `isLoadingInitial`
     /// because two overlapping checkouts could trap the placeholder when
     /// the boolean alone was the trigger.
@@ -91,6 +101,11 @@ final class HistoryStore {
 
     // MARK: Graph
     /// One row per commit, in the order of `commits`.
+    ///
+    /// Invariant: once a log has been published, `graphLayouts.count ==
+    /// commits.count` after every operation the UI can observe. The loaders
+    /// assign the log and its graph in the same main-actor turn, and a
+    /// recompute only lands on the log it was computed for.
     var graphLayouts: [GraphRow] = []
     /// Columns the graph uses (`GraphLayout.columnCount`), at least 1.
     var graphMaxLanes: Int = 1
@@ -101,11 +116,19 @@ final class HistoryStore {
     /// Pool colours for the current accent. Starts at the violet pool;
     /// `HistoryView` sets the real one from the theme.
     private(set) var graphPaletteSize: Int = LaneColors.pool(accent: .violet).count
-    /// Bumped at the start of every `recomputeGraph()` call. The layout work
-    /// runs off-actor (50k commits would otherwise stutter the scroll on
-    /// page load); the post-await guard drops stale results when the user
-    /// scrolls fast enough to enqueue multiple page loads.
+    /// Bumped by every layout pass a recompute starts and by every log
+    /// publish. A recompute's result lands only while its token is current,
+    /// so it can't overwrite a newer pass or a log it wasn't computed for.
     var graphLayoutGen: UInt64 = 0
+    /// Bumped by `recomputeGraph()`: something the graph reads besides the
+    /// log (refs, HEAD, palette) may have changed. A log staged before the
+    /// bump recomputes once more after it is published.
+    private var graphInputRevision: UInt64 = 0
+    /// Lays a graph out, always off the main actor. Tests swap it to hold a
+    /// pass and interleave it with another.
+    @ObservationIgnored var graphEngine: @Sendable (GraphInput) async -> GraphLayout = {
+        CommitGraphEngine.layout($0)
+    }
 
     // MARK: Commit file diff
     var selectedCommitFile: String? {
@@ -145,11 +168,16 @@ final class HistoryStore {
     /// Drops the heavy caches (log, graph, details, diff) when the session
     /// stops. The next `loadInitial` reseeds everything.
     func purge() {
+        // Drop every load, page and layout still in flight for the old log.
+        logGen &+= 1
+        logRevision &+= 1
+        graphLayoutGen &+= 1
         commits = []
         commitsById = [:]
-        // Drop any layout still computing for the old log.
-        graphLayoutGen &+= 1
+        loadedRawCount = 0
+        loadedStashShas = []
         graphLayouts = []
+        graphMaxLanes = 1
         graphPageEnds = []
         detailCache.removeAll()
         detailCacheOrder.removeAll()
@@ -177,22 +205,46 @@ final class HistoryStore {
     /// column count. Tags are labels on already-walked commits; stashes
     /// surface as their own dashed lanes.
     func graphScope() -> [String] {
+        fetchScope().refs
+    }
+
+    /// `graphScope()` and the stashes in it, read together: the stash set a
+    /// page is fetched with is the one its log keeps (`HistoryLog.stashShas`),
+    /// even if the live list changes while `git log` runs.
+    private func fetchScope() -> (refs: [String], stashShas: Set<String>) {
+        let stashShas = stashes.map(\.sha)
         var refs: [String] = ["HEAD"]
         refs.append(contentsOf: refsSource?.unmergedLocalBranchRefs ?? [])
         refs.append("--tags")
-        refs.append(contentsOf: stashes.map(\.sha))
-        return refs
+        refs.append(contentsOf: stashShas)
+        return (refs, Set(stashShas))
     }
 
     // MARK: Log loading
 
-    // Gen-token contract for the log:
+    // Gen-token contract for the log and its graph:
     //   • `loadInitial` / `reloadLog` replace `commits`, so they bump
     //     `logGen` and any older load or pagination drops its result.
     //   • Pagination (`loadMoreIfNeeded`) only *snapshots*
     //     `logGen`: a reload supersedes a page load, never the reverse —
     //     otherwise scrolling during a watcher refresh discarded the fresh
     //     first page and left the graph stale.
+    //   • A loaded page is staged (`stageFirstPage` / `stageNextPage`), laid
+    //     out off the main actor, and published with its graph in one turn
+    //     (`publish`), so a row never draws another log's graph. Publishing
+    //     bumps `logRevision` and `graphLayoutGen`.
+    //   • A page append also snapshots `logRevision` before it fetches, and
+    //     publishes only if no log was published since: a reload that
+    //     published while the page was in flight has a different
+    //     `loadedRawCount`, so the page would not fit on it. The user's next
+    //     scroll to the bottom fetches it again.
+    //   • `recomputeGraph()` (refs, HEAD or palette changed) lays out the
+    //     published log and lands only while `graphLayoutGen` is unchanged:
+    //     a newer recompute or a log published meanwhile drops it. It also
+    //     bumps `graphInputRevision`; a log staged before that bump
+    //     recomputes once more right after it is published. So neither loses
+    //     the other: a recompute that starts during a page load is either
+    //     already in the page's input or runs again on the new log.
     //   • Each loading flag is cleared by the operation that set it, always.
     //     The ops are non-reentrant (guarded on their own flag), so there's
     //     no newer owner to protect; clearing only "if gen still matches"
@@ -229,12 +281,12 @@ final class HistoryStore {
                 }
                 guard gen == logGen else { return }
             }
-            let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
+            let scope = fetchScope()
+            let page = try await cli.log(limit: pageSize, skip: 0, refs: scope.refs)
             guard gen == logGen else { return }
-            replaceLog(with: page)
+            guard await publish(stageFirstPage(page, stashShas: scope.stashShas, logGen: gen)) else { return }
             hasMore = page.count == pageSize
             selectedCommitId = commits.first?.id
-            await recomputeGraph()
         } catch {
             guard gen == logGen else { return }
             loadError = error.userMessage
@@ -263,14 +315,14 @@ final class HistoryStore {
             guard gen == logGen else { return }
             refsSource?.stashes = freshStashes
             refsSource?.unmergedLocalBranchRefs = freshUnmerged
-            let page = try await cli.log(limit: pageSize, skip: 0, refs: graphScope())
+            let scope = fetchScope()
+            let page = try await cli.log(limit: pageSize, skip: 0, refs: scope.refs)
             guard gen == logGen else { return }
-            replaceLog(with: page)
+            guard await publish(stageFirstPage(page, stashShas: scope.stashShas, logGen: gen)) else { return }
             hasMore = page.count == pageSize
             if let prev = previousSelection, commitsById[prev] == nil {
                 selectedCommitId = commits.first?.id
             }
-            await recomputeGraph()
             hasLoadedLogForCurrentScope = true
         } catch {
             guard gen == logGen else { return }
@@ -294,51 +346,117 @@ final class HistoryStore {
         }
     }
 
-    /// Fetches the next page from `loadedRawCount` and merges it. Returns
-    /// the freshly fetched commits, or nil when the gen token moved during
-    /// the await (a fresher reload kicked in; caller should bail).
+    /// Fetches the next page from `loadedRawCount` and publishes it with its
+    /// graph. Returns the freshly fetched commits, or nil when the log moved
+    /// during the awaits (a fresher reload kicked in; caller should bail).
     private func paginateNextPage(gen: UInt64, pageSize: Int) async throws -> [Commit]? {
-        let next = try await cli.log(limit: pageSize, skip: loadedRawCount, refs: graphScope())
-        guard gen == logGen else { return nil }
-        appendPage(next)
+        let base = logRevision
+        let scope = fetchScope()
+        let next = try await cli.log(limit: pageSize, skip: loadedRawCount, refs: scope.refs)
+        guard gen == logGen, base == logRevision else { return nil }
+        let staged = stageNextPage(next, scopeStashShas: scope.stashShas, logGen: gen, baseRevision: base)
+        guard await publish(staged) else { return nil }
         hasMore = next.count == pageSize
-        await recomputeGraph()
         return next
     }
 
     // MARK: Graph
 
-    /// Swaps in a fresh first page: the log starts over, and so do its pages.
+    /// A log ready to publish, with the graph input snapshotted when it was
+    /// staged and the tokens that say whether it is still wanted.
+    struct StagedLog {
+        let log: HistoryLog
+        let input: GraphInput
+        /// `logGen` of the operation that fetched it: a newer reload drops it.
+        let logGen: UInt64
+        /// `logRevision` an appended page was built on; nil for a log that
+        /// starts over.
+        let baseRevision: UInt64?
+        /// `graphInputRevision` when `input` was snapshotted.
+        let inputRevision: UInt64
+    }
+
+    /// The published log, as `HistoryLog`.
+    var loadedLog: HistoryLog {
+        HistoryLog(commits: commits, rawCount: loadedRawCount, pageEnds: graphPageEnds, stashShas: loadedStashShas)
+    }
+
+    /// A log that starts over with `page`. Defaults are for tests: the live
+    /// stashes and the current `logGen`; the loaders pass the scope the page
+    /// was fetched with and their own token.
+    func stageFirstPage(_ page: [Commit], stashShas: Set<String>? = nil, logGen gen: UInt64? = nil) -> StagedLog {
+        stage(HistoryLog.firstPage(page, stashShas: stashShas ?? Set(stashes.map(\.sha))),
+              logGen: gen ?? logGen, baseRevision: nil)
+    }
+
+    /// The published log with `page` appended (`HistoryLog.appending`).
+    /// Defaults are for tests, as in `stageFirstPage`; the loader passes the
+    /// revision it fetched against.
+    func stageNextPage(_ page: [Commit], scopeStashShas: Set<String>? = nil, logGen gen: UInt64? = nil,
+                       baseRevision: UInt64? = nil) -> StagedLog {
+        let log = loadedLog.appending(page, scopeStashShas: scopeStashShas ?? Set(stashes.map(\.sha)))
+        return stage(log, logGen: gen ?? logGen, baseRevision: baseRevision ?? logRevision)
+    }
+
+    private func stage(_ log: HistoryLog, logGen gen: UInt64, baseRevision: UInt64?) -> StagedLog {
+        StagedLog(log: log, input: graphInput(for: log), logGen: gen, baseRevision: baseRevision,
+                  inputRevision: graphInputRevision)
+    }
+
+    /// Lays `staged` out off the main actor, then publishes the log and its
+    /// graph in one main-actor turn: `commits`, `loadedRawCount`,
+    /// `graphPageEnds`, `loadedStashShas`, `graphLayouts` and
+    /// `graphMaxLanes`. Returns false, publishing nothing, when a newer
+    /// reload superseded it or (for a page) another log was published since
+    /// its base. When a recompute was asked for after it was staged, its
+    /// input may be stale, so it recomputes once more.
+    @discardableResult
+    func publish(_ staged: StagedLog) async -> Bool {
+        let layout = await layOut(staged.input)
+        guard staged.logGen == logGen, staged.baseRevision.map({ $0 == logRevision }) ?? true else { return false }
+        install(staged.log, layout)
+        if staged.inputRevision != graphInputRevision { await relayout() }
+        return true
+    }
+
+    /// Swaps in a fresh first page and its graph, laid out on the caller's
+    /// actor. For tests and previews; the loaders `publish` instead, so the
+    /// layout never runs on the main actor.
     func replaceLog(with page: [Commit]) {
-        commits = page
-        loadedRawCount = page.count
-        dropStashInternals()
-        graphPageEnds = [commits.count]
+        let staged = stageFirstPage(page)
+        install(staged.log, CommitGraphEngine.layout(staged.input))
     }
 
-    /// Appends the next page. Stash internals are dropped from the new rows
-    /// only: removing a row from a page already drawn would move every row
-    /// below it (§3.9).
+    /// Appends the next page and publishes the graph with it, laid out on the
+    /// caller's actor. For tests and previews, as `replaceLog(with:)`.
     func appendPage(_ page: [Commit]) {
-        let start = commits.count
-        loadedRawCount += page.count
-        commits.append(contentsOf: page)
-        dropStashInternals(from: start)
-        // A page that adds no rows (all stash internals, or none at all) adds
-        // no page end, so the list stays strictly ascending.
-        if commits.count > (graphPageEnds.last ?? 0) {
-            graphPageEnds.append(commits.count)
-        }
+        let staged = stageNextPage(page)
+        install(staged.log, CommitGraphEngine.layout(staged.input))
     }
 
-    /// What the engine lays out: the loaded log and its pages, HEAD, the refs
-    /// that name the lines, the stashes and the size of the palette.
+    private func install(_ log: HistoryLog, _ layout: GraphLayout) {
+        commits = log.commits
+        loadedRawCount = log.rawCount
+        graphPageEnds = log.pageEnds
+        loadedStashShas = log.stashShas
+        apply(layout)
+        logRevision &+= 1
+        // Any recompute still running was computed for the previous log.
+        graphLayoutGen &+= 1
+    }
+
+    /// What the engine lays out for the published log: its rows, pages and
+    /// stashes, HEAD, the refs that name the lines and the size of the palette.
     func graphInput() -> GraphInput {
-        GraphInput(commits: commits,
-                   pageEnds: graphPageEnds,
+        graphInput(for: loadedLog)
+    }
+
+    private func graphInput(for log: HistoryLog) -> GraphInput {
+        GraphInput(commits: log.commits,
+                   pageEnds: log.pageEnds,
                    headSha: refsSource?.headSha,
                    refs: refsSource?.refs ?? [],
-                   stashShas: Set(stashes.map(\.sha)),
+                   stashShas: log.stashShas,
                    paletteSize: graphPaletteSize)
     }
 
@@ -351,22 +469,28 @@ final class HistoryStore {
         await recomputeGraph()
     }
 
-    /// Moves the (O(n)) layout computation off the main actor so a paginate
-    /// or reload over 50k commits doesn't stutter the scroll view. The input
-    /// is snapshotted here, on the main actor, so the log, its pages and the
-    /// refs always describe the same moment. The result is gated by
-    /// `graphLayoutGen`: every change to the log recomputes, so a page
-    /// appended while this pass runs starts a newer one and this result is
-    /// dropped instead of landing on rows it doesn't describe.
+    /// Lays the published log out again after something else the graph reads
+    /// changed (refs, HEAD, palette). Runs off the main actor, so a reload
+    /// over 50k commits doesn't stutter the scroll view, and lands only on
+    /// the log it was computed for (see the gen-token contract above). A log
+    /// still loading picks the change up when it is published.
     func recomputeGraph() async {
+        graphInputRevision &+= 1
+        await relayout()
+    }
+
+    private func relayout() async {
         graphLayoutGen &+= 1
         let gen = graphLayoutGen
         let input = graphInput()
-        let layout = await Task.detached { @Sendable in
-            CommitGraphEngine.layout(input)
-        }.value
+        let layout = input.commits.isEmpty ? GraphLayout.empty : await layOut(input)
         guard gen == graphLayoutGen else { return }
         apply(layout)
+    }
+
+    private func layOut(_ input: GraphInput) async -> GraphLayout {
+        let engine = graphEngine
+        return await Task.detached { await engine(input) }.value
     }
 
     /// Synchronous variant used by SwiftUI previews and any caller that
@@ -383,35 +507,6 @@ final class HistoryStore {
         graphMaxLanes = max(1, layout.columnCount)
     }
 
-    /// Removes stash *internal* commits — `parent[1]` (index tree) and
-    /// `parent[2]` (untracked tree) of each stash — from the whole log. Those
-    /// are git plumbing the user never asked for; surfacing them as separate
-    /// rows clutters the log. The stash commit itself stays as the dashed
-    /// square. Only for a log that starts over: once pages are drawn,
-    /// `appendPage` drops from the new rows alone.
-    func dropStashInternals() {
-        dropStashInternals(from: 0)
-    }
-
-    /// `dropStashInternals()` for the rows at `start` and below. Private so
-    /// nothing can remove a row from a page already drawn without the page
-    /// ends (`graphPageEnds`) following. Every loaded stash counts, so a stash
-    /// on an earlier page still loses the internals that land on a later one.
-    private func dropStashInternals(from start: Int) {
-        let stashShas = Set(stashes.map(\.sha))
-        guard !stashShas.isEmpty else { return }
-        var internals: Set<String> = []
-        for commit in commits where stashShas.contains(commit.sha) {
-            // parent[0] is the real HEAD when the stash was taken — keep it.
-            for (idx, parent) in commit.parentShas.enumerated() where idx >= 1 {
-                internals.insert(parent)
-            }
-        }
-        guard !internals.isEmpty else { return }
-        let start = min(max(start, 0), commits.count)
-        guard commits[start...].contains(where: { internals.contains($0.sha) }) else { return }
-        commits[start...].removeAll { internals.contains($0.sha) }
-    }
 
     // MARK: Detail
 
