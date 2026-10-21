@@ -43,6 +43,9 @@ struct ReviewComposer: View {
             .font(AppFont.font(.body))
             .foregroundStyle(theme.colors.textPrimary)
             .scrollContentBackground(.hidden)
+            // With a mouse attached macOS keeps legacy scroll bars on: an
+            // empty box would show a phantom track. Wheel scrolling still works.
+            .scrollIndicators(.never)
             .focused($focused)
             .frame(minHeight: 64, maxHeight: 180)
             .padding(.horizontal, Spacing.s4)
