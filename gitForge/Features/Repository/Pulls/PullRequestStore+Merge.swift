@@ -27,6 +27,14 @@ extension PullRequestStore {
         return mergeReadiness?.summary ?? MergeReadiness.sentence([HostMergeStatus.notAllowedYet])
     }
 
+    /// What the open sheet says under its fields: why it can't merge now.
+    /// Nothing while a merge is going: once it lands the PR reads as merged,
+    /// with no verdict to give, until the sheet closes.
+    var mergeSheetBlockedReason: String? {
+        guard mergeDraft != nil, !isMerging else { return nil }
+        return mergeBlockedReason
+    }
+
     /// The sheet closed: its options go, and a read still in flight lands
     /// nowhere, so the next opening reads them afresh.
     func discardMergeOptions() {
@@ -90,8 +98,6 @@ extension PullRequestStore {
             }
             if selected?.id == pull.id {
                 keepsSelectionOutsideList = true
-                mergeDraft = nil
-                mergeOptions = nil
                 // Merged, whatever the reloads below manage to read back.
                 selected?.state = .merged
                 if detail?.pull.id == pull.id { detail?.pull.state = .merged }
@@ -100,6 +106,10 @@ extension PullRequestStore {
             if selected?.id == pull.id {
                 await loadDetail()
                 if let merged = detail?.pull, merged.id == pull.id { selected = merged }
+                // The sheet stays open through the reloads: its fields go
+                // only now, as it closes.
+                mergeDraft = nil
+                mergeOptions = nil
             }
             let branchKept = input.deleteSourceBranch && !outcome.branchDeleted
             return .merged(warning: branchKept ? String(localized: "Merged \(ref), but \(pull.sourceBranch) couldn't be deleted.") : nil)
