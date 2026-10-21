@@ -122,9 +122,9 @@ struct GitHubPullRequestProvider: PullRequestProvider {
         return host.host == "github.com" ? "https://api.github.com" : "https://\(host.host)/api/v3"
     }
 
-    private static func makeRequest(url: URL?, token: String) -> URLRequest {
+    nonisolated static func makeRequest(url: URL?, token: String, method: String = "GET") -> URLRequest {
         var request = URLRequest(url: url ?? URL(string: "https://api.github.com")!)
-        request.httpMethod = "GET"
+        request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")

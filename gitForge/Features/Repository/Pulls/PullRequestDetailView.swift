@@ -37,7 +37,8 @@ struct PullRequestDetailView: View {
                         reviewers: store.detail?.reviewers ?? [],
                         labels: store.detail?.labels ?? [],
                         checkingOut: checkingOut,
-                        onCheckout: { Task { await runCheckout() } }
+                        onCheckout: { Task { await runCheckout() } },
+                        actions: AnyView(PullRequestActionsBar(store: store))
                     )
                     tabBar
                 }

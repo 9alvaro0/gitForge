@@ -65,6 +65,15 @@ final class PullRequestStore {
     /// Drives the spinner on "Resolve locally" while a try-merge runs.
     var localMergeRunning = false
 
+    // MARK: Review
+    /// Whether the host takes "Request changes" (GitLab varies by version);
+    /// read with each detail, kept across PRs of the same repo.
+    var requestChangesSupport: RequestChangesSupport?
+    /// The verdict being sent; disables the buttons meanwhile.
+    var submittingReview: ReviewVerdict?
+    /// What the user is typing in the review boxes (`ReviewDraftKey`).
+    var drafts: [ReviewDraftKey: String] = [:]
+
     /// Where the token comes from (the repo's account).
     /// `rejected`: a token that just got a 401.
     private let auth: @MainActor (RemoteHost, _ rejected: String?) async -> PullRequestAuthResult
@@ -76,6 +85,7 @@ final class PullRequestStore {
     private let resolveHost: @MainActor () async -> RemoteHost?
     private let suggestInstance: @MainActor () async -> InstanceSuggestion?
     private let makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
+    let makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider
     private var detailTask: Task<Void, Never>?
     private var ciTask: Task<Void, Never>?
     /// Bumped by every list load so a slow CI fill for an older list drops
@@ -103,12 +113,14 @@ final class PullRequestStore {
          silentAuth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
          suggestInstance: (@MainActor () async -> InstanceSuggestion?)? = nil,
-         makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) }) {
+         makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) },
+         makeReviewProvider: @escaping @MainActor (RemoteHost) -> PullRequestReviewProvider = { PullRequestReviewProviderFactory.make(for: $0) }) {
         self.auth = auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.silentAuth = silentAuth ?? auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
         self.suggestInstance = suggestInstance ?? { nil }
         self.makeProvider = makeProvider
+        self.makeReviewProvider = makeReviewProvider
     }
 
     /// Asks `auth` for a token and updates the connect state; nil = no token.
@@ -139,7 +151,7 @@ final class PullRequestStore {
     /// Runs `call` with the token of the last load; after a 401, one fresh
     /// token and one retry (a GitLab OAuth token lasts 2 h, longer than a
     /// screen may stay open). `nil` = no token to retry with.
-    private func withToken<T>(_ host: RemoteHost, _ call: (String) async throws -> T) async throws -> T? {
+    func withToken<T>(_ host: RemoteHost, _ call: (String) async throws -> T) async throws -> T? {
         guard let token = currentToken else { return nil }
         do {
             return try await call(token)
@@ -352,6 +364,8 @@ final class PullRequestStore {
             async let checksResult = Self.capture { try await provider.fetchChecks(host: host, pull: pr, token: token) }
             return await (detailResult, commitsResult, filesResult, checksResult)
         }
+        let reviewProvider = makeReviewProvider(host)
+        async let support = reviewProvider.requestChangesSupport(host: host, token: token)
         var (detail, commits, files, checks) = await fetchAll(token)
         // The token went bad since the list loaded: one fresh one, one retry.
         if case .failure(PullRequestFetchError.unauthorized) = detail,
@@ -376,6 +390,8 @@ final class PullRequestStore {
         // Checks are a nice-to-have: a failure leaves the tab empty rather
         // than flagging the whole detail.
         if case .success(let value) = checks { self.checks = value }
+        let readSupport = await support
+        if gen == detailGen { requestChangesSupport = readSupport }
     }
 
     /// CI of one commit for History's detail, `nil` when there's nothing to
@@ -442,6 +458,9 @@ final class PullRequestStore {
         silentToken = nil
         commitChecksCache = [:]
         lastLoadedAt = nil
+        requestChangesSupport = nil
+        submittingReview = nil
+        drafts = [:]
     }
 
     private func clearDetail() {

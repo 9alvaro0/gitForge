@@ -10,25 +10,24 @@ struct PullRequestDetailHeader: View {
     let labels: [String]
     let checkingOut: Bool
     let onCheckout: () -> Void
+    /// Review (and merge) buttons, between "Check out branch" and "Open on …".
+    var actions: AnyView = AnyView(EmptyView())
 
     @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s8) {
-            HStack(spacing: Spacing.s8) {
-                PullRequestStatePill(state: pullRequest.state)
-                Text("#\(pullRequest.number)\(hostLabel.map { " · \($0)" } ?? "")")
-                    .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
-                    .foregroundStyle(theme.colors.textTertiary)
-                Spacer(minLength: 0)
-                GFButton(title: checkingOut ? String(localized: "Checking out…") : String(localized: "Check out branch"),
-                         disabled: checkingOut || pullRequest.state == .merged, action: onCheckout)
-                    .help("Fetch and check out \(pullRequest.sourceBranch)")
-                if let url = pullRequest.webURL {
-                    GFButton(title: hostLabel.map { String(localized: "Open on \($0)") } ?? String(localized: "Open on the web"),
-                             systemImage: "arrow.up.right") {
-                        ExternalURL.open(url)
-                    }
+            // The buttons share the state line while they fit, then take
+            // a line of their own rather than cutting their titles.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Spacing.s8) {
+                    identity
+                    Spacer(minLength: Spacing.s16)
+                    buttons
+                }
+                VStack(alignment: .leading, spacing: Spacing.s8) {
+                    identity
+                    HStack(spacing: Spacing.s8) { buttons }
                 }
             }
             Text(pullRequest.title)
@@ -44,6 +43,32 @@ struct PullRequestDetailHeader: View {
                     if !labels.isEmpty { labelsView }
                 }
             }
+        }
+    }
+
+    private var identity: some View {
+        HStack(spacing: Spacing.s8) {
+            PullRequestStatePill(state: pullRequest.state)
+            Text("#\(pullRequest.number)\(hostLabel.map { " · \($0)" } ?? "")")
+                .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
+                .foregroundStyle(theme.colors.textTertiary)
+        }
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private var buttons: some View {
+        GFButton(title: checkingOut ? String(localized: "Checking out…") : String(localized: "Check out branch"),
+                 disabled: checkingOut || pullRequest.state == .merged, action: onCheckout)
+            .help("Fetch and check out \(pullRequest.sourceBranch)")
+            .fixedSize()
+        actions
+        if let url = pullRequest.webURL {
+            GFButton(title: hostLabel.map { String(localized: "Open on \($0)") } ?? String(localized: "Open on the web"),
+                     systemImage: "arrow.up.right") {
+                ExternalURL.open(url)
+            }
+            .fixedSize()
         }
     }
 

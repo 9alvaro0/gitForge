@@ -3,6 +3,10 @@ import Foundation
 /// GitLab REST v4 implementation of `PullRequestProvider`.
 /// API reference: https://docs.gitlab.com/ee/api/merge_requests.html
 struct GitLabPullRequestProvider: PullRequestProvider {
+    /// Used by the review writes and the instance probe, so tests can point
+    /// them at a stub server; the reads predate it and use `RemoteAPI.session`.
+    var session: URLSession = RemoteAPI.session
+
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
         switch state {
         case .open:
@@ -88,8 +92,11 @@ struct GitLabPullRequestProvider: PullRequestProvider {
         } catch {
             throw PullRequestFetchError.decoding(error.localizedDescription)
         }
-        let approvedBy = (await approvals).flatMap { try? Self.parseApprovers($0) } ?? []
-        return dto.toModel(approvedBy: approvedBy)
+        let approvalsData = await approvals
+        let approvedBy = approvalsData.flatMap { try? Self.parseApprovers($0) } ?? []
+        var detail = dto.toModel(approvedBy: approvedBy)
+        detail.viewerApproval = approvalsData.flatMap(Self.parseViewerApproval)
+        return detail
     }
 
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] {
@@ -124,15 +131,15 @@ struct GitLabPullRequestProvider: PullRequestProvider {
         return "https://\(host.host)/api/v4"
     }
 
-    private static func encodeSlug(_ host: RemoteHost) -> String {
+    nonisolated static func encodeSlug(_ host: RemoteHost) -> String {
         host.slug.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? host.slug
     }
 
     /// `Bearer` works for personal and OAuth tokens alike (`PRIVATE-TOKEN`
     /// only for personal ones).
-    nonisolated static func makeRequest(url: URL?, token: String) -> URLRequest {
+    nonisolated static func makeRequest(url: URL?, token: String, method: String = "GET") -> URLRequest {
         var request = URLRequest(url: url ?? URL(string: "https://gitlab.com")!)
-        request.httpMethod = "GET"
+        request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("gitForge", forHTTPHeaderField: "User-Agent")

@@ -44,9 +44,7 @@ nonisolated struct InstanceVerifier: Sendable {
 
     /// `"17.2.0-ee"` → true; anything before 17.2 or unparsable → false.
     static func supportsDeviceFlow(_ version: String) -> Bool {
-        let parts = version.split(separator: ".").prefix(2).compactMap { Int($0.prefix(while: \.isNumber)) }
-        guard parts.count == 2 else { return false }
-        return parts[0] > 17 || (parts[0] == 17 && parts[1] >= 2)
+        GitLabVersion(version).map { $0 >= GitLabVersion(major: 17, minor: 2) } ?? false
     }
 }
 
