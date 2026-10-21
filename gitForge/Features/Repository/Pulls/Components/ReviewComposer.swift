@@ -31,6 +31,14 @@ struct ReviewComposer: View {
             }
         }
         .onAppear { focused = true }
+        // With a list holding focus (the Files tab's file list), the request
+        // in onAppear lands before the editor can take it and typing goes
+        // nowhere: ask again once the box is on screen, as the command
+        // palette does.
+        .task {
+            await Task.yield()
+            focused = true
+        }
     }
 
     private var canSend: Bool {
