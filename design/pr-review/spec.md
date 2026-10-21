@@ -1,7 +1,7 @@
 # Revisar PRs/MRs desde gitForge — Spec
 
 **Fecha:** 2026-10-21
-**Estado:** borrador para revisión
+**Estado:** implementada (fases 1, 2 y 3). Falta probar los hilos con datos reales: ver `plans/P3-registro.md`.
 **Origen:** Alvaro, 2026-10-21: "que en la pantalla de pull requests se pueda aprobar, hacer merge, dejar comentarios, etc. Mi idea es no entrar en GitHub o GitLab para hacerlo".
 
 Las decisiones marcadas **(decisión de Claude)** las tomé yo durante el diseño y Alvaro no las ha validado una a una. Todo lo demás lo dijo o lo confirmó él.
