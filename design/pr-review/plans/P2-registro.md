@@ -18,9 +18,24 @@ Lista con arreglos: ningún crítico, 2 importantes y 7 menores. Uno de los meno
 - **Importante (era menor):** un campo vaciado mostraba "GitHub default" pero enviaba un mensaje vacío. Ahora un texto igual al que pondría el host no se envía, y el texto de ayuda solo sale donde el host no da el suyo: vaciar un campo sin valor conocido es "lo del host", y vaciar uno que la hoja rellenó envía el mensaje en blanco.
 
 Menores diferidos:
-- Merge… se ofrece aunque el host ya diga que la cuenta no puede fusionar (`user.can_merge` en GitLab, `permissions.push` en GitHub): el rechazo llega tras confirmar, con su mensaje. Un 404 al fusionar en GitHub dice "It changed on the host since it loaded. Reloaded." en lugar de "no puedes".
+- Un 404 al fusionar en GitHub dice "It changed on the host since it loaded. Reloaded." en lugar de "no puedes". (La otra mitad de este menor, Merge… activo sin permiso, se arregló tras la prueba en la app.)
 - Una lectura de opciones lenta que termina con la hoja ya cerrada vuelve a rellenar opciones y borrador; la siguiente apertura los reutiliza.
 - Si con la hoja abierta el veredicto cambia, el botón de confirmar se desactiva sin explicar por qué (el banner queda detrás de la hoja).
 - Si falla la recarga tras un merge correcto, la PR sigue pareciendo abierta y lista para fusionar.
 - La recomprobación recarga todo el detalle (ficheros, commits, checks) solo para releer el estado de merge.
 - Comentario desfasado en `PullRequestStore+Merge.swift` ("The draft stays." en `.headChanged`, que cierra la hoja y descarta el borrador).
+
+## Prueba en la app (warp, PRs de otras personas; nada fusionado)
+
+- **Bien:**
+  - Banner bloqueado con sus motivos ("3 comprobaciones fallidas · 1 revisión pendiente · reglas de protección de rama") y Merge… desactivado, con esos motivos como ayuda al pasar el ratón.
+  - Cabecera a unos 480 pt (los botones pasan a otra línea) y a unos 720 pt (todos en la segunda línea), sin textos cortados.
+  - Hoja en oscuro y en claro. Al cambiar entre Squash, Commit de fusión y Rebase cambian los campos y el botón ("Hacer squash y fusionar", "Crear commit de fusión", "Hacer rebase y fusionar").
+  - Esc cierra la hoja. La hoja solo se abrió y se canceló.
+- **Arreglado tras la prueba:**
+  - GitHub devuelve `mergeable_state: "clean"` en una PR en borrador, y Merge… salía activo. Ahora un borrador siempre bloquea, con "todavía es un borrador".
+  - La cuenta no tiene permiso de escritura en warp (`permissions.push: false`) y Merge… salía activo; era el menor diferido M2 y la prueba lo subió de nivel. Ahora el detalle lee el permiso (GitHub: `GET /repos`; GitLab: `user.can_merge` de la MR). Sin permiso, el banner mantiene el estado de la PR, añade "tu cuenta no puede fusionarla" y Merge… queda desactivado.
+  - Suite 1282/1282 y build sin warnings.
+- **Pendiente:**
+  - Ver estos dos arreglos en la app (la pantalla se bloqueó antes de volver a warp).
+  - El paso 3 de la Tarea 6: un merge real en una PR de prueba de un repo personal.
