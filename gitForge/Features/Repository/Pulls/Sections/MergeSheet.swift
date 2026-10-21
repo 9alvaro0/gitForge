@@ -14,6 +14,7 @@ struct MergeSheet: View {
         VStack(alignment: .leading, spacing: Spacing.s16) {
             header
             content
+            blockedReason
             buttons
         }
         .padding(Spacing.s20)
@@ -74,6 +75,23 @@ struct MergeSheet: View {
         }
     }
 
+    /// The verdict can change while the sheet is open (a reload after a
+    /// refusal): say why the confirm button went off.
+    @ViewBuilder
+    private var blockedReason: some View {
+        if store.mergeDraft != nil, let reason = store.mergeBlockedReason {
+            HStack(alignment: .top, spacing: Spacing.s8) {
+                Image(systemName: "xmark.octagon.fill")
+                    .foregroundStyle(theme.colors.del)
+                Text(reason)
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
     /// Edits go straight to the store's draft.
     private func draftBinding(_ options: MergeOptions) -> Binding<MergeDraft> {
         Binding(get: { store.mergeDraft ?? MergeDraft(options: options) },
@@ -101,7 +119,7 @@ struct MergeSheet: View {
     }
 
     private var canConfirm: Bool {
-        store.mergeDraft != nil && !store.isMerging && (store.mergeReadiness?.canMerge ?? false)
+        store.mergeDraft != nil && !store.isMerging && store.mergeBlockedReason == nil
     }
 
     private var reference: String {

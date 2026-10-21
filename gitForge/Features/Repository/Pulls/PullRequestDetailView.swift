@@ -67,15 +67,9 @@ struct PullRequestDetailView: View {
             Text(localMergeMessage)
         }
         // Each opening reads the options afresh: nothing is remembered.
-        .sheet(isPresented: $showMergeSheet, onDismiss: discardMergeOptions) {
+        .sheet(isPresented: $showMergeSheet, onDismiss: store.discardMergeOptions) {
             MergeSheet(store: store)
         }
-    }
-
-    private func discardMergeOptions() {
-        store.mergeOptions = nil
-        store.mergeDraft = nil
-        store.mergeOptionsError = nil
     }
 
     /// Underlined tabs with counts, as in the artboard.

@@ -17,13 +17,13 @@ Lista con arreglos: ningún crítico, 2 importantes y 7 menores. Uno de los meno
 - **Importante:** la recomprobación era una por selección. Tras un 409, o tras aprobar en los primeros segundos, el banner podía quedarse en "Checking mergeability…" con Merge… desactivado hasta volver a pulsar la PR. Ahora cada carga del detalle que encuentra el estado en cálculo lo vuelve a pedir una vez (la recomprobación no encadena otra), y los estados transitorios de GitLab (`checking`, `unchecked`, `preparing`, `approvals_syncing` y los de `merge_status`) también la piden.
 - **Importante (era menor):** un campo vaciado mostraba "GitHub default" pero enviaba un mensaje vacío. Ahora un texto igual al que pondría el host no se envía, y el texto de ayuda solo sale donde el host no da el suyo: vaciar un campo sin valor conocido es "lo del host", y vaciar uno que la hoja rellenó envía el mensaje en blanco.
 
-Menores diferidos:
-- Un 404 al fusionar en GitHub dice "It changed on the host since it loaded. Reloaded." en lugar de "no puedes". (La otra mitad de este menor, Merge… activo sin permiso, se arregló tras la prueba en la app.)
-- Una lectura de opciones lenta que termina con la hoja ya cerrada vuelve a rellenar opciones y borrador; la siguiente apertura los reutiliza.
-- Si con la hoja abierta el veredicto cambia, el botón de confirmar se desactiva sin explicar por qué (el banner queda detrás de la hoja).
-- Si falla la recarga tras un merge correcto, la PR sigue pareciendo abierta y lista para fusionar.
-- La recomprobación recarga todo el detalle (ficheros, commits, checks) solo para releer el estado de merge.
-- Comentario desfasado en `PullRequestStore+Merge.swift` ("The draft stays." en `.headChanged`, que cierra la hoja y descarta el borrador).
+Menores de la revisión, arreglados después a petición de Alvaro (cada uno con su test en rojo primero; suite 1287/1287, build sin warnings):
+- Un 404 al fusionar se explica como falta de permiso ("Tu cuenta … no puede fusionar…"), no como "cambió en el servidor".
+- Una lectura de opciones que llega con la hoja ya cerrada (o con otra PR seleccionada) se descarta.
+- Si el veredicto cambia con la hoja abierta, la hoja dice por qué se desactiva el botón de confirmar (`mergeBlockedReason`, el mismo texto del banner y de la ayuda de Merge…).
+- Tras un merge correcto, la PR queda marcada como fusionada aunque falle la recarga del detalle.
+- La recomprobación del estado de merge relee solo el detalle, sin volver a pedir ficheros, commits ni checks.
+- Comentario desfasado en `PullRequestStore+Merge.swift` corregido.
 
 ## Prueba en la app (warp, PRs de otras personas; nada fusionado)
 
@@ -39,3 +39,4 @@ Menores diferidos:
 - **Pendiente:**
   - Ver estos dos arreglos en la app (la pantalla se bloqueó antes de volver a warp).
   - El paso 3 de la Tarea 6: un merge real en una PR de prueba de un repo personal.
+  - La fila de motivo dentro de la hoja (nueva tras los menores) no se ha visto en la app.

@@ -21,22 +21,40 @@ extension PullRequestStore {
                          viewerCanMerge: detail.viewerCanMerge)
     }
 
+    /// Why Merge… can't go ahead, as the banner says it; `nil` when it can.
+    var mergeBlockedReason: String? {
+        guard mergeReadiness?.canMerge != true else { return nil }
+        return mergeReadiness?.summary ?? MergeReadiness.sentence([HostMergeStatus.notAllowedYet])
+    }
+
+    /// The sheet closed: its options go, and a read still in flight lands
+    /// nowhere, so the next opening reads them afresh.
+    func discardMergeOptions() {
+        mergeOptionsGen &+= 1
+        mergeOptions = nil
+        mergeDraft = nil
+        mergeOptionsError = nil
+        isLoadingMergeOptions = false
+    }
+
     /// Reads what the merge sheet offers and starts a fresh draft: the
     /// options aren't remembered between openings.
     func prepareMerge() async {
         guard let pull = selected, let host, let detail, detail.pull.id == pull.id else { return }
+        mergeOptionsGen &+= 1
+        let gen = mergeOptionsGen
         mergeOptions = nil
         mergeDraft = nil
         mergeOptionsError = nil
         isLoadingMergeOptions = true
-        defer { if selected?.id == pull.id { isLoadingMergeOptions = false } }
+        defer { if gen == mergeOptionsGen { isLoadingMergeOptions = false } }
         let provider = makeReviewProvider(host)
         let commits = commits
         do {
             let options = try await withToken(host) { token in
                 try await provider.fetchMergeOptions(host: host, pull: detail.pull, detail: detail, commits: commits, token: token)
             }
-            guard selected?.id == pull.id else { return }
+            guard gen == mergeOptionsGen else { return }
             guard let options else {
                 mergeOptionsError = String(localized: "The account's token isn't available. Refresh the list.")
                 return
@@ -44,7 +62,7 @@ extension PullRequestStore {
             mergeOptions = options
             mergeDraft = MergeDraft(options: options)
         } catch {
-            guard selected?.id == pull.id else { return }
+            guard gen == mergeOptionsGen else { return }
             mergeOptionsError = Self.message(for: error)
         }
     }
@@ -54,9 +72,7 @@ extension PullRequestStore {
     /// list and the detail reload, and the PR stays selected.
     func merge() async -> MergeResult {
         guard let selectedPull = selected, let host, !isMerging else { return .ignored }
-        guard let readiness = mergeReadiness, readiness.canMerge else {
-            return .failed(mergeReadiness?.summary ?? MergeReadiness.sentence([HostMergeStatus.notAllowedYet]))
-        }
+        if let reason = mergeBlockedReason { return .failed(reason) }
         guard let options = mergeOptions, let draft = mergeDraft else { return .ignored }
         let pull = detail?.pull ?? selectedPull
         let input = draft.input(options: options, headSha: pull.headSha)
@@ -76,6 +92,9 @@ extension PullRequestStore {
                 keepsSelectionOutsideList = true
                 mergeDraft = nil
                 mergeOptions = nil
+                // Merged, whatever the reloads below manage to read back.
+                selected?.state = .merged
+                if detail?.pull.id == pull.id { detail?.pull.state = .merged }
             }
             await load(force: true)
             if selected?.id == pull.id {
@@ -85,8 +104,12 @@ extension PullRequestStore {
             let branchKept = input.deleteSourceBranch && !outcome.branchDeleted
             return .merged(warning: branchKept ? String(localized: "Merged \(ref), but \(pull.sourceBranch) couldn't be deleted.") : nil)
         } catch {
-            let failure = PullRequestActionError.from(error)
-            // The PR moved on the host: show what it is now. The draft stays.
+            var failure = PullRequestActionError.from(error)
+            // An open PR doesn't vanish: a 404 on merge is the host hiding
+            // what the account can't touch.
+            if failure == .changedOnHost { failure = .forbidden }
+            // The PR moved on the host: show what it is now. The sheet keeps
+            // the draft, unless new commits close it.
             switch failure {
             case .headChanged, .changedOnHost, .rejected:
                 if selected?.id == pull.id { await loadDetail() }

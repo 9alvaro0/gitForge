@@ -96,16 +96,16 @@ struct PullRequestActionsBar: View {
     @ViewBuilder
     private var mergeButton: some View {
         if showsMerge {
-            let canMerge = store.mergeReadiness?.canMerge ?? false
-            GFButton(title: String(localized: "Merge…"), style: .primary, disabled: !canMerge || store.isMerging,
-                     action: onMerge)
-                .help(mergeHelp(canMerge: canMerge))
+            GFButton(title: String(localized: "Merge…"), style: .primary,
+                     disabled: store.mergeBlockedReason != nil || store.isMerging, action: onMerge)
+                .help(mergeHelp)
         }
     }
 
-    /// Why it can't merge, as the banner says; otherwise what it does.
-    private func mergeHelp(canMerge: Bool) -> String {
-        if !canMerge, let summary = store.mergeReadiness?.summary { return summary }
+    /// Why it can't merge, as the banner says; otherwise (or while the
+    /// detail loads) what it does.
+    private var mergeHelp: String {
+        if store.mergeReadiness != nil, let reason = store.mergeBlockedReason { return reason }
         return store.host?.provider == .gitlab ? String(localized: "Merge this merge request")
                                                : String(localized: "Merge this pull request")
     }

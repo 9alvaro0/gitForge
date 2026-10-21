@@ -9,6 +9,10 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
     var statuses: [HostMergeStatus?] = [HostMergeStatus(verdict: .ready)]
     var headInSameRepo: Bool? = true
     var viewerCanMerge: Bool?
+    /// The detail of a merged PR can't be read back (the reload fails).
+    var failDetailAfterMerge = false
+    /// Holds `fetchMergeOptions` until the test opens it.
+    var optionsGate: AsyncGate?
     /// Left out of the open list, as if closed elsewhere.
     var hidden: Set<Int> = []
     var mergeErrors: [Error] = []
@@ -17,6 +21,7 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
     var outcome: MergeOutcome?
     private(set) var merged: Set<Int> = []
     private(set) var detailFetches: [Int: Int] = [:]
+    private(set) var fileFetches: [Int: Int] = [:]
     private(set) var merges: [(number: Int, input: MergeInput, token: String)] = []
     private(set) var optionFetches = 0
 
@@ -37,13 +42,17 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
         detailFetches[number, default: 0] += 1
         let status = statuses.count > 1 ? statuses.removeFirst() : statuses.first ?? nil
         let isMerged = merged.contains(number)
+        if isMerged, failDetailAfterMerge { throw PullRequestFetchError.server(500, "boom") }
         return PullRequestDetail(pull: Self.pull(number, state: isMerged ? .merged : .open), descriptionMarkdown: nil,
                                  labels: [], reviewers: [], assignees: [], mergeable: true, ciStatus: nil,
                                  hostMergeStatus: isMerged ? nil : status, headInSameRepo: headInSameRepo,
                                  viewerCanMerge: viewerCanMerge)
     }
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] { [] }
-    func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] { [] }
+    func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] {
+        fileFetches[number, default: 0] += 1
+        return []
+    }
 
     func requestChangesSupport(host: RemoteHost, token: String) async -> RequestChangesSupport { .supported }
     func submitReview(host: RemoteHost, pull: PullRequest, verdict: ReviewVerdict, body: String, token: String) async throws -> String? { nil }
@@ -51,6 +60,7 @@ private final class MergeFakeProvider: PullRequestProvider, PullRequestReviewPro
     func fetchMergeOptions(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail,
                            commits: [PullRequestCommit], token: String) async throws -> MergeOptions {
         optionFetches += 1
+        if let optionsGate { await optionsGate.wait() }
         if let optionsError { throw optionsError }
         return MergeOptions(kind: .github(methods: [.squash, .merge]), canDeleteSourceBranch: detail.headInSameRepo == true,
                             initialMethod: .squash, initialSquash: false)
@@ -110,6 +120,15 @@ struct PullRequestStoreMergeTests {
         #expect(store.mergeReadiness?.canMerge == true)
     }
 
+    @Test("The recheck reads only the detail, not the files again")
+    func recheckIsLight() async {
+        provider.statuses = [HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true),
+                             HostMergeStatus(verdict: .ready)]
+        _ = await loadedStore()
+        #expect(provider.detailFetches[1] == 2)
+        #expect(provider.fileFetches[1] == 1)
+    }
+
     @Test("Still unknown after the recheck: the recheck doesn't chain, and nothing merges")
     func recheckDoesntChain() async {
         provider.statuses = [HostMergeStatus(verdict: .waiting, reasons: ["checking mergeability…"], stillComputing: true)]
@@ -149,6 +168,29 @@ struct PullRequestStoreMergeTests {
         #expect(store.mergeDraft == MergeDraft(options: store.mergeOptions!))
         #expect(store.mergeOptionsError == nil)
         #expect(!store.isLoadingMergeOptions)
+    }
+
+    @Test("Options that arrive after the sheet closed are dropped")
+    func lateOptions() async {
+        let store = await loadedStore()
+        let gate = AsyncGate()
+        provider.optionsGate = gate
+        let preparing = Task { await store.prepareMerge() }
+        await waitUntil { gate.isWaiting }
+        store.discardMergeOptions()
+        gate.open()
+        await preparing.value
+        #expect(store.mergeOptions == nil && store.mergeDraft == nil && store.mergeOptionsError == nil)
+        #expect(!store.isLoadingMergeOptions)
+    }
+
+    @Test("The sheet can say why it can't merge once the verdict changes")
+    func blockedReason() async {
+        let store = await preparedStore()
+        #expect(store.mergeBlockedReason == nil)
+        store.detail?.hostMergeStatus = HostMergeStatus(verdict: .blocked, reasons: ["all threads must be resolved"])
+        #expect(store.mergeBlockedReason == "All threads must be resolved.")
+        #expect(await store.merge() == .failed("All threads must be resolved."))
     }
 
     @Test("Options that can't load say why")
@@ -210,6 +252,23 @@ struct PullRequestStoreMergeTests {
         #expect(provider.detailFetches[1] == fetches + 1)
         #expect(store.selected?.state == .open)
         #expect(store.items.map(\.number) == [1, 2, 3])
+    }
+
+    @Test("A 404 on merge means the account can't, not that it changed")
+    func notFound() async {
+        let store = await preparedStore()
+        provider.mergeErrors = [PullRequestFetchError.notFound]
+        #expect(await store.merge() == .failed("Your account (user-of-t1 on github.com) can't merge this pull request."))
+    }
+
+    @Test("Merged even if the reload fails: the PR reads as merged, not mergeable")
+    func mergedReloadFails() async {
+        provider.failDetailAfterMerge = true
+        let store = await preparedStore()
+        #expect(await store.merge() == .merged(warning: nil))
+        #expect(store.selected?.state == .merged)
+        #expect(store.detail?.pull.state == .merged)
+        #expect(store.mergeReadiness == nil)
     }
 
     @Test("No merge rights: says which account")

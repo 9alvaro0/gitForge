@@ -85,6 +85,9 @@ final class PullRequestStore {
     /// Just merged here: the PR stays in the detail though it left the
     /// list, until the user picks another (`pullToAutoSelect`).
     var keepsSelectionOutsideList = false
+    /// Bumped when the sheet's options are dropped (closed, another PR):
+    /// a read still in flight then lands nowhere.
+    @ObservationIgnored var mergeOptionsGen: UInt64 = 0
     /// The host may still be working mergeability out: each detail load
     /// that finds it so reads the detail once more, a moment later.
     @ObservationIgnored private(set) var mergeStatusRecheck: Task<Void, Never>?
@@ -369,11 +372,6 @@ final class PullRequestStore {
     /// list loads before any row can be selected). The first failure wins
     /// `detailError`; successful parts still render.
     func loadDetail() async {
-        await loadDetail(isRecheck: false)
-    }
-
-    /// A recheck's own load never schedules another, so it can't loop.
-    private func loadDetail(isRecheck: Bool) async {
         detailGen &+= 1
         let gen = detailGen
         guard let pr = selected, let host else { return }
@@ -424,18 +422,26 @@ final class PullRequestStore {
         if case .success(let value) = checks { self.checks = value }
         let readSupport = await support
         if gen == detailGen { requestChangesSupport = readSupport }
-        if !isRecheck { recheckMergeStatusIfComputing(gen: gen) }
+        recheckMergeStatusIfComputing(gen: gen)
     }
 
-    /// One more read, a moment later, while the host still works out an
-    /// open PR's mergeability; dropped if the detail moved on meanwhile.
+    /// One more read of the detail alone, a moment later, while the host
+    /// still works out an open PR's mergeability; dropped if the detail
+    /// moved on meanwhile. It never schedules another, so it can't loop.
     private func recheckMergeStatusIfComputing(gen: UInt64) {
         guard gen == detailGen, let detail, detail.hostMergeStatus?.stillComputing == true,
-              detail.pull.state == .open || detail.pull.state == .draft else { return }
+              detail.pull.state == .open || detail.pull.state == .draft, let host else { return }
+        let provider = makeProvider(host)
+        let number = detail.pull.number
         mergeStatusRecheck = Task { [weak self] in
             try? await Task.sleep(for: Self.mergeStatusRecheckDelay)
             guard let self, !Task.isCancelled, self.detailGen == gen else { return }
-            await self.loadDetail(isRecheck: true)
+            // The files, commits and checks already shown stay as they are.
+            let fresh = try? await self.withToken(host) { token in
+                try await provider.fetchDetail(host: host, number: number, token: token)
+            }
+            guard let fresh, !Task.isCancelled, self.detailGen == gen else { return }
+            self.detail = fresh
         }
     }
 
@@ -518,6 +524,7 @@ final class PullRequestStore {
     }
 
     private func clearMerge() {
+        mergeOptionsGen &+= 1
         mergeOptions = nil
         mergeOptionsError = nil
         isLoadingMergeOptions = false

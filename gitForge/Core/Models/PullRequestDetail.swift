@@ -3,7 +3,7 @@ import Foundation
 /// Extended view of a `PullRequest`: description, reviewers, labels, mergeability
 /// and CI status. Fetched on-demand when the user opens a row.
 nonisolated struct PullRequestDetail: Sendable, Equatable {
-    let pull: PullRequest
+    var pull: PullRequest
     let descriptionMarkdown: String?
     let labels: [String]
     var reviewers: [Reviewer]
