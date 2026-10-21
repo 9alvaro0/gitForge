@@ -80,7 +80,9 @@ extension GitLabPullRequestProvider: PullRequestReviewProvider {
     }
 
     /// The comment after a verdict that already landed: a failure is a
-    /// warning, never an error, so the verdict isn't retried.
+    /// warning, never an error, so the verdict isn't retried. It reads like
+    /// any failed write; a refusal (a 403, or GitLab's 401 while `/user`
+    /// still answers) names the account.
     private func postComment(_ body: String, host: RemoteHost, number: Int, token: String,
                              warning: (String) -> String) async -> String? {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -89,8 +91,22 @@ extension GitLabPullRequestProvider: PullRequestReviewProvider {
             _ = try await RemoteAPI.send(Self.noteRequest(host: host, number: number, body: trimmed, token: token), session: session)
             return nil
         } catch {
-            return warning((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            var failure = PullRequestActionError.from(error)
+            var account: String?
+            if failure == .forbidden || error as? PullRequestFetchError == .unauthorized {
+                account = try? await username(host: host, token: token)
+                if account != nil { failure = .forbidden }
+            }
+            return warning(failure.message(for: .comment, account: account, host: host.host, isMergeRequest: true))
         }
+    }
+
+    /// The token's username, read with the provider's session.
+    private func username(host: RemoteHost, token: String) async throws -> String {
+        let data = try await RemoteAPI.send(Self.makeRequest(url: URL(string: "\(Self.base(for: host))/user"), token: token),
+                                            session: session)
+        nonisolated struct User: Decodable { let username: String }
+        return try JSONDecoder().decode(User.self, from: data).username
     }
 
     // MARK: Requests

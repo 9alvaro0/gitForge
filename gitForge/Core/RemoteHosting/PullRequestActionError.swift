@@ -30,6 +30,9 @@ nonisolated enum PullRequestActionError: Error, Equatable, Sendable {
             return .pendingReview
         case .server(let status, let body) where [405, 406, 422].contains(status):
             return .rejected(hostMessage(fromBody: body))
+        case .server(let status, let body):
+            // The host's message, not its whole body (a proxy's HTML page).
+            return .other(PullRequestFetchError.server(status, hostMessage(fromBody: body)).localizedDescription)
         default:
             return .other(fetch.localizedDescription)
         }

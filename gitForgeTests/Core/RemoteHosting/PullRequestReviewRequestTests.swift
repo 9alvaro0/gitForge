@@ -135,6 +135,28 @@ struct GitLabReviewFlowTests {
         #expect(warning == "Approved, but the comment couldn't be posted: Server returned 500: boom")
     }
 
+    @Test("A comment the host refuses after the verdict names the account", arguments: [403, 401])
+    func noteRefused(status: Int) async throws {
+        let (server, provider, host, pull) = Self.setUp()
+        server.on("POST", "\(Self.mr)/approve", status: 201, body: Data("{}".utf8))
+        server.on("POST", "\(Self.mr)/notes", status: status, body: Data(#"{"message":"Not allowed"}"#.utf8))
+        server.on("GET", "/api/v4/user", fixture: "gitlab-user")
+        let warning = try await provider.submitReview(host: host, pull: pull, verdict: .approve, body: "LGTM", token: "t")
+        #expect(warning == "Approved, but the comment couldn't be posted: "
+                + "Your account (tanuki-test on \(server.host)) can't comment on this merge request.")
+    }
+
+    @Test("A comment the host turns down shows its message, not its JSON")
+    func noteInvalid() async throws {
+        let (server, provider, host, pull) = Self.setUp()
+        server.on("POST", "\(Self.mr)/approve", status: 201, body: Data("{}".utf8))
+        server.on("POST", "\(Self.mr)/notes", status: 400,
+                  body: Data(#"{"message":{"note":["is too long (maximum is 1000000 characters)"]}}"#.utf8))
+        let warning = try await provider.submitReview(host: host, pull: pull, verdict: .approve, body: "LGTM", token: "t")
+        #expect(warning == "Approved, but the comment couldn't be posted: "
+                + "Server returned 400: is too long (maximum is 1000000 characters)")
+    }
+
     @Test("A refused approval (GitLab's 401) with a working token reads as refused, not as a dead token")
     func approvalRefused() async {
         let (server, provider, host, pull) = Self.setUp()
