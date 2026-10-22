@@ -53,6 +53,7 @@ Lo que ya se probó está en la sección "Prueba real (2026-10-22)" de arriba. F
 
 1. Aprobar y comentar una línea en una MR real, de un repo sin clonar.
 2. Cerrar la app sin red y abrirla de verdad: la bandeja sale con la foto.
+3. Pulsar "Volver a conectar…" en el aviso de una cuenta caducada que sí tiene repos en la bandeja: se abre la hoja de conectar y, al terminar, la bandeja se refresca.
 
 ### Punto abierto de UX
 
