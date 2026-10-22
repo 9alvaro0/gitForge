@@ -170,6 +170,9 @@ struct ShellView: View {
             branches: appState.catalog.activeViewModel?.refs ?? [],
             commits: appState.catalog.activeViewModel?.history.commits ?? [],
             workingFiles: appState.catalog.activeViewModel?.workingCopy.status.files ?? [],
+            pulls: appState.reviews.searchablePulls,
+            unclonedRepos: appState.reviews.unclonedRepos,
+            instances: appState.accounts.instances,
             onPick: { action, keepOpen in
                 if !keepOpen { appState.ui.commandPaletteOpen = false }
                 router.route(action)

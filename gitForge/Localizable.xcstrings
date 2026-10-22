@@ -10468,6 +10468,22 @@
         }
       }
     },
+    "Open %@ %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir %@ %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir %@ %@"
+          }
+        }
+      }
+    },
     "Open Clone…" : {
       "localizations" : {
         "es" : {

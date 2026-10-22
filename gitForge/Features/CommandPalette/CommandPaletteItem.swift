@@ -49,6 +49,14 @@ enum PaletteAction: Hashable {
     case revealBranch(GitRef)
     /// Changes, with this file's diff open.
     case revealFile(path: String)
+    /// Reviews, with this pull request selected.
+    case openPull(id: InboxPull.ID)
+    /// Reviews, narrowed to this followed repo (a key of `ReviewRepo.id`).
+    case showReviews(repoKey: String)
+    /// Reviews, with the pull request a pasted link points to opened.
+    case openPullLink(PullRequestLink)
+    /// The sheet that adds a pasted link's host as an instance of this kind.
+    case addInstance(kind: HostingInstance.Kind, host: String)
     case fetch
     case pull
     case push
@@ -59,7 +67,7 @@ enum PaletteAction: Hashable {
     /// the palette for these, or it would sit on top of what they show.
     var presentsUI: Bool {
         switch self {
-        case .openRepository, .cloneRepository: true
+        case .openRepository, .cloneRepository, .addInstance: true
         default: false
         }
     }

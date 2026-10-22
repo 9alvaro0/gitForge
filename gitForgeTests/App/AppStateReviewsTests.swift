@@ -200,6 +200,28 @@ struct AppStateReviewsTests {
         #expect(weakApp == nil)
     }
 
+    // MARK: Snapshot
+
+    private static func snapshotRepo() -> ReviewRepo {
+        let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
+        return ReviewRepo(host: RemoteHost.make(fullName: "apps/payments/backend/ledger", on: instance)!,
+                          accountId: UUID(), sources: [], lastActivity: nil,
+                          cloneURL: "https://gitlab.example.test/apps/payments/backend/ledger.git", localURL: nil)
+    }
+
+    @Test("The inbox loads from the snapshot store the app state was given")
+    func givenSnapshots() {
+        let store = ReviewsSnapshotStore(directory: TemporaryDirectories.make("gitForge-snapshot"))
+        let repo = Self.snapshotRepo()
+        store.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion, savedAt: Date(timeIntervalSince1970: 1_790_000_000),
+                                   repos: [repo], pulls: [:], memberships: [:], logins: [:]))
+        let app = AppState.isolated(reviewsSnapshots: store)
+
+        app.reviews.loadSnapshot()
+
+        #expect(app.reviews.repos.map(\.id) == [repo.id])
+    }
+
     // MARK: Open in repository
 
     @Test("Open in repository makes the clone active, goes to its Pull requests and asks for the pull request there")
