@@ -14,7 +14,8 @@ final class ReviewsLocked<Value>: @unchecked Sendable {
 }
 
 /// Scripted host: open lists and failures by `owner/repo`, tokens it
-/// rejects, and a log of what was read.
+/// rejects, detail reads that fail by token or wait on a gate, and a log of
+/// what was read.
 final class ReviewsFakeProvider: PullRequestProvider, PullRequestReviewProvider, Sendable {
     struct State {
         var lists: [String: [PullRequest]] = [:]
@@ -30,6 +31,12 @@ final class ReviewsFakeProvider: PullRequestProvider, PullRequestReviewProvider,
         var running = 0
         var mostRunning = 0
         var userReads = 0
+        /// What a detail read with a token throws, by token.
+        var detailFailures: [String: PullRequestFetchError] = [:]
+        /// Holds the detail read of a number until its gate opens.
+        var detailGates: [Int: AsyncGate] = [:]
+        /// Calls to `fetchDetail`.
+        var detailReads = 0
     }
 
     let state = ReviewsLocked(State())
@@ -59,9 +66,16 @@ final class ReviewsFakeProvider: PullRequestProvider, PullRequestReviewProvider,
     func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] { [] }
     func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] { [] }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
-        guard let pull = state({ $0.lists[host.slug]?.first { $0.number == number } }) else {
-            throw PullRequestFetchError.notFound
+        let gate = state { state in
+            state.detailReads += 1
+            return state.detailGates[number]
         }
+        if let gate { await gate.wait() }
+        let found = try state { state in
+            if let error = state.detailFailures[token] { throw error }
+            return state.lists[host.slug]?.first { $0.number == number }
+        }
+        guard let pull = found else { throw PullRequestFetchError.notFound }
         return PullRequestDetail(pull: pull, descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [],
                                  mergeable: true, ciStatus: nil)
     }

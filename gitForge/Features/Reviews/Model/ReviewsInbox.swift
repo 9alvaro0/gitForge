@@ -21,7 +21,10 @@ nonisolated struct InboxPull: Identifiable, Equatable, Sendable {
     let repo: ReviewRepo
     let pull: PullRequest
 
-    var id: String { "\(repo.id)#\(pull.number)" }
+    var id: String { Self.id(repoKey: repo.id, number: pull.number) }
+
+    /// The id of pull request `number` in the repo whose key is `repoKey`.
+    static func id(repoKey: String, number: Int) -> String { "\(repoKey)#\(number)" }
 }
 
 /// A repo's rows in the inbox. `error` says why its pull requests couldn't be
@@ -36,7 +39,9 @@ nonisolated struct ReviewGroup: Identifiable, Equatable, Sendable {
 
 /// What the inbox's list shows under its header and notices.
 nonisolated enum ReviewsListContent: Equatable, Sendable {
-    case groups([ReviewGroup])
+    /// The followed repos' groups, then the pull requests opened from a
+    /// link that aren't among them (`ReviewsStore.visibleOthers`; R2 Ruling 9).
+    case groups([ReviewGroup], others: [InboxPull] = [])
     /// A read is running, there's nothing to show yet and some repo hasn't
     /// been read (or none is followed yet).
     case loading
@@ -85,4 +90,22 @@ nonisolated struct ReviewDetailState: Equatable, Sendable {
     private var isListed: Bool {
         isMerging || state == .open || state == .draft
     }
+}
+
+/// The link `ReviewsStore.openLink` is reading: the detail column names it
+/// while it loads (R2 Ruling 11).
+nonisolated struct PendingLink: Equatable, Sendable {
+    let host: RemoteHost
+    let number: Int
+}
+
+/// What opening a pull request's link came to (R2 Rulings 10 and 11).
+nonisolated enum LinkOpenOutcome: Equatable, Sendable {
+    /// A row of the inbox, a followed one or an Other.
+    case opened(InboxPull.ID)
+    /// No account of that instance could read it, and connecting one may:
+    /// there's none, or one must be connected again.
+    case connectAccount(instanceId: UUID)
+    /// Why it couldn't be opened.
+    case failed(String)
 }

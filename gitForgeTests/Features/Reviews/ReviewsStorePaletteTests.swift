@@ -83,6 +83,36 @@ struct ReviewsStorePaletteTests {
         #expect(store.groups.first?.error == PullRequestStore.message(for: PullRequestFetchError.notFound))
     }
 
+    @Test("Narrowed to a repo known to be empty, a refresh shows the empty state while another repo is still unread")
+    func repoFilterEmptyNotLoading() async {
+        let harness = ReviewsHarness.twoRepos()
+        // No activity in team/api yet: only the clone is followed, and it has nothing open.
+        harness.activity.state { $0.hits = [] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        store.showRepo(Self.app)
+        #expect(store.listContent == .empty)
+
+        // The next round adopts team/api, whose read is still on its way.
+        let reading = AsyncGate()
+        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("2"), at: ReviewsHarness.date(1_789_000_000))] }
+        harness.provider.state {
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
+            $0.gates["team/api"] = reading
+        }
+        let round = Task { await store.refresh(force: true) }
+        await reading.waiting()
+        #expect(store.isRefreshing)
+        #expect(store.pulls[Self.api] == nil)
+        #expect(store.listContent == .empty)
+        // The whole inbox does wait for team/api.
+        store.repoFilter = nil
+        #expect(store.listContent == .loading)
+
+        reading.open()
+        await round.value
+    }
+
     @Test("Showing a repo keeps the selection if it's one of its pull requests, whichever half, and drops it if not")
     func repoFilterKeepsSelectionInRepo() async {
         let (store, _) = await Self.loaded()

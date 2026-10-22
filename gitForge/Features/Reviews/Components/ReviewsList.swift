@@ -108,7 +108,7 @@ struct ReviewsList: View {
         case .empty:
             EmptyState(symbol: "arrow.triangle.pull",
                        title: String(localized: "No open pull requests in the repositories you follow."))
-        case .groups(let groups):
+        case .groups(let groups, _):
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
                     ForEach(groups) { group in
