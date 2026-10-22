@@ -144,13 +144,15 @@ final class PullRequestStore {
     /// The host may still be working mergeability out: each detail load
     /// that finds it so reads the detail once more, a moment later.
     @ObservationIgnored private(set) var mergeStatusRecheck: Task<Void, Never>?
-    static var mergeStatusRecheckDelay: Duration = .seconds(3)
+    // The timings below are per store, so tests can shorten them on their
+    // own store without racing other suites over shared state.
+    @ObservationIgnored var mergeStatusRecheckDelay: Duration = .seconds(3)
     /// While the open PR's CI runs, or the host says it's waiting, its
     /// checks and merge status are read again this often…
-    static var checksPollInterval: Duration = .seconds(20)
+    @ObservationIgnored var checksPollInterval: Duration = .seconds(20)
     /// …at most this many times per load of the PR, so a check stuck in a
     /// queue doesn't keep reading the host.
-    static var checksPollLimit = 45
+    @ObservationIgnored var checksPollLimit = 45
     @ObservationIgnored private var checksPollsLeft = 0
     /// The host works the merge status out again a moment after the checks
     /// finish: while it still says blocked, it's read this many more times.
@@ -492,7 +494,7 @@ final class PullRequestStore {
         }
 
         guard gen == detailGen else { return }
-        checksPollsLeft = Self.checksPollLimit
+        checksPollsLeft = checksPollLimit
         settleReadsLeft = 0
         switch detail {
         case .success(let value):
@@ -544,8 +546,9 @@ final class PullRequestStore {
     private func recheckMergeStatusIfComputing(gen: UInt64) {
         guard gen == detailGen, let detail, detail.hostMergeStatus?.stillComputing == true,
               detail.pull.state == .open || detail.pull.state == .draft else { return }
+        let delay = mergeStatusRecheckDelay
         mergeStatusRecheck = Task { [weak self] in
-            try? await Task.sleep(for: Self.mergeStatusRecheckDelay)
+            try? await Task.sleep(for: delay)
             guard let self, !Task.isCancelled, self.detailGen == gen else { return }
             await self.rereadStatus(gen: gen)
         }
@@ -557,7 +560,7 @@ final class PullRequestStore {
     /// the detail view ties it to being on screen.
     func pollWhileRunning() async {
         while !Task.isCancelled {
-            try? await Task.sleep(for: Self.checksPollInterval)
+            try? await Task.sleep(for: checksPollInterval)
             guard !Task.isCancelled else { return }
             guard checksPollsLeft > 0, isStatusPending else { continue }
             checksPollsLeft -= 1
