@@ -61,4 +61,11 @@ struct RepositoryViewModelSubtitleTests {
     func conflictClean() {
         #expect(Self.makeVM().toolbarSubtitle(for: .conflict) == "main")
     }
+
+    @Test("Reviews shows no branch: the inbox belongs to no repository")
+    func reviewsSubtitle() {
+        let vm = Self.makeVM()
+        vm.aheadCount = 2
+        #expect(vm.toolbarSubtitle(for: .reviews) == "")
+    }
 }

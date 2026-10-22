@@ -32,6 +32,28 @@ private final class FakeProvider: PullRequestProvider, @unchecked Sendable {
     func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] { [] }
 }
 
+/// Review writes that do nothing: the detail a selection opens reads its
+/// threads and the Request changes support through them.
+private struct InertReviews: PullRequestReviewProvider {
+    func requestChangesSupport(host: RemoteHost, token: String) async -> RequestChangesSupport { .supported }
+    func submitReview(host: RemoteHost, pull: PullRequest, verdict: ReviewVerdict,
+                      body: String, token: String) async throws -> String? { nil }
+    func fetchMergeOptions(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail,
+                           commits: [PullRequestCommit], token: String) async throws -> MergeOptions {
+        throw PullRequestFetchError.notFound
+    }
+    func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome {
+        throw PullRequestFetchError.notFound
+    }
+    func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?,
+                      token: String) async throws -> [ReviewThread] { [] }
+    func addComment(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, target: CommentTarget,
+                    body: String, token: String) async throws {}
+    func reply(host: RemoteHost, pull: PullRequest, thread: ReviewThread, body: String, token: String) async throws {}
+    func setResolved(_ resolved: Bool, host: RemoteHost, pull: PullRequest, thread: ReviewThread,
+                     token: String) async throws {}
+}
+
 @Suite("PullRequestStore — without a local repository", .serialized)
 @MainActor
 struct PullRequestStoreRemoteTests {
@@ -130,5 +152,43 @@ struct PullRequestStoreRemoteTests {
         store.selected = Self.pr(1)
         #expect(store.pullToAutoSelect()?.number == 7)
         #expect(store.pendingSelectionNumber == nil)
+    }
+
+    @Test("A PR asked for that the list already shows opens at once, with nothing left pending")
+    func requestedShownNow() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1), Self.pr(2)]
+        let host = Self.host
+        let store = PullRequestStore(cli: nil, auth: { _, _ in .token("t") }, resolveHost: { host },
+                                     makeProvider: { _ in provider }, makeReviewProvider: { _ in InertReviews() })
+        await store.load(force: true)
+        store.selected = Self.pr(1)
+
+        store.requestSelection(number: 2)
+
+        #expect(store.selected?.number == 2)
+        #expect(store.pendingSelectionNumber == nil)
+        // A later reload doesn't jump back to it after the user moves on.
+        store.selected = Self.pr(1)
+        await store.load(force: true)
+        #expect(store.pullToAutoSelect() == nil)
+    }
+
+    @Test("A PR asked for that the list doesn't show yet waits for it")
+    func requestedLater() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1)]
+        let host = Self.host
+        let store = PullRequestStore(cli: nil, auth: { _, _ in .token("t") }, resolveHost: { host },
+                                     makeProvider: { _ in provider })
+        await store.load(force: true)
+
+        store.requestSelection(number: 7)
+
+        #expect(store.selected == nil)
+        #expect(store.pendingSelectionNumber == 7)
+        provider.open = [Self.pr(1), Self.pr(7)]
+        await store.load(force: true)
+        #expect(store.pullToAutoSelect()?.number == 7)
     }
 }

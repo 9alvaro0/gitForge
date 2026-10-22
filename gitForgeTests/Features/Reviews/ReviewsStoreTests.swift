@@ -576,4 +576,90 @@ struct ReviewsStoreTests {
         #expect(store.repos.contains { $0.host.repo == "api" })
         #expect(store.badgeCount == 1)
     }
+
+    // MARK: Selection
+
+    @Test("A selection the filter still shows stays; one it hides, or that left, goes without another taking its place")
+    func selectionHygiene() async {
+        let harness = Self.twoRepos()
+        harness.provider.state {
+            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100), Harness.pr(2, by: "marta", updated: 300)]
+            $0.lists["team/api"] = [Harness.pr(3, by: "octo", updated: 200),
+                                    Harness.pr(4, by: "octo", state: .draft, updated: 150)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let three = "gitlab.example.test/team/api#3"
+
+        store.selectedID = three
+        #expect(store.selectedItem?.pull.number == 3)
+        store.dropHiddenSelection()
+        #expect(store.selectedID == three)
+
+        // Mine doesn't show it: nothing is selected, not the first of Mine.
+        store.filter = .mine
+        #expect(store.selectedItem == nil)
+        store.dropHiddenSelection()
+        #expect(store.selectedID == nil)
+
+        // Back in Team, a pull request that leaves with a reload goes too.
+        store.filter = .team
+        store.selectedID = three
+        harness.provider.state { $0.lists["team/api"] = [Harness.pr(4, by: "octo", state: .draft, updated: 150)] }
+        await store.reload(repoKey: Harness.key("team/api"))
+        #expect(store.selectedItem == nil)
+        store.dropHiddenSelection()
+        #expect(store.selectedID == nil)
+    }
+
+    @Test("The accounts to reconnect come with their instance; the ones that sign don't")
+    func accountsToReconnect() async {
+        let harness = Self.twoRepos()
+        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+                                  status: .needsAttention(.revoked))
+        harness.accounts.append(dead)
+        let store = harness.makeStore()
+        #expect(store.accountsToReconnect.isEmpty)
+
+        await store.refresh(force: true)
+
+        #expect(store.accountsToReconnect.map(\.account.id) == [dead.id])
+        #expect(store.accountsToReconnect.map(\.instance.id) == [Harness.instance.id])
+        // Removed meanwhile: no notice for an account that's gone.
+        harness.accounts.removeLast()
+        #expect(store.accountsToReconnect.isEmpty)
+    }
+}
+
+@Suite("Reviews inbox — detail")
+struct ReviewsDetailRulesTests {
+    private static func repo(localURL: URL?) -> ReviewRepo {
+        ReviewRepo(host: RemoteHost(provider: .gitlab, host: "gitlab.example.test", owner: "apps/payments", repo: "ledger"),
+                   accountId: UUID(), sources: [.activity], lastActivity: nil,
+                   cloneURL: "https://gitlab.example.test/apps/payments/ledger.git", localURL: localURL)
+    }
+
+    @Test("A repo that isn't on this Mac offers to clone it with its clone URL; a clone, to open it")
+    func repoAction() {
+        #expect(ReviewRepoAction(Self.repo(localURL: nil)) == .clone(url: "https://gitlab.example.test/apps/payments/ledger.git"))
+        let clone = URL(fileURLWithPath: "/Users/marta/Developer/ledger")
+        #expect(ReviewRepoAction(Self.repo(localURL: clone)) == .openInRepository(clone))
+    }
+
+    @Test("Only the same pull request leaving open or draft, with its merge over, reloads its repo")
+    func leftOpen() {
+        func state(_ id: String, _ state: PullRequest.State, merging: Bool = false) -> ReviewDetailState {
+            ReviewDetailState(itemID: id, state: state, isMerging: merging)
+        }
+        #expect(ReviewDetailState.leftOpen(from: state("a#1", .open), to: state("a#1", .merged)))
+        #expect(ReviewDetailState.leftOpen(from: state("a#1", .draft), to: state("a#1", .closed)))
+        // The merge sheet is still reading the result back.
+        #expect(!ReviewDetailState.leftOpen(from: state("a#1", .open), to: state("a#1", .merged, merging: true)))
+        #expect(ReviewDetailState.leftOpen(from: state("a#1", .merged, merging: true), to: state("a#1", .merged)))
+        // Another pull request, or none.
+        #expect(!ReviewDetailState.leftOpen(from: state("a#1", .open), to: state("b#2", .merged)))
+        #expect(!ReviewDetailState.leftOpen(from: state("a#1", .open), to: nil))
+        #expect(!ReviewDetailState.leftOpen(from: nil, to: state("a#1", .merged)))
+        #expect(!ReviewDetailState.leftOpen(from: state("a#1", .open), to: state("a#1", .draft)))
+    }
 }

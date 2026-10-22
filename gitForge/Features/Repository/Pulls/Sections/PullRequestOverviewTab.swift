@@ -34,7 +34,10 @@ struct PullRequestOverviewTab: View {
         HStack(spacing: Spacing.s12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(theme.colors.warn)
-            Text("This branch conflicts with its target. Merge the target into it locally and resolve the conflicts here.")
+            // Without a repository here there is nowhere to resolve them.
+            Text(onTryLocalMerge == nil
+                 ? String(localized: "This branch conflicts with its target.")
+                 : String(localized: "This branch conflicts with its target. Merge the target into it locally and resolve the conflicts here."))
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)

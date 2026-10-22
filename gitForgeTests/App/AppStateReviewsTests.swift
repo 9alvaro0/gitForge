@@ -147,6 +147,39 @@ struct AppStateReviewsTests {
         #expect(weakApp == nil)
     }
 
+    // MARK: Open in repository
+
+    @Test("Open in repository makes the clone active, goes to its Pull requests and asks for the pull request there")
+    func openInRepository() async throws {
+        let app = AppState.isolated()
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("first", files: ["a.txt": "a\n"])
+        app.ui.workspaceSection = .reviews
+
+        await app.openPullRequest(number: 482, inRepositoryAt: repo.url)
+        defer { app.catalog.close() }
+
+        #expect(app.catalog.activeRepository?.url.resolvingSymlinksInPath().path
+                == repo.url.resolvingSymlinksInPath().path)
+        #expect(app.ui.workspaceSection == .pulls)
+        // Its list hasn't loaded: the pull request opens once it does.
+        #expect(app.catalog.activeViewModel?.pullRequests.pendingSelectionNumber == 482)
+        #expect(app.ui.presentedError == nil)
+    }
+
+    @Test("A clone that can't be opened says why and stays in Reviews")
+    func openInMissingRepository() async {
+        let app = AppState.isolated()
+        app.ui.workspaceSection = .reviews
+
+        await app.openPullRequest(number: 1, inRepositoryAt: URL(fileURLWithPath: "/nonexistent/gitforge-tests/ledger"))
+
+        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.presentedError != nil)
+        #expect(app.catalog.activeRepository == nil)
+    }
+
     // MARK: Section
 
     @Test("Reviews is a global section, not one of the repository's workspace items")

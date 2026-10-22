@@ -20,9 +20,9 @@ struct ContentRouter: View {
                           checkout: { await viewModel.checkoutPullRequestBranch() }))
         case .conflict: ConflictView(viewModel: viewModel)
         case .settings: SettingsView()
-        // Stand-in until `ReviewsView()` exists. Inside a repository so going
-        // to Reviews and back does not mount the repository again.
-        case .reviews:  Text(verbatim: "Reviews").frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Inside a repository so going to Reviews and back does not mount
+        // the repository again.
+        case .reviews:  ReviewsView(store: appState.reviews)
         }
     }
 }

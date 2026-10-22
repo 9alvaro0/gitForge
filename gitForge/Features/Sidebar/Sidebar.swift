@@ -113,6 +113,9 @@ struct Sidebar: View {
                     isActive: reviewsActive,
                     onSelect: { onSelectSection(.reviews) }
                 )
+                // The list's rows sit 8 pt further in than this inset: the
+                // same again keeps its icon and count in their columns.
+                .padding(.horizontal, Spacing.s8)
                 SidebarRepoSwitcher(
                     repositories: repositories,
                     activeRepository: activeRepository,

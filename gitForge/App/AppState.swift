@@ -216,6 +216,21 @@ final class AppState {
         }
     }
 
+    /// "Open in repository" from Reviews (R1 Ruling 13): activates the clone
+    /// at `url`, goes to its Pull requests and opens `number` there, now if
+    /// its list shows it, else once it does. A clone that can't be opened
+    /// shows why and leaves the section as it was.
+    func openPullRequest(number: Int, inRepositoryAt url: URL) async {
+        do {
+            try await openRepository(at: url)
+        } catch {
+            ui.presentedError = PresentedError(error: error)
+            return
+        }
+        ui.workspaceSection = .pulls
+        catalog.activeViewModel?.pullRequests.requestSelection(number: number)
+    }
+
     // MARK: - Clone (cross-cutting: clone + catalog + ui)
 
     /// Clones `url` into `path` (with optional `~` expansion) and opens the

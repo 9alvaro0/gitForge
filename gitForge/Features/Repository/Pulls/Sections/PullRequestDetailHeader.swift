@@ -12,6 +12,8 @@ enum HeaderLeadingAction {
 struct PullRequestDetailHeader: View {
     let pullRequest: PullRequest
     let hostLabel: String?
+    /// How the host writes the number (`!482` on GitLab); `#482` by default.
+    var reference: String? = nil
     /// `owner/repo`, ahead of the host, where the list mixes repositories.
     var repositoryLabel: String? = nil
     let commitCount: Int?
@@ -36,15 +38,15 @@ struct PullRequestDetailHeader: View {
                     buttons(compact: false)
                 }
                 VStack(alignment: .leading, spacing: Spacing.s8) {
-                    identity
+                    identityOnItsLine
                     HStack(spacing: Spacing.s8) { buttons(compact: false) }
                 }
                 VStack(alignment: .leading, spacing: Spacing.s8) {
-                    identity
+                    identityOnItsLine
                     HStack(spacing: Spacing.s8) { buttons(compact: true) }
                 }
                 VStack(alignment: .leading, spacing: Spacing.s8) {
-                    identity
+                    identityOnItsLine
                     FlowLayout(spacing: Spacing.s8) { buttons(compact: true) }
                 }
             }
@@ -64,14 +66,30 @@ struct PullRequestDetailHeader: View {
         }
     }
 
+    /// Beside the buttons: whole, so that line is only picked when it all fits.
     private var identity: some View {
+        identityContent.fixedSize()
+    }
+
+    /// On a line of its own: it takes the detail's width, and a repository
+    /// path too long for it (a nested GitLab group) is cut in the middle
+    /// rather than widening the header past the column. Its ideal width is
+    /// none, so the buttons alone decide which layout fits.
+    private var identityOnItsLine: some View {
+        identityContent.frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var identityContent: some View {
         HStack(spacing: Spacing.s8) {
             PullRequestStatePill(state: pullRequest.state)
-            Text("#\(pullRequest.number)\(identityDetail.map { " · \($0)" } ?? "")")
+                .fixedSize()
+            // Verbatim: a localized number would group its digits (#1,203).
+            Text(verbatim: "\(reference ?? "#\(pullRequest.number)")\(identityDetail.map { " · \($0)" } ?? "")")
                 .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                 .foregroundStyle(theme.colors.textTertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
-        .fixedSize()
     }
 
     /// What follows the number: the repository, when named, then the host.

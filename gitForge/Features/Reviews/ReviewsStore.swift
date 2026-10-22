@@ -97,6 +97,30 @@ final class ReviewsStore {
 
     var hasAccounts: Bool { !environment.accounts().isEmpty }
 
+    /// The accounts of `accountsNeedingAttention` with their instance, in
+    /// store order, for the inbox's "Reconnect" notices. One that was
+    /// removed meanwhile is left out.
+    var accountsToReconnect: [(account: HostingAccount, instance: HostingInstance)] {
+        guard !accountsNeedingAttention.isEmpty else { return [] }
+        return environment.accounts().filter { accountsNeedingAttention.contains($0.account.id) }
+    }
+
+    /// The selected row, while the current filter shows it.
+    var selectedItem: InboxPull? {
+        guard let selectedID else { return nil }
+        for group in groups {
+            if let item = group.pulls.first(where: { $0.id == selectedID }) { return item }
+        }
+        return nil
+    }
+
+    /// Forgets a selection the list no longer shows: it left with a refresh,
+    /// or the filter moved it to the other half. The detail then shows
+    /// nothing rather than jumping to another pull request.
+    func dropHiddenSelection() {
+        if selectedID != nil, selectedItem == nil { selectedID = nil }
+    }
+
     /// The current filter's groups, by their newest update, then the repos
     /// that failed with nothing to show (Rulings 8 and 9).
     var groups: [ReviewGroup] {

@@ -121,6 +121,7 @@ struct PullsView: View {
                         PullRequestRow(
                             pullRequest: pr,
                             hostLabel: store.host?.provider.label,
+                            reference: store.host?.provider.reference(pr.number),
                             ci: store.ciStatus(for: pr),
                             isSelected: store.selected?.id == pr.id,
                             onSelect: { store.select(pr) }

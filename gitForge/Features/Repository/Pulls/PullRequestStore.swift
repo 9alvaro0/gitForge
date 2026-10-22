@@ -448,6 +448,19 @@ final class PullRequestStore {
         pendingSelectionNumber = number
     }
 
+    /// Opens `number` now if the list shows it, else as soon as it does
+    /// (`selectWhenLoaded`). `PullsView` only picks a pending number when
+    /// its list changes or appears, so a list already showing it would
+    /// leave it pending, to jump to it on a later reload.
+    func requestSelection(number: Int) {
+        if let pull = visibleItems.first(where: { $0.number == number }) {
+            pendingSelectionNumber = nil
+            select(pull)
+        } else {
+            selectWhenLoaded(number: number)
+        }
+    }
+
     /// Open the detail pane for `pr`: clears any prior detail state and
     /// starts the parallel fetch of detail / commits / files.
     func select(_ pr: PullRequest) {

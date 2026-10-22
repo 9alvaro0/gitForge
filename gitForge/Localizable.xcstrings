@@ -889,6 +889,22 @@
         }
       }
     },
+    "%lld repositories left out (limit of 100)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld repos fuera (límite de 100)."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld repositórios de fora (limite de 100)."
+          }
+        }
+      }
+    },
     "%lld reviews pending" : {
       "localizations" : {
         "es" : {
@@ -4216,6 +4232,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ligar conta…"
+          }
+        }
+      }
+    },
+    "Connect an account to see your team's pull requests." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta una cuenta para ver las pull requests de tu equipo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligue uma conta para ver os pull requests da sua equipa."
           }
         }
       }
@@ -9907,6 +9939,22 @@
         }
       }
     },
+    "No open pull requests in the repositories you follow." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay pull requests abiertas en los repos que sigues."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não há pull requests abertos nos repositórios que segue."
+          }
+        }
+      }
+    },
     "No pull request selected." : {
       "localizations" : {
         "es" : {
@@ -10127,6 +10175,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nenhum dos pull requests abertos é seu"
+          }
+        }
+      }
+    },
+    "Not cloned" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin clonar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não clonado"
           }
         }
       }
@@ -10576,6 +10640,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abrir no editor"
+          }
+        }
+      }
+    },
+    "Open in repository" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir en el repositorio"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir no repositório"
           }
         }
       }
@@ -15307,6 +15387,22 @@
         }
       }
     },
+    "Team" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Equipo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Equipa"
+          }
+        }
+      }
+    },
     "Test" : {
       "localizations" : {
         "es" : {
@@ -16011,6 +16107,22 @@
         }
       }
     },
+    "This branch conflicts with its target." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta rama tiene conflictos con su destino."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este ramo tem conflitos com o destino."
+          }
+        }
+      }
+    },
     "This branch conflicts with its target. Merge the target into it locally and resolve the conflicts here." : {
       "localizations" : {
         "es" : {
@@ -16663,6 +16775,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Atualizado"
+          }
+        }
+      }
+    },
+    "Updated %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizado %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atualizado %@"
           }
         }
       }

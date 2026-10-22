@@ -47,6 +47,7 @@ struct PullRequestDetailView: View {
                     PullRequestDetailHeader(
                         pullRequest: pr,
                         hostLabel: store.host?.provider.label,
+                        reference: store.host?.provider.reference(pr.number),
                         repositoryLabel: showsRepository ? store.host?.slug : nil,
                         commitCount: store.commits.isEmpty ? nil : store.commits.count,
                         reviewers: store.detail?.reviewers ?? [],

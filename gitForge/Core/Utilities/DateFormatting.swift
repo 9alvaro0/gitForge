@@ -26,6 +26,24 @@ nonisolated enum DateDisplayMode: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// How long ago something was last brought up to date ("Updated 5m ago"):
+    /// `.relative`, except that the first minute reads as "now", where the
+    /// numeric style would say "in 0s" or count the seconds.
+    static func elapsed(since date: Date, reference: Date = .now) -> String {
+        guard reference.timeIntervalSince(date) >= 60 else {
+            return nowFormatter.localizedString(fromTimeInterval: 0)
+        }
+        return relative.format(date, reference: reference)
+    }
+
+    /// Says "now" for no time at all. Shared like `relativeFormatter`.
+    nonisolated(unsafe) private static let nowFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        f.dateTimeStyle = .named
+        return f
+    }()
+
     /// `2026-05-09 14:32` — ISO-like, locale-independent for stability.
     /// Stays a single shared instance because `DateFormatter` is expensive
     /// to construct and the format never changes.
