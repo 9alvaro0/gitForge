@@ -107,8 +107,11 @@ final class ReviewsStore {
     /// "Reconnect" notices. A stale token saved next to working accounts, with
     /// no repo of its own, is still in `accountsNeedingAttention` but says
     /// nothing here: there's nothing in the inbox to reconnect it for. One
-    /// whose repos are still listed (a clone assigned to it, activity repos
-    /// carried over) keeps its notice (spec §4.2). One that was removed
+    /// whose repos are still listed (activity repos carried over, a clone
+    /// assigned to it) keeps its notice (spec §4.2). A clone assigned to it
+    /// can leave, though: where the usable accounts of its instance have a
+    /// complete membership that doesn't list the repo, it isn't followed, and
+    /// the notice goes with the account's last repo. One that was removed
     /// meanwhile is left out.
     var accountsToReconnect: [(account: HostingAccount, instance: HostingInstance)] {
         guard !accountsNeedingAttention.isEmpty else { return [] }

@@ -34,7 +34,7 @@ Suite completa tras los arreglos: 1671 pasan, 0 fallan, 1 fallo esperado (15 pru
 
 - **Qué se probó y qué no:** con cuentas reales, la bandeja con un GitLab self-managed y github.com, el detalle y el diff de una MR de un repo sin clonar, la hoja de clonar con la URL rellena, "Open in repository" y la foto al volver a abrir la app. No se probó aprobar ni comentar en una MR real, ni un arranque de verdad sin red.
 - **Dos fallos encontrados y arreglados, cada uno con su test en rojo primero:** (1) con dos tokens revocados guardados (uno de GitLab.com y un duplicado del self-managed) junto a cuentas que funcionan, la bandeja enseñaba dos avisos "Reconnect your GitLab account" aunque esas cuentas no tenían ningún repo seguido; ahora el aviso sale solo para una cuenta caída que tiene algún repo seguido, y una que conserva sus repos sigue avisando (spec §4.2). (2) Con un filtro vacío (por ejemplo Mine sin nada tuyo), cada refresco cambiaba el estado vacío por el indicador de carga durante toda la ronda, cada 5 minutos y al entrar en Revisiones; ahora el indicador solo sale si hay algo por saber: aún no hay repos seguidos, o un repo sin leer cuya cuenta no está esperando reconectarse.
-- **Un proyecto open source clonado llenaba "Team" con PRs de otros (arreglado, con sus tests en rojo primero):** un proyecto público ajeno, clonado y abierto en gitForge sin ser miembro, metió 50 PRs de otras personas en "Team". Ahora un clon cuenta en Revisiones solo si alguna cuenta de su instancia es miembro, colaboradora o miembro de la organización del repo (el mismo criterio que la actividad; spec §4.1). Si no se puede saber, el clon cuenta como antes: falta la lista de pertenencia de alguna cuenta que firma (no se pudo leer) o la lista llegó al tope de páginas y puede estar incompleta. Las cuentas caducadas no cuentan para esto. Un clon que deja de contar se va de la bandeja con sus PRs, su error y su detalle, como cualquier repo.
+- **Un proyecto open source clonado llenaba "Team" con PRs de otros (arreglado, con sus tests en rojo primero):** un proyecto público ajeno, clonado y abierto en gitForge sin ser miembro, metió 50 PRs de otras personas en "Team". Ahora un clon cuenta en Revisiones solo si alguna cuenta de su instancia es miembro, colaboradora o miembro de la organización del repo (el mismo criterio que la actividad; spec §4.1). Si no se puede saber, el clon cuenta como antes: falta la lista de pertenencia de alguna cuenta que firma (no se pudo leer), o la lista llegó al tope de páginas y puede estar incompleta, o la instancia no tiene ninguna cuenta que firme. Las cuentas caducadas no cuentan para esto. Un clon que deja de contar se va de la bandeja con sus PRs, su error y su detalle, como cualquier repo.
 
 ## Desviaciones del spec
 
@@ -55,6 +55,12 @@ Lo que ya se probó está en la sección "Prueba real (2026-10-22)" de arriba. F
 1. Aprobar y comentar una línea en una MR real, de un repo sin clonar.
 2. Cerrar la app sin red y abrirla de verdad: la bandeja sale con la foto.
 3. Pulsar "Volver a conectar…" en el aviso de una cuenta caducada que sí tiene repos en la bandeja: se abre la hoja de conectar y, al terminar, la bandeja se refresca.
+
+### Para decidir con Alvaro: clones y pertenencia
+
+- **Repo recién añadido:** un repo al que te acaban de añadir, o que acabas de crear y clonar, puede tardar hasta 24 h en salir en Revisiones: la lista de pertenencia se guarda 24 h y Refrescar no se la salta. ¿Vale así, o Refrescar debería volver a leerla?
+- **Repo renombrado o movido:** un clon cuyo `origin` sigue apuntando a la ruta antigua ya no coincide con la lista de pertenencia y sale de la bandeja. ¿Se deja así, o se avisa de que ese clon tiene el `origin` desfasado?
+- **Cuenta caducada con clones:** un clon asignado a una cuenta cuyo token caducó sale de la bandeja, y con él su aviso de volver a conectar, si tus otras cuentas de esa instancia no son miembros del repo. ¿Prefieres que se quede mientras la cuenta no se reconecte?
 
 ### Punto abierto de UX
 

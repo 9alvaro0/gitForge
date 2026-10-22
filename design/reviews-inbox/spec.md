@@ -89,7 +89,7 @@ Todo lo que sigue es sobre `origin/main` después de [#22](https://github.com/9a
 Se calcula por cuenta conectada y se une sin duplicados (clave: host + ruta del repo). Las fuentes son:
 
 1. **En gitForge** (automática): los repos del catálogo cuyo `origin` está en una instancia con cuenta, y de los que alguna cuenta de esa instancia es miembro, colaborador o miembro de la organización (el mismo criterio que la actividad). Así, un proyecto open source ajeno que tienes clonado y abierto en gitForge no llena la bandeja con PRs de otros. Lo decidió Alvaro el 2026-10-22, tras la prueba real.
-   - **Si no se puede saber** (la lista de pertenencia de alguna cuenta usable de la instancia no se pudo leer, o llegó al tope de páginas y puede estar incompleta), el clon cuenta, como antes. **(decisión de Claude)**
+   - **Si no se puede saber** (la lista de pertenencia de alguna cuenta usable de la instancia no se pudo leer, o llegó al tope de páginas y puede estar incompleta, o la instancia no tiene ninguna cuenta usable), el clon cuenta, como antes. **(decisión de Claude)**
    - Las cuentas caducadas no cuentan para esto: no pueden leer la lista ni leer PRs. **(decisión de Claude)**
 2. **Actividad reciente** (automática): repos donde el usuario ha abierto, revisado o comentado PRs/MRs en los últimos **90 días** **(decisión de Claude)**. Los endpoints los elige el constructor. Por ejemplo:
    - GitLab: `/merge_requests` con `scope=created_by_me` o `reviewer_username`, más `/events` para comentarios;
