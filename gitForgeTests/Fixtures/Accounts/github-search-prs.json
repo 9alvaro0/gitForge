@@ -1,0 +1,18 @@
+{
+  "total_count": 3,
+  "incomplete_results": false,
+  "items": [
+    {"number": 42, "title": "Add offline cache", "state": "open",
+     "repository_url": "https://api.github.com/repos/octo/app",
+     "updated_at": "2026-10-15T10:20:30Z", "user": {"login": "octo"},
+     "pull_request": {"url": "https://api.github.com/repos/octo/app/pulls/42"}},
+    {"number": 37, "title": "Fix crash on launch", "state": "closed",
+     "repository_url": "https://api.github.com/repos/octo/app",
+     "updated_at": "2026-10-03T07:00:00Z", "user": {"login": "marta"},
+     "pull_request": {"url": "https://api.github.com/repos/octo/app/pulls/37"}},
+    {"number": 8, "title": "Document the parser", "state": "open",
+     "repository_url": "https://api.github.com/repos/oss/lib",
+     "updated_at": "2026-09-30T18:45:10Z", "user": {"login": "marta"},
+     "pull_request": {"url": "https://api.github.com/repos/oss/lib/pulls/8"}}
+  ]
+}
