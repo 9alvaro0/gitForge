@@ -76,6 +76,11 @@ final class ReviewsStore {
     /// The last refresh reached no repo, for lack of network.
     private(set) var lastRefreshFailed = false
     var filter: ReviewsFilter = .team
+    /// The repo the inbox is narrowed to (`ReviewRepo.id`), with the pull
+    /// requests of both halves; `nil` shows every repo, by `filter` (R2
+    /// Ruling 7). `showRepo(_:)` sets it, and a refresh that stops following
+    /// the repo clears it.
+    var repoFilter: String?
     var selectedID: InboxPull.ID?
 
     private let environment: ReviewsEnvironment
@@ -138,13 +143,15 @@ final class ReviewsStore {
     }
 
     /// The current filter's groups, by their newest update, then the repos
-    /// that failed with nothing to show (Rulings 8 and 9).
+    /// that failed with nothing to show (Rulings 8 and 9). With `repoFilter`,
+    /// only that repo's, whoever opened the pull requests (R2 Ruling 7).
     var groups: [ReviewGroup] {
         var loaded: [(group: ReviewGroup, newest: Date)] = []
         var failed: [ReviewGroup] = []
-        for repo in repos {
+        let isOneRepo = repoFilter != nil
+        for repo in repos where !isOneRepo || repo.id == repoFilter {
             let rows = (pulls[repo.id] ?? [])
-                .filter { isMine($0, accountId: repo.accountId) == (filter == .mine) }
+                .filter { isOneRepo || isMine($0, accountId: repo.accountId) == (filter == .mine) }
                 .sorted(by: Self.newerFirst)
                 .map { InboxPull(repo: repo, pull: $0) }
             if let newest = rows.first {
@@ -191,12 +198,13 @@ final class ReviewsStore {
         }
     }
 
-    private func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
+    // Not private: `ReviewsStore+Palette.swift` reads these two as well.
+    func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
         guard let login = logins[accountId], let author = pull.authorLogin else { return false }
         return author.lowercased() == login.lowercased()
     }
 
-    private static func newerFirst(_ lhs: PullRequest, _ rhs: PullRequest) -> Bool {
+    static func newerFirst(_ lhs: PullRequest, _ rhs: PullRequest) -> Bool {
         let left = lhs.updatedAt ?? .distantPast
         let right = rhs.updatedAt ?? .distantPast
         return left == right ? lhs.number > rhs.number : left > right
@@ -302,8 +310,9 @@ final class ReviewsStore {
     }
 
     /// Takes `followed` as the repos to show. One that left loses its pull
-    /// requests, its error and its detail store, as does the selection on
-    /// it; a repo now read with another account loses its detail store.
+    /// requests, its error and its detail store, as do the selection on it
+    /// and the filter by it; a repo now read with another account loses its
+    /// detail store.
     private func adopt(_ followed: FollowedSet) {
         let before = Dictionary(repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let after = Dictionary(followed.repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -319,6 +328,7 @@ final class ReviewsStore {
         if let selectedID, !after.keys.contains(where: { selectedID.hasPrefix($0 + "#") }) {
             self.selectedID = nil
         }
+        if let repoFilter, after[repoFilter] == nil { self.repoFilter = nil }
     }
 
     /// No account left: the inbox empties, with what it knew of the accounts,

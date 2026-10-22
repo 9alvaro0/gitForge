@@ -2,263 +2,20 @@ import Foundation
 import Testing
 @testable import gitForge
 
-/// A value behind a lock: the fakes are called from several reads at once.
-private final class Locked<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Value
-
-    init(_ value: Value) { self.value = value }
-
-    func callAsFunction<Result>(_ body: (inout Value) throws -> Result) rethrows -> Result {
-        try lock.withLock { try body(&value) }
-    }
-}
-
-/// Scripted host: open lists and failures by `owner/repo`, tokens it
-/// rejects, and a log of what was read.
-private final class FakeProvider: PullRequestProvider, PullRequestReviewProvider, Sendable {
-    struct State {
-        var lists: [String: [PullRequest]] = [:]
-        var failures: [String: PullRequestFetchError] = [:]
-        var failEverything: PullRequestFetchError?
-        var rejecting: Set<String> = []
-        var delay: Duration = .zero
-        /// Holds the list read of an `owner/repo` until its gate opens.
-        var gates: [String: AsyncGate] = [:]
-        var user = "marta"
-        /// The `owner/repo` of each list read.
-        var reads: [String] = []
-        var running = 0
-        var mostRunning = 0
-        var userReads = 0
-    }
-
-    let state = Locked(State())
-
-    func fetchPulls(host: RemoteHost, state list: PullListState, token: String) async throws -> [PullRequest] {
-        let (delay, gate) = state { state in
-            state.running += 1
-            state.mostRunning = max(state.mostRunning, state.running)
-            return (state.delay, state.gates[host.slug])
-        }
-        defer { state { $0.running -= 1 } }
-        if let gate { await gate.wait() }
-        if delay > .zero { try await Task.sleep(for: delay) }
-        return try state { state in
-            state.reads.append(host.slug)
-            if state.rejecting.contains(token) { throw PullRequestFetchError.unauthorized }
-            if let error = state.failEverything ?? state.failures[host.slug] { throw error }
-            return state.lists[host.slug] ?? []
-        }
-    }
-    func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String {
-        state { state in
-            state.userReads += 1
-            return state.user
-        }
-    }
-    func fetchChecks(host: RemoteHost, pull: PullRequest, token: String) async throws -> [CICheck] { [] }
-    func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] { [] }
-    func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
-        guard let pull = state({ $0.lists[host.slug]?.first { $0.number == number } }) else {
-            throw PullRequestFetchError.notFound
-        }
-        return PullRequestDetail(pull: pull, descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [],
-                                 mergeable: true, ciStatus: nil)
-    }
-    func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] { [] }
-    func fetchFiles(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestFileChange] { [] }
-
-    // The detail store's writes: nothing to write in these tests.
-    func requestChangesSupport(host: RemoteHost, token: String) async -> RequestChangesSupport { .supported }
-    func submitReview(host: RemoteHost, pull: PullRequest, verdict: ReviewVerdict,
-                      body: String, token: String) async throws -> String? { nil }
-    func fetchMergeOptions(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail,
-                           commits: [PullRequestCommit], token: String) async throws -> MergeOptions {
-        throw PullRequestFetchError.notFound
-    }
-    func merge(host: RemoteHost, pull: PullRequest, input: MergeInput, token: String) async throws -> MergeOutcome {
-        throw PullRequestFetchError.notFound
-    }
-    func fetchThreads(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?,
-                      token: String) async throws -> [ReviewThread] { [] }
-    func addComment(host: RemoteHost, pull: PullRequest, detail: PullRequestDetail?, target: CommentTarget,
-                    body: String, token: String) async throws {}
-    func reply(host: RemoteHost, pull: PullRequest, thread: ReviewThread, body: String, token: String) async throws {}
-    func setResolved(_ resolved: Bool, host: RemoteHost, pull: PullRequest, thread: ReviewThread,
-                     token: String) async throws {}
-}
-
-/// The account's repos, 50 to a page, then an empty one.
-private final class FakeBrowser: RemoteRepoBrowsing, Sendable {
-    struct State {
-        var members: [RemoteRepoSummary] = []
-        /// What a token lists instead of `members`.
-        var membersByToken: [String: [RemoteRepoSummary]] = [:]
-        /// Listed after the members of any token: the clones, when the harness makes them members.
-        var clones: [RemoteRepoSummary] = []
-        var failure: PullRequestFetchError?
-        /// Reads of the first page: one per membership listing.
-        var listings = 0
-        /// The highest page asked for.
-        var mostPages = 0
-    }
-
-    static let pageSize = RemoteRepoBrowserFactory.pageSize
-
-    let state = Locked(State())
-
-    func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary] {
-        try state { state in
-            if page == 1 { state.listings += 1 }
-            state.mostPages = max(state.mostPages, page)
-            if let failure = state.failure { throw failure }
-            let all = (state.membersByToken[token] ?? state.members) + state.clones
-            return Array(all.dropFirst((page - 1) * Self.pageSize).prefix(Self.pageSize))
-        }
-    }
-}
-
-/// Fixed hits, and the login each read was made with.
-private final class FakeActivity: ReviewActivitySource, Sendable {
-    struct State {
-        var hits: [ActivityHit] = []
-        var failure: PullRequestFetchError?
-        var logins: [String] = []
-    }
-
-    let state = Locked(State())
-
-    func recentActivity(apiBase: URL, login: String, since: Date, token: String) async throws -> [ActivityHit] {
-        try state { state in
-            state.logins.append(login)
-            if let failure = state.failure { throw failure }
-            return state.hits
-        }
-    }
-}
-
-/// Accounts on `gitlab.example.test`, their clones, the fakes, the clock
-/// and the snapshot folder; `makeStore` builds a store on them, as a launch.
-@MainActor
-private final class Harness {
-    static let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
-
-    /// In store order.
-    var accounts: [HostingAccount]
-    let provider = FakeProvider()
-    let browser = FakeBrowser()
-    let activity = FakeActivity()
-    var locals: [LocalRemote] = [] { didSet { syncClones() } }
-    /// Whether the membership also lists the clones. A clone counts only when
-    /// an account belongs to its repo, so a test about something else keeps
-    /// this on; the membership tests turn it off and list their own members
-    /// in `browser`.
-    var clonesAreMembers = true { didSet { syncClones() } }
-    /// The token an account gets instead of the one `answer` gives, by account id.
-    var tokenFor: [UUID: PullRequestAuthResult] = [:]
-    /// Holds `localRemotes` until opened, when set.
-    var localsGate: AsyncGate?
-    /// Calls to `localRemotes`.
-    private(set) var localReads = 0
-    var now = Harness.date(1_790_000_000)
-    /// The token an account that signs gives; its argument is the rejected one, if any.
-    var answer: (String?) -> PullRequestAuthResult = { _ in .token("t") }
-    /// The tokens the store asked to renew.
-    private(set) var renewals: [String] = []
-    let directory = TemporaryDirectories.make("gitForge-reviews-store")
-
-    init(login: String? = "marta") {
-        accounts = [HostingAccount(instanceId: Self.instance.id, login: login, method: .oauth, status: .ok)]
-    }
-
-    /// The first account.
-    var account: HostingAccount {
-        get { accounts[0] }
-        set { accounts[0] = newValue }
-    }
-
-    func makeStore() -> ReviewsStore {
-        ReviewsStore(environment: ReviewsEnvironment(
-            accounts: { [self] in accounts.map { (account: $0, instance: Self.instance) } },
-            localRemotes: { [self] in
-                localReads += 1
-                if let localsGate { await localsGate.wait() }
-                return locals
-            },
-            token: { [self] accountId, rejected in
-                // As `AccountPullRequestAuth.access(accountId:)`: an account
-                // that doesn't sign has to be connected again.
-                if let account = accounts.first(where: { $0.id == accountId }), !AccountGitCredentials.signs(account) {
-                    return .connectAccount(instanceId: Self.instance.id, replacing: accountId)
-                }
-                if let fixed = tokenFor[accountId] { return fixed }
-                if let rejected { renewals.append(rejected) }
-                return answer(rejected)
-            },
-            makeProvider: { [provider] _ in provider },
-            makeBrowser: { [browser] _ in browser },
-            makeActivity: { [activity] _ in activity },
-            snapshots: ReviewsSnapshotStore(directory: directory),
-            now: { [self] in now },
-            makeReviewProvider: { [provider] _ in provider }))
-    }
-
-    private func syncClones() {
-        let clones = clonesAreMembers ? locals.map { Self.member("clone:\($0.host.slug)", $0.host.slug) } : []
-        browser.state { $0.clones = clones }
-    }
-
-    static func date(_ seconds: TimeInterval) -> Date { Date(timeIntervalSince1970: seconds) }
-
-    static func host(_ path: String) -> RemoteHost { RemoteHost.make(fullName: path, on: instance)! }
-
-    static func key(_ path: String) -> String { FollowedRepos.key(host(path)) }
-
-    /// A clone of `path`; `account` is the one its own Pull requests screen reads it with, if any.
-    static func local(_ path: String, account: UUID? = nil) -> LocalRemote {
-        LocalRemote(host: host(path), repository: Repository(url: URL(fileURLWithPath: "/r/\(path)"),
-                                                            lastOpenedAt: date(1_780_000_000)),
-                    assignedAccountId: account)
-    }
-
-    static func member(_ id: String, _ path: String) -> RemoteRepoSummary {
-        RemoteRepoSummary(id: id, name: String(path.split(separator: "/").last ?? ""), fullName: path,
-                          description: nil, sshURL: nil, httpsURL: "https://gitlab.example.test/\(path).git",
-                          isPrivate: true, defaultBranch: "main")
-    }
-
-    static func pr(_ number: Int, by author: String, state: PullRequest.State = .open,
-                   updated: TimeInterval) -> PullRequest {
-        PullRequest(id: "iid:\(number)", number: number, title: "MR \(number)", state: state, authorLogin: author,
-                    authorAvatarURL: nil, sourceBranch: "feature/\(number)", targetBranch: "main", webURL: nil,
-                    createdAt: date(updated), updatedAt: date(updated), headSha: nil)
-    }
-}
-
 @Suite("Reviews store")
 @MainActor
 struct ReviewsStoreTests {
-    /// A clone of team/app, and recent activity in team/api, a repo the
-    /// account belongs to.
-    private static func twoRepos(login: String? = "marta") -> Harness {
-        let harness = Harness(login: login)
-        harness.locals = [Harness.local("team/app")]
-        harness.browser.state { $0.members = [Harness.member("2", "team/api")] }
-        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("2"), at: Harness.date(1_789_000_000))] }
-        return harness
-    }
-
-    private static func reads(_ harness: Harness) -> Int { harness.provider.state { $0.reads.count } }
+    private static func reads(_ harness: ReviewsHarness) -> Int { harness.provider.state { $0.reads.count } }
 
     @Test("Groups follow their newest update, and Team and Mine split the pull requests by author")
     func groupsAndFilters() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100), Harness.pr(2, by: "marta", updated: 300)]
-            $0.lists["team/api"] = [Harness.pr(3, by: "octo", updated: 200),
-                                    Harness.pr(4, by: "octo", state: .draft, updated: 150),
-                                    Harness.pr(5, by: "marta", state: .draft, updated: 50)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100),
+                                    ReviewsHarness.pr(2, by: "marta", updated: 300)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(3, by: "octo", updated: 200),
+                                    ReviewsHarness.pr(4, by: "octo", state: .draft, updated: 150),
+                                    ReviewsHarness.pr(5, by: "marta", state: .draft, updated: 50)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -278,13 +35,14 @@ struct ReviewsStoreTests {
 
     @Test("The count is the open pull requests of others: no drafts, and the login matches in any case")
     func badge() async {
-        let harness = Harness(login: "Marta")
-        harness.locals = [Harness.local("team/app")]
+        let harness = ReviewsHarness(login: "Marta")
+        harness.locals = [ReviewsHarness.local("team/app")]
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1), Harness.pr(2, by: "lucia", updated: 2),
-                                    Harness.pr(3, by: "octo", updated: 3),
-                                    Harness.pr(4, by: "octo", state: .draft, updated: 4),
-                                    Harness.pr(5, by: "marta", updated: 5)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 1),
+                                    ReviewsHarness.pr(2, by: "lucia", updated: 2),
+                                    ReviewsHarness.pr(3, by: "octo", updated: 3),
+                                    ReviewsHarness.pr(4, by: "octo", state: .draft, updated: 4),
+                                    ReviewsHarness.pr(5, by: "marta", updated: 5)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -296,10 +54,10 @@ struct ReviewsStoreTests {
 
     @Test("A repo that answers 404 loses its pull requests and shows why, last; the other loads")
     func partialErrors() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -308,10 +66,10 @@ struct ReviewsStoreTests {
         harness.provider.state { $0.failures["team/api"] = .notFound }
         await store.refresh(force: true)
 
-        let api = Harness.key("team/api")
+        let api = ReviewsHarness.key("team/api")
         #expect(store.pulls[api] == nil)
         #expect(store.repoErrors[api] == PullRequestStore.message(for: PullRequestFetchError.notFound))
-        #expect(store.pulls[Harness.key("team/app")]?.map(\.number) == [1])
+        #expect(store.pulls[ReviewsHarness.key("team/app")]?.map(\.number) == [1])
         #expect(store.groups.map(\.repo.host.repo) == ["app", "api"])
         #expect(store.groups.last?.pulls.isEmpty == true)
         #expect(store.groups.last?.error == store.repoErrors[api])
@@ -321,25 +79,25 @@ struct ReviewsStoreTests {
 
     @Test("A server that's down or busy keeps the repo's pull requests, without an error", arguments: [500, 502, 503, 429])
     func transientServerError(code: Int) async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)] }
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)] }
         let store = harness.makeStore()
         await store.refresh(force: true)
 
         harness.provider.state { $0.failures["team/app"] = .server(code, "Service Unavailable") }
         await store.refresh(force: true)
 
-        #expect(store.pulls[Harness.key("team/app")]?.map(\.number) == [1])
+        #expect(store.pulls[ReviewsHarness.key("team/app")]?.map(\.number) == [1])
         #expect(store.repoErrors.isEmpty)
         #expect(store.badgeCount == 1)
     }
 
     @Test("Any other server error still drops the repo's pull requests and says why")
     func otherServerError() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)] }
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)] }
         let store = harness.makeStore()
         await store.refresh(force: true)
 
@@ -347,16 +105,16 @@ struct ReviewsStoreTests {
         harness.provider.state { $0.failures["team/app"] = error }
         await store.refresh(force: true)
 
-        #expect(store.pulls[Harness.key("team/app")] == nil)
-        #expect(store.repoErrors[Harness.key("team/app")] == PullRequestStore.message(for: error))
+        #expect(store.pulls[ReviewsHarness.key("team/app")] == nil)
+        #expect(store.repoErrors[ReviewsHarness.key("team/app")] == PullRequestStore.message(for: error))
     }
 
     @Test("Offline, a refresh keeps the snapshot's pull requests and its date, and says it failed")
     func offlineKeepsSnapshot() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         await harness.makeStore().refresh(force: true)
         let savedAt = harness.now
@@ -383,10 +141,10 @@ struct ReviewsStoreTests {
 
     @Test("A rejected token is renewed once and the reads retried; an account to reconnect keeps its pull requests")
     func expiredToken() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
             $0.rejecting = ["old"]
         }
         harness.answer = { rejected in .token(rejected == nil ? "old" : "new") }
@@ -401,7 +159,9 @@ struct ReviewsStoreTests {
         let accountId = harness.account.id
         harness.provider.state { $0.rejecting = ["stale"] }
         harness.answer = { rejected in
-            rejected == nil ? .token("stale") : .connectAccount(instanceId: Harness.instance.id, replacing: accountId)
+            rejected == nil
+                ? .token("stale")
+                : .connectAccount(instanceId: ReviewsHarness.instance.id, replacing: accountId)
         }
         await store.refresh(force: true)
 
@@ -419,7 +179,7 @@ struct ReviewsStoreTests {
 
     @Test("The membership is read once a day")
     func membershipCached() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         let store = harness.makeStore()
         await store.refresh(force: true)
         await store.refresh(force: true)
@@ -434,8 +194,8 @@ struct ReviewsStoreTests {
 
     @Test("Two refreshes in a row read the pull requests once, unless forced")
     func throttle() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
         let store = harness.makeStore()
         await store.refresh()
         await store.refresh()
@@ -451,8 +211,8 @@ struct ReviewsStoreTests {
 
     @Test("While a read runs and no repo is followed yet, the list shows the loading placeholder")
     func loadingBeforeAnyRepo() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
         let store = harness.makeStore()
         let reading = AsyncGate()
         harness.localsGate = reading
@@ -468,7 +228,7 @@ struct ReviewsStoreTests {
 
     @Test("A repo followed for the first time keeps the placeholder up until its pull requests land")
     func loadingForANewRepo() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         // No activity in team/api yet: only the clone is followed, and it has nothing open.
         harness.activity.state { $0.hits = [] }
         let store = harness.makeStore()
@@ -478,16 +238,16 @@ struct ReviewsStoreTests {
 
         // The next round adopts team/api, whose read is still on its way.
         let reading = AsyncGate()
-        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("2"), at: Harness.date(1_789_000_000))] }
+        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("2"), at: ReviewsHarness.date(1_789_000_000))] }
         harness.provider.state {
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
             $0.gates["team/api"] = reading
         }
         let round = Task { await store.refresh(force: true) }
         await reading.waiting()
         #expect(store.repos.map(\.host.repo).sorted() == ["api", "app"])
-        #expect(store.pulls[Harness.key("team/app")]?.isEmpty == true)
-        #expect(store.pulls[Harness.key("team/api")] == nil)
+        #expect(store.pulls[ReviewsHarness.key("team/app")]?.isEmpty == true)
+        #expect(store.pulls[ReviewsHarness.key("team/api")] == nil)
         #expect(store.listContent == .loading)
 
         reading.open()
@@ -498,9 +258,9 @@ struct ReviewsStoreTests {
 
     @Test("With rows to show, a read doesn't hide them")
     func rowsStayWhileRefreshing() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 1)] }
         let store = harness.makeStore()
         await store.refresh(force: true)
         #expect(store.groups.count == 1)
@@ -516,14 +276,14 @@ struct ReviewsStoreTests {
 
     @Test("A refresh over a filter known to be empty doesn't swap the empty state for the placeholder")
     func noFlashOverAKnownEmptyList() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 1)] }
         let store = harness.makeStore()
         // Nothing of the user's: Mine is empty once every repo has been read.
         store.filter = .mine
         await store.refresh(force: true)
-        #expect(store.pulls[Harness.key("team/app")]?.count == 1)
+        #expect(store.pulls[ReviewsHarness.key("team/app")]?.count == 1)
         #expect(store.listContent == .empty)
 
         // The next round, held at the clones and then at the read of the repo.
@@ -549,17 +309,17 @@ struct ReviewsStoreTests {
 
     @Test("A repo of an account that needs attention is never read, so it doesn't keep the placeholder up")
     func withheldRepoDoesNotKeepThePlaceholder() async {
-        let harness = Self.twoRepos()
-        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+        let harness = ReviewsHarness.twoRepos()
+        let dead = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth,
                                   status: .needsAttention(.revoked))
         harness.accounts.append(dead)
         // team/app is read with the dead account, team/api with the working one.
-        harness.locals = [Harness.local("team/app", account: dead.id)]
+        harness.locals = [ReviewsHarness.local("team/app", account: dead.id)]
         let store = harness.makeStore()
         await store.refresh(force: true)
         #expect(store.accountsNeedingAttention == [dead.id])
-        #expect(store.pulls[Harness.key("team/api")]?.isEmpty == true)
-        #expect(store.pulls[Harness.key("team/app")] == nil)
+        #expect(store.pulls[ReviewsHarness.key("team/api")]?.isEmpty == true)
+        #expect(store.pulls[ReviewsHarness.key("team/app")] == nil)
         #expect(store.repoErrors.isEmpty)
         #expect(store.listContent == .empty)
 
@@ -577,7 +337,7 @@ struct ReviewsStoreTests {
     @Test("Once a refresh that found no repo to follow ends, the list shows the empty state, not the placeholder")
     func emptyStateOnceARefreshWithNoReposEnds() async {
         // A connected account with no clones and no recent activity.
-        let harness = Harness()
+        let harness = ReviewsHarness()
         let store = harness.makeStore()
 
         await store.refresh(force: true)
@@ -589,11 +349,11 @@ struct ReviewsStoreTests {
 
     @Test("Without accounts a refresh reads no clones and writes nothing, and doesn't hold back the first with one")
     func noAccounts() async {
-        let harness = Harness()
+        let harness = ReviewsHarness()
         let account = harness.account
         harness.accounts = []
-        harness.locals = [Harness.local("team/app")]
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        harness.locals = [ReviewsHarness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 1)] }
         let store = harness.makeStore()
         await store.refresh(force: true)
         await store.refresh(force: true)
@@ -612,10 +372,10 @@ struct ReviewsStoreTests {
 
     @Test("When the last account goes, a refresh empties the inbox and saves it once")
     func lastAccountRemoved() async throws {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -649,30 +409,32 @@ struct ReviewsStoreTests {
 
     @Test("Reloading a repo after a merge drops the merged pull request and lowers the count")
     func reloadAfterMerge() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100), Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100),
+                                    ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
         #expect(store.badgeCount == 2)
 
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(2, by: "octo", updated: 200)] }
-        await store.reload(repoKey: Harness.key("team/app"))
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)] }
+        await store.reload(repoKey: ReviewsHarness.key("team/app"))
 
         #expect(store.groups.flatMap(\.pulls).map(\.pull.number) == [2])
         #expect(store.badgeCount == 1)
         let onDisk = ReviewsSnapshotStore(directory: harness.directory).load()
-        #expect(onDisk?.pulls[Harness.key("team/app")]?.map(\.number) == [2])
+        #expect(onDisk?.pulls[ReviewsHarness.key("team/app")]?.map(\.number) == [2])
     }
 
     @Test("A new store shows the last snapshot's groups before reading anything")
     func snapshotOnLaunch() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100), Harness.pr(2, by: "marta", updated: 300)]
-            $0.lists["team/api"] = [Harness.pr(3, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100),
+                                    ReviewsHarness.pr(2, by: "marta", updated: 300)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(3, by: "octo", updated: 200)]
         }
         let first = harness.makeStore()
         await first.refresh(force: true)
@@ -693,10 +455,11 @@ struct ReviewsStoreTests {
 
     @Test("Opening a pull request selects it in its repo's detail store, which loads it and is reused")
     func openDetail() async {
-        let harness = Harness()
-        harness.locals = [Harness.local("team/app")]
+        let harness = ReviewsHarness()
+        harness.locals = [ReviewsHarness.local("team/app")]
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100), Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100),
+                                    ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -720,11 +483,13 @@ struct ReviewsStoreTests {
 
     @Test("At most six lists are read at once, and every repo is read")
     func concurrencyLimit() async {
-        let harness = Harness()
-        harness.locals = (0..<10).map { Harness.local("team/repo\($0)") }
+        let harness = ReviewsHarness()
+        harness.locals = (0..<10).map { ReviewsHarness.local("team/repo\($0)") }
         harness.provider.state { state in
             state.delay = .milliseconds(20)
-            for index in 0..<10 { state.lists["team/repo\(index)"] = [Harness.pr(index + 1, by: "octo", updated: 1)] }
+            for index in 0..<10 {
+                state.lists["team/repo\(index)"] = [ReviewsHarness.pr(index + 1, by: "octo", updated: 1)]
+            }
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -736,10 +501,10 @@ struct ReviewsStoreTests {
 
     @Test("A refresh cancelled while it reads the clones commits nothing, in memory or on disk")
     func cancelledRefreshCommitsNothing() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -770,7 +535,7 @@ struct ReviewsStoreTests {
 
         // The cancelled round didn't count for the throttle.
         harness.localsGate = nil
-        harness.locals = [Harness.local("team/app")]
+        harness.locals = [ReviewsHarness.local("team/app")]
         harness.now = harness.now.addingTimeInterval(10)
         await store.refresh()
         #expect(Self.reads(harness) == reads + 2)
@@ -778,10 +543,10 @@ struct ReviewsStoreTests {
 
     @Test("An account that needs attention keeps its repos and pull requests across refreshes, flagged")
     func needsAttentionKeepsRepos() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -804,13 +569,13 @@ struct ReviewsStoreTests {
 
     @Test("A repo with no assignment and no owner's login goes to the usable account, not a dead one before it")
     func usableAccountFirst() async {
-        let harness = Harness()
+        let harness = ReviewsHarness()
         let usable = harness.account
-        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+        let dead = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth,
                                   status: .needsAttention(.expired))
         harness.accounts = [dead, usable]
-        harness.locals = [Harness.local("team/app")]
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "lucia", updated: 1)] }
+        harness.locals = [ReviewsHarness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "lucia", updated: 1)] }
         let store = harness.makeStore()
         await store.refresh(force: true)
 
@@ -821,10 +586,11 @@ struct ReviewsStoreTests {
 
     @Test("Without a stored login, the login is read once per session and drives the activity")
     func loginLookedUpOnce() async {
-        let harness = Self.twoRepos(login: nil)
+        let harness = ReviewsHarness.twoRepos(login: nil)
         harness.provider.state {
             $0.user = "marta"
-            $0.lists["team/api"] = [Harness.pr(1, by: "marta", updated: 1), Harness.pr(2, by: "octo", updated: 2)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(1, by: "marta", updated: 1),
+                                    ReviewsHarness.pr(2, by: "octo", updated: 2)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -842,15 +608,18 @@ struct ReviewsStoreTests {
     /// Clones of team/app (one open pull request) and oss/big (three), none of
     /// them the user's. The account belongs to `members` and nothing else;
     /// the clones are not members unless listed.
-    private static func twoClones(members: [String]) -> Harness {
-        let harness = Harness()
+    private static func twoClones(members: [String]) -> ReviewsHarness {
+        let harness = ReviewsHarness()
         harness.clonesAreMembers = false
-        harness.locals = [Harness.local("team/app"), Harness.local("oss/big")]
-        harness.browser.state { $0.members = members.enumerated().map { Harness.member("m\($0.offset)", $0.element) } }
+        harness.locals = [ReviewsHarness.local("team/app"), ReviewsHarness.local("oss/big")]
+        harness.browser.state {
+            $0.members = members.enumerated().map { ReviewsHarness.member("m\($0.offset)", $0.element) }
+        }
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["oss/big"] = [Harness.pr(2, by: "lucia", updated: 200), Harness.pr(3, by: "jon", updated: 300),
-                                   Harness.pr(4, by: "ana", updated: 400)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["oss/big"] = [ReviewsHarness.pr(2, by: "lucia", updated: 200),
+                                   ReviewsHarness.pr(3, by: "jon", updated: 300),
+                                   ReviewsHarness.pr(4, by: "ana", updated: 400)]
         }
         return harness
     }
@@ -858,7 +627,7 @@ struct ReviewsStoreTests {
     /// `count` repos of other people, none of them a clone.
     private static func fillers(_ count: Int) -> [String] { (0..<count).map { "org/repo-\($0)" } }
 
-    private static func savedMembership(_ harness: Harness) -> MembershipCache? {
+    private static func savedMembership(_ harness: ReviewsHarness) -> MembershipCache? {
         ReviewsSnapshotStore(directory: harness.directory).load()?.memberships[harness.account.id]
     }
 
@@ -871,7 +640,7 @@ struct ReviewsStoreTests {
         #expect(store.repos.map(\.host.repo) == ["app"])
         #expect(store.repos.first?.sources == [.local])
         #expect(harness.provider.state { $0.reads } == ["team/app"])
-        #expect(store.pulls[Harness.key("oss/big")] == nil)
+        #expect(store.pulls[ReviewsHarness.key("oss/big")] == nil)
         #expect(store.groups.map(\.repo.host.repo) == ["app"])
         #expect(store.badgeCount == 1)
         #expect(Self.savedMembership(harness)?.isComplete == true)
@@ -892,7 +661,7 @@ struct ReviewsStoreTests {
         let harness = Self.twoClones(members: ["team/app", "oss/big"])
         let store = harness.makeStore()
         await store.refresh(force: true)
-        let big = Harness.key("oss/big")
+        let big = ReviewsHarness.key("oss/big")
         #expect(store.repos.count == 2)
         #expect(store.badgeCount == 4)
         store.selectedID = "gitlab.example.test/oss/big#3"
@@ -904,7 +673,7 @@ struct ReviewsStoreTests {
 
         // A day later the membership is read again, and it no longer lists oss/big.
         harness.now = harness.now.addingTimeInterval(25 * 3600)
-        harness.browser.state { $0.members = [Harness.member("m0", "team/app")] }
+        harness.browser.state { $0.members = [ReviewsHarness.member("m0", "team/app")] }
         await store.refresh(force: true)
 
         #expect(store.repos.map(\.host.repo) == ["app"])
@@ -931,7 +700,7 @@ struct ReviewsStoreTests {
 
     @Test("A clone is followed when the membership reached the page cap, since the list may be incomplete")
     func membershipAtThePageCapKeepsTheClones() async {
-        let harness = Self.twoClones(members: Self.fillers(ReviewsStore.membershipPages * FakeBrowser.pageSize))
+        let harness = Self.twoClones(members: Self.fillers(ReviewsStore.membershipPages * ReviewsFakeBrowser.pageSize))
         let store = harness.makeStore()
         await store.refresh(force: true)
 
@@ -950,7 +719,7 @@ struct ReviewsStoreTests {
     @Test("A list that ends on an empty page just before the cap is complete, so it filters")
     func membershipJustUnderThePageCapFilters() async {
         // Nine full pages, then the tenth comes back empty.
-        let members = Self.fillers((ReviewsStore.membershipPages - 1) * FakeBrowser.pageSize - 1) + ["team/app"]
+        let members = Self.fillers((ReviewsStore.membershipPages - 1) * ReviewsFakeBrowser.pageSize - 1) + ["team/app"]
         let harness = Self.twoClones(members: members)
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -966,7 +735,7 @@ struct ReviewsStoreTests {
     func deadAccountDoesNotMakeTheInstanceUnknown() async {
         let harness = Self.twoClones(members: ["team/app"])
         let usable = harness.account
-        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+        let dead = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth,
                                   status: .needsAttention(.revoked))
         harness.accounts.append(dead)
         let store = harness.makeStore()
@@ -992,12 +761,12 @@ struct ReviewsStoreTests {
     func membersOfSeveralAccountsAreJoined() async {
         let harness = Self.twoClones(members: [])
         let first = harness.account
-        let second = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth, status: .ok)
+        let second = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth, status: .ok)
         harness.accounts.append(second)
         harness.tokenFor = [first.id: .token("first"), second.id: .token("second")]
         harness.browser.state {
-            $0.membersByToken = ["first": [Harness.member("m0", "team/app")],
-                                 "second": [Harness.member("m1", "oss/big")]]
+            $0.membersByToken = ["first": [ReviewsHarness.member("m0", "team/app")],
+                                 "second": [ReviewsHarness.member("m1", "oss/big")]]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -1015,11 +784,11 @@ struct ReviewsStoreTests {
     func oneUnreadableListMakesTheInstanceUnknown() async {
         let harness = Self.twoClones(members: [])
         let first = harness.account
-        let second = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth, status: .ok)
+        let second = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth, status: .ok)
         harness.accounts.append(second)
         // The second account's token can't be had for now (offline), so its list isn't read.
         harness.tokenFor = [first.id: .token("first"), second.id: .failed("offline")]
-        harness.browser.state { $0.membersByToken = ["first": [Harness.member("m0", "team/app")]] }
+        harness.browser.state { $0.membersByToken = ["first": [ReviewsHarness.member("m0", "team/app")]] }
         let store = harness.makeStore()
         await store.refresh(force: true)
 
@@ -1028,9 +797,11 @@ struct ReviewsStoreTests {
 
     /// Saves a snapshot that holds only the account's membership, as an earlier
     /// build wrote it: no word on whether the list is complete.
-    private static func seedMembership(_ harness: Harness, repos: [String]) throws {
+    private static func seedMembership(_ harness: ReviewsHarness, repos: [String]) throws {
         let cached = MembershipCache(fetchedAt: harness.now.addingTimeInterval(-3600),
-                                     repos: repos.enumerated().map { Harness.member("c\($0.offset)", $0.element) })
+                                     repos: repos.enumerated().map {
+                                         ReviewsHarness.member("c\($0.offset)", $0.element)
+                                     })
         let snapshot = ReviewsSnapshot(version: ReviewsSnapshot.currentVersion,
                                        savedAt: harness.now.addingTimeInterval(-3600), repos: [], pulls: [:],
                                        memberships: [harness.account.id: cached], logins: [:])
@@ -1069,11 +840,12 @@ struct ReviewsStoreTests {
 
     @Test("A selection the filter still shows stays; one it hides, or that left, goes without another taking its place")
     func selectionHygiene() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100), Harness.pr(2, by: "marta", updated: 300)]
-            $0.lists["team/api"] = [Harness.pr(3, by: "octo", updated: 200),
-                                    Harness.pr(4, by: "octo", state: .draft, updated: 150)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100),
+                                    ReviewsHarness.pr(2, by: "marta", updated: 300)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(3, by: "octo", updated: 200),
+                                    ReviewsHarness.pr(4, by: "octo", state: .draft, updated: 150)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
@@ -1093,8 +865,10 @@ struct ReviewsStoreTests {
         // Back in Team, a pull request that leaves with a reload goes too.
         store.filter = .team
         store.selectedID = three
-        harness.provider.state { $0.lists["team/api"] = [Harness.pr(4, by: "octo", state: .draft, updated: 150)] }
-        await store.reload(repoKey: Harness.key("team/api"))
+        harness.provider.state {
+            $0.lists["team/api"] = [ReviewsHarness.pr(4, by: "octo", state: .draft, updated: 150)]
+        }
+        await store.reload(repoKey: ReviewsHarness.key("team/api"))
         #expect(store.selectedItem == nil)
         store.dropHiddenSelection()
         #expect(store.selectedID == nil)
@@ -1102,12 +876,12 @@ struct ReviewsStoreTests {
 
     @Test("The accounts to reconnect come with their instance; the ones that sign don't")
     func accountsToReconnect() async {
-        let harness = Self.twoRepos()
-        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+        let harness = ReviewsHarness.twoRepos()
+        let dead = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth,
                                   status: .needsAttention(.revoked))
         harness.accounts.append(dead)
         // The clone of team/app is read with the dead account: its repo stays listed.
-        harness.locals = [Harness.local("team/app", account: dead.id)]
+        harness.locals = [ReviewsHarness.local("team/app", account: dead.id)]
         let store = harness.makeStore()
         #expect(store.accountsToReconnect.isEmpty)
 
@@ -1115,7 +889,7 @@ struct ReviewsStoreTests {
 
         #expect(store.repos.first { $0.host.repo == "app" }?.accountId == dead.id)
         #expect(store.accountsToReconnect.map(\.account.id) == [dead.id])
-        #expect(store.accountsToReconnect.map(\.instance.id) == [Harness.instance.id])
+        #expect(store.accountsToReconnect.map(\.instance.id) == [ReviewsHarness.instance.id])
         // Removed meanwhile: no notice for an account that's gone.
         harness.accounts.removeLast()
         #expect(store.accountsToReconnect.isEmpty)
@@ -1123,8 +897,8 @@ struct ReviewsStoreTests {
 
     @Test("A dead account that owns no followed repo needs attention but gets no reconnect notice")
     func deadAccountWithoutReposHasNoNotice() async {
-        let harness = Self.twoRepos()
-        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+        let harness = ReviewsHarness.twoRepos()
+        let dead = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "octo", method: .oauth,
                                   status: .needsAttention(.revoked))
         harness.accounts.append(dead)
         let store = harness.makeStore()
@@ -1139,10 +913,10 @@ struct ReviewsStoreTests {
 
     @Test("An account that goes dead keeps its notice while its repos stay, until it's connected again")
     func carriedOverReposKeepTheNotice() async {
-        let harness = Self.twoRepos()
+        let harness = ReviewsHarness.twoRepos()
         harness.provider.state {
-            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
-            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(2, by: "octo", updated: 200)]
         }
         let store = harness.makeStore()
         await store.refresh(force: true)
