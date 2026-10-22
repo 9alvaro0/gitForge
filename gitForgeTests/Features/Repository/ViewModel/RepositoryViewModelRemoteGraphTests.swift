@@ -186,31 +186,20 @@ struct RepositoryViewModelRemoteGraphTests {
         #expect(!history.isScopeStale)
     }
 
-    private static let pageSizeKey = "appTheme.commitPageSize"
-
     @Test("A page fetched after the remote moved still walks the log the first page walked")
     func pagesKeepTheirScope() async throws {
-        let previous = UserDefaults.standard.object(forKey: Self.pageSizeKey)
-        defer {
-            if let previous {
-                UserDefaults.standard.set(previous, forKey: Self.pageSizeKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: Self.pageSizeKey)
-            }
-        }
-        // The smallest page `GitPreferences.commitPageSize` allows.
-        UserDefaults.standard.set(50, forKey: Self.pageSizeKey)
-        let remotes = try await Self.makeRemotes(commits: 52)
+        let remotes = try await Self.makeRemotes(commits: 4)
         defer { remotes.remove() }
         // main is one behind origin/main, so the first page walks from its tip:
-        // server one, c51 … c0, 53 commits.
+        // server one, c3 … c0, 5 commits.
         try await remotes.serverCommit("server one")
         try await remotes.work.gitAsync("fetch", "-q", "origin")
         let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        vm.history.pageSize = { 3 }
         await vm.loadRefs()
         await vm.history.loadInitial()
-        let oldWalk = ["server one"] + (0..<52).reversed().map { "c\($0)" }
-        #expect(vm.history.commits.map(\.subject) == Array(oldWalk.prefix(50)))
+        let oldWalk = ["server one"] + (0..<4).reversed().map { "c\($0)" }
+        #expect(vm.history.commits.map(\.subject) == Array(oldWalk.prefix(3)))
         #expect(vm.history.hasMore)
 
         // The server rewinds main and work fetches it: origin/main leaves the scope, and a walk
@@ -223,9 +212,9 @@ struct RepositoryViewModelRemoteGraphTests {
 
         let last = try #require(vm.history.commits.last)
         await vm.history.loadMoreIfNeeded(currentItem: last)
-        // The new page starts with c2, the commit after the first page in the old walk.
+        // The new page starts with c1, the commit after the first page in the old walk.
         #expect(vm.history.commits.map(\.subject) == oldWalk)
-        #expect(vm.history.loadedRawCount == 53)
+        #expect(vm.history.loadedRawCount == 5)
         #expect(vm.history.graphLayouts.count == oldWalk.count)
     }
 }

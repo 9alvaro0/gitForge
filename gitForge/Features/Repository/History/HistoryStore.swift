@@ -63,6 +63,10 @@ final class HistoryStore {
     /// Bumped each time a log is published or purged. An append staged on an
     /// older log is dropped instead of landing on rows it wasn't fetched for.
     private(set) var logRevision: UInt64 = 0
+    /// Raw commits per `git log` page, read by every loader when it starts. A
+    /// test seam, like `graphEngine`: tests set a small page without touching
+    /// the user's preferences; no production code assigns it.
+    @ObservationIgnored var pageSize: () -> Int = { GitPreferences.commitPageSize }
     /// Drives the History skeleton. Kept separate from `isLoadingInitial`
     /// because two overlapping checkouts could trap the placeholder when
     /// the boolean alone was the trigger.
@@ -334,7 +338,7 @@ final class HistoryStore {
             isLoadingInitial = false
             if gen == logGen { hasLoadedLogForCurrentScope = true }
         }
-        let pageSize = GitPreferences.commitPageSize
+        let pageSize = self.pageSize()
         do {
             // Stashes, unmerged-branch refs and the refs feed currentScope();
             // without them the first page walks an incomplete scope (no
@@ -394,7 +398,7 @@ final class HistoryStore {
         logGen &+= 1
         let gen = logGen
         loadError = nil
-        let pageSize = GitPreferences.commitPageSize
+        let pageSize = self.pageSize()
         do {
             async let stashTask = cli.stashes()
             async let unmergedTask = cli.unmergedLocalBranches()
@@ -426,7 +430,7 @@ final class HistoryStore {
         isLoadingMore = true
         loadError = nil
         defer { isLoadingMore = false }
-        let pageSize = GitPreferences.commitPageSize
+        let pageSize = self.pageSize()
         do {
             _ = try await paginateNextPage(gen: gen, pageSize: pageSize)
         } catch {
