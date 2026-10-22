@@ -47,14 +47,12 @@ Suite completa tras los arreglos: 1671 pasan, 0 fallan, 1 fallo esperado (15 pru
 
 ## Pendiente para R2/R3 y para Alvaro
 
-### Prueba real con Alvaro (no la puede hacer el agente)
+### Prueba real con Alvaro (lo que falta; no la puede hacer el agente)
 
-1. Con su GitLab self-managed: Revisiones lista las MRs de sus repos, incluidos los que no tiene clonados pero en los que ha trabajado en los últimos 90 días.
-2. Abrir una MR de un repo sin clonar: diff, hilos, aprobar y comentar una línea funcionan.
-3. Con github.com: lo mismo, y un repo open source en el que solo comentó una vez no aparece.
-4. Cerrar la app sin red y abrirla: la bandeja sale con la foto.
+Lo que ya se probó está en la sección "Prueba real (2026-10-22)" de arriba. Falta:
 
-Además, no se ha comprobado en la app (solo con tests y capturas fuera de pantalla): el relleno de la hoja de clonar, el cambio de "Open in repository" y la hoja de reconectar.
+1. Aprobar y comentar una línea en una MR real, de un repo sin clonar.
+2. Cerrar la app sin red y abrirla de verdad: la bandeja sale con la foto.
 
 ### Punto abierto de UX
 
