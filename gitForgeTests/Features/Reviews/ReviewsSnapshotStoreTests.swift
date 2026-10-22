@@ -86,6 +86,29 @@ struct ReviewsSnapshotStoreTests {
         #expect(loaded?.memberships[Self.martaAccount]?.isComplete == nil)
     }
 
+    @Test("A snapshot saved before pull requests kept the author's name still loads")
+    func pullWithoutAuthorName() throws {
+        let dir = TemporaryDirectories.make("gitForge-reviews")
+        let store = ReviewsSnapshotStore(directory: dir)
+        var pull = Self.pull
+        pull.authorName = "Octo Cat"
+        var snapshot = Self.snapshot()
+        snapshot.pulls[FollowedRepos.key(Self.host)] = [pull]
+        store.save(snapshot)
+        #expect(store.load()?.pulls[FollowedRepos.key(Self.host)]?.first?.authorName == "Octo Cat")
+
+        // What an earlier build wrote: the same file without that key.
+        let current = try String(contentsOf: Self.fileURL(in: dir), encoding: .utf8)
+        let earlier = current.replacingOccurrences(of: "\"authorName\":\"Octo Cat\",", with: "")
+        #expect(earlier != current)
+        #expect(!earlier.contains("authorName"))
+        try Data(earlier.utf8).write(to: Self.fileURL(in: dir))
+
+        let loaded = store.load()
+        #expect(loaded == Self.snapshot())
+        #expect(loaded?.pulls[FollowedRepos.key(Self.host)]?.first?.authorName == nil)
+    }
+
     @Test("Saving again replaces the previous snapshot")
     func overwrite() {
         let dir = TemporaryDirectories.make("gitForge-reviews")

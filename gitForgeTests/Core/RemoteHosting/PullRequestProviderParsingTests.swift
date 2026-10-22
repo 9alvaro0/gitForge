@@ -102,6 +102,47 @@ struct PullRequestProviderParsingTests {
         #expect(reviewers.map(\.state) == [.approved, .pending, .approved])
     }
 
+    @Test("GitLab list: the author's display name comes with the login, when there is one")
+    func gitLabListAuthorName() throws {
+        let pulls = try GitLabPullRequestProvider.parseList(Self.data("""
+        [{"id": 11, "iid": 482, "title": "Retry the sync", "state": "opened",
+          "source_branch": "feat/retry", "target_branch": "main",
+          "author": {"username": "marta", "name": "Marta Ruiz", "avatar_url": null}},
+         {"id": 12, "iid": 483, "title": "Tidy the docs", "state": "opened",
+          "source_branch": "docs/tidy", "target_branch": "main",
+          "author": {"username": "octo", "avatar_url": null}}]
+        """))
+        #expect(pulls.map(\.authorLogin) == ["marta", "octo"])
+        #expect(pulls.map(\.authorName) == ["Marta Ruiz", nil])
+    }
+
+    @Test("GitLab list: JSON that isn't a list of merge requests is a decoding error")
+    func gitLabListUnreadable() {
+        #expect(throws: PullRequestFetchError.self) {
+            try GitLabPullRequestProvider.parseList(Self.data(#"{"message": "401 Unauthorized"}"#))
+        }
+        do {
+            _ = try GitLabPullRequestProvider.parseList(Self.data("not json"))
+            Issue.record("Expected a decoding error")
+        } catch PullRequestFetchError.decoding {
+        } catch {
+            Issue.record("Expected a decoding error, got \(error)")
+        }
+    }
+
+    @Test("GitLab detail: the author's display name travels on the pull")
+    func gitLabDetailAuthorName() throws {
+        let fields = #"{"id":1,"iid":9,"title":"T","state":"opened","source_branch":"f","target_branch":"main""#
+        let named = try GitLabPullRequestProvider.parseDetail(Self.data(
+            fields + #","author":{"username":"marta","name":"Marta Ruiz","avatar_url":null}}"#))
+        #expect(named.pull.authorLogin == "marta")
+        #expect(named.pull.authorName == "Marta Ruiz")
+
+        let unnamed = try GitLabPullRequestProvider.parseDetail(Self.data(
+            fields + #","author":{"username":"marta","avatar_url":null}}"#))
+        #expect(unnamed.pull.authorName == nil)
+    }
+
     // MARK: Summary
 
     @Test("Summary: a failure wins, then anything running, then a pass; empty is nil")
