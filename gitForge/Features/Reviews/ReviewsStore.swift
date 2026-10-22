@@ -57,8 +57,6 @@ final class ReviewsStore {
     static let membershipTTL: TimeInterval = 24 * 3600
     /// Most pages of membership read per account (Ruling 3).
     static let membershipPages = 10
-    /// Repos in a page of membership: what `RemoteRepoBrowsing` asks for.
-    static let membershipPageSize = 50
 
     /// The repos followed, most recent activity first.
     private(set) var repos: [ReviewRepo] = []

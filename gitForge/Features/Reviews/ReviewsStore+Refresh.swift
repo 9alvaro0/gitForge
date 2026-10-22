@@ -164,7 +164,7 @@ extension ReviewsStore {
     /// read, or, for a list saved before that was recorded, if it is shorter
     /// than the pages read could hold.
     static func isComplete(_ list: MembershipCache) -> Bool {
-        list.isComplete ?? (list.repos.count < membershipPages * membershipPageSize)
+        list.isComplete ?? (list.repos.count < membershipPages * RemoteRepoBrowserFactory.pageSize)
     }
 
     /// For each instance whose membership is known, the keys

@@ -104,7 +104,7 @@ private final class FakeBrowser: RemoteRepoBrowsing, Sendable {
         var mostPages = 0
     }
 
-    static let pageSize = 50
+    static let pageSize = RemoteRepoBrowserFactory.pageSize
 
     let state = Locked(State())
 
