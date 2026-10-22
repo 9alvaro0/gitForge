@@ -347,6 +347,40 @@ struct PullRequestStoreMergeTests {
         #expect(!store.isMerging)
     }
 
+    @Test("Merging from a store that never loaded its list (a Reviews detail) reloads the detail, not the list")
+    func mergeWithoutList() async {
+        let provider = provider
+        let store = PullRequestStore(cli: nil,
+                                     auth: { _, rejected in rejected == nil ? .token("t1") : .token("t2") },
+                                     resolveHost: { Self.host },
+                                     makeProvider: { _ in provider },
+                                     makeReviewProvider: { _ in provider })
+        #expect(await store.prepareForDetail())
+        store.selected = MergeFakeProvider.pull(1)
+        await store.loadDetail()
+        await store.mergeStatusRecheck?.value
+        await store.prepareMerge()
+        let details = provider.detailFetches[1] ?? 0
+
+        #expect(await store.merge() == .merged(warning: nil))
+
+        #expect(provider.merges.map(\.number) == [1])
+        #expect(provider.pullsFetches == 0)
+        #expect(store.items.isEmpty)
+        #expect(provider.detailFetches[1] == details + 1)
+        #expect(store.selected?.state == .merged)
+        #expect(store.mergeDraft == nil)
+    }
+
+    @Test("Merging from a store that loaded its list reads the list again")
+    func mergeReloadsLoadedList() async {
+        let store = await preparedStore()
+        let lists = provider.pullsFetches
+        #expect(await store.merge() == .merged(warning: nil))
+        #expect(provider.pullsFetches == lists + 1)
+        #expect(store.items.map(\.number) == [2, 3])
+    }
+
     @Test("The sheet keeps its fields while the list and the detail reload after merging")
     func keepsDraftWhileReloading() async {
         let store = await preparedStore()
