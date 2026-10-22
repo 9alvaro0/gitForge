@@ -555,6 +555,19 @@ struct ReviewsStoreTests {
         #expect(store.listContent == .empty)
     }
 
+    @Test("Once a refresh that found no repo to follow ends, the list shows the empty state, not the placeholder")
+    func emptyStateOnceARefreshWithNoReposEnds() async {
+        // A connected account with no clones and no recent activity.
+        let harness = Harness()
+        let store = harness.makeStore()
+
+        await store.refresh(force: true)
+
+        #expect(!store.isRefreshing)
+        #expect(store.repos.isEmpty)
+        #expect(store.listContent == .empty)
+    }
+
     @Test("Without accounts a refresh reads no clones and writes nothing, and doesn't hold back the first with one")
     func noAccounts() async {
         let harness = Harness()
