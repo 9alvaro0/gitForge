@@ -130,6 +130,16 @@ struct GraphLinesTests {
         #expect(!result.lines.contains { $0.owner == .remote("origin/main") })
     }
 
+    @Test("Only behind its upstream with its own tip not loaded yet: the line still starts at the upstream tip")
+    func behindTipNotLoaded() {
+        let input = GraphInput(commits: GraphFixture.commits("u2 u1\nu1 l"), headSha: "x",
+            refs: [GraphFixture.local("main", "l", upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")])
+        let result = lines(input)
+        #expect(result.lines.map(\.owner) == [.branch("main")])
+        #expect(result.lines[0].rows == [0, 1] && result.lines[0].continuesPastEnd)
+    }
+
     @Test("Diverged from its upstream: the remote gets its own line born at the merge base")
     func diverged() {
         let input = GraphInput(commits: GraphFixture.commits("r1 b\nl b\nb base\nbase"), headSha: "l",

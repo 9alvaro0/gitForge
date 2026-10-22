@@ -204,6 +204,16 @@ struct GraphColoringTests {
         #expect(c.role(.remote("origin/work")) == .pool(0))
     }
 
+    @Test("A local branch without a line of its own still shares its colour with its remote")
+    func pairWithoutLocalLine() {
+        // `copy` claims l first (same rank and row, earlier name), so `feature` draws no line.
+        let c = coloring(GraphInput(commits: GraphFixture.commits("r1 b\nl b\nb base\nbase"), headSha: "base",
+            refs: [GraphFixture.local("main", "base", head: true), GraphFixture.local("copy", "l"),
+                   GraphFixture.local("feature", "l", upstream: "origin/feature", ahead: 1, behind: 1),
+                   GraphFixture.remote("origin/feature", "r1")]))
+        #expect(c.role(.branch("feature")) == c.role(.remote("origin/feature")))
+    }
+
     @Test("A stretch of HEAD's line runs down to the first commit of the next colour owner")
     func headStretchExtent() {
         // HEAD is feature/h at t, with feature/a on the same commit, so a owns t for colour and main owns p

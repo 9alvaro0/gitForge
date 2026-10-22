@@ -124,9 +124,12 @@ private nonisolated extension GraphLines {
         }
     }
 
-    /// Local branches with a loaded tip. One that is only behind its upstream
+    /// Local branches with a loaded start. One that is only behind its upstream
     /// starts at the upstream's tip, so the line spans what a pull would bring,
-    /// unless that upstream is a remote trunk, which has its own line.
+    /// unless that upstream is a remote trunk, which has its own line. It does
+    /// so whether its own tip is loaded or not, so the line is the same before
+    /// and after the page holding that tip loads (§3.9). Any other branch starts
+    /// at its own tip, once loaded.
     static func branchStarts(_ input: GraphInput, rowOf: [String: Int]) -> [BranchStart] {
         var remoteRows: [String: Int] = [:]
         for ref in input.refs where ref.isRemoteBranch {
@@ -135,11 +138,12 @@ private nonisolated extension GraphLines {
             }
         }
         return input.refs.compactMap { ref in
-            guard ref.isLocalBranch, let tipRow = rowOf[ref.targetSha] else { return nil }
+            guard ref.isLocalBranch else { return nil }
             if let upstream = ref.upstream, input.remoteTrunks[upstream] == nil, let upstreamRow = remoteRows[upstream],
                (ref.ahead ?? 0) == 0, (ref.behind ?? 0) > 0 {
                 return BranchStart(name: ref.name, row: upstreamRow, continuedRemote: upstream)
             }
+            guard let tipRow = rowOf[ref.targetSha] else { return nil }
             return BranchStart(name: ref.name, row: tipRow, continuedRemote: nil)
         }
     }
