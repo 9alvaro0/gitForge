@@ -12,7 +12,8 @@ nonisolated struct GraphColoring: Sendable {
     func role(_ owner: GraphOwner) -> GraphColorRole { roleOfOwner[owner] ?? .neutral }
 
     /// Gives a role to every owner of a drawn line or of a row's colour, and to
-    /// both members of every remote–local pair.
+    /// both members of every remote–local pair, except a pair with no fixed role
+    /// whose members draw no stretch: it stays `.neutral`.
     ///
     /// **Fixed roles** come from what the owner is:
     /// - HEAD's branch, or a detached HEAD, is `.head`.

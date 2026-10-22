@@ -29,7 +29,7 @@ protocol HistoryRefsSource: AnyObject {
 final class HistoryStore {
     // MARK: Log
     /// The published log. The loaders publish it together with its graph
-    /// (`publish(_:)`); only tests and previews set it directly, usually
+    /// (`publish(_:then:)`); only tests and previews set it directly, usually
     /// through the hooks in `HistoryStore+Preview.swift`.
     var commits: [Commit] = [] {
         // `uniquingKeysWith: { _, new in new }` instead of

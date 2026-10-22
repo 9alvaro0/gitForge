@@ -2,7 +2,7 @@ import Foundation
 
 /// Hooks for previews and tests. They lay the graph out on the caller's
 /// actor, which the loaders never do (`publish(_:then:)` goes off the main
-/// actor), so they live here, outside the production sources.
+/// actor), so they live here, outside `HistoryStore.swift`.
 extension HistoryStore {
     /// Swaps in a fresh first page and its graph, laid out on the caller's
     /// actor. For tests and previews; the loaders `publish` instead, so the

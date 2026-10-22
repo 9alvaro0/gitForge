@@ -4,7 +4,7 @@ import Testing
 
 /// Spec §7: the v3 engine must stay within 1.5x the legacy engine on a large
 /// synthetic history. `.serialized` only orders this suite's own tests (the
-/// fixture test cannot overlap the timed run); other suites still run in
+/// fixture tests cannot overlap the timed runs); other suites still run in
 /// parallel, so the 1.5x bound is generous enough to absorb the noise.
 @Suite("CommitGraphEngine performance", .serialized)
 struct CommitGraphPerformanceTests {
