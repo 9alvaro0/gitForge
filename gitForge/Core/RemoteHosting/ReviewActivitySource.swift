@@ -92,7 +92,8 @@ nonisolated private struct GitLabEventDTO: Decodable, Sendable {
 
 /// A search for the pull requests the account is involved in (author,
 /// assignee, reviewer, commenter or mentioned), updated since the date.
-/// One page of 100: the search API caps what it returns anyway.
+/// One page of 100, the most recently updated: the search API caps what it
+/// returns anyway.
 /// API reference: https://docs.github.com/en/rest/search/search#search-issues-and-pull-requests
 struct GitHubReviewActivity: ReviewActivitySource {
     var session: URLSession = RemoteAPI.session
@@ -106,6 +107,9 @@ struct GitHubReviewActivity: ReviewActivitySource {
         }
         components.queryItems = [
             URLQueryItem(name: "q", value: "is:pr involves:\(login) updated:>=\(ActivityQueryDate.string(from: since))"),
+            // Newest first: past the one page, the oldest drop out, not the least relevant.
+            URLQueryItem(name: "sort", value: "updated"),
+            URLQueryItem(name: "order", value: "desc"),
             URLQueryItem(name: "per_page", value: String(Self.pageSize)),
         ]
         guard let url = components.url else { throw PullRequestFetchError.network("bad URL") }

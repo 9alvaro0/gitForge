@@ -29,8 +29,11 @@ struct ReviewActivitySourceTests {
         let hits = try await source.recentActivity(apiBase: try #require(URL(string: "https://\(server.host)/api/v3")),
                                                    login: "octo", since: Self.since, token: "test-token")
         #expect(Set(hits.map(\.ref)) == [.path("octo/app"), .path("oss/lib")])
-        let q = try #require(server.requests("GET", "/api/v3/search/issues").first?.query["q"])
-        #expect(q == "is:pr involves:octo updated:>=2026-09-21")
+        let request = try #require(server.requests("GET", "/api/v3/search/issues").first)
+        #expect(request.query["q"] == "is:pr involves:octo updated:>=2026-09-21")
+        // The one page keeps the most recently updated pull requests.
+        #expect(request.query["sort"] == "updated")
+        #expect(request.query["order"] == "desc")
     }
 
     @Test("Only member repos count, each with its newest hit")
