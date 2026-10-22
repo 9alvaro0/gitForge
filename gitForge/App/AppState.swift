@@ -218,7 +218,10 @@ final class AppState {
 
     /// "Open in repository" from Reviews (R1 Ruling 13): activates the clone
     /// at `url`, goes to its Pull requests and opens `number` there, now if
-    /// its list shows it, else once it does. A clone that can't be opened
+    /// its list shows it, else once it does. The inbox only lists open pull
+    /// requests, so the list goes back to Open: a repository already open on
+    /// Mine or Closed would otherwise keep its selection and jump to the pull
+    /// request only when Open is picked later. A clone that can't be opened
     /// shows why and leaves the section as it was.
     func openPullRequest(number: Int, inRepositoryAt url: URL) async {
         do {
@@ -228,7 +231,9 @@ final class AppState {
             return
         }
         ui.workspaceSection = .pulls
-        catalog.activeViewModel?.pullRequests.requestSelection(number: number)
+        guard let pulls = catalog.activeViewModel?.pullRequests else { return }
+        if pulls.scope != .open { await pulls.setScope(.open) }
+        pulls.requestSelection(number: number)
     }
 
     // MARK: - Clone (cross-cutting: clone + catalog + ui)

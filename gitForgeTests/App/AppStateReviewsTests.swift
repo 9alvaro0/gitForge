@@ -168,6 +168,37 @@ struct AppStateReviewsTests {
         #expect(app.ui.presentedError == nil)
     }
 
+    @Test("Open in repository brings an open repository's list back to Open and opens the pull request there",
+          arguments: [PullListScope.mine, .closed])
+    func openInRepositoryResetsScope(scope: PullListScope) async throws {
+        let app = AppState.isolated()
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("first", files: ["a.txt": "a\n"])
+        try await app.openRepository(at: repo.url)
+        defer { app.catalog.close() }
+        let pulls = try #require(app.catalog.activeViewModel?.pullRequests)
+        func pull(_ number: Int, by author: String) -> PullRequest {
+            PullRequest(id: "\(number)", number: number, title: "MR \(number)", state: .open, authorLogin: author,
+                        authorAvatarURL: nil, sourceBranch: "f/\(number)", targetBranch: "main", webURL: nil,
+                        createdAt: nil, updatedAt: nil)
+        }
+        // The user left this repository's list on Mine (or Closed), on their own pull request.
+        pulls.items = [pull(470, by: "marta"), pull(482, by: "lucia")]
+        pulls.currentUser = "marta"
+        pulls.scope = scope
+        pulls.selected = pulls.items[0]
+        app.ui.workspaceSection = .reviews
+
+        await app.openPullRequest(number: 482, inRepositoryAt: repo.url)
+
+        #expect(app.catalog.activeViewModel?.pullRequests === pulls)
+        #expect(app.ui.workspaceSection == .pulls)
+        #expect(pulls.scope == .open)
+        #expect(pulls.selected?.number == 482)
+        #expect(pulls.pendingSelectionNumber == nil)
+    }
+
     @Test("A clone that can't be opened says why and stays in Reviews")
     func openInMissingRepository() async {
         let app = AppState.isolated()
