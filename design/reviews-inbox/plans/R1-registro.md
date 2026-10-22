@@ -14,12 +14,28 @@
 
 Suite completa al cierre: 1656 pasan, 0 fallan, 1 fallo esperado (antes de la fase: 1566, 0 y 1). Son 90 pruebas más. El build no da ningún aviso de nuestros ficheros; solo sale el aviso de la herramienta de metadatos de AppIntents, que es del sistema.
 
+## Revisión final (subagente Opus)
+
+Lista con arreglos: 0 críticos, 1 importante y 5 menores. Arreglados en una pasada, cada uno con su test en rojo primero:
+
+- **Importante (spec §4.5):** un clon sin cuenta asignada se leía con la cuenta del login del dueño o, si no, con la primera de la instancia. Su pantalla de Pull requests elige con `AccountResolver`: solo cuentas que firman, "credenciales del sistema" cuenta como automático y gana la cuenta del perfil de identidad activo. Así Revisiones podía leer, aprobar y hacer merge con otra cuenta que la del repo. Ahora cada clon se resuelve con la misma función que usa la pantalla del repo (`AccountPullRequestAuth.resolution`), con el perfil del clon y sin preguntar nunca; si hay empate, el clon llega sin cuenta. Un clon sin cuenta elige primero entre las cuentas cuya actividad llegó al repo, y solo si no hay ninguna, entre todas las de la instancia.
+- **Menor:** justo después de conectar la primera cuenta, la lista decía "No open pull requests…" mientras leía por primera vez, porque guardaba la fecha de una lectura anterior. Ahora sale el indicador de carga siempre que hay una lectura en marcha y nada que enseñar. La decisión está en el store (`listContent`) y tiene test.
+- **Menor:** un 5xx o un 429 de un repo le quitaba sus PRs y ponía un error. Ahora cuenta como sin red: el repo conserva lo que tenía y no sale error. Los demás errores del servidor siguen igual.
+- **Menor:** sin cuentas, cada refresco leía los clones y escribía la foto. Ahora vacía lo que dejaron las cuentas quitadas, guarda una vez la bandeja vacía si había algo que vaciar, y termina. Esa ronda tampoco cuenta para el freno de 30 s, así que la primera cuenta que se conecta lee enseguida.
+- **Menor:** el merge desde el detalle de Revisiones leía también la lista abierta del repo, que esa pantalla no enseña. Ahora la lista solo se vuelve a leer si se cargó alguna vez. La pantalla de Pull requests del repo hace lo de siempre.
+- **Menor:** la búsqueda de actividad de GitHub no pedía orden, así que con más de 100 resultados podía perder PRs recientes. Ahora pide `sort=updated` y `order=desc`; la consulta `q` no cambia.
+
+Menor que se queda:
+- Los stores de detalle guardan en memoria los ficheros de la última PR abierta de cada repo mientras se sigue el repo.
+
+Suite completa tras los arreglos: 1671 pasan, 0 fallan, 1 fallo esperado (15 pruebas más). El build no da avisos de nuestros ficheros.
+
 ## Desviaciones del spec
 
-- **Cuenta de un repo con empate (spec §4.5):** el spec pide preguntar con el selector cuando dos cuentas de la misma instancia ven el mismo repo y ninguna regla desempata. R1 elige la primera cuenta usable en el orden de `AccountStore.accounts`, sin preguntar (plan, Ruling 4). Pendiente de que Alvaro lo confirme.
+- **Cuenta de un repo con empate (spec §4.5):** el spec pide preguntar con el selector cuando dos cuentas de la misma instancia ven el mismo repo y ninguna regla desempata. En un empate de verdad, R1 sigue eligiendo sin preguntar: la cuenta del login del dueño y, si no, la primera en el orden del almacén (las que firman van antes), entre las que vieron el repo por actividad o, si ninguna lo vio, entre las de la instancia (plan, Ruling 4). Un clon sin cuenta asignada ya no cae en esa regla: su cuenta sale de `AccountResolver`, como en su pantalla de Pull requests, y solo empata si allí también se preguntaría. Pendiente de que Alvaro lo confirme.
 - **Repo que solo llega por actividad (tarea 2):** la cuenta se elige entre las que lo vieron (la del login del dueño y, si no, la primera en el orden del almacén), no entre todas las de la instancia. Una cuenta que nunca lo vio puede no tener acceso. Si Alvaro prefiere la regla literal, es un cambio de una línea.
 - **Cuenta sin login guardado (tarea 6):** la Ruling 11 solo cubría repos ya conocidos. Ahora se pide el usuario a la API una vez por sesión, con el primer repo de su pertenencia. Una cuenta sin ningún repo no aporta actividad hasta que lo tenga.
-- **Cuentas por reconectar (tarea 6):** al refrescar entran las cuentas que firman y las que piden atención (no las `.unverified`). El store pone antes las que firman, así la regla 3 nunca elige una cuenta caída; las reglas 1 y 2 sí pueden. El spec §4.2 dice que un 401 sigue el flujo de reconectar y no debe quitar el repo. Si no, los repos de esa cuenta desaparecerían y el aviso se borraría.
+- **Cuentas por reconectar (tarea 6):** al refrescar entran las cuentas que firman y las que piden atención (no las `.unverified`). El store pone antes las que firman, así la regla 3 nunca elige una cuenta caída; el login del dueño o la actividad de esa misma cuenta sí pueden darle un repo. El spec §4.2 dice que un 401 sigue el flujo de reconectar y no debe quitar el repo. Si no, los repos de esa cuenta desaparecerían y el aviso se borraría.
 - **Enlace con `AppState` (tareas 6 y 8):** el plan no nombraba cómo llega el test a la lectura de clones locales. `AppState` expone `localRemotesForReviews()`, que es también lo que usa la app. La Ruling 3 pedía `[weak self]`, pero no compila dentro de `init`: se usa una caja `WeakAppState` con la misma semántica.
 - **Abrir una PR sin clonar y "Abrir en el repo" (tareas 5 y 9):** la Ruling 13 solo esperaba a que cargara la lista. Ahora, si la lista del repo ya tiene la PR, se selecciona directamente. Y antes de seleccionar se pone el ámbito del repo en Open, porque la bandeja solo trae PRs abiertas. Si Alvaro tenía ese repo en Mine o Closed, vuelve a Open.
 - **Cabecera del detalle (tarea 7):** `hostLabel` sigue siendo el proveedor, porque también titula "Open on …". La cabecera gana un `repositoryLabel` para la línea "#N · dueño/repo · Proveedor".
@@ -51,12 +67,11 @@ Tests que faltan:
 - Modelos y repos seguidos: segmentos vacíos de `make`, valores de GitHub, `apiBaseURL` en el round trip, y varios caminos de `merge` (desempate, cuenta ajena, dos locales, dos candidatos con otras mayúsculas, host sin declarar).
 - Actividad: la fecha UTC no se distingue (usar las 23:30 UTC), y faltan cabeceras, la forma de Enterprise y el 401 de GitLab.
 - Foto en disco: carpeta ausente y versión menor.
-- Store: generaciones de lectura, repo que sale, errores `forbidden`/`decoding`/`server`, token fallido o cancelado, arranque y parada del refresco, cancelación después de adoptar, y el máximo de concurrencia solo se prueba por arriba.
+- Store: generaciones de lectura, repo que sale, errores `forbidden` y `decoding`, token fallido o cancelado, arranque y parada del refresco, cancelación después de adoptar, y el máximo de concurrencia solo se prueba por arriba.
 - Arranque: el cierre de `accounts` (orden, instancia ausente) y el detalle tras `prepareForDetail` en el caso "cuenta sí, instancia no".
 
 Comportamiento a pulir:
-- Con dos clones del mismo repo gana el primero del catálogo; un local sin asignar conserva su cuenta aunque la actividad indique otra.
-- La búsqueda de GitHub no ordena por actualización: con más de 100 resultados se pierden los menos relevantes, no los más antiguos.
+- Con dos clones del mismo repo gana el primero del catálogo.
 - Un login que falla no se reintenta en la sesión, y una cuenta sin pertenencia ni login arrastra sus repos viejos sin fin.
 - Una ronda cancelada después de adoptar gasta el hueco del throttle: un refresco no forzado en 30 s no hace nada y los repos nuevos quedan vacíos.
 - Seleccionar la PR que ya está seleccionada vacía el detalle y cierra el compositor; un número pendiente nunca caduca.
@@ -69,7 +84,7 @@ Comportamiento a pulir:
 Textos y accesibilidad:
 - "1 repositories left out" sin variantes de plural.
 - `ReviewsNotice` usa `.combine`: VoiceOver puede fundir el botón Reconnect con el texto.
-- Comentarios de documentación desfasados (`currentToken`, `withToken`, `loadDetail`, `FollowedRepos.merge`, `ContentRouter`) y un comentario del `bootstrap` que exagera: las cuentas migradas `.unverified` faltan hasta el siguiente refresco.
+- Comentarios de documentación desfasados (`currentToken`, `withToken`, `loadDetail`, `ContentRouter`) y un comentario del `bootstrap` que exagera: las cuentas migradas `.unverified` faltan hasta el siguiente refresco.
 
 Limpieza:
 - El diálogo de merge local sigue cableado en `.remote` aunque no se puede alcanzar, y hay un envoltorio `{ action() }` redundante.
