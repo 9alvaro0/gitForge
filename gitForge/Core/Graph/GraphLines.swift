@@ -81,12 +81,14 @@ private nonisolated extension GraphLines {
             }
         }
 
-        // 2. Local branches by priority, the lowest tip first within a level.
-        //    When colouring, HEAD takes part like any other.
+        // 2. Local branches and remote trunks by priority, the lowest tip first within a
+        //    level. A remote trunk ranks as the trunk it stands in for. When colouring,
+        //    HEAD takes part like any other.
         var candidates = branches
             .filter { !forDrawing || $0.name != headBranch }
             .map { Candidate(owner: .branch($0.name), rank: GraphPriority.rank($0.name),
                              row: $0.row, detached: 0, name: $0.name) }
+        candidates += remoteTrunkCandidates(input, rowOf: rowOf)
         if !forDrawing, let detachedHeadRow {
             candidates.append(Candidate(owner: .head, rank: 4, row: detachedHeadRow, detached: 1, name: ""))
         }
@@ -94,12 +96,18 @@ private nonisolated extension GraphLines {
             ownership.claim(candidate.owner, from: candidate.row)
         }
 
-        // 3. Remote branches that continue no local one, top to bottom.
+        // 3. Remote branches that continue no local one and are no trunk. The ones a local
+        //    branch tracks go before the rest, so what a pull would bring is their line, in
+        //    their local branch's colour (§4.1), even where an untracked remote sits on it,
+        //    lower or on the same tip. Then the lowest tip first, then by name.
         let continued = Set(branches.compactMap(\.continuedRemote))
+        let tracked = Set(input.refs.lazy.filter(\.isLocalBranch).compactMap(\.upstream))
         let remotes = input.refs
-            .filter { $0.isRemoteBranch && !continued.contains($0.name) }
-            .compactMap { ref in rowOf[ref.targetSha].map { (name: ref.name, row: $0) } }
-        for remote in remotes.sorted(by: { (-$0.row, $0.name) < (-$1.row, $1.name) }) {
+            .filter { $0.isRemoteBranch && !continued.contains($0.name) && input.remoteTrunks[$0.name] == nil }
+            .compactMap { ref in
+                rowOf[ref.targetSha].map { (name: ref.name, row: $0, untracked: tracked.contains(ref.name) ? 0 : 1) }
+            }
+        for remote in remotes.sorted(by: { ($0.untracked, -$0.row, $0.name) < ($1.untracked, -$1.row, $1.name) }) {
             ownership.claim(.remote(remote.name), from: remote.row)
         }
 
@@ -114,8 +122,20 @@ private nonisolated extension GraphLines {
         return ownership
     }
 
-    /// Local branches with a loaded tip. One that is only behind its upstream
-    /// starts at the upstream's tip, so the line spans what a pull would bring.
+    /// Remote trunks with a loaded tip, ready to claim in step 2 with their trunk's rank.
+    static func remoteTrunkCandidates(_ input: GraphInput, rowOf: [String: Int]) -> [Candidate] {
+        input.refs.compactMap { ref in
+            guard ref.isRemoteBranch, let rank = input.remoteTrunks[ref.name], let row = rowOf[ref.targetSha] else { return nil }
+            return Candidate(owner: .remote(ref.name), rank: rank, row: row, detached: 0, name: ref.name)
+        }
+    }
+
+    /// Local branches with a loaded start. One that is only behind its upstream
+    /// starts at the upstream's tip, so the line spans what a pull would bring,
+    /// unless that upstream is a remote trunk, which has its own line. It does
+    /// so whether its own tip is loaded or not, so the line is the same before
+    /// and after the page holding that tip loads (§3.9). Any other branch starts
+    /// at its own tip, once loaded.
     static func branchStarts(_ input: GraphInput, rowOf: [String: Int]) -> [BranchStart] {
         var remoteRows: [String: Int] = [:]
         for ref in input.refs where ref.isRemoteBranch {
@@ -124,11 +144,12 @@ private nonisolated extension GraphLines {
             }
         }
         return input.refs.compactMap { ref in
-            guard ref.isLocalBranch, let tipRow = rowOf[ref.targetSha] else { return nil }
-            if let upstream = ref.upstream, let upstreamRow = remoteRows[upstream],
+            guard ref.isLocalBranch else { return nil }
+            if let upstream = ref.upstream, input.remoteTrunks[upstream] == nil, let upstreamRow = remoteRows[upstream],
                (ref.ahead ?? 0) == 0, (ref.behind ?? 0) > 0 {
                 return BranchStart(name: ref.name, row: upstreamRow, continuedRemote: upstream)
             }
+            guard let tipRow = rowOf[ref.targetSha] else { return nil }
             return BranchStart(name: ref.name, row: tipRow, continuedRemote: nil)
         }
     }

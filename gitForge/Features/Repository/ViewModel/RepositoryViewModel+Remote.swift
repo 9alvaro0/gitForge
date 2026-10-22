@@ -44,14 +44,17 @@ extension RepositoryViewModel {
             try await cli.fetchAll()
             lastFetchedAt = .now
             await loadRefs()
+            // What a pull would bring shows up as ghosts in the graph.
+            await reloadLogIfScopeMoved()
             operationSuccess = .fetch(upstream: upstream, behind: behindCount)
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)
             // A partial fetch may have updated some remote refs before
             // failing. Reload so the UI doesn't keep showing pre-fetch
-            // counters until the next 30s poller tick.
+            // counters (or graph) until the next 30s poller tick.
             await loadRefs()
+            await reloadLogIfScopeMoved()
             return false
         }
     }
@@ -185,6 +188,9 @@ extension RepositoryViewModel {
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
             await loadRefs()
+            // The lease fetch or the push itself may have moved a remote
+            // branch the graph loads.
+            await reloadLogIfScopeMoved()
             operationSuccess = .push(branch: branch, remote: resolvedRemote, ahead: pushedCount,
                                      firstPush: setUpstream, forced: forceWithLease)
             return true
@@ -194,6 +200,7 @@ extension RepositoryViewModel {
             // rejected, or N of M refs accepted). Reload so aheadCount and
             // remote-tracking refs reflect what really landed.
             await loadRefs()
+            await reloadLogIfScopeMoved()
             return false
         }
     }

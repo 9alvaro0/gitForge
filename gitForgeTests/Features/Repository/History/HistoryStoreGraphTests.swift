@@ -63,6 +63,22 @@ struct HistoryStoreGraphTests {
         Self.expectPublished(vm.history)
     }
 
+    @Test("A walk split into pages is the log those pages make loaded one by one")
+    func pagedLog() {
+        let vm = Self.makeVM()
+        vm.stashes = [Stash(index: 0, sha: "s", subject: "WIP")]
+        // `s`'s index commit `idx` lands on the page after it; the last page is short.
+        let raw = GraphFixture.commits("d c\nc b\ns b idx\nidx\nb a\na")
+        vm.history.replaceLog(with: Array(raw[0..<2]))
+        vm.history.appendPage(Array(raw[2..<4]))
+        vm.history.appendPage(Array(raw[4..<6]))
+        let paged = HistoryLog.paged(raw, pageSize: 2, stashShas: ["s"])
+        #expect(paged == vm.history.loadedLog)
+        #expect(paged.pageEnds == [2, 3, 5] && paged.rawCount == 6)
+        #expect(HistoryLog.paged(Array(raw.prefix(2)), pageSize: 2, stashShas: ["s"])
+                == HistoryLog.firstPage(Array(raw.prefix(2)), stashShas: ["s"]))
+    }
+
     @Test("A page that adds no rows adds no page end")
     func emptyPage() {
         let vm = Self.makeVM()
@@ -82,6 +98,161 @@ struct HistoryStoreGraphTests {
         let input = vm.history.graphInput()
         #expect(input.headSha == "c" && input.headBranch == "main")
         #expect(input.stashShas == ["s"] && input.pageEnds == [2] && input.paletteSize == 3)
+    }
+
+    @Test("graphInput carries the remote trunks read from the refs and the remote HEADs")
+    func remoteTrunksInInput() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("feature", "f", head: true), GraphFixture.remote("origin/main", "m")]
+        vm.remoteHeads = ["origin": "origin/main"]
+        vm.history.replaceLog(with: GraphFixture.commits("f m\nm"))
+        #expect(vm.history.graphInput().remoteTrunks == ["origin/main": 0])
+    }
+
+    @Test("The published log keeps the scope it was fetched with; it goes stale when a remote in it moves")
+    func staleScope() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                   GraphFixture.remote("origin/main", "u2")]
+        await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("u2 m\nm")))
+        #expect(vm.history.loadedScope?.remoteTips == ["origin/main": "u2"] && !vm.history.isScopeStale)
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u3")]
+        #expect(vm.history.isScopeStale)
+    }
+
+    @Test("Until the log reloads, a remote branch of its scope that moved stays where the log was loaded with it")
+    func movedRemoteStaysUntilReload() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")]
+        vm.headSha = "m"
+        await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("u2 u1\nu1 m\nm a")))
+        let pull = GraphNode(column: 0, kind: .commit, color: .head, isGhost: true)
+        #expect(vm.history.graphLayouts.prefix(2).map(\.node) == [pull, pull])
+
+        // A fetch moves origin/main to a commit the log doesn't have; its refs land before the reload.
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 3),
+                   GraphFixture.remote("origin/main", "u3")]
+        #expect(vm.history.isScopeStale)
+        await vm.history.recomputeGraph()
+        #expect(vm.history.graphLayouts.prefix(2).map(\.node) == [pull, pull])
+        #expect(vm.history.refChips.refs(on: "u2").map(\.name) == ["origin/main"])
+        Self.expectPublished(vm.history)
+
+        // So does a page appended before the reload.
+        vm.history.appendPage(GraphFixture.commits("a"))
+        #expect(vm.history.graphLayouts.prefix(2).map(\.node) == [pull, pull])
+        #expect(vm.history.refChips.refs(on: "u2").map(\.name) == ["origin/main"])
+        Self.expectPublished(vm.history)
+    }
+
+    @Test("graphScope is the current scope's revisions, remote tips by sha")
+    func graphScopeWithRemotes() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                   GraphFixture.remote("origin/main", "u2")]
+        vm.unmergedLocalBranchRefs = ["refs/heads/topic"]
+        #expect(vm.history.graphScope() == ["HEAD", "refs/heads/topic", "u2", "--tags"])
+        #expect(vm.history.graphScope() == vm.history.currentScope().revisions)
+    }
+
+    // MARK: Remote branches toggle
+
+    /// A store for the repository at `url` that remembers its toggle in `defaults` and reads
+    /// its refs from `source`. The repository needn't exist: a reload then fails and sets
+    /// `loadError`, which these tests don't look at.
+    private static func makeStore(_ url: URL, defaults: TestDefaults, source: RepositoryViewModel) -> HistoryStore {
+        let store = HistoryStore(cli: GitCLI(workingDirectory: url), tasks: OwnedTasks(),
+                                 repositoryURL: url, defaults: defaults.defaults)
+        store.refsSource = source
+        return store
+    }
+
+    private static func missingRepositoryURL() -> URL {
+        URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")
+    }
+
+    @Test("The remote branches toggle is remembered per repository")
+    func toggleRemembered() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        let urlA = Self.missingRepositoryURL()
+        let urlB = Self.missingRepositoryURL()
+        let store = Self.makeStore(urlA, defaults: suite, source: vm)
+        #expect(!store.showsRemoteBranches)
+
+        await store.setShowsRemoteBranches(true)
+        #expect(store.showsRemoteBranches)
+        let key = HistoryStore.remoteBranchesKey(for: urlA)
+        #expect(suite.defaults.bool(forKey: key))
+        #expect(Self.makeStore(urlA, defaults: suite, source: vm).showsRemoteBranches)
+        #expect(!Self.makeStore(urlB, defaults: suite, source: vm).showsRemoteBranches)
+
+        await store.setShowsRemoteBranches(false)
+        #expect(!suite.defaults.bool(forKey: key))
+        #expect(!Self.makeStore(urlA, defaults: suite, source: vm).showsRemoteBranches)
+    }
+
+    @Test("The toggle's key is the standardized path of the repository")
+    func toggleKey() {
+        let url = URL(fileURLWithPath: "/var/empty/a/../repo")
+        #expect(HistoryStore.remoteBranchesKey(for: url) == "gitForge.history.remoteBranches./var/empty/repo")
+    }
+
+    @Test("With the toggle on, the scope loads every remote branch")
+    func toggleScope() {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 0),
+                   GraphFixture.remote("origin/main", "m"),
+                   GraphFixture.remote("origin/release/2.0", "r"),
+                   GraphFixture.remote("fork/topic", "t")]
+        let url = Self.missingRepositoryURL()
+        let off = Self.makeStore(url, defaults: suite, source: vm)
+        #expect(!off.currentScope().includesAllRemotes)
+        #expect(off.graphScope() == ["HEAD", "--tags"])
+
+        suite.defaults.set(true, forKey: HistoryStore.remoteBranchesKey(for: url))
+        let on = Self.makeStore(url, defaults: suite, source: vm)
+        #expect(on.currentScope().includesAllRemotes)
+        #expect(on.currentScope().remoteTips == ["origin/main": "m", "origin/release/2.0": "r", "fork/topic": "t"])
+        // Each sha once, in the order of the branch names.
+        #expect(on.graphScope() == ["HEAD", "t", "m", "r", "--tags"])
+    }
+
+    @Test("Setting the same value doesn't reload the log")
+    func toggleSameValue() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let store = Self.makeStore(Self.missingRepositoryURL(), defaults: suite, source: Self.makeVM())
+        let before = store.logGen
+        await store.setShowsRemoteBranches(false)
+        #expect(store.logGen == before)
+        await store.setShowsRemoteBranches(true)
+        #expect(store.logGen == before &+ 1)
+        await store.setShowsRemoteBranches(true)
+        #expect(store.logGen == before &+ 1)
+        await store.setShowsRemoteBranches(false)
+        #expect(store.logGen == before &+ 2)
+    }
+
+    @Test("A page appended to a log keeps the log's scope; purge forgets it")
+    func appendKeepsScope() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                   GraphFixture.remote("origin/main", "u2")]
+        vm.history.replaceLog(with: GraphFixture.commits("u2 m\nm a"))
+        let scope = vm.history.loadedScope
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u3")]
+        vm.history.appendPage(GraphFixture.commits("a"))
+        #expect(vm.history.loadedScope == scope)
+        #expect(vm.history.isScopeStale)
+        vm.history.purge()
+        #expect(vm.history.loadedScope == nil && !vm.history.isScopeStale)
     }
 
     @Test("The palette size starts at the violet pool and recomputes only when it changes")
@@ -141,6 +312,210 @@ struct HistoryStoreGraphTests {
         #expect(vm.history.graphInput().stashShas == ["s"])
         #expect(vm.history.graphLayouts.first?.node.kind == .stash)
         Self.expectPublished(vm.history)
+    }
+
+    // MARK: Ref chips
+
+    /// `u` (a remote branch's tip) and `p` (an old PR's) on top of `m`, as a first page.
+    private static let chipCommits = GraphFixture.commits("u m\np a\nm a\na")
+
+    /// `main` behind `origin/main`, and `origin/old-pr` that no local branch tracks.
+    private static let untrackedRefs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                                        GraphFixture.remote("origin/main", "u"), GraphFixture.remote("origin/old-pr", "p")]
+
+    /// The same, with `topic` tracking `origin/old-pr`.
+    private static let trackedRefs = untrackedRefs
+        + [GraphFixture.local("topic", "p", upstream: "origin/old-pr", ahead: 0, behind: 0)]
+
+    @Test("The chips are published with the graph and follow the loaded scope's toggle")
+    func chipsWithGraph() async {
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        vm.headSha = "m"
+        vm.history.replaceLog(with: Self.chipCommits)
+        // Nothing tracks `origin/old-pr`, and the toggle is off.
+        #expect(vm.history.refChips.refs(on: "u").map(\.name) == ["origin/main"])
+        #expect(vm.history.refChips.refs(on: "p").isEmpty)
+        #expect(vm.history.refChips == HistoryRefChips.make(refs: vm.refs, remoteTrunks: vm.history.graphInput().remoteTrunks,
+                                                            includesAllRemotes: false))
+        let before = vm.history.graphLayouts
+
+        // A branch starts tracking it. Until the layout lands, rows and chips stay as they were.
+        let engine = Self.hold(vm, passes: [0])
+        vm.refs = Self.trackedRefs
+        async let recompute: Void = vm.history.recomputeGraph()
+        await engine.gate(0).waiting()
+        #expect(vm.history.graphLayouts == before)
+        #expect(vm.history.refChips.refs(on: "p").isEmpty)
+        engine.gate(0).open()
+        await recompute
+        #expect(vm.history.refChips.refs(on: "p").map(\.name).sorted() == ["origin/old-pr", "topic"])
+        Self.expectPublished(vm.history)
+    }
+
+    @Test("A recompute that changes nothing about the chips leaves them as they were")
+    func chipsUnchanged() async {
+        let vm = Self.makeVM()
+        vm.refs = Self.trackedRefs
+        vm.history.replaceLog(with: Self.chipCommits)
+        let chips = vm.history.refChips
+        await vm.history.recomputeGraph()
+        #expect(vm.history.refChips == chips)
+    }
+
+    @Test("A log fetched with the toggle on shows every remote branch; one fetched with it off keeps hiding them")
+    func chipsFollowLoadedScope() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        let store = Self.makeStore(Self.missingRepositoryURL(), defaults: suite, source: vm)
+        store.replaceLog(with: Self.chipCommits)
+        #expect(store.refChips.refs(on: "p").isEmpty)
+
+        // The reload this starts fails (there is no repository), so the old log and its scope stay.
+        await store.setShowsRemoteBranches(true)
+        await store.recomputeGraph()
+        #expect(store.refChips.refs(on: "p").isEmpty)
+
+        // A log fetched with the toggle on has the chips of every remote branch.
+        store.replaceLog(with: Self.chipCommits)
+        #expect(store.refChips.refs(on: "p").map(\.name) == ["origin/old-pr"])
+        await store.recomputeGraph()
+        #expect(store.refChips.refs(on: "p").map(\.name) == ["origin/old-pr"])
+    }
+
+    @Test("A log laid out again after the refs changed is shown with the chips of the refs it was laid out with")
+    func chipsOfTheRelaidInput() async {
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        vm.headSha = "m"
+        let engine = Self.hold(vm, passes: [0])
+        async let published = vm.history.publish(vm.history.stageFirstPage(Self.chipCommits))
+        await engine.gate(0).waiting()
+        // The pass in flight was staged with the old refs; these land before it ends.
+        vm.refs = Self.trackedRefs
+        await vm.history.recomputeGraph()
+        engine.gate(0).open()
+        #expect(await published)
+        #expect(vm.history.refChips.refs(on: "p").map(\.name).sorted() == ["origin/old-pr", "topic"])
+        Self.expectPublished(vm.history)
+    }
+
+    /// Swaps in a chips builder that counts its calls; the real one still builds.
+    private static func countChipBuilds(_ history: HistoryStore) -> CallCount {
+        let builds = CallCount()
+        history.refChipsBuilder = { refs, remoteTrunks, includesAllRemotes in
+            builds.add()
+            return HistoryRefChips.make(refs: refs, remoteTrunks: remoteTrunks, includesAllRemotes: includesAllRemotes)
+        }
+        return builds
+    }
+
+    @Test("The chips are rebuilt only when the refs or the remote trunks change; pages and relayouts reuse them")
+    func chipsRebuiltOnlyOnChange() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("feature", "f", head: true), GraphFixture.remote("origin/main", "m"),
+                   GraphFixture.remote("origin/other", "o")]
+        vm.headSha = "f"
+        let builds = Self.countChipBuilds(vm.history)
+        vm.history.replaceLog(with: GraphFixture.commits("f m\nm o\no"))
+        #expect(builds.value == 1)
+
+        // Neither a page, a recompute, a palette change nor a reload of the same refs rebuilds them.
+        let chips = vm.history.refChips
+        vm.history.appendPage(GraphFixture.commits("z"))
+        await vm.history.recomputeGraph()
+        await vm.history.setGraphPaletteSize(3)
+        vm.history.replaceLog(with: GraphFixture.commits("f m\nm o\no"))
+        await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("f m\nm o\no")))
+        #expect(builds.value == 1)
+        #expect(vm.history.refChips == chips)
+
+        // Other remote trunk, same refs.
+        vm.remoteHeads = ["origin": "origin/other"]
+        await vm.history.recomputeGraph()
+        #expect(builds.value == 2)
+        await vm.history.recomputeGraph()
+        #expect(builds.value == 2)
+
+        // New refs.
+        vm.refs += [GraphFixture.tag("v1", "m")]
+        await vm.history.recomputeGraph()
+        #expect(builds.value == 3)
+        #expect(vm.history.refChips.refs(on: "m").map(\.name).contains("v1"))
+        vm.history.appendPage(GraphFixture.commits("y"))
+        #expect(builds.value == 3)
+    }
+
+    /// Whether two non-empty arrays share one buffer: `Array ==` then answers without
+    /// comparing a single element.
+    private static func sharesStorage(_ lhs: [GitRef], _ rhs: [GitRef]) -> Bool {
+        lhs.withUnsafeBufferPointer { $0.baseAddress } == rhs.withUnsafeBufferPointer { $0.baseAddress }
+    }
+
+    @Test("Refs read again with the same content reuse the chips, and the next compare is by storage")
+    func chipsSourceTakesEqualRefs() throws {
+        let vm = Self.makeVM()
+        vm.refs = Self.trackedRefs
+        let builds = Self.countChipBuilds(vm.history)
+        vm.history.replaceLog(with: Self.chipCommits)
+        #expect(builds.value == 1)
+
+        // The same refs in a new buffer, as a refs read hands them over.
+        let reread = Self.trackedRefs.map { $0 }
+        #expect(reread == vm.refs && !Self.sharesStorage(reread, vm.refs))
+        vm.refs = reread
+        vm.history.appendPage(GraphFixture.commits("z"))
+        #expect(builds.value == 1)
+        // The chips' source now holds that buffer: the page after this one compares it in O(1).
+        let source = try #require(vm.history.refChipsSource)
+        #expect(Self.sharesStorage(source.refs, vm.refs))
+    }
+
+    @Test("loadRefs keeps the refs it has when it reads the same ones")
+    func loadRefsKeepsEqualRefs() async throws {
+        let repo = try await GitTestRepo.make { try $0.commit("c0", files: ["f.txt": "0\n"]) }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        let refs = vm.refs
+        #expect(!refs.isEmpty)
+        await vm.loadRefs()
+        #expect(Self.sharesStorage(vm.refs, refs))
+        try await repo.gitAsync("branch", "topic")
+        await vm.loadRefs()
+        #expect(vm.refs.contains { $0.name == "topic" })
+    }
+
+    @Test("The chips are rebuilt when the loaded scope's toggle changes, and not before")
+    func chipsRebuiltWhenToggleChanges() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        let store = Self.makeStore(Self.missingRepositoryURL(), defaults: suite, source: vm)
+        let builds = Self.countChipBuilds(store)
+        store.replaceLog(with: Self.chipCommits)
+        #expect(builds.value == 1)
+        // The reload this starts fails, so the loaded scope keeps its toggle.
+        await store.setShowsRemoteBranches(true)
+        await store.recomputeGraph()
+        #expect(builds.value == 1)
+        store.replaceLog(with: Self.chipCommits)
+        #expect(builds.value == 2)
+        store.appendPage(GraphFixture.commits("z"))
+        #expect(builds.value == 2)
+    }
+
+    @Test("Purging the log drops its chips")
+    func purgeDropsChips() {
+        let vm = Self.makeVM()
+        vm.refs = Self.trackedRefs
+        vm.history.replaceLog(with: Self.chipCommits)
+        #expect(vm.history.refChips != .empty)
+        vm.history.purge()
+        #expect(vm.history.refChips == .empty)
     }
 
     // MARK: Interleavings

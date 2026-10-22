@@ -98,11 +98,18 @@ extension RepositoryViewModel {
     /// `loadRefs` and `refreshStatus` are independent (status doesn't read
     /// refs), so we run them in parallel. `reloadLog` depends on the freshly
     /// loaded `unmergedLocalBranchRefs` and `stashes` and stays sequential.
+    /// Without `reloadLog`, the log still reloads when the change moved the
+    /// remote branches it loads (deleting the local main makes `origin/main`
+    /// the trunk, a rename can do the reverse).
     func refreshAfterRefMutation(reloadLog: Bool) async {
         async let refsTask: Void = loadRefs()
         async let statusTask: Void = workingCopy.refreshStatus()
         _ = await (refsTask, statusTask)
-        if reloadLog { await history.reloadLog() }
+        if reloadLog {
+            await history.reloadLog()
+        } else {
+            await reloadLogIfScopeMoved()
+        }
     }
 }
 

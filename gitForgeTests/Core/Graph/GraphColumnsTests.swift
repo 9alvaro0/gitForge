@@ -5,6 +5,14 @@ import Testing
 @Suite("GraphColumns")
 struct GraphColumnsTests {
 
+    /// Rows: 0 `o`, 1 `r2`, 2 `f`, 3 `r1`, 4 `base`. HEAD's `feature` sits on `f`, and `origin/main`
+    /// stands in for the missing local main with its tip two commits ahead on `r2`.
+    private static let remoteTrunk = GraphInput(
+        commits: GraphFixture.commits("o base\nr2 r1\nf r1\nr1 base\nbase"), headSha: "f",
+        refs: [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o"),
+               GraphFixture.remote("origin/main", "r2")],
+        remoteTrunks: ["origin/main": 0])
+
     /// Stages 1 to 3 of the layout, chained.
     private struct Result {
         let lines: GraphLines
@@ -187,5 +195,13 @@ struct GraphColumnsTests {
         #expect(!hasOverlap(r))
         #expect(r.columns.columnOfLine.allSatisfy { $0 >= 0 && $0 < r.columns.count })
         #expect(r.columns.columnOfTrack.allSatisfy { $0 >= 0 && $0 < r.columns.count })
+    }
+
+    @Test("A remote trunk is reserved with its trunk's rank")
+    func remoteTrunkReserved() {
+        let r = columns(Self.remoteTrunk)
+        #expect(r.column(of: .branch("feature")) == 0)
+        #expect(r.column(of: .remote("origin/main")) == 1)
+        #expect(r.column(of: .branch("other")) == 2)
     }
 }

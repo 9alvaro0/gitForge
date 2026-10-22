@@ -4,9 +4,9 @@ import Testing
 
 /// The commit graph engine on random histories: merges (octopus included),
 /// several roots, stashes, local branches with and without an upstream,
-/// remote-only refs, detached HEAD, truncated logs and two pages. The seeds are
-/// fixed, so a failure always reproduces, and it reports the history in the
-/// `GraphFixture.commits` format.
+/// remote-only refs, a remote trunk, detached HEAD, truncated logs and two
+/// pages. The seeds are fixed, so a failure always reproduces, and it reports
+/// the history in the `GraphFixture.commits` format.
 @Suite("CommitGraphProperties")
 struct CommitGraphPropertyTests {
     private static let seeds: ClosedRange<UInt64> = 1...2_000
@@ -15,36 +15,22 @@ struct CommitGraphPropertyTests {
 
     @Test("Random histories keep the layout invariants")
     func invariants() {
-        var failures = 0
-        for seed in Self.seeds {
-            let history = RandomHistory(seed: seed)
-            let violations = GraphInvariants.violations(CommitGraphEngine.layout(history.input), history.input)
-            guard !violations.isEmpty else { continue }
-            failures += 1
-            if failures <= Self.reportedFailures {
-                Issue.record(Comment(rawValue: "\(history)\n" + violations.joined(separator: "\n")))
-            }
-        }
-        #expect(failures == 0)
+        Self.checkInvariants(withRemoteTrunk: false)
+    }
+
+    @Test("Random histories with a remote trunk keep the layout invariants")
+    func invariantsWithRemoteTrunk() {
+        Self.checkInvariants(withRemoteTrunk: true)
     }
 
     @Test("Loading the second page of a random history only adds rows below")
     func paging() {
-        var checked = 0
-        var failures = 0
-        for seed in Self.seeds {
-            let history = RandomHistory(seed: seed)
-            guard Self.isPagingCase(history.input) else { continue }
-            checked += 1
-            if let change = Self.pagingChange(history.input) {
-                failures += 1
-                if failures <= Self.reportedFailures {
-                    Issue.record(Comment(rawValue: "\(history)\n\(change)"))
-                }
-            }
-        }
-        #expect(failures == 0)
-        #expect(checked > 500)
+        Self.checkPaging(withRemoteTrunk: false)
+    }
+
+    @Test("Random histories with a remote trunk only add rows below when page 2 loads")
+    func pagingWithRemoteTrunk() {
+        Self.checkPaging(withRemoteTrunk: true)
     }
 
     /// Histories that once changed colours on page 1 when page 2 loaded: a stretch
@@ -60,9 +46,41 @@ struct CommitGraphPropertyTests {
         }
     }
 
-    /// Two pages, and not the shape deferred to G3 (`startsOnLaterPage`).
+    private static func checkInvariants(withRemoteTrunk: Bool) {
+        var failures = 0
+        for seed in seeds {
+            let history = RandomHistory(seed: seed, withRemoteTrunk: withRemoteTrunk)
+            let violations = GraphInvariants.violations(CommitGraphEngine.layout(history.input), history.input)
+            guard !violations.isEmpty else { continue }
+            failures += 1
+            if failures <= reportedFailures {
+                Issue.record(Comment(rawValue: "\(history)\n" + violations.joined(separator: "\n")))
+            }
+        }
+        #expect(failures == 0)
+    }
+
+    private static func checkPaging(withRemoteTrunk: Bool) {
+        var checked = 0
+        var failures = 0
+        for seed in seeds {
+            let history = RandomHistory(seed: seed, withRemoteTrunk: withRemoteTrunk)
+            guard isPagingCase(history.input) else { continue }
+            checked += 1
+            if let change = pagingChange(history.input) {
+                failures += 1
+                if failures <= reportedFailures {
+                    Issue.record(Comment(rawValue: "\(history)\n\(change)"))
+                }
+            }
+        }
+        #expect(failures == 0)
+        #expect(checked > 500)
+    }
+
+    /// Two pages.
     private static func isPagingCase(_ input: GraphInput) -> Bool {
-        input.pageEnds.count == 2 && !startsOnLaterPage(input, firstPageEnd: input.pageEnds[0])
+        input.pageEnds.count == 2
     }
 
     /// What loading the second page changed in the first, or nil when it only added
@@ -85,36 +103,18 @@ struct CommitGraphPropertyTests {
         }
         return nil
     }
-
-    /// A local branch whose upstream's tip is on the first page while its own tip
-    /// loads on the second. It has no line until its tip loads (Task 1 starts a
-    /// branch only from a loaded tip), so page 2 can move what page 1 drew.
-    /// Deferred to G3: in G1 the default scope loads no remote-only commits, so
-    /// this needs an upstream tip that another local branch reaches.
-    private static func startsOnLaterPage(_ input: GraphInput, firstPageEnd: Int) -> Bool {
-        let rowOf = input.rowIndex()
-        var remoteRows: [String: Int] = [:]
-        for ref in input.refs where ref.isRemoteBranch {
-            remoteRows[ref.name] = rowOf[ref.targetSha]
-        }
-        return input.refs.contains { ref in
-            guard ref.isLocalBranch, let upstream = ref.upstream,
-                  let upstreamRow = remoteRows[upstream], upstreamRow < firstPageEnd,
-                  let localRow = rowOf[ref.targetSha] else { return false }
-            return localRow >= firstPageEnd
-        }
-    }
 }
 
 // MARK: - Random histories
 
 /// A seeded history of 3 to 14 commits, rows `c0` (newest) to `cN` (oldest).
+/// With `withRemoteTrunk`, an `origin/main` stands in for a missing local main.
 private struct RandomHistory: CustomStringConvertible {
     let seed: UInt64
     let input: GraphInput
     let description: String
 
-    init(seed: UInt64) {
+    init(seed: UInt64, withRemoteTrunk: Bool = false) {
         self.seed = seed
         var random = SplitMix64(seed: seed)
         let total = random.int(in: 3...14)
@@ -204,9 +204,17 @@ private struct RandomHistory: CustomStringConvertible {
             headSha = "c\(anyCommitRow())"
         }
 
+        // Drawn after everything else, so the histories without it stay as they were.
+        var remoteTrunks: [String: Int] = [:]
+        if withRemoteTrunk, !refs.contains(where: { $0.isLocalBranch && $0.name == "main" }) {
+            refs.append(GraphFixture.remote("origin/main", "c\(anyCommitRow())"))
+            remoteTrunks = ["origin/main": 0]
+        }
+
         let stashShas = Set(stashRows.map { "c\($0)" })
         input = GraphInput(commits: GraphFixture.commits(lines.joined(separator: "\n")), pageEnds: pageEnds,
-                           headSha: headSha, refs: refs, stashShas: stashShas, paletteSize: 4)
+                           headSha: headSha, refs: refs, stashShas: stashShas, paletteSize: 4,
+                           remoteTrunks: remoteTrunks)
         let refText = refs.map { ref in
             let upstream = ref.upstream.map { " -> \($0) ahead \(ref.ahead ?? 0) behind \(ref.behind ?? 0)" } ?? ""
             return "\(ref.name)@\(ref.targetSha)\(ref.isHead ? " (HEAD)" : "")\(upstream)"
@@ -216,6 +224,7 @@ private struct RandomHistory: CustomStringConvertible {
             \(lines.joined(separator: "\n"))
             pageEnds \(pageEnds), headSha \(headSha), stashes \(stashShas.sorted())
             refs: \(refText.joined(separator: ", "))
+            remoteTrunks \(remoteTrunks)
             """
     }
 }

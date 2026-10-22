@@ -1,15 +1,42 @@
 import Foundation
 
 extension GitCLI {
-    func refs() async throws -> [GitRef] {
+    /// Local branches, remote branches and, with `includingTags`, tags. Without
+    /// them the read skips what makes it slow in a repo with thousands of tags
+    /// (each one's subject, peeled): the history's first page only needs the
+    /// branches.
+    func refs(includingTags: Bool = true) async throws -> [GitRef] {
         // %(*objectname) is the dereferenced commit for annotated tags; empty for
         // everything else. We prefer it over %(objectname) (which would be the tag
         // OBJECT, not the commit, for annotated tags).
         // Upstream, track, date and subject feed the Branches table; the
         // subject goes last so a tab inside it can't shift the columns.
         let format = "%(objectname)%09%(*objectname)%09%(refname)%09%(HEAD)%09%(upstream:short)%09%(upstream:track)%09%(creatordate:unix)%09%(contents:subject)"
-        let result = try await run(["for-each-ref", "--format=\(format)", "refs/heads", "refs/remotes", "refs/tags"])
+        let patterns = ["refs/heads", "refs/remotes"] + (includingTags ? ["refs/tags"] : [])
+        let result = try await run(["for-each-ref", "--format=\(format)"] + patterns)
         return Self.parseRefs(result.stdout)
+    }
+
+    /// Branch each remote's HEAD points at, by remote: ["origin": "origin/main"]. Remotes
+    /// without a HEAD are left out. Picks the remote trunk (`GraphTrunks.remoteStandIns`).
+    func remoteHeads() async throws -> [String: String] {
+        let result = try await run(["for-each-ref", "--format=%(refname)%09%(symref)", "refs/remotes"])
+        return Self.parseRemoteHeads(result.stdout)
+    }
+
+    /// `refname<TAB>symref` lines: only `refs/remotes/<remote>/HEAD` symrefs count.
+    static func parseRemoteHeads(_ stdout: String) -> [String: String] {
+        var heads: [String: String] = [:]
+        for line in stdout.split(separator: "\n", omittingEmptySubsequences: true) {
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false)
+            guard parts.count >= 2,
+                  let ref = String(parts[0]).removingPrefix("refs/remotes/"),
+                  ref.hasSuffix("/HEAD"),
+                  let target = String(parts[1]).removingPrefix("refs/remotes/")
+            else { continue }
+            heads[String(ref.dropLast("/HEAD".count))] = target
+        }
+        return heads
     }
 
     func currentBranchName() async -> String? {

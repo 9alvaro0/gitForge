@@ -12166,6 +12166,22 @@
         }
       }
     },
+    "Remote branches" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ramas remotas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ramos remotos"
+          }
+        }
+      }
+    },
     "Remote is unavailable" : {
       "localizations" : {
         "es" : {
@@ -14134,6 +14150,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar painel de diff"
+          }
+        }
+      }
+    },
+    "Show every branch on the server, not only the ones your branches track" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra todas las ramas del servidor, no solo las que siguen tus ramas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra todos os ramos do servidor, não só os que os seus ramos seguem"
           }
         }
       }

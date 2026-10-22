@@ -13,12 +13,25 @@ nonisolated struct GraphInput: Sendable {
     var stashShas: Set<String> = []
     /// Number of pool colours for the current accent (`LaneColors.pool(accent:).count`).
     var paletteSize: Int = 4
+    /// Remote branches standing in for a local trunk that doesn't exist (§3.1), by name
+    /// ("origin/main"), with the rank of the trunk they replace: 0 for main, 1 for develop.
+    var remoteTrunks: [String: Int] = [:]
 }
 
 nonisolated extension GraphInput {
     /// Local branch with `isHead`; nil when detached.
     var headBranch: String? {
         refs.first { $0.isLocalBranch && $0.isHead }?.name
+    }
+
+    /// Priority rank of a branch owner: a local branch by its name, a remote trunk by the
+    /// trunk it stands in for. Nil for any other owner.
+    func rank(of owner: GraphOwner) -> Int? {
+        switch owner {
+        case .branch(let name): GraphPriority.rank(name)
+        case .remote(let name): remoteTrunks[name]
+        case .head, .stash, .unnamed: nil
+        }
     }
 
     /// End of the first loaded page: the only one whose lines may reserve

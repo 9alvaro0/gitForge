@@ -81,6 +81,27 @@ enum GraphFixture {
         ]
     }
 
+    /// Rows: 0 `m` (main, HEAD), 1 `s2`, 2 `l`, 3 `s1`, 4 `b`, 5 `base`. `feature/login` on `l` is one
+    /// ahead and two behind `origin/feature/login` on `s2`, where `fork/feature/login`, which no
+    /// local branch tracks, sits too. `trackedFirst` puts the tracked remote first in `refs`.
+    static func sharedRemoteTip(trackedFirst: Bool) -> GraphInput {
+        loginServerLine(forkTip: "s2", trackedFirst: trackedFirst)
+    }
+
+    /// `sharedRemoteTip` with `fork/feature/login` one commit lower, on `s1` (row 3), below the
+    /// tracked `origin/feature/login` on `s2`.
+    static func untrackedRemoteBelow(trackedFirst: Bool) -> GraphInput {
+        loginServerLine(forkTip: "s1", trackedFirst: trackedFirst)
+    }
+
+    private static func loginServerLine(forkTip: String, trackedFirst: Bool) -> GraphInput {
+        let remotes = [remote("origin/feature/login", "s2"), remote("fork/feature/login", forkTip)]
+        return GraphInput(commits: commits("m base\ns2 s1\nl b\ns1 b\nb base\nbase"), headSha: "m",
+                          refs: [local("main", "m", head: true),
+                                 local("feature/login", "l", upstream: "origin/feature/login", ahead: 1, behind: 2)]
+                              + (trackedFirst ? remotes : remotes.reversed()))
+    }
+
     /// A reproducible history for the performance benchmark, newest first: `main`
     /// plus up to `branches` feature branches alive at the same time. Built from
     /// the oldest commit to the newest:
@@ -134,6 +155,60 @@ enum GraphFixture {
         let refs = [local("main", sha(mainTip), head: true)]
             + active.map { local($0.name, sha($0.tip)) }
         return (commits, refs)
+    }
+
+    /// `synthetic(commits:branches:seed:)` as a clone sees it right after a fetch, with newer
+    /// commits on top of it. `count` is the size of the base history, so the returned log has
+    /// `count` plus the commits added here:
+    /// - `origin/main`, 5 server-only commits on `main`'s tip, upstream of `main`;
+    /// - each active feature i tracks `origin/<name>`: i % 3 == 0 behind by 3 (server commits on
+    ///   its tip), 1 diverged (ahead 1, behind 2: two server commits on its tip's first parent),
+    ///   2 in sync; ahead/behind filled in on the local refs;
+    /// - `stashes` stashes on the newest feature tips, each with an index parent that isn't loaded.
+    /// The added commits are newer than the base, server-only first. Shas: base `c<n>`, server `s<n>`, stashes `t<n>`.
+    static func syntheticAfterFetch(commits count: Int, branches: Int, seed: UInt64,
+                                    stashes: Int) -> (commits: [Commit], refs: [GitRef], stashShas: Set<String>) {
+        let (base, baseRefs) = synthetic(commits: count, branches: branches, seed: seed)
+        let features = Array(baseRefs.dropFirst())
+        precondition(stashes <= features.count, "\(features.count) active features cannot hold \(stashes) stashes")
+        let baseBySha = Dictionary(uniqueKeysWithValues: base.map { ($0.sha, $0) })
+
+        var server: [Commit] = []
+        /// `length` server-only commits on top of `parent`, newest first; returns the newest one's sha.
+        func serverChain(length: Int, on parent: String) -> String {
+            let first = server.count
+            for offset in 0..<length {
+                let below = offset + 1 < length ? "s\(first + offset + 1)" : parent
+                server.append(commit("s\(first + offset)", parents: [below]))
+            }
+            return "s\(first)"
+        }
+
+        let main = baseRefs[0]
+        var locals = [local(main.name, main.targetSha, head: true, upstream: "origin/main", ahead: 0, behind: 5)]
+        var remotes = [remote("origin/main", serverChain(length: 5, on: main.targetSha))]
+        for (index, feature) in features.enumerated() {
+            let upstream = "origin/\(feature.name)"
+            switch index % 3 {
+            case 0:
+                remotes.append(remote(upstream, serverChain(length: 3, on: feature.targetSha)))
+                locals.append(local(feature.name, feature.targetSha, upstream: upstream, ahead: 0, behind: 3))
+            case 1:
+                let firstParent = baseBySha[feature.targetSha]!.parentShas[0]
+                remotes.append(remote(upstream, serverChain(length: 2, on: firstParent)))
+                locals.append(local(feature.name, feature.targetSha, upstream: upstream, ahead: 1, behind: 2))
+            default:
+                remotes.append(remote(upstream, feature.targetSha))
+                locals.append(local(feature.name, feature.targetSha, upstream: upstream, ahead: 0, behind: 0))
+            }
+        }
+
+        // Base shas are `c<row>`: the smallest row is the newest tip.
+        let newestTips = features.map(\.targetSha).sorted { Int($0.dropFirst())! < Int($1.dropFirst())! }
+        let stashCommits = newestTips.prefix(stashes).enumerated().map { index, tip in
+            commit("t\(index)", parents: [tip, "i\(index)"])
+        }
+        return (server + stashCommits + base, locals + remotes, Set(stashCommits.map(\.sha)))
     }
 
     static func row(_ sha: String, in commits: [Commit]) -> Int {

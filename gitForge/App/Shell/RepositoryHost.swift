@@ -56,6 +56,11 @@ struct RepositoryHost: View {
             // VM. Starting reactivity here would re-arm its watcher and
             // auto-fetch on a repo nobody is looking at.
             guard !Task.isCancelled, appState.catalog.activeViewModel === viewModel else { return }
+            // The first page may have been fetched before the refs were read
+            // (or with older ones): reload it if it misses a remote branch
+            // they ask for.
+            await viewModel.reloadLogIfScopeMoved()
+            guard !Task.isCancelled, appState.catalog.activeViewModel === viewModel else { return }
             viewModel.startReactivity(
                 autoFetchIntervalSeconds: appState.gitEnvironment.globalConfig.autoFetchInterval ?? 0
             )

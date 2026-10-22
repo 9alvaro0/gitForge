@@ -9,6 +9,9 @@ struct HistoryFiltersBar: View {
     /// A commit is selected, so there's something to focus on.
     var canFocus = false
     var onToggleFocus: () -> Void = {}
+    /// Every remote branch is in the graph, not only the ones local branches track.
+    var showsRemoteBranches = false
+    var onToggleRemoteBranches: () -> Void = {}
 
     @Environment(\.appTheme) private var theme
     @FocusState private var searchFocused: Bool
@@ -26,6 +29,7 @@ struct HistoryFiltersBar: View {
                     return .ignored
                 }
             focusButton
+            remoteBranchesButton
             Spacer()
             MonoText(summary, dim: true)
         }
@@ -51,17 +55,11 @@ struct HistoryFiltersBar: View {
     private var focusButton: some View {
         if let focusLabel {
             Button(action: onToggleFocus) {
-                HStack(spacing: Spacing.s4) {
+                activeCapsule {
                     Image(systemName: "scope")
                     Text(focusLabel).lineLimit(1)
                     Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                 }
-                .textRole(.callout, weight: .semibold)
-                .foregroundStyle(theme.colors.accentOnFill)
-                .padding(.horizontal, Spacing.s8)
-                .frame(height: 24)
-                .background(Capsule().fill(theme.colors.accentFill))
-                .contentShape(Capsule())
             }
             .buttonStyle(.plain)
             .help("Showing \(focusLabel)'s history only. Click to show everything.")
@@ -72,6 +70,38 @@ struct HistoryFiltersBar: View {
                      action: onToggleFocus)
                 .help("Dim every commit outside the selected commit's history")
         }
+    }
+
+    /// "Remote branches" like Focus: a small button while off, the same accent capsule
+    /// (without the close mark) while on. A toggle for VoiceOver.
+    private var remoteBranchesButton: some View {
+        Group {
+            if showsRemoteBranches {
+                Button(action: onToggleRemoteBranches) {
+                    activeCapsule {
+                        Image(systemName: "cloud")
+                        Text("Remote branches").lineLimit(1)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                GFButton(title: String(localized: "Remote branches"), systemImage: "cloud", size: .small,
+                         action: onToggleRemoteBranches)
+            }
+        }
+        .help("Show every branch on the server, not only the ones your branches track")
+        .accessibilityAddTraits(showsRemoteBranches ? [.isToggle, .isSelected] : .isToggle)
+    }
+
+    /// The look of an active filter: `content` on a filled accent capsule.
+    private func activeCapsule<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: Spacing.s4) { content() }
+            .textRole(.callout, weight: .semibold)
+            .foregroundStyle(theme.colors.accentOnFill)
+            .padding(.horizontal, Spacing.s8)
+            .frame(height: 24)
+            .background(Capsule().fill(theme.colors.accentFill))
+            .contentShape(Capsule())
     }
 
     private var summary: String {
@@ -98,6 +128,14 @@ struct HistoryFiltersBar: View {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var search = "feat:"
     HistoryFiltersBar(search: $search, totalCount: 124, matchCount: 17)
+        .frame(width: 1100)
+        .appTheme(theme)
+}
+
+#Preview("Remote branches on") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var search = ""
+    HistoryFiltersBar(search: $search, totalCount: 124, matchCount: 124, showsRemoteBranches: true)
         .frame(width: 1100)
         .appTheme(theme)
 }

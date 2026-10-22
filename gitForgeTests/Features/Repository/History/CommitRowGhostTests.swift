@@ -15,7 +15,7 @@ struct CommitRowGhostTests {
     private static func commitRow(_ layout: GraphRow) -> CommitRow {
         CommitRow(commit: Commit.previewSamples[0], layout: layout, maxLanes: 1, rowHeight: 28,
                   tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
-                  refs: [], currentBranch: nil, isSelected: false, dimmed: false,
+                  chips: .empty, currentBranch: nil, isSelected: false, dimmed: false,
                   onSelect: {}, onDoubleClick: {}, onBranchDrop: nil)
     }
 

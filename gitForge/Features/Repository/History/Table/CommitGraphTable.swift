@@ -13,6 +13,9 @@ import SwiftUI
 /// and WHEN, so any boundary the eye lands on is draggable.
 struct CommitGraphTable: View {
     let commits: [Commit]
+    /// `HistoryStore.logRevision` of `commits`: a log published again while
+    /// its end is on screen pages in more again (`CommitRowList`).
+    var logRevision: UInt64 = 0
     let layouts: [GraphRow]
     /// Column count of the whole graph layout (`HistoryStore.graphMaxLanes`,
     /// taken once per layout pass; it includes columns reserved for HEAD and
@@ -20,7 +23,8 @@ struct CommitGraphTable: View {
     /// every layout, and did so for each row SwiftUI built — O(visible rows ×
     /// commits) on every re-render of History.
     let maxLanes: Int
-    let refsBySha: [String: [GitRef]]
+    /// The refs drawn as chips (`HistoryStore.refChips`), published with the layouts.
+    let refChips: HistoryRefChips
     let currentBranch: String?
     /// Commit HEAD points at (detached or not); marks HEAD in the graph.
     var headSha: String? = nil
@@ -43,7 +47,8 @@ struct CommitGraphTable: View {
     /// Triggered by a double-click on a commit row. Host views typically use
     /// it to checkout the commit (or its enclosing local branch).
     var onDoubleClick: ((String) -> Void)? = nil
-    /// Fired when a row appears in the viewport. Host wires it to
+    /// Fired with the last commit when the end of the list is on screen
+    /// (`CommitRowList`). Host wires it to
     /// `HistoryStore.loadMoreIfNeeded(currentItem:)` so reaching the
     /// last loaded commit pulls in the next page. Without this hook the log
     /// silently stops at `pageSize` even though `hasMore` is true.
@@ -157,14 +162,14 @@ struct CommitGraphTable: View {
                             }
                             // Rows are identified by sha (see `CommitRowList`);
                             // `scrollTo(sha)` below relies on it.
-                            CommitRowList(commits: commits, onLastRowAppear: onAppear) { idx, commit in
+                            CommitRowList(commits: commits, revision: logRevision, onLastRowAppear: onAppear) { idx, commit in
                                 CommitRow(
                                     commit: commit,
                                     layout: layouts[safe: idx] ?? .empty,
                                     maxLanes: maxLanes,
                                     rowHeight: rowHeight,
                                     tableLayout: layout,
-                                    refs: refsBySha[commit.sha] ?? [],
+                                    chips: refChips,
                                     currentBranch: currentBranch,
                                     isSelected: commit.sha == selectedSha,
                                     graphStyle: style,
@@ -234,7 +239,7 @@ struct CommitGraphTable: View {
         commits: vm.history.commits,
         layouts: vm.history.graphLayouts,
         maxLanes: vm.history.graphMaxLanes,
-        refsBySha: vm.refsBySha,
+        refChips: vm.history.refChips,
         currentBranch: vm.currentBranchName,
         selectedSha: vm.history.commits.first?.sha,
         workingCopyDirty: !vm.workingCopy.status.isClean,

@@ -41,4 +41,54 @@ struct GitCLIRefsTrackingTests {
         #expect(main.ahead == nil && main.behind == nil)
         #expect(main.subject == "base")
     }
+
+    /// A repo with one commit pushed to a bare `origin` as `main`. Push only: a fetch would
+    /// create `origin/HEAD` on its own (git 2.48 and later).
+    private static func pushedRepo() async throws -> (repo: GitTestRepo, remote: GitTestRepo) {
+        let remote = try await GitTestRepo.make(bare: true)
+        let repo = try await GitTestRepo.make { try $0.commit("base", files: ["a.txt": "1"]) }
+        try await repo.gitAsync("remote", "add", "origin", remote.url.path)
+        try await repo.gitAsync("push", "-q", "-u", "origin", "main")
+        return (repo, remote)
+    }
+
+    @Test("Without tags, the refs are the same branches with the same tracking, and no tag")
+    func refsWithoutTags() async throws {
+        let (repo, remote) = try await Self.pushedRepo()
+        defer { repo.remove(); remote.remove() }
+        try await repo.gitAsync("commit", "-q", "--allow-empty", "-m", "local one")
+        try await repo.gitAsync("branch", "-q", "topic")
+        try await repo.gitAsync("tag", "v1")
+        try await repo.gitAsync("tag", "-a", "v2", "-m", "Release")
+
+        let all = try await repo.cli.refs()
+        let branches = try await repo.cli.refs(includingTags: false)
+        #expect(all.filter(\.isTag).count == 2)
+        #expect(!branches.contains { $0.isTag })
+        #expect(branches == all.filter { !$0.isTag })
+        let main = try #require(branches.first { $0.isLocalBranch && $0.name == "main" })
+        #expect(main.upstream == "origin/main" && main.ahead == 1 && main.behind == 0)
+        #expect(branches.contains { $0.isRemoteBranch && $0.name == "origin/main" })
+    }
+
+    @Test("remoteHeads names the branch each remote's HEAD points at")
+    func remoteHeads() async throws {
+        let (repo, remote) = try await Self.pushedRepo()
+        defer { repo.remove(); remote.remove() }
+        try await repo.gitAsync("remote", "set-head", "origin", "main")
+        #expect(try await repo.cli.remoteHeads() == ["origin": "origin/main"])
+    }
+
+    @Test("A remote without a HEAD is left out")
+    func remoteWithoutHead() async throws {
+        let (repo, remote) = try await Self.pushedRepo()
+        defer { repo.remove(); remote.remove() }
+        #expect(try await repo.cli.remoteHeads().isEmpty)
+    }
+
+    @Test("remoteHeads parses symrefs only")
+    func parseRemoteHeads() {
+        let stdout = "refs/remotes/origin/HEAD\trefs/remotes/origin/main\nrefs/remotes/origin/main\t\n"
+        #expect(GitCLI.parseRemoteHeads(stdout) == ["origin": "origin/main"])
+    }
 }

@@ -11,14 +11,22 @@ nonisolated struct GraphColoring: Sendable {
     /// `.neutral` for an owner the graph never saw.
     func role(_ owner: GraphOwner) -> GraphColorRole { roleOfOwner[owner] ?? .neutral }
 
-    /// Gives a role to every owner of a drawn line or of a row's colour.
+    /// Gives a role to every owner of a drawn line or of a row's colour, and to
+    /// both members of every remote–local pair, except a pair with no fixed role
+    /// whose members draw no stretch: it stays `.neutral`.
     ///
     /// **Fixed roles** come from what the owner is:
     /// - HEAD's branch, or a detached HEAD, is `.head`.
     /// - Rank 0 (`main`, `master`, `trunk`) is `.main`, rank 1 (`develop`, `dev`) is `.develop`.
+    ///   A remote trunk has the rank of the trunk it stands in for (§3.1), so the same roles.
     /// - A stash is `.stash`.
-    /// - A remote follows the local branch whose upstream it is, when that
-    ///   branch has a role to give; otherwise it is an ordinary owner.
+    ///
+    /// **A remote and its local branch share a role** (§5.4). A remote that local
+    /// branches track, unless it is a remote trunk, pairs with one of them (see
+    /// `remotePairs`). A fixed role of the local is the remote's too; otherwise
+    /// the first stretch of either picks a palette index for both, and the other
+    /// one's stretches don't look at their neighbours, so they may share a colour
+    /// with one.
     ///
     /// **The rest take a palette index**, one stretch of line at a time. A stretch
     /// is a drawn line in its column with a single colour owner; HEAD's line is
@@ -29,10 +37,8 @@ nonisolated struct GraphColoring: Sendable {
     /// index is taken around it, the least used of all wins.
     ///
     /// The search stops at the end of the page the stretch starts on, so loading
-    /// the next page does not change a colour already drawn (§3.9), except when
-    /// a local branch's tip loads on a later page than its upstream's: the remote
-    /// then changes to follow the branch's colour (deferred to phase G3). The cost
-    /// of clipping at the page end is accepted: a line on one page may share its
+    /// the next page does not change a colour already drawn (§3.9). The cost of
+    /// clipping at the page end is accepted: a line on one page may share its
     /// colour with a neighbour that starts on the next page. Later stretches
     /// still see the earlier ones around them.
     ///
@@ -43,18 +49,19 @@ nonisolated struct GraphColoring: Sendable {
 
         var roles: [GraphOwner: GraphColorRole] = [:]
         for owner in owners {
-            roles[owner] = fixedRole(of: owner, headBranch: headBranch)
+            roles[owner] = fixedRole(of: owner, headBranch: headBranch, input: input)
         }
 
-        // A remote's role is its local branch's. A fixed one is known now; a palette
-        // index is copied when the branch takes it.
-        let localOfRemote = remoteFollowers(input, owners: owners, headBranch: headBranch)
-        var followers: [GraphOwner: [GraphOwner]] = [:]
-        for (remote, local) in localOfRemote {
-            if let fixed = fixedRole(of: local, headBranch: headBranch) {
+        // The two members of a pair share one role. A fixed one is known now; a palette
+        // index goes to both when the first stretch of either takes it.
+        var partner: [GraphOwner: GraphOwner] = [:]
+        for (remote, local) in remotePairs(input) {
+            if let fixed = fixedRole(of: local, headBranch: headBranch, input: input) {
                 roles[remote] = fixed
+                roles[local] = fixed
             } else {
-                followers[local, default: []].append(remote)
+                partner[remote] = local
+                partner[local] = remote
             }
         }
 
@@ -66,8 +73,7 @@ nonisolated struct GraphColoring: Sendable {
         let neighbours = StretchesByColumn(stretches)
         var usage = Array(repeating: 0, count: paletteSize)
         for stretch in stretches.sorted(by: { ($0.top, $0.line) < ($1.top, $1.line) }) {
-            // A remote that follows a branch gets its role from it.
-            guard roles[stretch.owner] == nil, localOfRemote[stretch.owner] == nil else { continue }
+            guard roles[stretch.owner] == nil else { continue }
             // Nothing from a later page may decide this stretch's colour (§3.9): the window
             // searched around it stops at the end of the page it starts on. The stretch's
             // own bottom is not clipped to the page; the clamp on the window is what counts.
@@ -84,8 +90,8 @@ nonisolated struct GraphColoring: Sendable {
             let index = leastUsed(usage, avoiding: taken)
             usage[index] += 1
             roles[stretch.owner] = .pool(index)
-            for follower in followers[stretch.owner] ?? [] {
-                roles[follower] = .pool(index)
+            if let other = partner[stretch.owner] {
+                roles[other] = .pool(index)
             }
         }
         return GraphColoring(roleOfOwner: roles)
@@ -96,44 +102,46 @@ nonisolated struct GraphColoring: Sendable {
 
 private nonisolated extension GraphColoring {
     /// The role an owner has by what it is, or nil when it takes one from the palette.
-    static func fixedRole(of owner: GraphOwner, headBranch: String?) -> GraphColorRole? {
+    static func fixedRole(of owner: GraphOwner, headBranch: String?, input: GraphInput) -> GraphColorRole? {
         switch owner {
         case .head:
             return .head
         case .stash:
             return .stash
-        case .branch(let name):
-            if name == headBranch { return .head }
-            switch GraphPriority.rank(name) {
-            case 0: return .main
-            case 1: return .develop
+        case .branch(let name) where name == headBranch:
+            return .head
+        case .branch, .remote:
+            switch input.rank(of: owner) {
+            case 0?: return .main
+            case 1?: return .develop
             default: return nil
             }
-        case .remote, .unnamed:
+        case .unnamed:
             return nil
         }
     }
 
-    /// For each remote owner in the graph, the local branch it follows: the one
-    /// whose upstream it is, provided that branch has a role to give, which is
-    /// a fixed one or a place in the graph to get one from the palette. With
-    /// several branches on one remote, the lowest priority rank wins and then
-    /// the name, so the order of the refs never matters.
-    static func remoteFollowers(_ input: GraphInput, owners: Set<GraphOwner>, headBranch: String?) -> [GraphOwner: GraphOwner] {
-        var localOfRemote: [GraphOwner: GraphOwner] = [:]
+    /// For each remote branch, the local branch it pairs with: of those whose
+    /// upstream it is, the lowest priority rank and then the name, so the order
+    /// of the refs never matters. Taken from the refs alone, whether either one
+    /// draws a line, so a pair never changes as pages load. A remote trunk pairs
+    /// with no one: its role comes from its own rank.
+    static func remotePairs(_ input: GraphInput) -> [GraphOwner: GraphOwner] {
+        let remotes = Set(input.refs.lazy.filter(\.isRemoteBranch).map(\.name))
+        var localOfRemote: [String: String] = [:]
         for ref in input.refs where ref.isLocalBranch {
-            guard let upstream = ref.upstream else { continue }
-            let remote = GraphOwner.remote(upstream)
-            let local = GraphOwner.branch(ref.name)
-            guard owners.contains(remote),
-                  owners.contains(local) || fixedRole(of: local, headBranch: headBranch) != nil else { continue }
-            if case .branch(let followed)? = localOfRemote[remote],
-               (GraphPriority.rank(followed), followed) <= (GraphPriority.rank(ref.name), ref.name) {
+            guard let upstream = ref.upstream, remotes.contains(upstream), input.remoteTrunks[upstream] == nil else { continue }
+            if let paired = localOfRemote[upstream],
+               (GraphPriority.rank(paired), paired) <= (GraphPriority.rank(ref.name), ref.name) {
                 continue
             }
-            localOfRemote[remote] = local
+            localOfRemote[upstream] = ref.name
         }
-        return localOfRemote
+        var pairs: [GraphOwner: GraphOwner] = [:]
+        for (remote, local) in localOfRemote {
+            pairs[.remote(remote)] = .branch(local)
+        }
+        return pairs
     }
 
     /// The index with the fewest owners among those not `taken`, the lowest on a

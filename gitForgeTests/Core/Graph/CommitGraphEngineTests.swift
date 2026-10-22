@@ -5,6 +5,14 @@ import Testing
 @Suite("CommitGraphEngine")
 struct CommitGraphEngineTests {
 
+    /// Rows: 0 `o`, 1 `r2`, 2 `f`, 3 `r1`, 4 `base`. HEAD's `feature` sits on `f`, and `origin/main`
+    /// stands in for the missing local main with its tip two commits ahead on `r2`.
+    private static let remoteTrunk = GraphInput(
+        commits: GraphFixture.commits("o base\nr2 r1\nf r1\nr1 base\nbase"), headSha: "f",
+        refs: [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o"),
+               GraphFixture.remote("origin/main", "r2")],
+        remoteTrunks: ["origin/main": 0])
+
     private static func gitflow(head: String = "feature/cart", pageEnds: [Int] = [], count: Int = 24) -> GraphInput {
         let commits = Array(GraphFixture.gitflow.prefix(count))
         let headSha = GraphFixture.gitflowRefs(head: head).first { $0.isHead }?.targetSha
@@ -210,5 +218,89 @@ struct CommitGraphEngineTests {
         #expect(full.rows[0] == first.rows[0])
         #expect(full.rows[1].node == first.rows[1].node)
         #expect(full.rows[1].stepsAbove == first.rows[1].stepsAbove)
+    }
+
+    @Test("Without a local main, origin/main is the trunk: its column, its colour, its server-only commits ghosts")
+    func remoteTrunkLayout() {
+        let layout = CommitGraphEngine.layout(Self.remoteTrunk)
+        GraphInvariants.check(layout, Self.remoteTrunk)
+        #expect(layout.rows[1].node == GraphNode(column: 1, kind: .commit, color: .main, isGhost: true))
+        #expect(layout.rows[3].node == GraphNode(column: 0, kind: .commit, color: .main, isGhost: false))
+        #expect(layout.rows[0].node.column == 2)
+    }
+
+    // Rows: 0 o, 1 u3, 2 f, 3 u2 | 4 u1, 5 l, 6 base.
+    @Test("A branch behind its upstream by more than a page: page 1 stays as it was when its tip loads")
+    func behindAcrossPages() {
+        let commits = GraphFixture.commits("o base\nu3 u2\nf base\nu2 u1\nu1 l\nl base\nbase")
+        let refs = [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o"),
+                    GraphFixture.local("main", "l", upstream: "origin/main", ahead: 0, behind: 3),
+                    GraphFixture.remote("origin/main", "u3")]
+        let first = CommitGraphEngine.layout(GraphInput(commits: Array(commits.prefix(4)), pageEnds: [4],
+                                                        headSha: "f", refs: refs)).rows
+        let full = CommitGraphEngine.layout(GraphInput(commits: commits, pageEnds: [4, 7], headSha: "f", refs: refs)).rows
+        #expect(Array(full.prefix(3)) == Array(first.prefix(3)))
+        #expect(full[3].node == first[3].node && full[3].stepsAbove == first[3].stepsAbove)
+        #expect(full[1].node == GraphNode(column: 1, kind: .commit, color: .main, isGhost: true))
+    }
+
+    // Rows: 0 r1 (origin/feature), 1 o (other) | 2 l (feature), 3 b, 4 base. Today the remote waits for
+    // its local, so once page 2 loads `other` takes pool 0 first and the remote changes to pool 1.
+    @Test("A remote whose local branch loads on the next page keeps its colour, and the branch shares it")
+    func remoteColourAcrossPages() {
+        let commits = GraphFixture.commits("r1 b\no base\nl b\nb base\nbase")
+        let refs = [GraphFixture.local("main", "base", head: true), GraphFixture.local("other", "o"),
+                    GraphFixture.local("feature", "l", upstream: "origin/feature", ahead: 1, behind: 1),
+                    GraphFixture.remote("origin/feature", "r1")]
+        let first = CommitGraphEngine.layout(GraphInput(commits: Array(commits.prefix(2)), pageEnds: [2],
+                                                        headSha: "base", refs: refs)).rows
+        let full = CommitGraphEngine.layout(GraphInput(commits: commits, pageEnds: [2, 5], headSha: "base", refs: refs)).rows
+        #expect(full[0] == first[0])
+        #expect(full[1].node == first[1].node && full[1].stepsAbove == first[1].stepsAbove)
+        #expect(full[2].node.color == full[0].node.color)
+    }
+
+    @Test("Two remotes on one tip: the server side of a diverged branch is a ghost in the branch's colour",
+          arguments: [true, false])
+    func sharedRemoteTipColour(trackedFirst: Bool) {
+        let input = GraphFixture.sharedRemoteTip(trackedFirst: trackedFirst)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        let local = layout.rows[2].node.color
+        #expect(local == .pool(0))
+        #expect(layout.rows[1].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
+        #expect(layout.rows[3].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
+    }
+
+    @Test("An untracked remote below the tracked one: the whole server side is in the branch's colour",
+          arguments: [true, false])
+    func untrackedRemoteBelowColour(trackedFirst: Bool) {
+        let input = GraphFixture.untrackedRemoteBelow(trackedFirst: trackedFirst)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        let local = layout.rows[2].node.color
+        #expect(local == .pool(0))
+        #expect(layout.rows[1].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
+        #expect(layout.rows[3].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
+    }
+
+    @Test("Only ahead of its upstream: nothing is a ghost and the remote draws no line")
+    func aheadOnly() {
+        let layout = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.commits("l2 l1\nl1 base\nbase"), headSha: "l2",
+            refs: [GraphFixture.local("main", "l2", head: true, upstream: "origin/main", ahead: 1, behind: 0),
+                   GraphFixture.remote("origin/main", "l1")]))
+        #expect(layout.rows.allSatisfy { !$0.node.isGhost })
+        #expect(layout.columnCount == 1)
+    }
+
+    @Test("A branch only on the server: a ghost line in a palette colour when loaded, nothing when not")
+    func serverOnly() {
+        let refs = [GraphFixture.local("main", "m", head: true), GraphFixture.remote("origin/release", "s1")]
+        let loaded = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.commits("s1 base\nm base\nbase"),
+                                                         headSha: "m", refs: refs))
+        #expect(loaded.rows[0].node.isGhost && loaded.rows[0].node.column == 1)
+        #expect(loaded.rows[0].node.color == .pool(0))
+        let unloaded = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.commits("m base\nbase"), headSha: "m", refs: refs))
+        #expect(unloaded.columnCount == 1)
     }
 }

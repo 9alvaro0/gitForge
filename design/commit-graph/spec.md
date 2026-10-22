@@ -70,6 +70,15 @@ Que el grafo del historial sea el mejor de cualquier cliente git: muy visual, f�
 
 - **Por defecto:** lo de hoy (`HistoryStore.graphScope()`: HEAD, ramas locales no mergeadas en HEAD, `--tags` y stashes) más la referencia remota de cada rama local que va por detrás de ella (`behind > 0` en su `upstream:track`). Las remotas que no van por delante no aportan commits nuevos, así que no hace falta pasarlas. Se omiten las de upstream desaparecido.
 - **Tronco remoto en lugar del local:** si no existe `main`/`master` en local (o `develop`/`dev`), ocupa su lugar el del remoto por defecto. Ese remoto es el que señala `origin/HEAD`, y si no hay, `origin`; dentro de él se usa la rama a la que apunta su `HEAD`, o `main`/`master` y `develop`/`dev`. Se carga siempre, aunque el interruptor esté apagado, y a todos los efectos (prioridad, columna y color) cuenta como ese tronco. Lo que solo esté en el servidor sale en fantasma (§4.3).
+  **(Decidido en G3)** Concretando lo anterior:
+  - El remoto es `origin` si existe; si no, el primero por nombre.
+  - Dentro de él, hace de main la rama a la que apunta su `HEAD`, salvo que sea de rango 1. Si no, la primera de `main`, `master` y `trunk` que exista. Hace de develop la primera de `develop` y `dev`.
+  - Una rama remota que sigue alguna rama local, o que se llama como una local, nunca hace de tronco. Si no, un repo cuya rama por defecto no se llama main (por ejemplo `canary`), con esa rama en local, pintaría tu propia rama del color de main.
+  - Una rama local que sigue al tronco remoto no lo continúa: el tronco va en su columna y nace del commit de tu rama.
+- **(Decidido en G3) Por qué se recarga el log:**
+  - Las páginas de un log se piden con el alcance de su primera página, y las remotas entran por su sha, así que un fetch entre dos páginas no descuadra el `--skip`.
+  - Cuando un fetch (manual o automático), un push, Actualizar o un cambio de ramas mueve una remota del alcance, el log se recarga conservando las páginas que ya estaban cargadas. Así no se pierden la selección ni el scroll.
+  - Mientras llega la recarga, el grafo sigue dibujando cada remota donde estaba al cargarse el log. Si no, sus commits fantasma se verían un momento como sólidos en otra columna.
 - **Con el interruptor activado:** además, todas las ramas remotas (`--remotes`).
 - Las stashes siguen sin sus commits internos (`dropStashInternals`).
 
@@ -81,7 +90,7 @@ Una **línea** es una cadena de primeros padres. Dos nociones distintas que el p
 
 1. HEAD (la rama actual o, con HEAD suelto, el commit actual).
 2. Ramas locales, por prioridad: `main`/`master`/`trunk`, `develop`/`dev`, `release/*`, `hotfix/*`, el resto. Dentro de la misma prioridad, la punta más **abajo** primero y, a igualdad, por nombre. Así, una rama de la que salen otras apiladas encima se queda con sus commits. El tronco remoto de §3.1 entra aquí con la prioridad de su tronco.
-3. Ramas remotas que no continúan una local (§4.1), la punta más abajo primero (como las locales dentro de un nivel).
+3. Ramas remotas que no continúan una local (§4.1), la punta más abajo primero (como las locales dentro de un nivel). **(Decidido en G3)** Antes van todas las que sigue alguna rama local y después las demás, cada grupo con la punta más abajo primero. Así, con dos remotos, la ramita que muestra lo que traería un pull es de la remota de tu rama y lleva su color en todos sus commits (§4.1), aunque la misma rama de otro remoto apunte al mismo commit o a uno más abajo.
 4. Commits sin reclamar (ramas borradas, tags sueltos): cada uno abre una línea sin nombre, de arriba abajo.
 
 Una stash solo reclama su propio commit. Si su padre no tiene dueño, lo reclama una línea normal sin nombre. Así una stash nunca pinta de discontinuo la línea de una rama (es la protección que ya existe hoy y debe mantenerse).
@@ -160,12 +169,18 @@ Además aparecen, en fantasma, las ramas que solo existen en el servidor, con co
 - El chip remoto de una referencia que no coincide con su local lleva borde discontinuo.
 - El tinte del chip es el color del commit que da el motor (§5.4), así coincide con el tramo de línea donde está.
 - **(Decisión mía)** Con varios remotos, el chip remoto muestra el prefijo del remoto solo cuando hay ambigüedad. Por defecto solo cuenta la remota asociada a cada rama; con el interruptor salen las de todos los remotos.
+- **(Decidido en G3, elegido por Alvaro sobre opciones renderizadas)**
+  - Los contadores van en línea tras el nombre, separados por una barra fina como la de la nube, en `monoSmall`.
+  - El borde discontinuo es 3–3, como los fantasmas del grafo, y también lo lleva un chip remoto cuyo commit es fantasma.
+  - Con el interruptor apagado no lleva chip ninguna remota que no siga una rama local, salvo el tronco remoto. Antes se veían si su commit estaba cargado, por ejemplo la rama de una PR ya mergeada.
+  - Entre los chips remotos de un commit van primero los de remotas que sigue una rama local y el del tronco remoto, para que el de tu rama no quede escondido tras "+N".
 
 ### 4.5 Interruptor
 
 - **(Decisión mía)** En `HistoryFiltersBar`, junto a Focus. Etiqueta "Remote branches", traducida a español y portugués europeo como el resto de la app.
 - Se recuerda por repositorio.
 - Activarlo o desactivarlo recarga el log con el nuevo alcance.
+- **(Decidido en G3, elegido por Alvaro)** Es un botón como Focus, con el icono de nube, que se rellena de acento al activarlo.
 
 ## 5. Dibujo
 

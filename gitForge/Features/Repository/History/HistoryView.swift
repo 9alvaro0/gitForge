@@ -85,7 +85,9 @@ struct HistoryView: View {
                 matchCount: matchCount,
                 focusLabel: focus?.label,
                 canFocus: viewModel.history.selectedCommit != nil,
-                onToggleFocus: toggleFocus
+                onToggleFocus: toggleFocus,
+                showsRemoteBranches: viewModel.history.showsRemoteBranches,
+                onToggleRemoteBranches: toggleRemoteBranches
             )
             GeometryReader { geo in
                 HStack(spacing: 0) {
@@ -171,9 +173,10 @@ struct HistoryView: View {
             } else {
                 CommitGraphTable(
                     commits: viewModel.history.commits,
+                    logRevision: viewModel.history.logRevision,
                     layouts: viewModel.history.graphLayouts,
                     maxLanes: viewModel.history.graphMaxLanes,
-                    refsBySha: viewModel.refsBySha,
+                    refChips: viewModel.history.refChips,
                     currentBranch: viewModel.currentBranchName,
                     headSha: viewModel.headSha,
                     selectedSha: viewModel.history.selectedCommitId,
@@ -435,6 +438,12 @@ struct HistoryView: View {
             focus = HistoryFocus(sha: commit.sha, label: focusLabel(for: commit), members: [])
             refreshFocus()
         }
+    }
+
+    private func toggleRemoteBranches() {
+        let history = viewModel.history
+        let on = !history.showsRemoteBranches
+        Task { await history.setShowsRemoteBranches(on) }
     }
 
     private func refreshFocus() {

@@ -34,15 +34,18 @@ final class RepositoryViewModel {
     private(set) var tags: [GitRef] = []
     /// Cached so chip cells don't regroup `refs` on every scroll tick.
     var refsBySha: [String: [GitRef]] = [:]
+    /// Branch each remote's HEAD points at, by remote: ["origin": "origin/main"].
+    /// Picks the remote trunk the graph loads when a local one is missing.
+    var remoteHeads: [String: String] = [:]
     var currentBranchName: String?
     /// Commit HEAD points at, detached or not. Marks HEAD in the graph.
     var headSha: String?
     var stashes: [Stash] = []
-    /// Bumped at the start of every `loadRefs()` call. The 4 parallel CLI
-    /// reads (refs / current branch / stashes / unmerged) collect into locals
-    /// before a single post-await guard — keeps a slow watcher tick from
-    /// stomping a fresher refresh's `currentBranchName` after the fresher
-    /// one already wrote it.
+    /// Bumped at the start of every `loadRefs()` call. The 6 parallel CLI
+    /// reads (refs / remote HEADs / current branch / stashes / unmerged /
+    /// HEAD) collect into locals before a single post-await guard — keeps a
+    /// slow watcher tick from stomping a fresher refresh's `currentBranchName`
+    /// after the fresher one already wrote it.
     var refsGen: UInt64 = 0
 
     // MARK: Stash detail
@@ -161,7 +164,7 @@ final class RepositoryViewModel {
         self.conflicts = ConflictStore(repositoryURL: repository.url)
         let tasks = OwnedTasks()
         self.tasks = tasks
-        self.history = HistoryStore(cli: cli, tasks: tasks)
+        self.history = HistoryStore(cli: cli, tasks: tasks, repositoryURL: repository.url)
         self.workingCopy = WorkingCopyStore(cli: cli, repositoryURL: repository.url, tasks: tasks)
         history.refsSource = self
     }
@@ -199,6 +202,7 @@ final class RepositoryViewModel {
         workingCopy.purge()
         refs = []
         refsBySha = [:]
+        remoteHeads = [:]
         stashes = []
         unmergedLocalBranchRefs = []
         stashDetail.close()
@@ -231,12 +235,13 @@ final class RepositoryViewModel {
     }
 
     /// Watcher-driven refresh. Skips the log reload unless HEAD or a local
-    /// branch tip actually moved — letting the watcher reload it on every
-    /// tick was the source of feedback loops with our own write paths. Every
-    /// local tip counts, not just HEAD's: the graph walks all local branches,
-    /// so a commit made in another worktree or a `git branch -f` from the
-    /// terminal must show up too.
-    private func refreshFromExternalChange() async {
+    /// branch tip actually moved, or a remote branch in the log's scope did
+    /// (a fetch, ours or from the terminal) — letting the watcher reload it on
+    /// every tick was the source of feedback loops with our own write paths.
+    /// Every local tip counts, not just HEAD's: the graph walks all local
+    /// branches, so a commit made in another worktree or a `git branch -f`
+    /// from the terminal must show up too. Internal for tests.
+    func refreshFromExternalChange() async {
         let previousBranch = currentBranchName
         let previousTips = localBranchTips
         async let statusTask: Void = workingCopy.refreshStatus()
@@ -254,6 +259,9 @@ final class RepositoryViewModel {
         await workingCopy.reloadSelectedDiff()
         if currentBranchName != previousBranch || localBranchTips != previousTips {
             await history.reloadLog()
+        } else {
+            // Only remote branches moved: the reload a fetch asks for, which keeps the pages loaded.
+            await reloadLogIfScopeMoved()
         }
     }
 
@@ -282,6 +290,7 @@ final class RepositoryViewModel {
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
             await loadRefs()
+            await reloadLogIfScopeMoved()
             return true
         } catch {
             Self.logger.debug("auto-fetch failed: \(error.localizedDescription, privacy: .public)")

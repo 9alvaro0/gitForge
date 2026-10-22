@@ -5,6 +5,14 @@ import Testing
 @Suite("GraphLines")
 struct GraphLinesTests {
 
+    /// Rows: 0 `o`, 1 `r2`, 2 `f`, 3 `r1`, 4 `base`. HEAD's `feature` sits on `f`, and `origin/main`
+    /// stands in for the missing local main with its tip two commits ahead on `r2`.
+    private static let remoteTrunk = GraphInput(
+        commits: GraphFixture.commits("o base\nr2 r1\nf r1\nr1 base\nbase"), headSha: "f",
+        refs: [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o"),
+               GraphFixture.remote("origin/main", "r2")],
+        remoteTrunks: ["origin/main": 0])
+
     private func lines(_ input: GraphInput) -> GraphLines {
         GraphLines.build(input, rowOf: input.rowIndex())
     }
@@ -122,6 +130,16 @@ struct GraphLinesTests {
         #expect(!result.lines.contains { $0.owner == .remote("origin/main") })
     }
 
+    @Test("Only behind its upstream with its own tip not loaded yet: the line still starts at the upstream tip")
+    func behindTipNotLoaded() {
+        let input = GraphInput(commits: GraphFixture.commits("u2 u1\nu1 l"), headSha: "x",
+            refs: [GraphFixture.local("main", "l", upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")])
+        let result = lines(input)
+        #expect(result.lines.map(\.owner) == [.branch("main")])
+        #expect(result.lines[0].rows == [0, 1] && result.lines[0].continuesPastEnd)
+    }
+
     @Test("Diverged from its upstream: the remote gets its own line born at the merge base")
     func diverged() {
         let input = GraphInput(commits: GraphFixture.commits("r1 b\nl b\nb base\nbase"), headSha: "l",
@@ -131,6 +149,28 @@ struct GraphLinesTests {
         #expect(line(.remote("origin/feature"), in: result)?.rows == [0])
         #expect(line(.remote("origin/feature"), in: result)?.forkRow == 2)
         #expect(result.lines[0].rows == [1, 2, 3])
+    }
+
+    @Test("Two remotes on one tip: the one a local branch tracks owns what a pull would bring",
+          arguments: [true, false])
+    func trackedRemoteClaimsFirst(trackedFirst: Bool) {
+        let result = lines(GraphFixture.sharedRemoteTip(trackedFirst: trackedFirst))
+        #expect(line(.remote("origin/feature/login"), in: result)?.rows == [1, 3])
+        #expect(line(.remote("origin/feature/login"), in: result)?.forkRow == 4)
+        #expect(line(.remote("fork/feature/login"), in: result) == nil)
+        #expect(result.colorOwnerOfRow[1] == .remote("origin/feature/login"))
+        #expect(result.colorOwnerOfRow[3] == .remote("origin/feature/login"))
+    }
+
+    @Test("An untracked remote below the tracked one takes nothing from what a pull would bring",
+          arguments: [true, false])
+    func trackedRemoteClaimsBeforeLowerUntracked(trackedFirst: Bool) {
+        let result = lines(GraphFixture.untrackedRemoteBelow(trackedFirst: trackedFirst))
+        #expect(line(.remote("origin/feature/login"), in: result)?.rows == [1, 3])
+        #expect(line(.remote("origin/feature/login"), in: result)?.forkRow == 4)
+        #expect(line(.remote("fork/feature/login"), in: result) == nil)
+        #expect(result.colorOwnerOfRow[1] == .remote("origin/feature/login"))
+        #expect(result.colorOwnerOfRow[3] == .remote("origin/feature/login"))
     }
 
     @Test("The lines partition the rows and every row points back at its line")
@@ -191,5 +231,27 @@ struct GraphLinesTests {
         #expect(single.headBranch == nil)
         #expect(single.firstPageEnd == 4)
         #expect(single.pageEnd(containing: 0) == 4)
+    }
+
+    @Test("Without a local main, origin/main claims as the trunk, before lower-ranked branches")
+    func remoteTrunkClaims() {
+        let result = lines(Self.remoteTrunk)
+        #expect(line(.remote("origin/main"), in: result)?.rows == [1])
+        #expect(line(.remote("origin/main"), in: result)?.forkRow == 3)
+        #expect(result.colorOwnerOfRow == [.branch("other"), .remote("origin/main"), .branch("feature"),
+                                           .remote("origin/main"), .remote("origin/main")])
+    }
+
+    @Test("A local branch that tracks the remote trunk doesn't continue it")
+    func trunkNotContinued() {
+        let input = GraphInput(commits: GraphFixture.commits("r2 r1\nr1 f\nf base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("feature", "f", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "r2")],
+            remoteTrunks: ["origin/main": 0])
+        let result = lines(input)
+        #expect(result.lines[0] == GraphLine(owner: .branch("feature"), rows: [2, 3], top: 2,
+                                             forkRow: nil, continuesPastEnd: false))
+        #expect(line(.remote("origin/main"), in: result)?.rows == [0, 1])
+        #expect(line(.remote("origin/main"), in: result)?.forkRow == 2)
     }
 }
