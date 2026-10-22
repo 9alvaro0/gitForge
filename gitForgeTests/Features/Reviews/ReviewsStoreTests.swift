@@ -125,33 +125,50 @@ private final class FakeActivity: ReviewActivitySource, Sendable {
     }
 }
 
-/// One account on `gitlab.example.test`, its clones, the fakes, the clock
+/// Accounts on `gitlab.example.test`, their clones, the fakes, the clock
 /// and the snapshot folder; `makeStore` builds a store on them, as a launch.
 @MainActor
 private final class Harness {
     static let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
 
-    let account: HostingAccount
+    /// In store order.
+    var accounts: [HostingAccount]
     let provider = FakeProvider()
     let browser = FakeBrowser()
     let activity = FakeActivity()
     var locals: [LocalRemote] = []
+    /// Holds `localRemotes` until opened, when set.
+    var localsGate: AsyncGate?
     var now = Harness.date(1_790_000_000)
-    /// The token the account gives; its argument is the rejected one, if any.
+    /// The token an account that signs gives; its argument is the rejected one, if any.
     var answer: (String?) -> PullRequestAuthResult = { _ in .token("t") }
     /// The tokens the store asked to renew.
     private(set) var renewals: [String] = []
     let directory = TemporaryDirectories.make("gitForge-reviews-store")
 
     init(login: String? = "marta") {
-        account = HostingAccount(instanceId: Self.instance.id, login: login, method: .oauth, status: .ok)
+        accounts = [HostingAccount(instanceId: Self.instance.id, login: login, method: .oauth, status: .ok)]
+    }
+
+    /// The first account.
+    var account: HostingAccount {
+        get { accounts[0] }
+        set { accounts[0] = newValue }
     }
 
     func makeStore() -> ReviewsStore {
         ReviewsStore(environment: ReviewsEnvironment(
-            accounts: { [self] in [(account: account, instance: Self.instance)] },
-            localRemotes: { [self] in locals },
-            token: { [self] _, rejected in
+            accounts: { [self] in accounts.map { (account: $0, instance: Self.instance) } },
+            localRemotes: { [self] in
+                if let localsGate { await localsGate.wait() }
+                return locals
+            },
+            token: { [self] accountId, rejected in
+                // As `AccountPullRequestAuth.access(accountId:)`: an account
+                // that doesn't sign has to be connected again.
+                if let account = accounts.first(where: { $0.id == accountId }), !AccountGitCredentials.signs(account) {
+                    return .connectAccount(instanceId: Self.instance.id, replacing: accountId)
+                }
                 if let rejected { renewals.append(rejected) }
                 return answer(rejected)
             },
@@ -455,6 +472,91 @@ struct ReviewsStoreTests {
         #expect(harness.provider.state { $0.mostRunning } <= ReviewsStore.concurrency)
         #expect(Self.reads(harness) == 10)
         #expect(store.badgeCount == 10)
+    }
+
+    @Test("A refresh cancelled while it reads the clones commits nothing, in memory or on disk")
+    func cancelledRefreshCommitsNothing() async {
+        let harness = Self.twoRepos()
+        harness.provider.state {
+            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let repos = store.repos
+        let pulls = store.pulls
+        let refreshedAt = store.lastRefreshedAt
+        let onDisk = ReviewsSnapshotStore(directory: harness.directory).load()
+        let reads = Self.reads(harness)
+        #expect(onDisk != nil)
+
+        // Cancelled, `GitCLI` reads no `origin`: the clones come back empty.
+        let gate = AsyncGate()
+        harness.localsGate = gate
+        harness.locals = []
+        harness.now = harness.now.addingTimeInterval(60)
+        let round = Task { await store.refresh(force: true) }
+        await gate.waiting()
+        round.cancel()
+        gate.open()
+        await round.value
+
+        #expect(store.repos == repos)
+        #expect(store.pulls == pulls)
+        #expect(store.lastRefreshedAt == refreshedAt)
+        #expect(!store.isRefreshing)
+        #expect(Self.reads(harness) == reads)
+        #expect(ReviewsSnapshotStore(directory: harness.directory).load() == onDisk)
+
+        // The cancelled round didn't count for the throttle.
+        harness.localsGate = nil
+        harness.locals = [Harness.local("team/app")]
+        harness.now = harness.now.addingTimeInterval(10)
+        await store.refresh()
+        #expect(Self.reads(harness) == reads + 2)
+    }
+
+    @Test("An account that needs attention keeps its repos and pull requests across refreshes, flagged")
+    func needsAttentionKeepsRepos() async {
+        let harness = Self.twoRepos()
+        harness.provider.state {
+            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let refreshedAt = store.lastRefreshedAt
+
+        // Its token was rejected meanwhile, and the account store marked it.
+        harness.account.status = .needsAttention(.revoked)
+        for _ in 0..<2 {
+            harness.now = harness.now.addingTimeInterval(60)
+            await store.refresh(force: true)
+            #expect(store.repos.map(\.host.repo).sorted() == ["api", "app"])
+            #expect(store.groups.flatMap(\.pulls).map(\.pull.number).sorted() == [1, 2])
+            #expect(store.accountsNeedingAttention == [harness.account.id])
+        }
+        // Nothing was read: the pull requests are as old as before.
+        #expect(store.lastRefreshedAt == refreshedAt)
+        let onDisk = ReviewsSnapshotStore(directory: harness.directory).load()
+        #expect(onDisk?.pulls.values.flatMap { $0 }.count == 2)
+    }
+
+    @Test("A repo with no assignment and no owner's login goes to the usable account, not a dead one before it")
+    func usableAccountFirst() async {
+        let harness = Harness()
+        let usable = harness.account
+        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+                                  status: .needsAttention(.expired))
+        harness.accounts = [dead, usable]
+        harness.locals = [Harness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "lucia", updated: 1)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.accountId) == [usable.id])
+        #expect(store.badgeCount == 1)
+        #expect(store.accountsNeedingAttention == [dead.id])
     }
 
     @Test("Without a stored login, the login is read once per session and drives the activity")

@@ -134,6 +134,14 @@ extension ReviewsStore {
         }
     }
 
+    /// The accounts that sign first, then those that need attention, each in
+    /// store order: `merge` gives an instance's repo with no assignment and
+    /// no owner's login to its first account (Ruling 4.3), and that must
+    /// never be a dead one.
+    static func signingFirst(_ accounts: [HostingAccount]) -> [HostingAccount] {
+        accounts.filter { AccountGitCredentials.signs($0) } + accounts.filter { !AccountGitCredentials.signs($0) }
+    }
+
     /// Every page of the account's repos, until an empty one or
     /// `membershipPages` (Ruling 3).
     static func allPages(of browser: any RemoteRepoBrowsing, apiBase: URL,

@@ -6,9 +6,18 @@ import Observation
 /// What `ReviewsStore` reads the world through: the account store, the
 /// catalog and the real API clients in the app; fakes in tests.
 struct ReviewsEnvironment {
-    /// The usable accounts and their instance, in `AccountStore.accounts` order.
+    /// The accounts that sign (`AccountGitCredentials.signs`) and those that
+    /// need attention, with their instance, in `AccountStore.accounts` order.
+    /// One that needs attention answers `.connectAccount` from `token`: it
+    /// stays in `accountsNeedingAttention` and its repos keep their pull
+    /// requests until it's connected again. The store puts the accounts that
+    /// sign first, so a dead one never wins a repo as an instance's first
+    /// account (Ruling 4.3); an assignment or the owner's login still can
+    /// give it one.
     var accounts: @MainActor () -> [(account: HostingAccount, instance: HostingInstance)]
-    /// The catalog's clones whose `origin` is on a declared instance.
+    /// The catalog's clones whose `origin` is on a declared instance. A
+    /// refresh cancelled while this runs commits nothing: `GitCLI` reads the
+    /// remotes with `try?`, so a cancelled read comes back empty.
     var localRemotes: @MainActor () async -> [LocalRemote]
     /// An account's token; `rejected` is one that just got a 401.
     var token: @MainActor (_ accountId: UUID, _ rejected: String?) async -> PullRequestAuthResult
@@ -155,13 +164,15 @@ final class ReviewsStore {
 
     /// Works out the repos followed and reads their open pull requests. Does
     /// nothing while one runs, nor within `reloadThrottle` of the last unless
-    /// forced.
+    /// forced. A cancelled round (Reviews left, the auto refresh stopped)
+    /// writes nothing to disk.
     func refresh(force: Bool = false) async {
         let now = environment.now()
         guard !isRefreshing else { return }
         if !force, let lastRoundAt, now.timeIntervalSince(lastRoundAt) < Self.reloadThrottle { return }
         isRefreshing = true
         defer { isRefreshing = false }
+        let previousRound = lastRoundAt
         lastRoundAt = now
 
         let accounts = environment.accounts()
@@ -173,10 +184,19 @@ final class ReviewsStore {
                 ?? Self.carriedOver(repos, accountId: account.id)
         }
         let local = await environment.localRemotes()
-        adopt(FollowedRepos.merge(local: local, activity: activity, accounts: accounts.map { $0.account },
+        // Cancelled, the clones may have come back empty: nothing is
+        // committed, and the round doesn't count for the throttle.
+        guard !Task.isCancelled else {
+            lastRoundAt = previousRound
+            return
+        }
+        adopt(FollowedRepos.merge(local: local, activity: activity,
+                                  accounts: Self.signingFirst(accounts.map { $0.account }),
                                   instances: accounts.map { $0.instance }))
 
         let outcomes = await readPulls(of: repos, tokens: tokens)
+        // Cancelled while reading: what landed stays, nothing else follows.
+        guard !Task.isCancelled else { return }
         for (account, _) in accounts {
             _ = await login(of: account, on: repos.first { $0.accountId == account.id }?.host, tokens: tokens)
         }
@@ -186,17 +206,20 @@ final class ReviewsStore {
         memberships = memberships.filter { ids.contains($0.key) }
         if logins.keys.contains(where: { !ids.contains($0) }) { logins = logins.filter { ids.contains($0.key) } }
         lastRefreshFailed = !outcomes.isEmpty && outcomes.allSatisfy { $0 == .offline }
-        if !lastRefreshFailed { lastRefreshedAt = now }
+        // Only a host that answered makes the pull requests newer.
+        if outcomes.isEmpty || outcomes.contains(.answered) { lastRefreshedAt = now }
+        guard !Task.isCancelled else { return }
         saveSnapshot()
     }
 
     /// Reads one repo's pull requests again, as after a merge from its detail
-    /// (Ruling 14), and keeps the snapshot in step.
+    /// (Ruling 14), and keeps the snapshot in step unless cancelled.
     func reload(repoKey: String) async {
         guard let repo = repos.first(where: { $0.id == repoKey }) else { return }
         let tokens = TokenBook(ask: environment.token)
         await tokens.prepare(repo.accountId)
         _ = await readPulls(of: [repo], tokens: tokens)
+        guard !Task.isCancelled else { return }
         noteAttention(tokens, among: nil)
         saveSnapshot()
     }
@@ -277,6 +300,9 @@ final class ReviewsStore {
                 try await provider.fetchCurrentUser(host: host, token: token)
             }) {
                 logins[account.id] = user
+            } else if Task.isCancelled {
+                // Not a real try: the next round asks again.
+                loginLookups.remove(account.id)
             }
         }
         return logins[account.id]
@@ -311,7 +337,7 @@ final class ReviewsStore {
         await withTaskGroup(of: PullsRead.self) { group in
             var running = 0
             while true {
-                while running < Self.concurrency, let repo = pending.popFirst() {
+                while running < Self.concurrency, !Task.isCancelled, let repo = pending.popFirst() {
                     guard let token = tokens.current(repo.accountId) else {
                         outcomes.append(tokens.isUnavailable(repo.accountId) ? .offline : .withheld)
                         continue
@@ -322,7 +348,7 @@ final class ReviewsStore {
                 }
                 guard let read = await group.next() else { break }
                 running -= 1
-                if !read.isRetry, case .rejected = Self.failure(of: read),
+                if !read.isRetry, !Task.isCancelled, case .rejected = Self.failure(of: read),
                    let fresh = await tokens.renew(read.repo.accountId, rejected: read.token) {
                     let (retry, provider) = prepareRead(of: read.repo, token: fresh, isRetry: true)
                     group.addTask { await retry.run(with: provider) }
