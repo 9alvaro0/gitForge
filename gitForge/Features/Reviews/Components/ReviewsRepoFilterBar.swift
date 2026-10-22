@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// What the inbox's header shows in place of Team / Mine while it's narrowed
-/// to one repo (R2 Ruling 7): the repo's path, its clone or open button and
-/// a × that shows every repo again.
+/// The row under the inbox's header while it's narrowed to one repo (R2
+/// Ruling 7), where Team / Mine no longer applies: the repo's path, a × that
+/// shows every repo again, and its clone or open button.
 struct ReviewsRepoFilterBar: View {
     let repo: ReviewRepo
     let onShowAll: () -> Void
@@ -27,6 +27,7 @@ struct ReviewsRepoFilterBar: View {
             .background(RoundedRectangle(cornerRadius: Radius.control).fill(theme.colors.fillControl))
             ReviewRepoActionButton(repo: repo, size: .small)
                 .fixedSize()
+            Spacer(minLength: 0)
         }
     }
 }

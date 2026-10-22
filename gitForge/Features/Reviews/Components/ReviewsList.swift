@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Left column of Reviews: Team / Mine (or the repo the inbox is narrowed
-/// to), when the inbox was last read and Refresh; the notices that hold for
-/// the whole inbox; then the open pull requests grouped by repo (Rulings 8
-/// and 9) and the Others opened from a link (R2 Ruling 9).
+/// Left column of Reviews: Team / Mine, when the inbox was last read and
+/// Refresh; the repo the inbox is narrowed to, if any; the notices that hold
+/// for the whole inbox; then the open pull requests grouped by repo (Rulings
+/// 8 and 9) and the Others opened from a link (R2 Ruling 9).
 struct ReviewsList: View {
     let store: ReviewsStore
     let onSelect: (InboxPull) -> Void
@@ -14,6 +14,13 @@ struct ReviewsList: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let repo = store.filteredRepo {
+                // A row of its own, the column's whole width: the path and
+                // its button would crowd the header (R2 Ruling 7).
+                ReviewsRepoFilterBar(repo: repo) { store.repoFilter = nil }
+                    .padding(.horizontal, Spacing.s12)
+                    .padding(.bottom, Spacing.s8)
+            }
             notices
             content
         }
@@ -24,14 +31,10 @@ struct ReviewsList: View {
     // MARK: Header
 
     /// As the Pull requests scope bar: the filter above the list. Narrowed
-    /// to a repo, the repo takes its place (R2 Ruling 7).
+    /// to a repo, Team / Mine goes: the list shows both halves (R2 Ruling 7).
     private var header: some View {
         HStack(spacing: Spacing.s8) {
-            if let repo = store.filteredRepo {
-                ReviewsRepoFilterBar(repo: repo) { store.repoFilter = nil }
-                    // The path gives way last: it says what the list is.
-                    .layoutPriority(1)
-            } else {
+            if store.filteredRepo == nil {
                 SegmentedControl<ReviewsFilter>(
                     ReviewsFilter.allCases.map { ($0, $0.title) },
                     selection: Bindable(store).filter
@@ -42,20 +45,11 @@ struct ReviewsList: View {
             if let updated = store.lastRefreshedAt {
                 // Ticks over while the inbox stays on screen.
                 TimelineView(.periodic(from: .now, by: 30)) { context in
-                    let label = Text("Updated \(DateDisplayMode.elapsed(since: updated, reference: context.date))")
+                    Text("Updated \(DateDisplayMode.elapsed(since: updated, reference: context.date))")
                         .textRole(.caption)
                         .foregroundStyle(theme.colors.textTertiary)
                         .lineLimit(1)
-                    if store.filteredRepo == nil {
-                        label.truncationMode(.head)
-                    } else {
-                        // Beside a repo's bar, whole or not at all: a sliver
-                        // of it would only look broken.
-                        ViewThatFits(in: .horizontal) {
-                            label
-                            Color.clear.frame(width: 0, height: 0)
-                        }
-                    }
+                        .truncationMode(.head)
                 }
             }
             refreshButton
