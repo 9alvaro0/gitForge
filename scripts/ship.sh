@@ -212,23 +212,19 @@ else
 fi
 
 # ---- 2. Render release notes ----------------------------------------------
-NOTES_MD=$(mktemp -t "gitforge-notes-${VERSION}.XXXXXX.md")
-trap 'rm -f "${NOTES_MD}"' EXIT
-
+# One escaped HTML file serves Sparkle and the GitHub Release body.
 if (( SKIP_NOTES )); then
   [[ -f "${NOTES_HTML}" ]] || fail "--skip-notes requires ${NOTES_HTML} to exist"
   log "Skipping notes generation, using existing ${NOTES_HTML}"
-  # Still need a markdown for gh release. Use the HTML as-is — gh accepts it.
-  cp "${NOTES_HTML}" "${NOTES_MD}"
 else
   log "Rendering release notes from ${WHATS_NEW}"
   if (( DRY_RUN )); then
-    printf '\033[1;90m[dry-run]\033[0m ./scripts/release-notes.sh render %s %s %s\n' "${VERSION}" "${NOTES_HTML}" "${NOTES_MD}"
+    printf '\033[1;90m[dry-run]\033[0m ./scripts/release-notes.sh render %s %s\n' "${VERSION}" "${NOTES_HTML}"
   else
     mkdir -p "${NOTES_DIR}"
-    ./scripts/release-notes.sh render "${VERSION}" "${NOTES_HTML}" "${NOTES_MD}"
+    ./scripts/release-notes.sh render "${VERSION}" "${NOTES_HTML}"
     log "Rendered notes:"
-    sed 's/^/    /' "${NOTES_MD}"
+    sed 's/^/    /' "${NOTES_HTML}"
   fi
 fi
 
@@ -272,12 +268,12 @@ run "git push origin '${TAG}'"
 # ---- 6. GitHub Release -----------------------------------------------------
 log "Creating GitHub Release ${TAG}"
 if (( DRY_RUN )); then
-  printf '\033[1;90m[dry-run]\033[0m gh release create %s %s --title "gitForge %s" --notes-file <generated>\n' \
-    "${TAG}" "${DMG_PATH}" "${VERSION}"
+  printf '\033[1;90m[dry-run]\033[0m gh release create %s %s --title "gitForge %s" --notes-file %s\n' \
+    "${TAG}" "${DMG_PATH}" "${VERSION}" "${NOTES_HTML}"
 else
   gh release create "${TAG}" "${DMG_PATH}" \
     --title "gitForge ${VERSION}" \
-    --notes-file "${NOTES_MD}"
+    --notes-file "${NOTES_HTML}"
 fi
 
 # ---- 7. Appcast ------------------------------------------------------------
