@@ -37,37 +37,41 @@ struct GraphRowRenderTests {
     }
 
     private static func row(node column: Int, above: [GraphStep] = [], below: [GraphStep] = [],
-                            color: GraphColorRole = .pool(2), isGhost: Bool = false) -> GraphRow {
+                            color: GraphColorRole = .pool(2), isGhost: Bool = false, lanes: Int = lanes) -> GraphRow {
         GraphRow(node: GraphNode(column: column, kind: .commit, color: color, isGhost: isGhost),
                  stepsAbove: above, stepsBelow: below, width: lanes)
     }
 
-    /// `rows` stacked with no gap, each `rowHeight` tall, over `background`.
-    private static func render(_ rows: [GraphRow], metrics: GraphMetrics, rowHeight: CGFloat,
-                               ghostOpacity: Double = 0.6, background: Color = Color(red: 1, green: 0, blue: 0),
+    /// `rows` stacked `rowSpacing` apart (no gap by default), each `rowHeight`
+    /// tall, over `background`.
+    private static func render(_ rows: [GraphRow], metrics: GraphMetrics, rowHeight: CGFloat, rowSpacing: CGFloat = 0,
+                               lanes: Int = lanes, ghostOpacity: Double = 0.6,
+                               background: Color = Color(red: 1, green: 0, blue: 0),
                                sourceLocation: SourceLocation = #_sourceLocation) -> Rendering? {
         let style = style(metrics, ghostOpacity: ghostOpacity)
-        let size = CGSize(width: style.gutterWidth(lanes: lanes), height: rowHeight * CGFloat(rows.count))
+        let size = CGSize(width: style.gutterWidth(lanes: lanes),
+                          height: rowHeight * CGFloat(rows.count) + rowSpacing * CGFloat(max(rows.count - 1, 0)))
         return render(ZStack(alignment: .topLeading) {
             background
-            VStack(spacing: 0) {
+            VStack(spacing: rowSpacing) {
                 ForEach(rows.indices, id: \.self) { index in
-                    GraphColumnView(row: rows[index], maxLanes: lanes, style: style, rowSpacing: 0)
+                    GraphColumnView(row: rows[index], maxLanes: lanes, style: style, rowSpacing: rowSpacing)
                         .frame(height: rowHeight)
                 }
             }
         }, size: size, sourceLocation: sourceLocation)
     }
 
-    /// `view`, framed to `size` and rendered at twice the point size; nil,
-    /// with an issue recorded, if the renderer gives no image of that size.
-    private static func render(_ view: some View, size: CGSize,
+    /// `view`, framed to `size` and rendered at `scale` pixels per point (twice
+    /// the point size by default); nil, with an issue recorded, if the
+    /// renderer gives no image of that size.
+    private static func render(_ view: some View, size: CGSize, scale: CGFloat = 2,
                                sourceLocation: SourceLocation = #_sourceLocation) -> Rendering? {
         let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
-        renderer.scale = 2
-        guard let image = renderer.cgImage, let rendering = Rendering(image, scale: 2),
-              rendering.width == Int(size.width * 2), rendering.height == Int(size.height * 2) else {
-            Issue.record("No \(size) image rendered at 2x", sourceLocation: sourceLocation)
+        renderer.scale = scale
+        guard let image = renderer.cgImage, let rendering = Rendering(image, scale: scale),
+              rendering.width == Int(size.width * scale), rendering.height == Int(size.height * scale) else {
+            Issue.record("No \(size) image rendered at \(scale)x", sourceLocation: sourceLocation)
             return nil
         }
         return rendering
@@ -203,6 +207,39 @@ struct GraphRowRenderTests {
         #expect(above > 0 && below > 0, "\(above) above the joint, \(below) below")
     }
 
+    @Test("Where an S crosses another close to the point where a line bends into it, the lower S shows the background beside the upper one",
+          arguments: [DensityMetrics.regular, .compact])
+    func gapNearABend(density: DensityMetrics) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let style = Self.style(metrics)
+        // A line arrives straight down column 2 and bends there into an S to column 3; an S from column 3 to
+        // column 0 leaves the row under it and crosses it a few points from the bend.
+        let bend = Self.step(2, 3, .pool(0)), under = Self.step(3, 0, .pool(1))
+        let row = Self.row(node: 0, above: [Self.step(2, 2, .pool(0))], below: [under, bend])
+        guard let image = Self.render([row], metrics: metrics, rowHeight: rowHeight) else { return }
+        func leaving(_ step: GraphStep) -> GraphCurve.Bezier {
+            GraphCurve.leaving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to), center: rowHeight / 2,
+                               height: rowHeight)
+        }
+        let upper = Self.polyline(leaving(bend)), lower = Self.polyline(leaving(under))
+        let bendPoint = CGPoint(x: style.laneCenter(2), y: rowHeight / 2)
+        let node = CGPoint(x: style.laneCenter(0), y: rowHeight / 2)
+        let halfStroke = metrics.edgeWidth / 2
+        var sampled = 0, nearTheBend = 0
+        for center in image.pixelCenters(in: Self.bounds(of: leaving(under), outset: metrics.edgeWidth)) {
+            // On the lower S's stroke, in the band beside the upper S's stroke, clear of both edges.
+            let offset = Self.distance(from: center, to: upper)
+            guard Self.distance(from: center, to: lower) <= halfStroke - 0.5,
+                  offset >= halfStroke + 0.5, offset <= halfStroke + metrics.crossingGap - 0.5 else { continue }
+            #expect(center.distance(to: node) > metrics.crossingNodeClearance, "\(center)")
+            sampled += 1
+            nearTheBend += center.distance(to: bendPoint) < metrics.crossingNodeClearance ? 1 : 0
+            #expect(image.pixel(at: center).isClose(to: Self.background), "\(center): \(image.pixel(at: center))")
+        }
+        // Some of them closer to the bend than the clearance around a node.
+        #expect(sampled > 0 && nearTheBend > 0, "\(sampled) sampled, \(nearTheBend) near the bend")
+    }
+
     /// Checks that every pixel well inside the stroke of the half `row` draws
     /// of `step` as it arrives (centre within half the stroke less 0.5 pt of
     /// its middle) and at least 0.5 pt clear of the stroke of the straight line
@@ -227,6 +264,45 @@ struct GraphRowRenderTests {
             #expect(!pixel.isClose(to: Self.background), "\(center): \(pixel)", sourceLocation: sourceLocation)
         }
         #expect(sampled >= 10, "only \(sampled) pixels sampled", sourceLocation: sourceLocation)
+    }
+
+    // MARK: - Lines through a row's centre
+
+    @Test("At 1x, with the row's centre in the middle of a pixel, a line passing or bending there away from the node shows no notch",
+          arguments: [DensityMetrics.regular, .compact], [0, 1, 2])
+    func noNotchAtTheCentre(density: DensityMetrics, shape: Int) {
+        let metrics = density.graph, spacing = HistoryTableLayout.rowSpacing
+        let style = Self.style(metrics)
+        // Each with a straight piece beside the centre, the line's body to compare the centre with.
+        let (arriving, leaving, straightAbove) = [
+            (Self.step(1, 1, .head), Self.step(1, 1, .head), true), // passing straight through
+            (Self.step(1, 1, .head), Self.step(1, 2, .head), true), // bending into an S
+            (Self.step(2, 1, .head), Self.step(1, 1, .head), false), // landing from an S
+        ][shape]
+        // And a straight half drawn alone, arriving down column 3: the same colour, at the same horizontal pixel phase.
+        let row = Self.row(node: 0, above: [arriving, Self.step(3, 3, .head)], below: [leaving])
+        // The canvas as the table sizes it, one pitch (the row and the gap) plus the bleed past each joint: an odd
+        // number of points tall, so at 1x its centre, where the halves meet, lies in the middle of a pixel row.
+        let size = CGSize(width: style.gutterWidth(lanes: Self.lanes),
+                          height: GraphRowGeometry.canvasHeight(pitch: density.rowList + spacing, metrics: metrics))
+        #expect(size.height.truncatingRemainder(dividingBy: 2) == 1)
+        let canvas = Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+            GraphRowPainter(style: style, size: size, rowSpacing: spacing).drawSteps(of: row, in: &context)
+        }
+        guard let image = Self.render(canvas, size: size, scale: 1) else { return }
+        // The pixel left of the line's middle: inside the stroke across its whole width in regular, 7/8 of it in
+        // compact. Where the halves meet it is as lit as along the straight piece, 6 pt away.
+        let x = style.laneCenter(1) - 0.5, center = size.height / 2
+        let meeting = image.pixel(at: CGPoint(x: x, y: center))
+        let body = image.pixel(at: CGPoint(x: x, y: straightAbove ? center - 6 : center + 6))
+        #expect(!body.isClose(to: Self.black), "body \(body)")
+        #expect(meeting.isClose(to: body), "\(arriving) into \(leaving): \(meeting) where the line is \(body)")
+        if shape == 0 {
+            // Passing straight through, the line looks just like a straight half drawn alone.
+            let alone = image.pixel(at: CGPoint(x: style.laneCenter(3) - 0.5, y: center - 6))
+            #expect(body.isClose(to: alone, tolerance: 2), "\(body) where a half alone is \(alone)")
+        }
     }
 
     // MARK: - Ghosts
@@ -344,12 +420,18 @@ struct GraphRowRenderTests {
     // MARK: - Geometry, written out independently of the painter
 
     /// Where the crossing gap must leave lines alone (§5.2): the node, and
-    /// where each curve half meets the row's centre.
+    /// where a curve half meets the row's centre beside a straight of its
+    /// column on the same side of the centre.
     private static func protectedPoints(of row: GraphRow, style: GraphStyle, rowHeight: CGFloat) -> [CGPoint] {
         let center = rowHeight / 2
+        func straight(in column: Int, _ steps: [GraphStep]) -> Bool {
+            steps.contains { $0.from == column && $0.to == column }
+        }
         return [CGPoint(x: style.laneCenter(row.node.column), y: center)]
-            + row.stepsAbove.filter { $0.from != $0.to }.map { CGPoint(x: style.laneCenter($0.to), y: center) }
-            + row.stepsBelow.filter { $0.from != $0.to }.map { CGPoint(x: style.laneCenter($0.from), y: center) }
+            + row.stepsAbove.filter { $0.from != $0.to && straight(in: $0.to, row.stepsAbove) }
+                .map { CGPoint(x: style.laneCenter($0.to), y: center) }
+            + row.stepsBelow.filter { $0.from != $0.to && straight(in: $0.from, row.stepsBelow) }
+                .map { CGPoint(x: style.laneCenter($0.from), y: center) }
     }
 
     /// The point of `curve`, a half of an S or a whole one, where its x is

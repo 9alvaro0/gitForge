@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 import Testing
 @testable import gitForge
 
@@ -109,10 +110,13 @@ struct GraphRowGeometryTests {
                 // Dashed halves never run past a joint (`dashedNoOverlap`), nor a dimmed row's.
                 let past = overlapsJoints && stroke == .solid ? straightOverlap : 0
                 let halves = Self.segments(Self.row(above: [step], below: [step]), in: geometry).map(\.0)
-                #expect(halves == [
-                    .line(from: CGPoint(x: x, y: geometry.jointAbove - past), to: CGPoint(x: x, y: geometry.center)),
-                    .line(from: CGPoint(x: x, y: geometry.center), to: CGPoint(x: x, y: geometry.jointBelow + past)),
-                ], "\(stroke), overlapsJoints \(overlapsJoints)")
+                let arriving = GraphSegment.Piece.line(from: CGPoint(x: x, y: geometry.jointAbove - past),
+                                                       to: CGPoint(x: x, y: geometry.center))
+                let leaving = GraphSegment.Piece.line(from: CGPoint(x: x, y: geometry.center),
+                                                      to: CGPoint(x: x, y: geometry.jointBelow + past))
+                // A solid line through the row is one path (`joinedThroughLine`); a dashed one is two halves.
+                #expect(halves == (stroke == .solid ? [.joined(arriving, leaving)] : [arriving.alone, leaving.alone]),
+                        "\(stroke), overlapsJoints \(overlapsJoints)")
             }
         }
     }
@@ -129,7 +133,7 @@ struct GraphRowGeometryTests {
         #expect(density.graph.crossingNodeClearance == clearance)
     }
 
-    @Test("The crossing gap leaves alone the node and every point where a curve meets the row's centre away from it")
+    @Test("The crossing gap leaves alone the node and every point where an S meets a straight on its own side of the centre")
     func crossingClearanceCenters() {
         let geometry = Self.geometry()
         func centers(_ row: GraphRow) -> [CGPoint] {
@@ -142,10 +146,21 @@ struct GraphRowGeometryTests {
         #expect(centers(Self.row(above: [Self.step(2, 0), Self.step(1, 1)], below: [Self.step(0, 1), Self.step(1, 1)]))
                 == [node])
         // A join fused with the line passing in column 1 (§3.3), and a line born from the one in column 2:
-        // each meets the other line at the centre, away from the node.
+        // each S meets a straight of its column on its own side of the centre, away from the node.
         #expect(centers(Self.row(above: [Self.step(0, 0), Self.step(0, 1), Self.step(1, 1), Self.step(2, 2)],
                                  below: [Self.step(0, 0), Self.step(1, 1), Self.step(2, 2), Self.step(2, 3)]))
                 == [node, CGPoint(x: 28, y: 18.5), CGPoint(x: 42, y: 18.5)])
+        // ... dashed ones too.
+        #expect(centers(Self.row(above: [Self.step(0, 1, .ghost), Self.step(1, 1, .ghost)],
+                                 below: [Self.step(2, 2, .stash), Self.step(2, 3, .stash)]))
+                == [node, CGPoint(x: 28, y: 18.5), CGPoint(x: 42, y: 18.5)])
+        // Where a line bends, lands or goes from one S into another, the straight (if any) lies on the other side
+        // of the centre: nothing to protect beyond the node.
+        #expect(centers(Self.row(above: [Self.step(1, 1)], below: [Self.step(1, 2)])) == [node])
+        #expect(centers(Self.row(above: [Self.step(2, 1)], below: [Self.step(1, 1)])) == [node])
+        #expect(centers(Self.row(above: [Self.step(2, 1)], below: [Self.step(1, 3)])) == [node])
+        #expect(centers(Self.row(above: [Self.step(1, 1, .ghost), Self.step(3, 2, .stash)],
+                                 below: [Self.step(1, 2, .ghost), Self.step(2, 2, .stash)])) == [node])
         // A row with nothing but its node.
         #expect(centers(Self.row()) == [node])
     }
@@ -187,7 +202,7 @@ struct GraphRowGeometryTests {
             for (segment, _) in Self.segments(row, in: geometry) {
                 // A curve's stroke and band reach up or down at most their half width from it, antialiased; a
                 // straight's ends are flat, so it reaches no further than them.
-                let reach: CGFloat = if case .curve = segment { halfStroke + density.graph.crossingGap } else { 0 }
+                let reach: CGFloat = segment.hasCurve ? halfStroke + density.graph.crossingGap : 0
                 for point in segment.samples {
                     #expect(point.y - halfStroke >= 0 && point.y + halfStroke <= geometry.size.height, "\(segment)")
                     #expect(point.y - reach - margin >= 0 && point.y + reach + margin <= geometry.size.height,
@@ -440,6 +455,187 @@ struct GraphRowGeometryTests {
         }
     }
 
+    // MARK: - Lines through a row's centre
+
+    private static func step(_ from: Int, _ to: Int, color: GraphColorRole, _ stroke: GraphStroke = .solid) -> GraphStep {
+        GraphStep(from: from, to: to, color: color, stroke: stroke)
+    }
+
+    /// The half `step` draws alone as it arrives (`above`) or leaves. A row with steps on one side only never
+    /// joins any.
+    private static func alone(_ step: GraphStep, above: Bool, in geometry: GraphRowGeometry) -> GraphSegment {
+        Self.segments(above ? Self.row(above: [step]) : Self.row(below: [step]), in: geometry)[0].0
+    }
+
+    /// `arriving` and `leaving` as one path, each exactly as drawn alone.
+    private static func joined(_ arriving: GraphStep, _ leaving: GraphStep, in geometry: GraphRowGeometry) -> GraphSegment {
+        .joined(alone(arriving, above: true, in: geometry).piece!, alone(leaving, above: false, in: geometry).piece!)
+    }
+
+    @Test("A solid line passing straight through a row away from its node is one path, its halves as drawn alone",
+          arguments: [DensityMetrics.regular, .compact], [true, false])
+    func joinedThroughLine(density: DensityMetrics, overlapsJoints: Bool) {
+        let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
+        let line = Self.step(1, 1)
+        let segments = Self.segments(Self.row(above: [line], below: [line]), in: geometry)
+        // Reported once, with the step it arrives with.
+        #expect(segments.map(\.1) == [line])
+        #expect(segments.map(\.0) == [Self.joined(line, line, in: geometry)])
+        if density == .regular && overlapsJoints {
+            // Column 1, from 2 pt above the joint above to 2 pt below the joint below, through the centre.
+            #expect(segments.map(\.0) == [.joined(.line(from: CGPoint(x: 28, y: 2), to: CGPoint(x: 28, y: 18.5)),
+                                                  .line(from: CGPoint(x: 28, y: 18.5), to: CGPoint(x: 28, y: 35)))])
+        }
+    }
+
+    @Test("A line that bends at a row's centre away from its node is one path: straight into S, S into straight, S into S",
+          arguments: [DensityMetrics.regular, .compact], [true, false])
+    func joinedBends(density: DensityMetrics, overlapsJoints: Bool) {
+        let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
+        let shapes: [(arriving: GraphStep, leaving: GraphStep)] = [
+            (Self.step(1, 1), Self.step(1, 2)), // a bend: the line arrives straight and leaves along an S
+            (Self.step(2, 1), Self.step(1, 1)), // a landing: an S arrives and the line carries on straight
+            (Self.step(2, 1), Self.step(1, 3)), // an S arrives and another leaves
+            (Self.step(1, 2), Self.step(2, 0)), // ... whichever way they lean
+        ]
+        for (arriving, leaving) in shapes {
+            let segments = Self.segments(Self.row(above: [arriving], below: [leaving]), in: geometry)
+            #expect(segments.map(\.1) == [arriving], "\(arriving) \(leaving)")
+            #expect(segments.map(\.0) == [Self.joined(arriving, leaving, in: geometry)], "\(arriving) \(leaving)")
+        }
+    }
+
+    @Test("A joined line is one subpath; joined straight, a single line from the first piece's start to the second's end")
+    func joinedPath() {
+        let geometry = Self.geometry()
+        func elements(_ segment: GraphSegment) -> [String] {
+            var all: [String] = []
+            segment.path.forEach { element in
+                switch element {
+                case let .move(to: point): all.append("move \(point.x),\(point.y)")
+                case let .line(to: point): all.append("line \(point.x),\(point.y)")
+                case let .curve(to: point, control1: _, control2: _): all.append("curve \(point.x),\(point.y)")
+                case .quadCurve: all.append("quad")
+                case .closeSubpath: all.append("close")
+                }
+            }
+            return all
+        }
+        // Column 1 in regular: from 2 pt above the joint above, through the centre, to 2 pt below the joint below.
+        #expect(elements(Self.joined(Self.step(1, 1), Self.step(1, 1), in: geometry)) == ["move 28.0,2.0", "line 28.0,35.0"])
+        let bend = Self.joined(Self.step(1, 1), Self.step(1, 2), in: geometry)
+        #expect(elements(bend).map { $0.prefix(4) } == ["move", "line", "curv"])
+        #expect(elements(bend)[1] == "line 28.0,18.5")
+        let landing = Self.joined(Self.step(2, 1), Self.step(1, 1), in: geometry)
+        #expect(elements(landing).map { $0.prefix(4) } == ["move", "curv", "line"])
+        #expect(elements(landing)[2] == "line 28.0,35.0")
+        let curves = Self.joined(Self.step(2, 1), Self.step(1, 0), in: geometry)
+        #expect(elements(curves).map { $0.prefix(4) } == ["move", "curv", "curv"])
+    }
+
+    @Test("A join fused with a line already passing (§3.3) keeps its S alone and joins only the line's straights; so does a line born from one")
+    func fusedJoinJoinsOnlyTheStraights() {
+        let geometry = Self.geometry()
+        let line = Self.step(1, 1), connector = Self.step(0, 1), trunk = Self.step(0, 0)
+        let fused = Self.segments(Self.row(above: [trunk, connector, line], below: [trunk, line]), in: geometry)
+        #expect(fused.map(\.1) == [connector, trunk, line, trunk])
+        #expect(fused.map(\.0) == [
+            Self.alone(connector, above: true, in: geometry),
+            Self.alone(trunk, above: true, in: geometry),
+            Self.joined(line, line, in: geometry),
+            Self.alone(trunk, above: false, in: geometry),
+        ])
+        let branch = Self.step(1, 2)
+        let born = Self.segments(Self.row(above: [line], below: [line, branch]), in: geometry)
+        #expect(born.map(\.1) == [branch, line])
+        #expect(born.map(\.0) == [Self.alone(branch, above: false, in: geometry), Self.joined(line, line, in: geometry)])
+    }
+
+    @Test("Halves that meet at the node, dashed ones, ones of different colours, and more than one meeting at a point are drawn alone")
+    func notJoined() {
+        let geometry = Self.geometry()
+        let cases: [(name: String, row: GraphRow)] = [
+            ("at the node", GraphRow(node: GraphNode(column: 1, kind: .commit, color: .head, isGhost: false),
+                                     stepsAbove: [Self.step(1, 1), Self.step(2, 1)], stepsBelow: [Self.step(1, 1)],
+                                     width: 3)),
+            ("ghost", Self.row(above: [Self.step(1, 1, .ghost)], below: [Self.step(1, 1, .ghost)])),
+            ("stash", Self.row(above: [Self.step(2, 1, GraphStroke.stash)], below: [Self.step(1, 2, GraphStroke.stash)])),
+            ("solid into ghost", Self.row(above: [Self.step(1, 1)], below: [Self.step(1, 1, .ghost)])),
+            ("ghost into solid", Self.row(above: [Self.step(2, 1, .ghost)], below: [Self.step(1, 1)])),
+            ("colours", Self.row(above: [Self.step(1, 1, color: .pool(0))], below: [Self.step(1, 1, color: .pool(1))])),
+            ("colours, bending", Self.row(above: [Self.step(1, 1, color: .main)], below: [Self.step(1, 2, color: .develop)])),
+            ("two arriving", Self.row(above: [Self.step(2, 1), Self.step(3, 1)], below: [Self.step(1, 2)])),
+            ("two leaving", Self.row(above: [Self.step(2, 1)], below: [Self.step(1, 2), Self.step(1, 3)])),
+        ]
+        for (name, row) in cases {
+            let segments = Self.segments(row, in: geometry)
+            #expect(!segments.contains { if case .joined = $0.0 { true } else { false } }, "\(name)")
+            #expect(segments.count == row.stepsAbove.count + row.stepsBelow.count, "\(name)")
+            #expect(Set(segments.map(\.1)) == Set(row.stepsAbove + row.stepsBelow), "\(name)")
+        }
+    }
+
+    @Test("S halves alone come first, then lines joined with an S, then straights alone and lines joined straight")
+    func joinedDrawingOrder() {
+        let trunk = Self.step(0, 0), landing = Self.step(2, 1), landed = Self.step(1, 1)
+        let through = Self.step(3, 3), branch = Self.step(0, 2)
+        let geometry = Self.geometry()
+        let segments = Self.segments(Self.row(above: [trunk, landing, through], below: [trunk, branch, landed, through]),
+                                     in: geometry)
+        #expect(segments.map(\.1) == [branch, landing, trunk, through, trunk])
+        #expect(segments.map(\.0) == [
+            Self.alone(branch, above: false, in: geometry),
+            Self.joined(landing, landed, in: geometry),
+            Self.alone(trunk, above: true, in: geometry),
+            Self.joined(through, through, in: geometry),
+            Self.alone(trunk, above: false, in: geometry),
+        ])
+    }
+
+    @Test("In the gitflow graph every half is drawn once, alone or joined with the one it meets away from the node",
+          arguments: [DensityMetrics.regular, .compact], [true, false])
+    func gitflowJoinedLines(density: DensityMetrics, overlapsJoints: Bool) {
+        let refs = GraphFixture.gitflowRefs(head: "feature/cart")
+        let rows = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.gitflow, headSha: "cartPayment",
+                                                       refs: refs, paletteSize: 4)).rows
+        let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
+        func order(_ steps: [GraphStep]) -> [String] { steps.map { "\($0)" }.sorted() }
+        var joinedCount = 0, bentCount = 0
+        for (index, row) in rows.enumerated() {
+            var drawnAbove: [GraphStep] = [], drawnBelow: [GraphStep] = []
+            geometry.forEachSegment(of: row) { segment, step, _ in
+                guard case let .joined(arriving, leaving) = segment else {
+                    // A half alone: the one its step draws on its own side of the centre.
+                    if row.stepsAbove.contains(step) && segment == Self.alone(step, above: true, in: geometry) {
+                        drawnAbove.append(step)
+                    } else {
+                        #expect(row.stepsBelow.contains(step) && segment == Self.alone(step, above: false, in: geometry),
+                                "row \(index) \(step)")
+                        drawnBelow.append(step)
+                    }
+                    return
+                }
+                // The arriving half of its step, and the leaving half of the one step it meets there.
+                joinedCount += 1
+                #expect(row.stepsAbove.contains(step) && step.to != row.node.column, "row \(index) \(step)")
+                #expect(arriving == Self.alone(step, above: true, in: geometry).piece, "row \(index) \(step)")
+                let partners = row.stepsBelow.filter {
+                    $0.from == step.to && Self.alone($0, above: false, in: geometry).piece == leaving
+                }
+                #expect(partners.count == 1, "row \(index) \(step)")
+                #expect(partners.allSatisfy { $0.color == step.color }, "row \(index) \(step)")
+                #expect(step.stroke == .solid && partners.allSatisfy { $0.stroke == .solid }, "row \(index) \(step)")
+                bentCount += step.from != step.to || partners.contains { $0.from != $0.to } ? 1 : 0
+                drawnAbove.append(step)
+                drawnBelow += partners
+            }
+            #expect(order(drawnAbove) == order(row.stepsAbove), "row \(index)")
+            #expect(order(drawnBelow) == order(row.stepsBelow), "row \(index)")
+        }
+        #expect(joinedCount > 0, "the graph should have lines passing through rows away from their nodes")
+        #expect(bentCount > 0, "the graph should have lines bending at a row's centre away from a node")
+    }
+
     // MARK: - Halo and hover ring
 
     @Test("A geometry's row height is its pitch less the gap the table leaves between rows",
@@ -494,26 +690,52 @@ struct GraphRowGeometryTests {
 }
 
 private extension GraphSegment {
-    /// Start first, end last.
+    /// What the segment draws, as halves drawn alone: itself, or a pair's two halves in order.
+    var parts: [GraphSegment] {
+        switch self {
+        case .line, .curve: [self]
+        case let .joined(arriving, leaving): [arriving.alone, leaving.alone]
+        }
+    }
+
+    /// The half as a piece of a pair; nil for a pair.
+    var piece: GraphSegment.Piece? {
+        switch self {
+        case let .line(from, to): .line(from: from, to: to)
+        case let .curve(start, control1, control2, end):
+            .curve(start: start, control1: control1, control2: control2, end: end)
+        case .joined: nil
+        }
+    }
+
+    /// Whether the segment draws any part of an S.
+    var hasCurve: Bool {
+        parts.contains { if case .curve = $0 { true } else { false } }
+    }
+
+    /// Start first, end last: a half's end points (and a curve's controls), or a pair's, half after half.
     var points: [CGPoint] {
         switch self {
         case let .line(from, to): [from, to]
         case let .curve(start, control1, control2, end): [start, control1, control2, end]
+        case .joined: parts.flatMap(\.points)
         }
     }
 
-    /// The length of the half: a line's distance, a curve's arc length.
+    /// The length of the segment: a line's distance, a curve's arc length, a pair's sum.
     var length: CGFloat {
         switch self {
         case let .line(from, to): hypot(to.x - from.x, to.y - from.y)
         case let .curve(start, control1, control2, end):
             GraphCurve.arcLength((start: start, control1: control1, control2: control2, end: end))
+        case .joined: parts.map(\.length).reduce(0, +)
         }
     }
 
-    /// Points along the half as drawn, its start first and its end last.
+    /// Points along the segment as drawn, its start first and its end last.
     var samples: [CGPoint] {
-        (0...32).map { index -> CGPoint in
+        if case .joined = self { return parts.flatMap(\.samples) }
+        return (0...32).map { index -> CGPoint in
             let t = CGFloat(index) / 32, u = 1 - t
             switch self {
             case let .line(from, to):
@@ -522,16 +744,20 @@ private extension GraphSegment {
                 let (b0, b1, b2, b3) = (u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t)
                 return CGPoint(x: b0 * p0.x + b1 * p1.x + b2 * p2.x + b3 * p3.x,
                                y: b0 * p0.y + b1 * p1.y + b2 * p2.y + b3 * p3.y)
+            case .joined:
+                return .zero
             }
         }
     }
 
-    /// The same half moved `dy` down.
+    /// The same segment moved `dy` down.
     func offset(by dy: CGFloat) -> GraphSegment {
         func move(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x, y: p.y + dy) }
         return switch self {
         case let .line(from, to): .line(from: move(from), to: move(to))
         case let .curve(p0, p1, p2, p3): .curve(start: move(p0), control1: move(p1), control2: move(p2), end: move(p3))
+        case let .joined(arriving, leaving):
+            .joined(arriving.alone.offset(by: dy).piece!, leaving.alone.offset(by: dy).piece!)
         }
     }
 }

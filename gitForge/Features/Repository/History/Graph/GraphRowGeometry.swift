@@ -1,21 +1,85 @@
 import SwiftUI
 
-/// One half of a step, as a row draws it.
+/// One half of a step as a row draws it, or two halves of one line drawn as
+/// one path.
 nonisolated enum GraphSegment: Equatable, Sendable {
     /// A half of a step that stays in its column.
     case line(from: CGPoint, to: CGPoint)
     /// A half of the S of a step that changes column (`GraphCurve`).
     case curve(start: CGPoint, control1: CGPoint, control2: CGPoint, end: CGPoint)
+    /// The half of a line that arrives at the row's centre and the half that
+    /// leaves it, where they meet away from the node: each exactly as it
+    /// would be drawn alone, the second carrying on from the end of the
+    /// first, so the line has no break where they meet
+    /// (`GraphRowGeometry.forEachSegment`).
+    case joined(Piece, Piece)
 
+    /// A half drawn as part of a `joined` segment, with the shapes of a half
+    /// drawn alone. Its own type rather than a nested `GraphSegment`, which
+    /// would put each pair in a heap box.
+    nonisolated enum Piece: Equatable, Sendable {
+        case line(from: CGPoint, to: CGPoint)
+        case curve(start: CGPoint, control1: CGPoint, control2: CGPoint, end: CGPoint)
+
+        var start: CGPoint {
+            switch self {
+            case let .line(from, _): from
+            case let .curve(start, _, _, _): start
+            }
+        }
+
+        /// Its length along the path: a line's, or a curve's arc length
+        /// (`GraphCurve.arcLength`).
+        var length: CGFloat {
+            switch self {
+            case let .line(from, to): hypot(to.x - from.x, to.y - from.y)
+            case let .curve(start, control1, control2, end):
+                GraphCurve.arcLength((start: start, control1: control1, control2: control2, end: end))
+            }
+        }
+
+        /// The piece drawn alone.
+        var alone: GraphSegment {
+            switch self {
+            case let .line(from, to): .line(from: from, to: to)
+            case let .curve(start, control1, control2, end):
+                .curve(start: start, control1: control1, control2: control2, end: end)
+            }
+        }
+
+        /// Adds the piece to `path`, from the path's current point on.
+        func extend(_ path: inout Path) {
+            switch self {
+            case let .line(_, to): path.addLine(to: to)
+            case let .curve(_, control1, control2, end): path.addCurve(to: end, control1: control1, control2: control2)
+            }
+        }
+    }
+
+    /// One subpath: a `joined` segment's second piece starts where the first
+    /// ends, so it carries on from there instead of moving to its own start.
+    ///
+    /// Two straight pieces, one above the other, make a single line from the
+    /// first one's start to the second one's end. CoreGraphics strokes a path
+    /// of exactly one line with the exact coverage of each pixel, and any
+    /// other path with its general rasterizer, which lights a partly covered
+    /// pixel differently (at 1x, the compact line's edge pixels, 7/8 covered,
+    /// come out about 8 % brighter). As one line, a line passing straight
+    /// through the row looks just like the straight halves drawn alone around
+    /// it, in the rows of its commits.
     var path: Path {
         var path = Path()
         switch self {
-        case let .line(from, to):
+        case let .line(from, to), let .joined(.line(from, _), .line(_, to)):
             path.move(to: from)
             path.addLine(to: to)
         case let .curve(start, control1, control2, end):
             path.move(to: start)
             path.addCurve(to: end, control1: control1, control2: control2)
+        case let .joined(arriving, leaving):
+            path.move(to: arriving.start)
+            arriving.extend(&path)
+            leaving.extend(&path)
         }
         return path
     }
@@ -41,6 +105,10 @@ nonisolated enum GraphSegment: Equatable, Sendable {
 /// line passing over a crossing right on the joint stays on top on both
 /// sides of it. An overlap is the same line in the same colour, so it can't
 /// be seen while the rows are opaque (`overlapsJoints`).
+///
+/// Where a solid line arrives at the row's centre and carries on from it
+/// away from the node, straight or bending, the row draws its two halves as
+/// one path, so nothing breaks where they meet (`forEachSegment`).
 ///
 /// A dashed step (`isDashed`) has no overlap: two translucent strokes laid
 /// over each other draw a darker band, and a dash pattern drawn twice over the
@@ -150,10 +218,21 @@ nonisolated struct GraphRowGeometry {
         return min(outer + metrics.hoverRingOutset, rowHeight / 2 - metrics.hoverRingWidth / 2)
     }
 
-    /// Calls `body` with each half, its step and the dash phase the half starts
-    /// with, in drawing order: every curve first, then the straight halves, so
-    /// a line passing through stays on top of the curves that cross it (§5.2).
-    /// Allocates nothing.
+    /// Calls `body` with each segment the row draws, its step and the dash
+    /// phase it starts with, in drawing order (§5.2): first the S halves
+    /// drawn alone, then the lines joined with an S, then the straight halves
+    /// drawn alone and the lines joined straight. So a straight passing
+    /// through stays on top of every S that crosses it, and an S drawn as
+    /// part of a joined line still opens a gap where a later straight crosses
+    /// it. Allocates nothing.
+    ///
+    /// Where a line arrives at the row's centre and carries on from it away
+    /// from the node, its two halves are one segment, `.joined`, reported
+    /// once with the arriving half's step (`joinedPair(at:in:)`). Drawn as
+    /// two, each would end flat on the centre, and where the centre falls in
+    /// the middle of a pixel, as it does on a 1x screen, each covers only half
+    /// of that pixel row: the line would show a faint notch on every row it
+    /// passes. Under the node the notch is covered.
     ///
     /// The phase is how far into the dash pattern (`dashPeriod`) the half's
     /// start lies, as `StrokeStyle.dashPhase` takes it; 0 for a solid half,
@@ -166,53 +245,133 @@ nonisolated struct GraphRowGeometry {
     /// ends at its length modulo the period. At the row's centre the pattern
     /// starts over, which nobody sees under the node.
     func forEachSegment(of row: GraphRow, _ body: (GraphSegment, GraphStep, _ dashPhase: CGFloat) -> Void) {
-        let solidOverlap = overlapsJoints ? Self.overlap(for: style.metrics) : 0
+        let curveOverlap = overlapsJoints ? Self.overlap(for: style.metrics) : 0
         let straightOverlap = overlapsJoints ? Self.straightOverlap(for: style.metrics) : 0
         let period = dashPeriod
-        for step in row.stepsAbove where step.from != step.to {
-            let dashed = Self.isDashed(step)
-            let arriving = GraphCurve.arriving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to),
-                                               center: center, height: pitch, overlap: dashed ? 0 : solidOverlap)
-            let phase = dashed ? GraphCurve.arcLength(arriving).truncatingRemainder(dividingBy: period) : 0
-            body(curve(arriving), step, phase)
-        }
-        for step in row.stepsBelow where step.from != step.to {
-            let leaving = GraphCurve.leaving(fromX: style.laneCenter(step.from), toX: style.laneCenter(step.to),
-                                             center: center, height: pitch,
-                                             overlap: Self.isDashed(step) ? 0 : solidOverlap)
-            body(curve(leaving), step, 0)
-        }
-        for step in row.stepsAbove where step.from == step.to {
+        let above = row.stepsAbove, below = row.stepsBelow
+        func arriving(_ step: GraphStep) -> GraphSegment.Piece {
             let x = style.laneCenter(step.to)
-            let past = Self.isDashed(step) ? 0 : straightOverlap
-            body(.line(from: CGPoint(x: x, y: jointAbove - past), to: CGPoint(x: x, y: center)), step, 0)
+            guard step.from != step.to else {
+                let past = Self.isDashed(step) ? 0 : straightOverlap
+                return .line(from: CGPoint(x: x, y: jointAbove - past), to: CGPoint(x: x, y: center))
+            }
+            return piece(GraphCurve.arriving(fromX: style.laneCenter(step.from), toX: x, center: center, height: pitch,
+                                             overlap: Self.isDashed(step) ? 0 : curveOverlap))
         }
-        for step in row.stepsBelow where step.from == step.to {
+        func leaving(_ step: GraphStep) -> GraphSegment.Piece {
             let x = style.laneCenter(step.from)
-            let past = Self.isDashed(step) ? 0 : straightOverlap
-            body(.line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: jointBelow + past)), step, 0)
+            guard step.from != step.to else {
+                let past = Self.isDashed(step) ? 0 : straightOverlap
+                return .line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: jointBelow + past))
+            }
+            return piece(GraphCurve.leaving(fromX: x, toX: style.laneCenter(step.to), center: center, height: pitch,
+                                            overlap: Self.isDashed(step) ? 0 : curveOverlap))
         }
+        /// The step below that `above[index]` is joined with, if any.
+        func partner(ofArriving index: Int) -> Int? {
+            guard let pair = joinedPair(at: above[index].to, in: row), pair.above == index else { return nil }
+            return pair.below
+        }
+        func isJoined(leaving index: Int) -> Bool {
+            joinedPair(at: below[index].from, in: row)?.below == index
+        }
+
+        // S halves drawn alone.
+        for index in above.indices where above[index].from != above[index].to && partner(ofArriving: index) == nil {
+            let step = above[index]
+            let half = arriving(step)
+            let phase = Self.isDashed(step) ? half.length.truncatingRemainder(dividingBy: period) : 0
+            body(half.alone, step, phase)
+        }
+        for index in below.indices where below[index].from != below[index].to && !isJoined(leaving: index) {
+            body(leaving(below[index]).alone, below[index], 0)
+        }
+        // Lines joined with an S.
+        for index in above.indices {
+            guard let next = partner(ofArriving: index), above[index].from != above[index].to
+                || below[next].from != below[next].to else { continue }
+            body(.joined(arriving(above[index]), leaving(below[next])), above[index], 0)
+        }
+        // Straight halves drawn alone, and lines joined straight.
+        for index in above.indices where above[index].from == above[index].to {
+            if let next = partner(ofArriving: index) {
+                guard below[next].from == below[next].to else { continue }
+                body(.joined(arriving(above[index]), leaving(below[next])), above[index], 0)
+            } else {
+                body(arriving(above[index]).alone, above[index], 0)
+            }
+        }
+        for index in below.indices where below[index].from == below[index].to && !isJoined(leaving: index) {
+            body(leaving(below[index]).alone, below[index], 0)
+        }
+    }
+
+    /// The arriving and the leaving half that meet at `column` on the row's
+    /// centre and are drawn as one path (`forEachSegment`), as indices into
+    /// `stepsAbove` and `stepsBelow`; nil if the halves there are drawn
+    /// alone.
+    ///
+    /// Never at the node, which covers where its lines meet. Elsewhere, a
+    /// line passing straight through (a straight on each side) is joined,
+    /// even where an S also arrives there to fuse with it (§3.3), or leaves
+    /// it: that S stays a half of its own. Otherwise the one half that ends
+    /// at the column is joined with the one half that starts there: a line
+    /// that bends into an S, lands from one, or goes from one S into
+    /// another. Only solid halves of the same colour: a dashed half keeps
+    /// its own dash pattern, and where two colours meet the line changes
+    /// there anyway.
+    private func joinedPair(at column: Int, in row: GraphRow) -> (above: Int, below: Int)? {
+        guard column != row.node.column else { return nil }
+        var arriving: Int?, arrivingCount = 0, straightArriving: Int?
+        for index in row.stepsAbove.indices where row.stepsAbove[index].to == column {
+            arriving = index
+            arrivingCount += 1
+            if row.stepsAbove[index].from == column && straightArriving == nil { straightArriving = index }
+        }
+        var leaving: Int?, leavingCount = 0, straightLeaving: Int?
+        for index in row.stepsBelow.indices where row.stepsBelow[index].from == column {
+            leaving = index
+            leavingCount += 1
+            if row.stepsBelow[index].to == column && straightLeaving == nil { straightLeaving = index }
+        }
+        let pair: (above: Int, below: Int)
+        if let straightArriving, let straightLeaving {
+            pair = (straightArriving, straightLeaving)
+        } else if arrivingCount == 1, leavingCount == 1, let arriving, let leaving {
+            pair = (arriving, leaving)
+        } else {
+            return nil
+        }
+        let first = row.stepsAbove[pair.above], second = row.stepsBelow[pair.below]
+        guard !Self.isDashed(first), !Self.isDashed(second), first.color == second.color else { return nil }
+        return pair
     }
 
     /// Calls `body` with the centre of each circle, `crossingNodeClearance`
     /// in radius, where the crossing band leaves lines alone (§5.2): first
-    /// the row's node, where its lines meet, then each point where a curve
-    /// half meets the row's centre away from the node. There a join fuses
-    /// with a line already passing (§3.3), or a line is born from one, and
-    /// the line the curve meets would otherwise cut its end off. A point can
-    /// come more than once. Allocates nothing.
+    /// the row's node, where its lines meet, then each point away from it
+    /// where an S half meets a straight of its column on its own side of the
+    /// centre: an S arriving where a straight also arrives (a join that fuses
+    /// with a line already passing, §3.3), or leaving where a straight also
+    /// leaves (a line born from one). The straight is drawn after the S
+    /// (`forEachSegment`), and its band would cut the S's end off. Where the
+    /// straight lies on the other side of the centre (a line that bends or
+    /// lands), it doesn't reach the S, and a crossing near there keeps its
+    /// gap. A point can come more than once. Allocates nothing.
     func forEachCrossingClearanceCenter(of row: GraphRow, _ body: (CGPoint) -> Void) {
         let node = row.node.column
         body(CGPoint(x: style.laneCenter(node), y: center))
-        for step in row.stepsAbove where step.from != step.to && step.to != node {
+        for step in row.stepsAbove where step.from != step.to && step.to != node
+            && row.stepsAbove.contains(where: { $0.from == step.to && $0.to == step.to }) {
             body(CGPoint(x: style.laneCenter(step.to), y: center))
         }
-        for step in row.stepsBelow where step.from != step.to && step.from != node {
+        for step in row.stepsBelow where step.from != step.to && step.from != node
+            && row.stepsBelow.contains(where: { $0.from == step.from && $0.to == step.from }) {
             body(CGPoint(x: style.laneCenter(step.from), y: center))
         }
     }
 
-    private func curve(_ bezier: GraphCurve.Bezier) -> GraphSegment {
+    private func piece(_ bezier: GraphCurve.Bezier) -> GraphSegment.Piece {
         .curve(start: bezier.start, control1: bezier.control1, control2: bezier.control2, end: bezier.end)
     }
 }
