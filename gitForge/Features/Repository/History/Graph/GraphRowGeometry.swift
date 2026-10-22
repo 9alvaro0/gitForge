@@ -195,12 +195,13 @@ nonisolated struct GraphRowGeometry {
 
     /// The dash period of a dashed S half `length` long (its arc length): the
     /// one that fits a whole number of times in it nearest to the straight
-    /// half's (`dashPeriod`). Within about a sixth of it either way: 17 %
-    /// longer for the S of one column in the compact density, 9 % shorter at
-    /// worst. Both halves of an S are as long, so they have the same period.
+    /// half's (`dashPeriod`). For the S of one to twenty columns it is at most
+    /// 17 % longer (one column, compact density) or 9 % shorter. Both halves
+    /// of an S are as long, so they have the same period.
     func dashPeriod(ofCurve length: CGFloat) -> CGFloat {
         length / max(1, (length / dashPeriod).rounded())
     }
+
     var center: CGFloat { size.height / 2 }
     /// Distance between row centres.
     var pitch: CGFloat { size.height - 2 * bleed }
@@ -231,12 +232,12 @@ nonisolated struct GraphRowGeometry {
     }
 
     /// Calls `body` with each segment the row draws, its step and its dash
-    /// period, in drawing order (§5.2): first the S halves
-    /// drawn alone, then the lines joined with an S, then the straight halves
-    /// drawn alone and the lines joined straight. So a straight passing
-    /// through stays on top of every S that crosses it, and an S drawn as
-    /// part of a joined line still opens a gap where a later straight crosses
-    /// it. Allocates nothing.
+    /// period, in drawing order (§5.2): first the S halves drawn alone, then
+    /// the lines joined with an S, then the straight halves drawn alone and
+    /// the lines joined straight. So a straight passing through stays on top
+    /// of every S that crosses it, and an S drawn as part of a joined line
+    /// still opens a gap where a later straight crosses it. Allocates
+    /// nothing.
     ///
     /// Where a line arrives at the row's centre and carries on from it away
     /// from the node, its two halves are one segment, `.joined`, reported
