@@ -1,0 +1,419 @@
+import Foundation
+import Observation
+
+// MARK: - Environment
+
+/// What `ReviewsStore` reads the world through: the account store, the
+/// catalog and the real API clients in the app; fakes in tests.
+struct ReviewsEnvironment {
+    /// The usable accounts and their instance, in `AccountStore.accounts` order.
+    var accounts: @MainActor () -> [(account: HostingAccount, instance: HostingInstance)]
+    /// The catalog's clones whose `origin` is on a declared instance.
+    var localRemotes: @MainActor () async -> [LocalRemote]
+    /// An account's token; `rejected` is one that just got a 401.
+    var token: @MainActor (_ accountId: UUID, _ rejected: String?) async -> PullRequestAuthResult
+    var makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
+    var makeBrowser: @MainActor (HostingInstance.Kind) -> any RemoteRepoBrowsing
+    var makeActivity: @MainActor (HostingInstance.Kind) -> any ReviewActivitySource
+    var snapshots: ReviewsSnapshotStore
+    var now: @MainActor () -> Date = { .now }
+    /// The writes of the detail stores: reviews, threads, merge.
+    var makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider = {
+        PullRequestReviewProviderFactory.make(for: $0)
+    }
+}
+
+// MARK: - Store
+
+/// The Reviews inbox: works out the repos the user follows, reads their open
+/// pull requests a few at a time, keeps the last read on disk and gives the
+/// sidebar its count. Each repo's pull requests open in a `PullRequestStore`
+/// of its own (`detailStore(for:)`). The refresh pipeline's helpers are in
+/// `ReviewsStore+Refresh.swift`.
+@Observable
+@MainActor
+final class ReviewsStore {
+    /// Least time between two refreshes that aren't forced.
+    static let reloadThrottle: TimeInterval = 30
+    /// How often the inbox refreshes on its own while the app is online and active.
+    static let autoRefreshInterval: Duration = .seconds(300)
+    /// Most pull request lists read at once.
+    static let concurrency = 6
+    /// How long an account's membership is used before it's read again.
+    static let membershipTTL: TimeInterval = 24 * 3600
+    /// Most pages of membership read per account, 50 repos each (Ruling 3).
+    static let membershipPages = 10
+
+    /// The repos followed, most recent activity first.
+    private(set) var repos: [ReviewRepo] = []
+    /// Open pull requests by `ReviewRepo.id`.
+    private(set) var pulls: [String: [PullRequest]] = [:]
+    /// The user's login on each account, by account id.
+    private(set) var logins: [UUID: String] = [:]
+    /// Why a repo's pull requests couldn't be read, by `ReviewRepo.id`.
+    private(set) var repoErrors: [String: String] = [:]
+    /// Accounts to connect again: their token was rejected and couldn't be renewed.
+    private(set) var accountsNeedingAttention: Set<UUID> = []
+    /// Repos left out by `FollowedRepos.limit`.
+    private(set) var droppedByLimit = 0
+    private(set) var isRefreshing = false
+    /// When the pull requests were last read; at launch, the snapshot's date.
+    private(set) var lastRefreshedAt: Date?
+    /// The last refresh reached no repo, for lack of network.
+    private(set) var lastRefreshFailed = false
+    var filter: ReviewsFilter = .team
+    var selectedID: InboxPull.ID?
+
+    private let environment: ReviewsEnvironment
+    @ObservationIgnored private var memberships: [UUID: MembershipCache] = [:]
+    @ObservationIgnored private var detailStores: [String: PullRequestStore] = [:]
+    /// When the last refresh started, for the throttle.
+    @ObservationIgnored private var lastRoundAt: Date?
+    /// Accounts whose login was read this session (Ruling 11).
+    @ObservationIgnored private var loginLookups: Set<UUID> = []
+    /// The newest read started for each repo: an older one that lands later
+    /// (a refresh overlapping a `reload`, a repo that left) is dropped.
+    @ObservationIgnored private var latestRead: [String: UInt64] = [:]
+    @ObservationIgnored private var readCounter: UInt64 = 0
+    /// Bumped by every `open`: one that waited on its token longer than the
+    /// next one doesn't select over it.
+    @ObservationIgnored private var openGen: UInt64 = 0
+    @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
+
+    init(environment: ReviewsEnvironment) {
+        self.environment = environment
+    }
+
+    // MARK: Reading
+
+    var hasAccounts: Bool { !environment.accounts().isEmpty }
+
+    /// The current filter's groups, by their newest update, then the repos
+    /// that failed with nothing to show (Rulings 8 and 9).
+    var groups: [ReviewGroup] {
+        var loaded: [(group: ReviewGroup, newest: Date)] = []
+        var failed: [ReviewGroup] = []
+        for repo in repos {
+            let rows = (pulls[repo.id] ?? [])
+                .filter { isMine($0, accountId: repo.accountId) == (filter == .mine) }
+                .sorted(by: Self.newerFirst)
+                .map { InboxPull(repo: repo, pull: $0) }
+            if let newest = rows.first {
+                loaded.append((ReviewGroup(repo: repo, pulls: rows, error: repoErrors[repo.id]),
+                               newest.pull.updatedAt ?? .distantPast))
+            } else if let error = repoErrors[repo.id] {
+                failed.append(ReviewGroup(repo: repo, pulls: [], error: error))
+            }
+        }
+        let ordered = loaded.sorted { lhs, rhs in
+            lhs.newest == rhs.newest ? lhs.group.id < rhs.group.id : lhs.newest > rhs.newest
+        }
+        return ordered.map(\.group) + failed
+    }
+
+    /// The open pull requests that aren't the user's: drafts don't count, and
+    /// with an unknown login none is the user's (Ruling 7).
+    var badgeCount: Int {
+        repos.reduce(0) { total, repo in
+            total + (pulls[repo.id] ?? []).count(where: { $0.state == .open && !isMine($0, accountId: repo.accountId) })
+        }
+    }
+
+    private func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
+        guard let login = logins[accountId], let author = pull.authorLogin else { return false }
+        return author.lowercased() == login.lowercased()
+    }
+
+    private static func newerFirst(_ lhs: PullRequest, _ rhs: PullRequest) -> Bool {
+        let left = lhs.updatedAt ?? .distantPast
+        let right = rhs.updatedAt ?? .distantPast
+        return left == right ? lhs.number > rhs.number : left > right
+    }
+
+    // MARK: Snapshot
+
+    /// The last read, from disk: what the inbox shows before the network answers.
+    func loadSnapshot() {
+        guard let snapshot = environment.snapshots.load() else { return }
+        repos = snapshot.repos
+        pulls = snapshot.pulls
+        memberships = snapshot.memberships
+        logins = snapshot.logins
+        lastRefreshedAt = snapshot.savedAt
+    }
+
+    /// Writes what's loaded, dated by the last refresh that reached the
+    /// hosts. Nothing before one did.
+    private func saveSnapshot() {
+        guard let lastRefreshedAt else { return }
+        environment.snapshots.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion, savedAt: lastRefreshedAt,
+                                                   repos: repos, pulls: pulls, memberships: memberships,
+                                                   logins: logins))
+    }
+
+    // MARK: Refresh
+
+    /// Works out the repos followed and reads their open pull requests. Does
+    /// nothing while one runs, nor within `reloadThrottle` of the last unless
+    /// forced.
+    func refresh(force: Bool = false) async {
+        let now = environment.now()
+        guard !isRefreshing else { return }
+        if !force, let lastRoundAt, now.timeIntervalSince(lastRoundAt) < Self.reloadThrottle { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        lastRoundAt = now
+
+        let accounts = environment.accounts()
+        let tokens = TokenBook(ask: environment.token)
+        var activity: [ActivityCandidate] = []
+        for (account, instance) in accounts {
+            await tokens.prepare(account.id)
+            activity += await recentActivity(of: account, on: instance, tokens: tokens, now: now)
+                ?? Self.carriedOver(repos, accountId: account.id)
+        }
+        let local = await environment.localRemotes()
+        adopt(FollowedRepos.merge(local: local, activity: activity, accounts: accounts.map { $0.account },
+                                  instances: accounts.map { $0.instance }))
+
+        let outcomes = await readPulls(of: repos, tokens: tokens)
+        for (account, _) in accounts {
+            _ = await login(of: account, on: repos.first { $0.accountId == account.id }?.host, tokens: tokens)
+        }
+
+        let ids = Set(accounts.map { $0.account.id })
+        noteAttention(tokens, among: ids)
+        memberships = memberships.filter { ids.contains($0.key) }
+        if logins.keys.contains(where: { !ids.contains($0) }) { logins = logins.filter { ids.contains($0.key) } }
+        lastRefreshFailed = !outcomes.isEmpty && outcomes.allSatisfy { $0 == .offline }
+        if !lastRefreshFailed { lastRefreshedAt = now }
+        saveSnapshot()
+    }
+
+    /// Reads one repo's pull requests again, as after a merge from its detail
+    /// (Ruling 14), and keeps the snapshot in step.
+    func reload(repoKey: String) async {
+        guard let repo = repos.first(where: { $0.id == repoKey }) else { return }
+        let tokens = TokenBook(ask: environment.token)
+        await tokens.prepare(repo.accountId)
+        _ = await readPulls(of: [repo], tokens: tokens)
+        noteAttention(tokens, among: nil)
+        saveSnapshot()
+    }
+
+    /// Takes `followed` as the repos to show. One that left loses its pull
+    /// requests, its error and its detail store, as does the selection on
+    /// it; a repo now read with another account loses its detail store.
+    private func adopt(_ followed: FollowedSet) {
+        let before = Dictionary(repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let after = Dictionary(followed.repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        detailStores = detailStores.filter { key, _ in
+            guard let current = after[key], let previous = before[key] else { return false }
+            return current.accountId == previous.accountId && current.host == previous.host
+        }
+        repos = followed.repos
+        droppedByLimit = followed.dropped
+        pulls = pulls.filter { after[$0.key] != nil }
+        repoErrors = repoErrors.filter { after[$0.key] != nil }
+        latestRead = latestRead.filter { after[$0.key] != nil }
+        if let selectedID, !after.keys.contains(where: { selectedID.hasPrefix($0 + "#") }) {
+            self.selectedID = nil
+        }
+    }
+
+    /// Accounts that gave a token leave `accountsNeedingAttention`; those to
+    /// connect again join it. With `among`, accounts no longer there leave too.
+    private func noteAttention(_ tokens: TokenBook, among ids: Set<UUID>?) {
+        var attention = ids.map { accountsNeedingAttention.intersection($0) } ?? accountsNeedingAttention
+        attention.subtract(tokens.answered)
+        attention.formUnion(tokens.reconnect)
+        if attention != accountsNeedingAttention { accountsNeedingAttention = attention }
+    }
+
+    // MARK: Discovery
+
+    /// The repos `account` was recently active in, among those it belongs to
+    /// (Rulings 2 and 3). `nil` when its membership, its login or its
+    /// activity can't be read.
+    private func recentActivity(of account: HostingAccount, on instance: HostingInstance,
+                                tokens: TokenBook, now: Date) async -> [ActivityCandidate]? {
+        guard let members = await membership(of: account, on: instance, tokens: tokens, now: now) else { return nil }
+        let anyHost = members.lazy.compactMap { RemoteHost.make(fullName: $0.fullName, on: instance) }.first
+        guard let login = await login(of: account, on: anyHost, tokens: tokens) else { return nil }
+        let source = environment.makeActivity(instance.kind)
+        let since = now.addingTimeInterval(-FollowedRepos.activityWindow)
+        guard let hits = try? await withToken(account.id, tokens, { token in
+            try await source.recentActivity(apiBase: instance.apiBaseURL, login: login, since: since, token: token)
+        }) else { return nil }
+        return Self.candidates(ActivityMatcher.match(hits, members: members), on: instance, accountId: account.id)
+    }
+
+    /// The repos `account` belongs to: the cached list within
+    /// `membershipTTL`, else read again (Ruling 3). `nil` when it can't be read.
+    private func membership(of account: HostingAccount, on instance: HostingInstance,
+                            tokens: TokenBook, now: Date) async -> [RemoteRepoSummary]? {
+        if let cached = memberships[account.id], now.timeIntervalSince(cached.fetchedAt) < Self.membershipTTL {
+            return cached.repos
+        }
+        let browser = environment.makeBrowser(instance.kind)
+        guard let members = try? await withToken(account.id, tokens, { token in
+            try await Self.allPages(of: browser, apiBase: instance.apiBaseURL, token: token)
+        }) else { return nil }
+        memberships[account.id] = MembershipCache(fetchedAt: now, repos: members)
+        return members
+    }
+
+    /// The user's login on `account` (Ruling 11): the account's own, else read
+    /// once per session with `host`, a repo of the account.
+    private func login(of account: HostingAccount, on host: RemoteHost?, tokens: TokenBook) async -> String? {
+        if let login = account.login {
+            if logins[account.id] != login { logins[account.id] = login }
+            return login
+        }
+        if let host, !loginLookups.contains(account.id), tokens.current(account.id) != nil {
+            loginLookups.insert(account.id)
+            let provider = environment.makeProvider(host)
+            if let user = try? await withToken(account.id, tokens, { token in
+                try await provider.fetchCurrentUser(host: host, token: token)
+            }) {
+                logins[account.id] = user
+            }
+        }
+        return logins[account.id]
+    }
+
+    /// Runs `call` with the account's token; after a 401, one fresh token and
+    /// one retry. `nil` when there's no token to run it with.
+    private func withToken<T>(_ accountId: UUID, _ tokens: TokenBook,
+                              _ call: (String) async throws -> T) async throws -> T? {
+        guard let token = tokens.current(accountId) else { return nil }
+        do {
+            return try await call(token)
+        } catch PullRequestFetchError.unauthorized {
+            guard let fresh = await tokens.renew(accountId, rejected: token) else { return nil }
+            do {
+                return try await call(fresh)
+            } catch PullRequestFetchError.unauthorized {
+                tokens.reject(accountId)
+                return nil
+            }
+        }
+    }
+
+    // MARK: Pull requests
+
+    /// Reads the open pull requests of `targets`, `concurrency` at a time,
+    /// keeping each answer as it lands (Ruling 6). A 401 gets one fresh
+    /// token and one retry.
+    private func readPulls(of targets: [ReviewRepo], tokens: TokenBook) async -> [ReadOutcome] {
+        var outcomes: [ReadOutcome] = []
+        var pending = targets[...]
+        await withTaskGroup(of: PullsRead.self) { group in
+            var running = 0
+            while true {
+                while running < Self.concurrency, let repo = pending.popFirst() {
+                    guard let token = tokens.current(repo.accountId) else {
+                        outcomes.append(tokens.isUnavailable(repo.accountId) ? .offline : .withheld)
+                        continue
+                    }
+                    let (read, provider) = prepareRead(of: repo, token: token, isRetry: false)
+                    group.addTask { await read.run(with: provider) }
+                    running += 1
+                }
+                guard let read = await group.next() else { break }
+                running -= 1
+                if !read.isRetry, case .rejected = Self.failure(of: read),
+                   let fresh = await tokens.renew(read.repo.accountId, rejected: read.token) {
+                    let (retry, provider) = prepareRead(of: read.repo, token: fresh, isRetry: true)
+                    group.addTask { await retry.run(with: provider) }
+                    running += 1
+                    continue
+                }
+                outcomes.append(apply(read, tokens: tokens))
+            }
+        }
+        return outcomes
+    }
+
+    /// A read of `repo`, now its newest, and the provider to run it with.
+    private func prepareRead(of repo: ReviewRepo, token: String,
+                             isRetry: Bool) -> (PullsRead, any PullRequestProvider) {
+        readCounter &+= 1
+        latestRead[repo.id] = readCounter
+        return (PullsRead(repo: repo, token: token, isRetry: isRetry, generation: readCounter),
+                environment.makeProvider(repo.host))
+    }
+
+    /// Keeps one answer, unless a newer read of that repo started since.
+    private func apply(_ read: PullsRead, tokens: TokenBook) -> ReadOutcome {
+        let key = read.repo.id
+        guard latestRead[key] == read.generation else { return .answered }
+        guard let failure = Self.failure(of: read) else {
+            if case .success(let list) = read.result { pulls[key] = list }
+            repoErrors[key] = nil
+            return .answered
+        }
+        switch failure {
+        case .failed(let message):
+            pulls[key] = nil
+            repoErrors[key] = message
+            return .answered
+        case .offline:
+            return .offline
+        case .rejected:
+            // The renewed token was rejected too.
+            if read.isRetry { tokens.reject(read.repo.accountId) }
+            return tokens.isUnavailable(read.repo.accountId) ? .offline : .withheld
+        }
+    }
+
+    // MARK: Detail
+
+    /// The store that opens `repoKey`'s pull requests, made on first use with
+    /// the repo's account and kept while the repo is followed. `nil` for a
+    /// repo that isn't.
+    func detailStore(for repoKey: String) -> PullRequestStore? {
+        if let store = detailStores[repoKey] { return store }
+        guard let repo = repos.first(where: { $0.id == repoKey }) else { return nil }
+        let accountId = repo.accountId
+        let host = repo.host
+        let token = environment.token
+        let auth: @MainActor (RemoteHost, String?) async -> PullRequestAuthResult = { _, rejected in
+            await token(accountId, rejected)
+        }
+        let store = PullRequestStore(cli: nil, auth: auth, silentAuth: auth, resolveHost: { host },
+                                     makeProvider: environment.makeProvider,
+                                     makeReviewProvider: environment.makeReviewProvider)
+        detailStores[repoKey] = store
+        return store
+    }
+
+    /// Opens `item` in its repo's detail store once that has a token.
+    func open(_ item: InboxPull) async {
+        guard let store = detailStore(for: item.repo.id) else { return }
+        openGen &+= 1
+        let gen = openGen
+        guard await store.prepareForDetail(), gen == openGen else { return }
+        store.select(item.pull)
+    }
+
+    // MARK: Auto refresh
+
+    /// Refreshes every `autoRefreshInterval` while `isOnline` and `isActive`
+    /// hold. Replaces a loop already running.
+    func startAutoRefresh(isOnline: @escaping @MainActor () -> Bool, isActive: @escaping @MainActor () -> Bool) {
+        autoRefreshTask?.cancel()
+        autoRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.autoRefreshInterval)
+                guard !Task.isCancelled, let self else { return }
+                if isOnline(), isActive() { await self.refresh(force: true) }
+            }
+        }
+    }
+
+    func stopAutoRefresh() {
+        autoRefreshTask?.cancel()
+        autoRefreshTask = nil
+    }
+}
