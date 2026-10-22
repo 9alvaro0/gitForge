@@ -143,6 +143,30 @@ struct GraphRowRenderTests {
         #expect(!image.pixel(at: near).isClose(to: Self.background), "\(near): \(image.pixel(at: near))")
     }
 
+    @Test("A row with no S draws its straight lines, solid and ghost, just as a row with one does",
+          arguments: [DensityMetrics.regular, .compact])
+    func rowWithoutCurvesDrawsTheSame(density: DensityMetrics) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let style = Self.style(metrics)
+        // The node's line in column 0, a solid line through column 2 and a ghost one through column 3.
+        let steps = [Self.step(0, 0, .head), Self.step(2, 2, .pool(0)), Self.step(3, 3, .pool(1), stroke: .ghost)]
+        let straight = Self.row(node: 0, above: steps, below: steps)
+        // The same with an S arriving into the node from column 1, well away from columns 2 and 3.
+        let bent = Self.row(node: 0, above: steps + [Self.step(1, 0, .pool(3))], below: steps)
+        guard let plain = Self.render([straight], metrics: metrics, rowHeight: rowHeight),
+              let layered = Self.render([bent], metrics: metrics, rowHeight: rowHeight) else { return }
+        let strip = CGRect(x: style.laneCenter(2) - 4, y: 0, width: style.laneCenter(3) - style.laneCenter(2) + 8,
+                           height: rowHeight)
+        var lit = 0
+        for center in plain.pixelCenters(in: strip) {
+            let pixel = plain.pixel(at: center)
+            lit += pixel.isClose(to: Self.background) ? 0 : 1
+            #expect(pixel.isClose(to: layered.pixel(at: center), tolerance: 1),
+                    "\(center): \(pixel) without an S, \(layered.pixel(at: center)) with one")
+        }
+        #expect(lit > 0, "nothing drawn in the strip")
+    }
+
     @Test("Lines meeting at the commit are not cut within the clearance", arguments: [DensityMetrics.regular, .compact])
     func nodeClearance(density: DensityMetrics) {
         let metrics = density.graph, rowHeight = density.rowList

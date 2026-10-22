@@ -137,7 +137,9 @@ struct GraphColumnView: View {
 ///
 /// `nonisolated` because the canvas renders off the main actor. Nothing here
 /// allocates per step beyond the step's own path, which serves both its
-/// crossing band and its stroke.
+/// crossing band and its stroke, and a dash pattern when a dashed half's
+/// period is not the one before it. Only a row with an S and a crossing gap
+/// draws into a layer of its own.
 nonisolated struct GraphRowPainter {
     let style: GraphStyle
     let size: CGSize
@@ -155,15 +157,44 @@ nonisolated struct GraphRowPainter {
     /// The row's centre, where its node sits.
     private var center: CGFloat { size.height / 2 }
 
-    /// Curves first, then the straight halves (`GraphRowGeometry`), each
-    /// clearing a band of the row's background under itself first, so a half
-    /// drawn earlier that it crosses shows a gap on either side of it (§5.2).
+    /// The row's halves in the geometry's order (`GraphRowGeometry.forEachSegment`),
+    /// each erasing first a band around itself from the lines the row drew
+    /// before it, so that where it crosses one, the row's background shows
+    /// through on either side of it (§5.2).
     func drawSteps(of row: GraphRow, in context: inout GraphicsContext) {
+        let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
+                                        rowSpacing: rowSpacing)
+        // Without an S, the row's straight halves lie in their own columns,
+        // 12 pt or more apart, and cross nothing; without a gap there is no
+        // band. Either way there is nothing to erase, and the row draws
+        // straight into the context, with no layer.
+        guard style.metrics.crossingGap > 0, Self.hasCurve(row) else {
+            strokeSteps(of: row, geometry: geometry, eraser: nil, in: &context)
+            return
+        }
+        // Every half goes into one layer, and the band erases only in it:
+        // what the row drew before, never the row's background (its
+        // selection, hover or drop highlight) behind the canvas.
+        context.drawLayer { layer in
+            let eraser = crossingEraser(for: row, geometry: geometry, in: layer)
+            strokeSteps(of: row, geometry: geometry, eraser: eraser, in: &layer)
+        }
+    }
+
+    /// Whether any step of `row` changes column, so that the row draws an S.
+    private static func hasCurve(_ row: GraphRow) -> Bool {
+        row.stepsAbove.contains { $0.from != $0.to } || row.stepsBelow.contains { $0.from != $0.to }
+    }
+
+    /// Strokes the row's halves into `context`, each after its band, when
+    /// there is an `eraser` (`crossingEraser`).
+    private func strokeSteps(of row: GraphRow, geometry: GraphRowGeometry, eraser: GraphicsContext?,
+                             in context: inout GraphicsContext) {
         let metrics = style.metrics
         let edge = metrics.edgeWidth
         // Butt caps: a half ends flat where the next one starts, on a joint
-        // or at the row centre (under the node, or where a line passes
-        // through with a vertical tangent), and the canvas no longer clips a
+        // or at the row's centre under the node (a line that carries on
+        // through the centre is one path), and the canvas no longer clips a
         // cap that would reach past a joint. Round caps would also eat the
         // gaps of a dash.
         let solid = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round)
@@ -171,8 +202,6 @@ nonisolated struct GraphRowPainter {
         // whole under a dashed stroke. Butt caps too, so it ends where the
         // half does.
         let band = StrokeStyle(lineWidth: edge + 2 * metrics.crossingGap, lineCap: .butt, lineJoin: .round)
-        let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
-                                        rowSpacing: rowSpacing)
         // A dashed half (a stash's side step, a ghost line) is a dash and a gap
         // of half its period each, the period the geometry gives it, from its
         // start: it holds a whole number of them, so it ends with a complete
@@ -180,45 +209,37 @@ nonisolated struct GraphRowPainter {
         // The pattern is built again only when the period changes: the
         // straight halves share one, the halves of S curves as wide another.
         var dash: [CGFloat] = []
-        // Every half goes into one layer, and the band erases only in it:
-        // what the row drew before, never the row's background (its
-        // selection, hover or drop highlight) behind the canvas.
-        context.drawLayer { layer in
-            let eraser = crossingEraser(for: row, geometry: geometry, in: layer)
-            let layerOpacity = layer.opacity
-            geometry.forEachSegment(of: row) { segment, step, dashPeriod in
-                let path = segment.path
-                eraser?.stroke(path, with: .color(.black), style: band)
-                let shading = GraphicsContext.Shading.color(style.color(for: step.color))
-                guard dashPeriod > 0 else {
-                    layer.stroke(path, with: shading, style: solid)
-                    return
-                }
-                if dash.first != dashPeriod / 2 { dash = [dashPeriod / 2, dashPeriod / 2] }
-                let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: dash)
-                // A ghost is translucent. The layer's opacity does it, for this
-                // stroke only, instead of building a translucent colour per step.
-                guard step.stroke == .ghost else {
-                    layer.stroke(path, with: shading, style: dashed)
-                    return
-                }
-                layer.opacity = layerOpacity * style.ghostOpacity
-                layer.stroke(path, with: shading, style: dashed)
-                layer.opacity = layerOpacity
+        let opacity = context.opacity
+        geometry.forEachSegment(of: row) { segment, step, dashPeriod in
+            let path = segment.path
+            eraser?.stroke(path, with: .color(.black), style: band)
+            let shading = GraphicsContext.Shading.color(style.color(for: step.color))
+            guard dashPeriod > 0 else {
+                context.stroke(path, with: shading, style: solid)
+                return
             }
+            if dash.first != dashPeriod / 2 { dash = [dashPeriod / 2, dashPeriod / 2] }
+            let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: dash)
+            // A ghost is translucent. The context's opacity does it, for this
+            // stroke only, instead of building a translucent colour per step.
+            guard step.stroke == .ghost else {
+                context.stroke(path, with: shading, style: dashed)
+                return
+            }
+            context.opacity = opacity * style.ghostOpacity
+            context.stroke(path, with: shading, style: dashed)
+            context.opacity = opacity
         }
     }
 
     /// A copy of `layer` that erases whatever it strokes, except within
     /// `crossingNodeClearance` of the points where the row's lines meet
     /// (`GraphRowGeometry.forEachCrossingClearanceCenter`), so they join
-    /// cleanly. Nil when there is no crossing gap: nothing to erase. Built
-    /// once per row, with the row's one clearance path.
+    /// cleanly. Built once per row that has a crossing gap, with the row's
+    /// one clearance path.
     private func crossingEraser(for row: GraphRow, geometry: GraphRowGeometry,
-                                in layer: GraphicsContext) -> GraphicsContext? {
-        let metrics = style.metrics
-        guard metrics.crossingGap > 0 else { return nil }
-        let radius = metrics.crossingNodeClearance
+                                in layer: GraphicsContext) -> GraphicsContext {
+        let radius = style.metrics.crossingNodeClearance
         var clearance = Path()
         geometry.forEachCrossingClearanceCenter(of: row) { center in
             clearance.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius,
