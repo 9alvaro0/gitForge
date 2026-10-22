@@ -14,8 +14,12 @@ import SwiftUI
 /// copies the log nor builds an array of rows.
 struct CommitRowList<Row: View>: View {
     let commits: [Commit]
-    /// Fired with the last commit when the end of the list comes into view, so
-    /// the host can page in more.
+    /// The host's revision of `commits` (`HistoryStore.logRevision`): it moves
+    /// each time the log is published, even with the same rows.
+    var revision: UInt64 = 0
+    /// Fired with the last commit when the end of the list is on screen: when
+    /// it scrolls into view, and when a log published while it is in view ends
+    /// there too, so the host can page in more.
     var onLastRowAppear: ((Commit) -> Void)? = nil
     @ViewBuilder let row: (_ index: Int, _ commit: Commit) -> Row
 
@@ -24,19 +28,26 @@ struct CommitRowList<Row: View>: View {
         ForEach(commits.indices.lazy.map { CommitRowRef(index: $0, sha: commits[$0].sha) }, id: \.sha) { ref in
             row(ref.index, commits[ref.index])
         }
-        // An empty marker after the rows pages in more, not the last row's own
-        // `onAppear`: a reload that drops pages while the end is on screen leaves
-        // a last row that was visible all along and keeps its identity, so it
-        // never appears again. The marker's identity is the log's length and last
-        // sha, so a log that ends elsewhere gets a new marker, which appears. It
-        // comes from a one-element `ForEach`: the lazy stack doesn't run
-        // `onAppear` again for an `.id` change on a plain child. Only the marker
-        // fires, not every row, so scrolling spawns one Task per page, not per row.
+        // A marker after the rows pages in more, not the last row: a reload that
+        // drops pages while the end is on screen leaves a last row that was visible
+        // all along, so nothing about it changes. The marker's identity is the
+        // published log's (length, last sha and revision), so each published log
+        // gets a new marker, which fires if it lands on screen. It comes from a
+        // one-element `ForEach`: the lazy stack doesn't take an `.id` change on a
+        // plain child as a new view. It fires on screen visibility, not `onAppear`:
+        // the lazy stack builds views ahead of the scroll in idle time, and paging
+        // from there loaded pages nobody scrolled to. Only the marker fires, so
+        // scrolling spawns one Task per page, not per row.
         if let last = commits.last, let onLastRowAppear {
-            ForEach([CommitRowListEnd(count: commits.count, lastSha: last.sha)], id: \.self) { _ in
+            ForEach([CommitRowListEnd(count: commits.count, lastSha: last.sha, revision: revision)], id: \.self) { _ in
+                // 1 pt high: an empty frame never counts as visible. Any sliver
+                // counts: with many lanes the table is wider than the window,
+                // and only part of the marker's width is on screen.
                 Color.clear
-                    .frame(height: 0)
-                    .onAppear { onLastRowAppear(last) }
+                    .frame(height: 1)
+                    .onScrollVisibilityChange(threshold: 0.01) { visible in
+                        if visible { onLastRowAppear(last) }
+                    }
             }
         }
     }
@@ -48,8 +59,10 @@ nonisolated struct CommitRowRef: Sendable {
     let sha: String
 }
 
-/// Identity of the marker after the last row: it changes whenever the log ends elsewhere.
+/// Identity of the marker after the last row: it changes whenever a log is
+/// published, wherever it ends.
 nonisolated struct CommitRowListEnd: Hashable, Sendable {
     let count: Int
     let lastSha: String
+    let revision: UInt64
 }

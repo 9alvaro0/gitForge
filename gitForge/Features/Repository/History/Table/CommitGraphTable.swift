@@ -13,6 +13,9 @@ import SwiftUI
 /// and WHEN, so any boundary the eye lands on is draggable.
 struct CommitGraphTable: View {
     let commits: [Commit]
+    /// `HistoryStore.logRevision` of `commits`: a log published again while
+    /// its end is on screen pages in more again (`CommitRowList`).
+    var logRevision: UInt64 = 0
     let layouts: [GraphRow]
     /// Column count of the whole graph layout (`HistoryStore.graphMaxLanes`,
     /// taken once per layout pass; it includes columns reserved for HEAD and
@@ -44,7 +47,8 @@ struct CommitGraphTable: View {
     /// Triggered by a double-click on a commit row. Host views typically use
     /// it to checkout the commit (or its enclosing local branch).
     var onDoubleClick: ((String) -> Void)? = nil
-    /// Fired when a row appears in the viewport. Host wires it to
+    /// Fired with the last commit when the end of the list is on screen
+    /// (`CommitRowList`). Host wires it to
     /// `HistoryStore.loadMoreIfNeeded(currentItem:)` so reaching the
     /// last loaded commit pulls in the next page. Without this hook the log
     /// silently stops at `pageSize` even though `hasMore` is true.
@@ -158,7 +162,7 @@ struct CommitGraphTable: View {
                             }
                             // Rows are identified by sha (see `CommitRowList`);
                             // `scrollTo(sha)` below relies on it.
-                            CommitRowList(commits: commits, onLastRowAppear: onAppear) { idx, commit in
+                            CommitRowList(commits: commits, revision: logRevision, onLastRowAppear: onAppear) { idx, commit in
                                 CommitRow(
                                     commit: commit,
                                     layout: layouts[safe: idx] ?? .empty,

@@ -173,6 +173,7 @@ struct HistoryView: View {
             } else {
                 CommitGraphTable(
                     commits: viewModel.history.commits,
+                    logRevision: viewModel.history.logRevision,
                     layouts: viewModel.history.graphLayouts,
                     maxLanes: viewModel.history.graphMaxLanes,
                     refChips: viewModel.history.refChips,
