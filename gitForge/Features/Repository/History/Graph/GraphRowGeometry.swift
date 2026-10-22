@@ -113,8 +113,10 @@ nonisolated enum GraphSegment: Equatable, Sendable {
 /// A dashed step (`isDashed`) has no overlap: two translucent strokes laid
 /// over each other draw a darker band, and a dash pattern drawn twice over the
 /// same stretch no longer reads as one. Its halves stop exactly on the joint
-/// instead, and each starts its dash where the other left it (`dashPhase`),
-/// so the pattern runs unbroken from one row to the next.
+/// instead. Each holds a whole number of its dash period (`dashPeriod`, or
+/// `dashPeriod(ofCurve:)` for an S), so it starts with a dash and ends with
+/// a complete gap, and the pattern runs unbroken from one half to the next,
+/// across a joint or the row's centre, with nothing carried between rows.
 nonisolated struct GraphRowGeometry {
     let style: GraphStyle
     /// The canvas: the gutter's width, one row pitch plus `bleed` above and below.
@@ -187,8 +189,18 @@ nonisolated struct GraphRowGeometry {
     }
 
     var bleed: CGFloat { Self.bleed(for: style.metrics) }
-    /// `dashPeriod(pitch:)` for this geometry's rows.
+    /// `dashPeriod(pitch:)` for this geometry's rows: the period of a dashed
+    /// straight half.
     var dashPeriod: CGFloat { Self.dashPeriod(pitch: pitch) }
+
+    /// The dash period of a dashed S half `length` long (its arc length): the
+    /// one that fits a whole number of times in it nearest to the straight
+    /// half's (`dashPeriod`). Within about a sixth of it either way: 17 %
+    /// longer for the S of one column in the compact density, 9 % shorter at
+    /// worst. Both halves of an S are as long, so they have the same period.
+    func dashPeriod(ofCurve length: CGFloat) -> CGFloat {
+        length / max(1, (length / dashPeriod).rounded())
+    }
     var center: CGFloat { size.height / 2 }
     /// Distance between row centres.
     var pitch: CGFloat { size.height - 2 * bleed }
@@ -218,8 +230,8 @@ nonisolated struct GraphRowGeometry {
         return min(outer + metrics.hoverRingOutset, rowHeight / 2 - metrics.hoverRingWidth / 2)
     }
 
-    /// Calls `body` with each segment the row draws, its step and the dash
-    /// phase it starts with, in drawing order (§5.2): first the S halves
+    /// Calls `body` with each segment the row draws, its step and its dash
+    /// period, in drawing order (§5.2): first the S halves
     /// drawn alone, then the lines joined with an S, then the straight halves
     /// drawn alone and the lines joined straight. So a straight passing
     /// through stays on top of every S that crosses it, and an S drawn as
@@ -234,20 +246,16 @@ nonisolated struct GraphRowGeometry {
     /// of that pixel row: the line would show a faint notch on every row it
     /// passes. Under the node the notch is covered.
     ///
-    /// The phase is how far into the dash pattern (`dashPeriod`) the half's
-    /// start lies, as `StrokeStyle.dashPhase` takes it; 0 for a solid half,
-    /// which has no pattern. A dashed half that leaves the row, or a straight
-    /// one that arrives, starts at 0: a dashed straight half runs from joint
-    /// to centre, half a pitch, a whole number of periods, so the one above
-    /// ends its pattern complete.
-    /// A dashed curve that arrives carries on where the half of the row above
-    /// stopped. That one, the mirror of this half, is as long, so the pattern
-    /// ends at its length modulo the period. At the row's centre the pattern
-    /// starts over, which nobody sees under the node.
-    func forEachSegment(of row: GraphRow, _ body: (GraphSegment, GraphStep, _ dashPhase: CGFloat) -> Void) {
+    /// The dash period is the length of a dash and the gap after it, half
+    /// each, for a dashed half; 0 for a solid segment, which has none. A
+    /// dashed straight half, half a pitch long, has `dashPeriod`; a dashed S
+    /// half its own (`dashPeriod(ofCurve:)`). Either way the half is a whole
+    /// number of its periods, so drawn from its start it begins with a dash
+    /// and ends with a complete gap, on the joint and at the centre.
+    func forEachSegment(of row: GraphRow, _ body: (GraphSegment, GraphStep, _ dashPeriod: CGFloat) -> Void) {
         let curveOverlap = overlapsJoints ? Self.overlap(for: style.metrics) : 0
         let straightOverlap = overlapsJoints ? Self.straightOverlap(for: style.metrics) : 0
-        let period = dashPeriod
+        let straightPeriod = dashPeriod
         let above = row.stepsAbove, below = row.stepsBelow
         func arriving(_ step: GraphStep) -> GraphSegment.Piece {
             let x = style.laneCenter(step.to)
@@ -275,16 +283,18 @@ nonisolated struct GraphRowGeometry {
         func isJoined(leaving index: Int) -> Bool {
             joinedPair(at: below[index].from, in: row)?.below == index
         }
+        /// Reports `half`, the half `step` draws alone, with its dash period.
+        func alone(_ half: GraphSegment.Piece, of step: GraphStep) {
+            guard Self.isDashed(step) else { return body(half.alone, step, 0) }
+            body(half.alone, step, step.from == step.to ? straightPeriod : dashPeriod(ofCurve: half.length))
+        }
 
         // S halves drawn alone.
         for index in above.indices where above[index].from != above[index].to && partner(ofArriving: index) == nil {
-            let step = above[index]
-            let half = arriving(step)
-            let phase = Self.isDashed(step) ? half.length.truncatingRemainder(dividingBy: period) : 0
-            body(half.alone, step, phase)
+            alone(arriving(above[index]), of: above[index])
         }
         for index in below.indices where below[index].from != below[index].to && !isJoined(leaving: index) {
-            body(leaving(below[index]).alone, below[index], 0)
+            alone(leaving(below[index]), of: below[index])
         }
         // Lines joined with an S.
         for index in above.indices {
@@ -298,11 +308,11 @@ nonisolated struct GraphRowGeometry {
                 guard below[next].from == below[next].to else { continue }
                 body(.joined(arriving(above[index]), leaving(below[next])), above[index], 0)
             } else {
-                body(arriving(above[index]).alone, above[index], 0)
+                alone(arriving(above[index]), of: above[index])
             }
         }
         for index in below.indices where below[index].from == below[index].to && !isJoined(leaving: index) {
-            body(leaving(below[index]).alone, below[index], 0)
+            alone(leaving(below[index]), of: below[index])
         }
     }
 

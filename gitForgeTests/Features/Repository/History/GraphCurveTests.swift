@@ -85,7 +85,7 @@ struct GraphCurveTests {
         }
     }
 
-    @Test("The half an S leaves and the half it arrives with are the same length, so the dash can pick up where it left off",
+    @Test("The half an S leaves and the half it arrives with are the same length, so both rows give its dash the same period",
           arguments: [CGFloat(29), 23], [1, 2, 3, 6])
     func halvesAreMirrorImages(height: CGFloat, columns: Int) {
         let x1 = 14 * CGFloat(columns)

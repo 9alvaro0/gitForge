@@ -337,6 +337,60 @@ struct GraphRowRenderTests {
         }
     }
 
+    @Test("A ghost S's dash runs on unbroken across the joint between rows and on down the line it lands on, away from a node",
+          arguments: [DensityMetrics.regular, .compact], [1, 3, 4])
+    func ghostDashAcrossJointAndCentre(density: DensityMetrics, width: Int) {
+        let metrics = density.graph, rowHeight = density.rowList, spacing = HistoryTableLayout.rowSpacing
+        let pitch = rowHeight + spacing, lanes = width + 1
+        let style = Self.style(metrics, ghostOpacity: 1)
+        // A ghost merge's own track, as the table lays it out: an S from the merge in column 0 out to column
+        // `width`, then straight down that column, through the centre of a row whose node is elsewhere, to the parent.
+        let out = Self.step(0, width, .head, stroke: .ghost), track = Self.step(width, width, .head, stroke: .ghost)
+        let rows = [Self.row(node: 0, below: [out], lanes: lanes),
+                    Self.row(node: 0, above: [out], below: [track], lanes: lanes),
+                    Self.row(node: width, above: [track], lanes: lanes)]
+        guard let image = Self.render(rows, metrics: metrics, rowHeight: rowHeight, rowSpacing: spacing, lanes: lanes,
+                                      ghostOpacity: 1, background: .black) else { return }
+        // The dash each piece should have, written out from §4.3: half a period of the straight lines' (half a pitch
+        // holds a whole number of them), or of the S halves' own (their arc length holds a whole number of them).
+        let period = GraphRowGeometry.dashPeriod(pitch: pitch)
+        let half = GraphCurve.leaving(fromX: style.laneCenter(0), toX: style.laneCenter(width), center: 0, height: pitch)
+        let length = GraphCurve.arcLength(half)
+        let curvePeriod = length / max(1, (length / period).rounded())
+        // The line's centreline from node to node, a point every 0.05 pt along it, each with how far along it is.
+        let s = GraphCurve.step(fromX: style.laneCenter(0), toX: style.laneCenter(width), top: rowHeight / 2, height: pitch)
+        var points: [(point: CGPoint, along: CGFloat)] = [(s.start, 0)]
+        for index in 1...8192 {
+            let point = GraphCurve.point(on: s, at: CGFloat(index) / 8192), last = points[points.count - 1]
+            points.append((point, last.along + last.point.distance(to: point)))
+        }
+        let bend = points[points.count - 1].along
+        for index in 1...Int(pitch * 20) {
+            let last = points[points.count - 1]
+            points.append((CGPoint(x: last.point.x, y: last.point.y + 0.05), last.along + 0.05))
+        }
+        // Runs of dash (lit) and gap along it, clear of the nodes at both ends; the first and last are cut short there.
+        let clear = metrics.nodeRadius + 1
+        let first = points[0].point, last = points[points.count - 1].point
+        var runs: [(lit: Bool, start: CGFloat, end: CGFloat)] = []
+        for (point, along) in points where point.distance(to: first) > clear && point.distance(to: last) > clear {
+            let lit = Int(image.pixel(at: point).blue) >= 128
+            if let run = runs.last, run.lit == lit {
+                runs[runs.count - 1].end = along
+            } else {
+                runs.append((lit, along, along))
+            }
+        }
+        #expect(runs.count >= 12, "\(runs.count) runs")
+        for run in runs.dropFirst().dropLast() {
+            // Half a period each, within half of that either way: no dash or gap cut short, none run into the next.
+            let expected = ((run.start + run.end) / 2 < bend ? curvePeriod : period) / 2
+            let length = run.end - run.start
+            #expect(length > expected / 2 && length < expected * 3 / 2,
+                    "\(run.lit ? "dash" : "gap") from \(run.start) to \(run.end) of \(expected) (the S ends at \(bend))")
+        }
+    }
+
     @Test("A solid line next to a ghost one keeps its full colour", arguments: [DensityMetrics.regular, .compact])
     func solidLineStaysOpaque(density: DensityMetrics) {
         let metrics = density.graph, rowHeight = density.rowList

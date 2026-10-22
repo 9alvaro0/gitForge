@@ -174,10 +174,11 @@ nonisolated struct GraphRowPainter {
         let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
                                         rowSpacing: rowSpacing)
         // A dashed half (a stash's side step, a ghost line) is a dash and a gap
-        // of half the geometry's period each (`GraphRowGeometry.dashPeriod`),
-        // starting at the phase the geometry gives it, so the pattern runs on
-        // across the joints between rows. The pattern is built once, the first
-        // time a half needs it.
+        // of half its period each, the period the geometry gives it, from its
+        // start: it holds a whole number of them, so it ends with a complete
+        // gap and the next half, in this row or the next, starts with a dash.
+        // The pattern is built again only when the period changes: the
+        // straight halves share one, the halves of S curves as wide another.
         var dash: [CGFloat] = []
         // Every half goes into one layer, and the band erases only in it:
         // what the row drew before, never the row's background (its
@@ -185,17 +186,16 @@ nonisolated struct GraphRowPainter {
         context.drawLayer { layer in
             let eraser = crossingEraser(for: row, geometry: geometry, in: layer)
             let layerOpacity = layer.opacity
-            geometry.forEachSegment(of: row) { segment, step, dashPhase in
+            geometry.forEachSegment(of: row) { segment, step, dashPeriod in
                 let path = segment.path
                 eraser?.stroke(path, with: .color(.black), style: band)
                 let shading = GraphicsContext.Shading.color(style.color(for: step.color))
-                guard GraphRowGeometry.isDashed(step) else {
+                guard dashPeriod > 0 else {
                     layer.stroke(path, with: shading, style: solid)
                     return
                 }
-                if dash.isEmpty { dash = [geometry.dashPeriod / 2, geometry.dashPeriod / 2] }
-                let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: dash,
-                                         dashPhase: dashPhase)
+                if dash.first != dashPeriod / 2 { dash = [dashPeriod / 2, dashPeriod / 2] }
+                let dashed = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round, dash: dash)
                 // A ghost is translucent. The layer's opacity does it, for this
                 // stroke only, instead of building a translucent colour per step.
                 guard step.stroke == .ghost else {
