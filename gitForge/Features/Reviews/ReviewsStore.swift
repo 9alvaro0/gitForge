@@ -155,13 +155,26 @@ final class ReviewsStore {
     }
 
     /// The current filter's groups; with none, the loading placeholder while
-    /// a read runs, else the empty state. Not only the first read ever: the
-    /// first after connecting an account says nothing about its repos until
-    /// it lands, though an earlier read left a date.
+    /// a read runs and something is still unknown (`hasUnreadRepos`), else the
+    /// empty state. Not only the first read ever: the first after connecting
+    /// an account says nothing about its repos until it lands, though an
+    /// earlier read left a date. But a refresh over repos all read before
+    /// leaves the empty state up: an empty filter (Mine with nothing of the
+    /// user's) isn't news, and the skeleton would flash on every refresh.
     var listContent: ReviewsListContent {
         let groups = groups
         if !groups.isEmpty { return .groups(groups) }
-        return isRefreshing ? .loading : .empty
+        return isRefreshing && hasUnreadRepos ? .loading : .empty
+    }
+
+    /// No repo is followed yet, or one has neither pull requests nor an error
+    /// (`pulls` keeps an empty list for a repo read with none open, which is
+    /// known). The repos of an account in `accountsNeedingAttention` don't
+    /// count: they're withheld, never read until it's connected again.
+    private var hasUnreadRepos: Bool {
+        repos.isEmpty || repos.contains { repo in
+            pulls[repo.id] == nil && repoErrors[repo.id] == nil && !accountsNeedingAttention.contains(repo.accountId)
+        }
     }
 
     /// The open pull requests that aren't the user's: drafts don't count, and

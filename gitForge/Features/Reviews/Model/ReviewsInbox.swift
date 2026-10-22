@@ -37,7 +37,8 @@ nonisolated struct ReviewGroup: Identifiable, Equatable, Sendable {
 /// What the inbox's list shows under its header and notices.
 nonisolated enum ReviewsListContent: Equatable, Sendable {
     case groups([ReviewGroup])
-    /// A read is running and there's nothing to show yet.
+    /// A read is running, there's nothing to show yet and some repo hasn't
+    /// been read (or none is followed yet).
     case loading
     /// No open pull requests in the repos followed, as far as the last read knows.
     case empty

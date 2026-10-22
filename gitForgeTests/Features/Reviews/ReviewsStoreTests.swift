@@ -23,6 +23,8 @@ private final class FakeProvider: PullRequestProvider, PullRequestReviewProvider
         var failEverything: PullRequestFetchError?
         var rejecting: Set<String> = []
         var delay: Duration = .zero
+        /// Holds the list read of an `owner/repo` until its gate opens.
+        var gates: [String: AsyncGate] = [:]
         var user = "marta"
         /// The `owner/repo` of each list read.
         var reads: [String] = []
@@ -34,12 +36,13 @@ private final class FakeProvider: PullRequestProvider, PullRequestReviewProvider
     let state = Locked(State())
 
     func fetchPulls(host: RemoteHost, state list: PullListState, token: String) async throws -> [PullRequest] {
-        let delay = state { state in
+        let (delay, gate) = state { state in
             state.running += 1
             state.mostRunning = max(state.mostRunning, state.running)
-            return state.delay
+            return (state.delay, state.gates[host.slug])
         }
         defer { state { $0.running -= 1 } }
+        if let gate { await gate.wait() }
         if delay > .zero { try await Task.sleep(for: delay) }
         return try state { state in
             state.reads.append(host.slug)
@@ -224,6 +227,10 @@ struct ReviewsStoreTests {
     }
 
     private static func reads(_ harness: Harness) -> Int { harness.provider.state { $0.reads.count } }
+
+    /// How long a test waits for a held read to get to its gate. The default
+    /// 3 s is not enough when the whole suite stalls the machine for a while.
+    private static let patience: Duration = .seconds(15)
 
     @Test("Groups follow their newest update, and Team and Mine split the pull requests by author")
     func groupsAndFilters() async {
@@ -423,36 +430,129 @@ struct ReviewsStoreTests {
         #expect(Self.reads(harness) == 3)
     }
 
-    @Test("While a read runs with nothing to show, the list shows the loading placeholder, even after an earlier read")
-    func loadingPlaceholder() async {
+    @Test("While a read runs and no repo is followed yet, the list shows the loading placeholder")
+    func loadingBeforeAnyRepo() async {
         let harness = Harness()
         harness.locals = [Harness.local("team/app")]
         let store = harness.makeStore()
-        // An earlier read found nothing: the inbox has a date and no groups.
-        await store.refresh(force: true)
-        #expect(store.lastRefreshedAt != nil)
-        #expect(store.listContent == .empty)
-
-        // The next one (say, the first after connecting an account) is still reading.
         let reading = AsyncGate()
         harness.localsGate = reading
-        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
         let round = Task { await store.refresh(force: true) }
-        await reading.waiting()
+        await reading.waiting(timeout: Self.patience)
+        #expect(store.repos.isEmpty)
         #expect(store.listContent == .loading)
+
+        reading.open()
+        await round.value
+        #expect(store.listContent == .empty)
+    }
+
+    @Test("A repo followed for the first time keeps the placeholder up until its pull requests land")
+    func loadingForANewRepo() async {
+        let harness = Self.twoRepos()
+        // No activity in team/api yet: only the clone is followed, and it has nothing open.
+        harness.activity.state { $0.hits = [] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.repos.map(\.host.repo) == ["app"])
+        #expect(store.listContent == .empty)
+
+        // The next round adopts team/api, whose read is still on its way.
+        let reading = AsyncGate()
+        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("2"), at: Harness.date(1_789_000_000))] }
+        harness.provider.state {
+            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+            $0.gates["team/api"] = reading
+        }
+        let round = Task { await store.refresh(force: true) }
+        await reading.waiting(timeout: Self.patience)
+        #expect(store.repos.map(\.host.repo).sorted() == ["api", "app"])
+        #expect(store.pulls[Harness.key("team/app")]?.isEmpty == true)
+        #expect(store.pulls[Harness.key("team/api")] == nil)
+        #expect(store.listContent == .loading)
+
         reading.open()
         await round.value
         #expect(store.listContent == .groups(store.groups))
         #expect(store.groups.count == 1)
+    }
 
-        // With rows to show, a read doesn't hide them.
+    @Test("With rows to show, a read doesn't hide them")
+    func rowsStayWhileRefreshing() async {
+        let harness = Harness()
+        harness.locals = [Harness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.groups.count == 1)
+
         let again = AsyncGate()
         harness.localsGate = again
         let next = Task { await store.refresh(force: true) }
-        await again.waiting()
+        await again.waiting(timeout: Self.patience)
         #expect(store.listContent == .groups(store.groups))
         again.open()
         await next.value
+    }
+
+    @Test("A refresh over a filter known to be empty doesn't swap the empty state for the placeholder")
+    func noFlashOverAKnownEmptyList() async {
+        let harness = Harness()
+        harness.locals = [Harness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        let store = harness.makeStore()
+        // Nothing of the user's: Mine is empty once every repo has been read.
+        store.filter = .mine
+        await store.refresh(force: true)
+        #expect(store.pulls[Harness.key("team/app")]?.count == 1)
+        #expect(store.listContent == .empty)
+
+        // The next round, held at the clones and then at the read of the repo.
+        let listing = AsyncGate()
+        let reading = AsyncGate()
+        harness.localsGate = listing
+        harness.provider.state { $0.gates["team/app"] = reading }
+        let round = Task { await store.refresh(force: true) }
+        await listing.waiting(timeout: Self.patience)
+        #expect(store.isRefreshing)
+        #expect(store.listContent == .empty)
+
+        listing.open()
+        await reading.waiting(timeout: Self.patience)
+        #expect(store.isRefreshing)
+        #expect(store.listContent == .empty)
+
+        reading.open()
+        await round.value
+        #expect(!store.isRefreshing)
+        #expect(store.listContent == .empty)
+    }
+
+    @Test("A repo of an account that needs attention is never read, so it doesn't keep the placeholder up")
+    func withheldRepoDoesNotKeepThePlaceholder() async {
+        let harness = Self.twoRepos()
+        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+                                  status: .needsAttention(.revoked))
+        harness.accounts.append(dead)
+        // team/app is read with the dead account, team/api with the working one.
+        harness.locals = [Harness.local("team/app", account: dead.id)]
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.accountsNeedingAttention == [dead.id])
+        #expect(store.pulls[Harness.key("team/api")]?.isEmpty == true)
+        #expect(store.pulls[Harness.key("team/app")] == nil)
+        #expect(store.repoErrors.isEmpty)
+        #expect(store.listContent == .empty)
+
+        let listing = AsyncGate()
+        harness.localsGate = listing
+        let round = Task { await store.refresh(force: true) }
+        await listing.waiting(timeout: Self.patience)
+        #expect(store.listContent == .empty)
+
+        listing.open()
+        await round.value
+        #expect(store.listContent == .empty)
     }
 
     @Test("Without accounts a refresh reads no clones and writes nothing, and doesn't hold back the first with one")
