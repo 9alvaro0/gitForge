@@ -1,7 +1,7 @@
 import Foundation
 
 /// Identifies a hosting platform that can serve pull / merge requests.
-enum RemoteProvider: String, Sendable, Equatable, CaseIterable {
+nonisolated enum RemoteProvider: String, Sendable, Equatable, CaseIterable, Codable {
     case github
     case gitlab
 
@@ -31,7 +31,7 @@ enum RemoteProvider: String, Sendable, Equatable, CaseIterable {
 
 /// Parsed coordinates of a hosted repository: host (e.g. `github.com` or a
 /// self-hosted GitLab), `owner/repo` slug, and the inferred provider.
-nonisolated struct RemoteHost: Sendable, Equatable, Identifiable {
+nonisolated struct RemoteHost: Sendable, Equatable, Identifiable, Codable {
     let provider: RemoteProvider
     let host: String
     let owner: String
@@ -70,6 +70,26 @@ extension RemoteHost {
         guard var parsed = parse(trimmed, provider: provider) else { return nil }
         parsed.apiBaseURL = instance.apiBaseURL
         return parsed
+    }
+
+    /// The host for a repo path as the APIs report it (`owner/repo`, or
+    /// `group/sub/repo` on GitLab), on a declared instance. GitHub takes
+    /// exactly one owner segment; on GitLab the owner is every segment but the
+    /// last. `nil` when the owner or the repo is missing.
+    nonisolated static func make(fullName: String, on instance: HostingInstance) -> RemoteHost? {
+        let segments = fullName.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard segments.count >= 2, !segments.contains(""), let repo = segments.last else { return nil }
+        let provider: RemoteProvider
+        switch instance.kind {
+        case .github:
+            guard segments.count == 2 else { return nil }
+            provider = .github
+        case .gitlab:
+            provider = .gitlab
+        }
+        return RemoteHost(provider: provider, host: instance.host,
+                          owner: segments.dropLast().joined(separator: "/"), repo: repo,
+                          apiBaseURL: instance.apiBaseURL)
     }
 
     /// An undeclared host whose name looks like GitHub or GitLab, offered as

@@ -2,7 +2,7 @@ import Foundation
 
 /// Lightweight summary of a repo as listed by GitHub/GitLab API endpoints.
 /// Enough to render a row in the clone picker and resolve the URL git needs.
-struct RemoteRepoSummary: Sendable, Identifiable, Equatable {
+nonisolated struct RemoteRepoSummary: Sendable, Identifiable, Equatable, Codable {
     let id: String
     let name: String
     let fullName: String         // "owner/repo" (GitHub) or "group/repo" (GitLab)
