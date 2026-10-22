@@ -86,27 +86,27 @@ struct CommitRowChips: View {
         )
     }
 
-    /// Names of local branches present on this commit. Remote-tracking refs
-    /// whose `displayName` matches one of these are deduplicated — the local
-    /// chip gets the cloud icon trailing it instead of producing a second
-    /// chip with the same name.
-    private var localBranchNames: Set<String> {
-        Set(refs.filter(\.isLocalBranch).map(\.displayName))
-    }
-
     private func hasRemoteCounterpart(for ref: GitRef) -> Bool {
         guard ref.isLocalBranch else { return false }
         return refs.contains { $0.isRemoteBranch && $0.displayName == ref.displayName }
     }
 
     private var sortedRefs: [GitRef] {
-        let names = localBranchNames
+        Self.ordered(refs, currentBranch: currentBranch, chips: chips)
+    }
+
+    /// The chips a commit draws, in order: the current branch, the other local
+    /// branches, tags, then remote branches, each group by label. Among the remote
+    /// ones, those a local branch tracks and remote trunks go first
+    /// (`HistoryRefChips.leadingRemotes`).
+    ///
+    /// A remote branch whose `displayName` matches a local branch on the same
+    /// commit is dropped: the local chip gets the cloud icon trailing it instead
+    /// of a second chip with the same name.
+    static func ordered(_ refs: [GitRef], currentBranch: String?, chips: HistoryRefChips) -> [GitRef] {
+        let localNames = Set(refs.filter(\.isLocalBranch).map(\.displayName))
         return refs
-            .filter { ref in
-                // Drop remote-tracking ref if a local branch with the same name
-                // is also on this commit — they collapse into a single chip.
-                !(ref.isRemoteBranch && names.contains(ref.displayName))
-            }
+            .filter { !($0.isRemoteBranch && localNames.contains($0.displayName)) }
             .sorted { a, b in
                 let aCurrent = a.isLocalBranch && a.name == currentBranch
                 let bCurrent = b.isLocalBranch && b.name == currentBranch
@@ -114,6 +114,9 @@ struct CommitRowChips: View {
                 let aWeight = Self.refWeight(a)
                 let bWeight = Self.refWeight(b)
                 if aWeight != bWeight { return aWeight < bWeight }
+                let aLeads = chips.leadingRemotes.contains(a.name)
+                let bLeads = chips.leadingRemotes.contains(b.name)
+                if aLeads != bLeads { return aLeads }
                 // Remotes sharing a branch name (shown with their prefix) fall back to the full name.
                 if a.displayName != b.displayName { return a.displayName < b.displayName }
                 return a.name < b.name

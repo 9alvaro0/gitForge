@@ -108,6 +108,37 @@ struct HistoryRefChipsTests {
         #expect(HistoryRefChips.empty.label(for: GraphFixture.remote("origin/x", "x")) == "x")
     }
 
+    // MARK: Order of a commit's chips
+
+    /// Chip names on `sha`, in the order `CommitRowChips` draws them.
+    @MainActor
+    private static func order(on sha: String, _ chips: HistoryRefChips) -> [String] {
+        CommitRowChips.ordered(chips.refs(on: sha), currentBranch: "main", chips: chips).map(\.name)
+    }
+
+    @MainActor
+    @Test("A remote a local branch tracks comes before an untracked one on its commit, whatever the read order",
+          arguments: [true, false])
+    func trackedRemoteFirst(trackedFirst: Bool) {
+        let remotes = [GraphFixture.remote("origin/feature/cart", "c"), GraphFixture.remote("fork/feature/cart", "c")]
+        let refs = [GraphFixture.local("main", "m", head: true),
+                    GraphFixture.local("feature/cart", "l", upstream: "origin/feature/cart", ahead: 1, behind: 1)]
+            + (trackedFirst ? remotes : remotes.reversed())
+        let chips = HistoryRefChips.make(refs: refs, remoteTrunks: [:], includesAllRemotes: true)
+        #expect(Self.order(on: "c", chips) == ["origin/feature/cart", "fork/feature/cart"])
+    }
+
+    @MainActor
+    @Test("A remote trunk comes before an untracked remote on its commit, whatever the read order",
+          arguments: [true, false])
+    func remoteTrunkFirst(trunkFirst: Bool) {
+        let remotes = [GraphFixture.remote("origin/main", "c"), GraphFixture.remote("fork/api", "c")]
+        let refs = [GraphFixture.local("feature", "f", head: true), GraphFixture.tag("v1", "c")]
+            + (trunkFirst ? remotes : remotes.reversed())
+        let chips = HistoryRefChips.make(refs: refs, remoteTrunks: ["origin/main": 0], includesAllRemotes: true)
+        #expect(Self.order(on: "c", chips) == ["v1", "origin/main", "fork/api"])
+    }
+
     // MARK: Look of a commit's chips
 
     @Test("A commit's look is its refs with their label and away flag; other commits' refs don't enter it")
@@ -169,5 +200,13 @@ struct HistoryRefChipsTests {
         #expect(base != Self.row(chips(local: local, extra: [GraphFixture.tag("v1", Self.sha)])))
         // Another remote shares the name of one on the commit, which then shows its prefix.
         #expect(base != Self.row(chips(local: local, extra: [GraphFixture.remote("fork/a", "elsewhere")])))
+    }
+
+    @MainActor
+    @Test("Rows are not equal when a remote on their commit starts leading the others, so the chips reorder")
+    func rowEqualityCoversRemoteOrder() {
+        let refs = [GraphFixture.remote("origin/main", Self.sha), GraphFixture.remote("fork/api", Self.sha)]
+        #expect(Self.row(.make(refs: refs, remoteTrunks: [:], includesAllRemotes: true))
+                != Self.row(.make(refs: refs, remoteTrunks: ["origin/main": 0], includesAllRemotes: true)))
     }
 }
