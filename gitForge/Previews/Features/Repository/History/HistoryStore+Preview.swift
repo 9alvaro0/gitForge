@@ -9,14 +9,14 @@ extension HistoryStore {
     /// layout never runs on the main actor.
     func replaceLog(with page: [Commit]) {
         let staged = stageFirstPage(page)
-        install(staged.log, CommitGraphEngine.layout(staged.input))
+        install(staged, CommitGraphEngine.layout(staged.input))
     }
 
     /// Appends the next page and publishes the graph with it, laid out on the
     /// caller's actor. For tests and previews, as `replaceLog(with:)`.
     func appendPage(_ page: [Commit]) {
         let staged = stageNextPage(page)
-        install(staged.log, CommitGraphEngine.layout(staged.input))
+        install(staged, CommitGraphEngine.layout(staged.input))
     }
 
     /// Lays the published log out again, synchronously on the caller's actor.

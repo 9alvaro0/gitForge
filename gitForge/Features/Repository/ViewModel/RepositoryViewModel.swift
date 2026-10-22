@@ -34,6 +34,9 @@ final class RepositoryViewModel {
     private(set) var tags: [GitRef] = []
     /// Cached so chip cells don't regroup `refs` on every scroll tick.
     var refsBySha: [String: [GitRef]] = [:]
+    /// Branch each remote's HEAD points at, by remote: ["origin": "origin/main"].
+    /// Picks the remote trunk the graph loads when a local one is missing.
+    var remoteHeads: [String: String] = [:]
     var currentBranchName: String?
     /// Commit HEAD points at, detached or not. Marks HEAD in the graph.
     var headSha: String?
@@ -199,6 +202,7 @@ final class RepositoryViewModel {
         workingCopy.purge()
         refs = []
         refsBySha = [:]
+        remoteHeads = [:]
         stashes = []
         unmergedLocalBranchRefs = []
         stashDetail.close()
@@ -231,7 +235,8 @@ final class RepositoryViewModel {
     }
 
     /// Watcher-driven refresh. Skips the log reload unless HEAD or a local
-    /// branch tip actually moved — letting the watcher reload it on every
+    /// branch tip actually moved, or a remote branch in the log's scope did
+    /// (a fetch from the terminal) — letting the watcher reload it on every
     /// tick was the source of feedback loops with our own write paths. Every
     /// local tip counts, not just HEAD's: the graph walks all local branches,
     /// so a commit made in another worktree or a `git branch -f` from the
@@ -252,7 +257,7 @@ final class RepositoryViewModel {
         // this the file row updates but the diff stays on the previous
         // snapshot until the user re-selects.
         await workingCopy.reloadSelectedDiff()
-        if currentBranchName != previousBranch || localBranchTips != previousTips {
+        if currentBranchName != previousBranch || localBranchTips != previousTips || history.isScopeStale {
             await history.reloadLog()
         }
     }
@@ -282,6 +287,7 @@ final class RepositoryViewModel {
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
             await loadRefs()
+            await reloadLogIfScopeMoved()
             return true
         } catch {
             Self.logger.debug("auto-fetch failed: \(error.localizedDescription, privacy: .public)")

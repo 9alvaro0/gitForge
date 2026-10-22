@@ -12,6 +12,28 @@ extension GitCLI {
         return Self.parseRefs(result.stdout)
     }
 
+    /// Branch each remote's HEAD points at, by remote: ["origin": "origin/main"]. Remotes
+    /// without a HEAD are left out. Picks the remote trunk (`GraphTrunks.remoteStandIns`).
+    func remoteHeads() async throws -> [String: String] {
+        let result = try await run(["for-each-ref", "--format=%(refname)%09%(symref)", "refs/remotes"])
+        return Self.parseRemoteHeads(result.stdout)
+    }
+
+    /// `refname<TAB>symref` lines: only `refs/remotes/<remote>/HEAD` symrefs count.
+    static func parseRemoteHeads(_ stdout: String) -> [String: String] {
+        var heads: [String: String] = [:]
+        for line in stdout.split(separator: "\n", omittingEmptySubsequences: true) {
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false)
+            guard parts.count >= 2,
+                  let ref = String(parts[0]).removingPrefix("refs/remotes/"),
+                  ref.hasSuffix("/HEAD"),
+                  let target = String(parts[1]).removingPrefix("refs/remotes/")
+            else { continue }
+            heads[String(ref.dropLast("/HEAD".count))] = target
+        }
+        return heads
+    }
+
     func currentBranchName() async -> String? {
         do {
             let result = try await run(["symbolic-ref", "--short", "HEAD"])

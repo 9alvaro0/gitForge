@@ -39,6 +39,15 @@ struct BranchDropPreviewTests {
         #expect(BranchDropPreview.move(from: "c", to: "z", in: Self.log) == nil)
     }
 
+    /// The scope now loads what a pull would bring, as ghosts above the local tips. The counts
+    /// come from what the two tips reach, so those commits never enter them.
+    @Test("Ghost commits loaded above the branches don't change what a drop does")
+    func ghostsAboveDontCount() {
+        let commits = GraphFixture.commits("u2 u1\nu1 a\nb base\na base\nbase")
+        #expect(BranchDropPreview.integrate(source: "b", target: "a", in: commits)
+                == BranchDropPreview(kind: .integrate(sourceOnly: 1, targetOnly: 1)))
+    }
+
     @Test("Captions say what each choice does")
     func captions() {
         #expect(BranchDropPreview.mergeCaption(sourceOnly: 3, targetOnly: 2, source: "feature", target: "main")

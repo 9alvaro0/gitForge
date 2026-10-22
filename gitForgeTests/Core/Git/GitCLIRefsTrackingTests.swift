@@ -41,4 +41,35 @@ struct GitCLIRefsTrackingTests {
         #expect(main.ahead == nil && main.behind == nil)
         #expect(main.subject == "base")
     }
+
+    /// A repo with one commit pushed to a bare `origin` as `main`. Push only: a fetch would
+    /// create `origin/HEAD` on its own (git 2.48 and later).
+    private static func pushedRepo() async throws -> (repo: GitTestRepo, remote: GitTestRepo) {
+        let remote = try await GitTestRepo.make(bare: true)
+        let repo = try await GitTestRepo.make { try $0.commit("base", files: ["a.txt": "1"]) }
+        try await repo.gitAsync("remote", "add", "origin", remote.url.path)
+        try await repo.gitAsync("push", "-q", "-u", "origin", "main")
+        return (repo, remote)
+    }
+
+    @Test("remoteHeads names the branch each remote's HEAD points at")
+    func remoteHeads() async throws {
+        let (repo, remote) = try await Self.pushedRepo()
+        defer { repo.remove(); remote.remove() }
+        try await repo.gitAsync("remote", "set-head", "origin", "main")
+        #expect(try await repo.cli.remoteHeads() == ["origin": "origin/main"])
+    }
+
+    @Test("A remote without a HEAD is left out")
+    func remoteWithoutHead() async throws {
+        let (repo, remote) = try await Self.pushedRepo()
+        defer { repo.remove(); remote.remove() }
+        #expect(try await repo.cli.remoteHeads().isEmpty)
+    }
+
+    @Test("remoteHeads parses symrefs only")
+    func parseRemoteHeads() {
+        let stdout = "refs/remotes/origin/HEAD\trefs/remotes/origin/main\nrefs/remotes/origin/main\t\n"
+        #expect(GitCLI.parseRemoteHeads(stdout) == ["origin": "origin/main"])
+    }
 }

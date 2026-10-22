@@ -84,6 +84,53 @@ struct HistoryStoreGraphTests {
         #expect(input.stashShas == ["s"] && input.pageEnds == [2] && input.paletteSize == 3)
     }
 
+    @Test("graphInput carries the remote trunks read from the refs and the remote HEADs")
+    func remoteTrunksInInput() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("feature", "f", head: true), GraphFixture.remote("origin/main", "m")]
+        vm.remoteHeads = ["origin": "origin/main"]
+        vm.history.replaceLog(with: GraphFixture.commits("f m\nm"))
+        #expect(vm.history.graphInput().remoteTrunks == ["origin/main": 0])
+    }
+
+    @Test("The published log keeps the scope it was fetched with; it goes stale when a remote in it moves")
+    func staleScope() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                   GraphFixture.remote("origin/main", "u2")]
+        await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("u2 m\nm")))
+        #expect(vm.history.loadedScope?.remoteTips == ["origin/main": "u2"] && !vm.history.isScopeStale)
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u3")]
+        #expect(vm.history.isScopeStale)
+    }
+
+    @Test("graphScope is the current scope's revisions, remote tips by sha")
+    func graphScopeWithRemotes() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                   GraphFixture.remote("origin/main", "u2")]
+        vm.unmergedLocalBranchRefs = ["refs/heads/topic"]
+        #expect(vm.history.graphScope() == ["HEAD", "refs/heads/topic", "u2", "--tags"])
+        #expect(vm.history.graphScope() == vm.history.currentScope().revisions)
+    }
+
+    @Test("A page appended to a log keeps the log's scope; purge forgets it")
+    func appendKeepsScope() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                   GraphFixture.remote("origin/main", "u2")]
+        vm.history.replaceLog(with: GraphFixture.commits("u2 m\nm a"))
+        let scope = vm.history.loadedScope
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u3")]
+        vm.history.appendPage(GraphFixture.commits("a"))
+        #expect(vm.history.loadedScope == scope)
+        #expect(vm.history.isScopeStale)
+        vm.history.purge()
+        #expect(vm.history.loadedScope == nil && !vm.history.isScopeStale)
+    }
+
     @Test("The palette size starts at the violet pool and recomputes only when it changes")
     func paletteSize() async {
         let vm = Self.makeVM()
