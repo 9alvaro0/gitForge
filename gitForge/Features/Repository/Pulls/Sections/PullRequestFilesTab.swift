@@ -42,6 +42,8 @@ struct PullRequestFilesTab: View {
             .onChange(of: listIDs) { _, ids in
                 selectedPath = Self.selection(keeping: selectedPath, ids: ids, files: files)
             }
+            // A box on the file left behind doesn't take the focus back.
+            .onChange(of: selectedPath) { store.selectedFileChanged() }
         }
     }
 

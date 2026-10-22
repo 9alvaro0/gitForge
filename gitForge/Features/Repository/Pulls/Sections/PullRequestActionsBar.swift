@@ -83,7 +83,7 @@ struct PullRequestActionsBar: View {
         .disabled(busy)
     }
 
-    private var busy: Bool { store.submittingReview != nil }
+    private var busy: Bool { store.isReviewBusy }
 
     // MARK: Merge
 

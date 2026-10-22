@@ -78,6 +78,8 @@ final class PullRequestStore {
     /// header's buttons: the header lays them out in several variants, each
     /// with its own state, and a relayout would close the panel.
     var reviewPanel: ReviewVerdict?
+    /// The PR whose detail reloads after a review (`isReviewBusy`).
+    var reviewSettlingPullId: String?
     /// What the user is typing in the review boxes (`ReviewDraftKey`).
     let drafts = ReviewDrafts()
 
@@ -97,7 +99,8 @@ final class PullRequestStore {
         didSet {
             guard let composerTarget else { return }
             replyingThreadId = nil
-            focusRequest = .comment(pullId: selected?.id ?? "", target: composerTarget)
+            // The same box again is on screen already: it won't ask.
+            if composerTarget != oldValue { focusRequest = .comment(pullId: selected?.id ?? "", target: composerTarget) }
         }
     }
     /// The thread whose reply box is open.
@@ -105,7 +108,7 @@ final class PullRequestStore {
         didSet {
             guard let replyingThreadId else { return }
             composerTarget = nil
-            focusRequest = .reply(pullId: selected?.id ?? "", threadId: replyingThreadId)
+            if replyingThreadId != oldValue { focusRequest = .reply(pullId: selected?.id ?? "", threadId: replyingThreadId) }
         }
     }
     /// The box that takes the focus when it next comes on screen: one just
@@ -417,9 +420,14 @@ final class PullRequestStore {
     /// Reloads the open PR's detail without the caller waiting for it: a
     /// write's answer (and its toast) shouldn't wait on four reads. A
     /// select or a later load supersedes it.
-    func reloadDetailInBackground() {
+    func reloadDetailInBackground(then done: (@MainActor () -> Void)? = nil) {
+        // As `select` does: the load this replaces lands nowhere from now.
+        detailGen &+= 1
         detailTask?.cancel()
-        detailTask = Task { [weak self] in await self?.loadDetail() }
+        detailTask = Task { [weak self] in
+            await self?.loadDetail()
+            done?()
+        }
     }
 
     /// Close the detail pane. The invalidated loader won't clear its own
@@ -449,8 +457,13 @@ final class PullRequestStore {
     func loadDetail() async {
         detailGen &+= 1
         let gen = detailGen
-        guard let pr = selected, let host else { return }
+        // A load this one replaced won't clear the flag: the gen moved.
+        guard let pr = selected, let host else {
+            isLoadingDetail = false
+            return
+        }
         guard let token = currentToken else {
+            isLoadingDetail = false
             detailError = String(localized: "The account's token isn't available. Refresh the list.")
             return
         }
@@ -482,7 +495,9 @@ final class PullRequestStore {
         checksPollsLeft = Self.checksPollLimit
         settleReadsLeft = 0
         switch detail {
-        case .success(let value): self.detail = value
+        case .success(let value):
+            self.detail = value
+            closeReviewPanelIfGone()
         case .failure(let error): detailError = Self.message(for: error)
         }
         switch commits {
@@ -519,6 +534,7 @@ final class PullRequestStore {
             let support = await provider.requestChangesSupport(host: host, token: token)
             guard let self, gen == self.supportGen else { return }
             self.requestChangesSupport = support
+            self.closeReviewPanelIfGone()
         }
     }
 
@@ -579,6 +595,7 @@ final class PullRequestStore {
         guard let read, !Task.isCancelled, gen == detailGen else { return }
         detail = read.0
         if let checks = read.1 { self.checks = checks }
+        closeReviewPanelIfGone()
     }
 
     /// Refresh: the list, and the open PR with it, threads included. What
@@ -655,6 +672,7 @@ final class PullRequestStore {
         supportGen &+= 1
         requestChangesSupport = nil
         submittingReview = nil
+        reviewSettlingPullId = nil
         drafts.removeAll()
         sendingDrafts = []
         resolvingThreadIds = []

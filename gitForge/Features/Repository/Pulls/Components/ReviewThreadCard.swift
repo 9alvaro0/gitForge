@@ -60,7 +60,9 @@ struct DiffLineThreads: View {
                 ReviewThreadCard(store: store, thread: thread)
             }
             if let composer {
+                // Another line is another box: it asks for the focus anew.
                 NewCommentBox(store: store, target: composer)
+                    .id(composer)
             }
         }
         .padding(.horizontal, Spacing.s12)

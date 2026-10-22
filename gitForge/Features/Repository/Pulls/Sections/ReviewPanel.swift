@@ -52,7 +52,7 @@ struct ReviewPanel: View {
                 sendTitle: verdict == .approve ? String(localized: "Approve") : String(localized: "Request changes"),
                 sendStyle: verdict == .approve ? .primary : .destructive,
                 requiresText: verdict == .requestChanges,
-                sending: store.submittingReview == verdict,
+                sending: store.isReviewBusy,
                 onSend: submit,
                 onCancel: { store.reviewPanel = nil }
             )

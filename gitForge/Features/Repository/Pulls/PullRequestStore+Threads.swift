@@ -22,6 +22,8 @@ extension PullRequestStore {
         let detailGen = detailGen
         // Outdated is judged against the diff on screen.
         let shown = [filesDetail, detail].compactMap { $0 }.first { $0.pull.id == pull.id }
+        // The head of the diff on screen: unknown when its detail failed.
+        let screenHead = filesDetail?.pull.id == pull.id ? filesDetail?.pull.headSha : nil
         let provider = makeReviewProvider(host)
         isLoadingThreads = true
         defer { if gen == threadsGen { isLoadingThreads = false } }
@@ -31,11 +33,11 @@ extension PullRequestStore {
             }
             guard gen == threadsGen, detailGen == self.detailGen, let read else { return }
             threads = read
-            threadsHead = shown?.pull.headSha
+            threadsHead = screenHead
             threadsError = nil
         } catch {
             guard gen == threadsGen, detailGen == self.detailGen else { return }
-            if threadsHead != shown?.pull.headSha { threads = [] }
+            if threadsHead == nil || threadsHead != screenHead { threads = [] }
             threadsError = Self.message(for: error)
         }
     }
@@ -99,10 +101,22 @@ extension PullRequestStore {
     }
 
     /// The box for `key` went off screen, with or without the focus. A box
-    /// that closed has nothing to come back to.
+    /// that closed has nothing to come back to; one that left without the
+    /// focus drops a request it never took.
     func composerLeft(_ key: ReviewDraftKey, hadFocus: Bool) {
-        guard hadFocus, isOpen(key) else { return }
+        guard hadFocus, isOpen(key) else {
+            if focusRequest == key { focusRequest = nil }
+            return
+        }
         focusRequest = key
+    }
+
+    /// The Files tab picked another file: the box on the old one left
+    /// because of it, not because it scrolled away, and shouldn't take the
+    /// focus from the list when that file comes back. Dropped after the
+    /// update, since the box reports leaving after the selection changes.
+    func selectedFileChanged() {
+        Task { [weak self] in self?.focusRequest = nil }
     }
 
     private func isOpen(_ key: ReviewDraftKey) -> Bool {

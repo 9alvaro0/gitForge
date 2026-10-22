@@ -21,6 +21,8 @@ private final class ThreadsFakeProvider: PullRequestProvider, PullRequestReviewP
     var threadsGate: AsyncGate?
     /// PR 1's head per detail read, in order; the last repeats.
     var heads = ["sha1"]
+    /// Thrown by PR 1's detail reads after the first.
+    var reloadDetailError: Error?
     /// PR 1's check states per read, in order; the last repeats.
     var checkStates: [[CICheck.State]] = [[]]
     private(set) var calls: [Call] = []
@@ -47,6 +49,7 @@ private final class ThreadsFakeProvider: PullRequestProvider, PullRequestReviewP
     func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] { [] }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         detailFetches[number, default: 0] += 1
+        if number == 1, detailFetches[number, default: 0] > 1, let reloadDetailError { throw reloadDetailError }
         let head = number == 1 ? (heads.count > 1 ? heads.removeFirst() : heads[0]) : "sha\(number)"
         return PullRequestDetail(pull: Self.pull(number, head: head), descriptionMarkdown: nil, labels: [], reviewers: [],
                                  assignees: [], mergeable: true, ciStatus: nil,
@@ -170,6 +173,18 @@ struct PullRequestStoreThreadsTests {
         #expect(store.placedThreads == .empty)
     }
 
+    @Test("A Refresh whose detail failed reads new files of an unknown head: a failed thread reload drops the threads")
+    func failedReloadWithUnknownHead() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        provider.reloadDetailError = PullRequestFetchError.server(500, "x")
+        provider.threadErrors = [PullRequestFetchError.server(500, "x")]
+        await store.refresh()
+        #expect(store.detailError != nil)
+        #expect(store.threadsError != nil)
+        #expect(store.threads.isEmpty)
+    }
+
     @Test("A failed thread reload on the same diff keeps the threads where they were")
     func failedReloadOnSameDiff() async {
         provider.threads[1] = [Self.thread("T1")]
@@ -242,6 +257,35 @@ struct PullRequestStoreThreadsTests {
         // Closed with the focus: nothing left to take it back.
         store.composerTarget = nil
         store.composerLeft(key, hadFocus: true)
+        #expect(!store.claimFocus(key))
+    }
+
+    @Test("Opening the open box again leaves no focus request; one its box never took goes when the box leaves without the focus")
+    func focusRequestNotLeftBehind() async {
+        let store = await loadedStore()
+        let comment = ReviewDraftKey.comment(pullId: "1", target: Self.target)
+        store.composerTarget = Self.target
+        #expect(store.claimFocus(comment))
+        // "+" again on the line whose box is open: the box is on screen already.
+        store.composerTarget = Self.target
+        #expect(!store.claimFocus(comment))
+
+        let reply = ReviewDraftKey.reply(pullId: "1", threadId: "T1")
+        store.replyingThreadId = "T1"
+        store.composerLeft(reply, hadFocus: false)
+        #expect(!store.claimFocus(reply))
+    }
+
+    @Test("A box that leaves because another file was picked doesn't take the focus back")
+    func fileSwitchDropsFocusRequest() async {
+        let store = await loadedStore()
+        let key = ReviewDraftKey.comment(pullId: "1", target: Self.target)
+        store.composerTarget = Self.target
+        #expect(store.claimFocus(key))
+        // The list picks another file, then the box reports leaving with the focus.
+        store.selectedFileChanged()
+        store.composerLeft(key, hadFocus: true)
+        await waitUntil(timeout: .seconds(1)) { store.focusRequest == nil }
         #expect(!store.claimFocus(key))
     }
 

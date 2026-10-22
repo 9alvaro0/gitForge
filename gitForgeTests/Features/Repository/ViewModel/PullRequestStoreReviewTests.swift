@@ -7,6 +7,8 @@ import Testing
 private final class ReviewFakeProvider: PullRequestProvider, @unchecked Sendable {
     private(set) var detailFetches: [Int: Int] = [:]
     var detailGate: AsyncGate?
+    /// Reads after the first say the PR was merged meanwhile.
+    var mergedOnReload = false
 
     static func pull(_ number: Int) -> PullRequest {
         PullRequest(id: "\(number)", number: number, title: "PR \(number)", state: .open, authorLogin: "marta",
@@ -23,7 +25,9 @@ private final class ReviewFakeProvider: PullRequestProvider, @unchecked Sendable
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         detailFetches[number, default: 0] += 1
         if let detailGate, detailFetches[number, default: 0] > 1 { await detailGate.wait() }
-        return PullRequestDetail(pull: Self.pull(number), descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [],
+        var pull = Self.pull(number)
+        if mergedOnReload, detailFetches[number, default: 0] > 1 { pull.state = .merged }
+        return PullRequestDetail(pull: pull, descriptionMarkdown: nil, labels: [], reviewers: [], assignees: [],
                                  mergeable: true, ciStatus: nil)
     }
     func fetchCommits(host: RemoteHost, number: Int, token: String) async throws -> [PullRequestCommit] { [] }
@@ -83,6 +87,8 @@ private final class FakeReviewProvider: PullRequestReviewProvider, @unchecked Se
 @MainActor
 private final class AuthLog {
     var rejected: [String] = []
+    /// The account is gone: `auth` asks to connect one.
+    var disconnected = false
 }
 
 /// Set once a call the test started has come back.
@@ -108,6 +114,7 @@ struct PullRequestStoreReviewTests {
         let auth = auth
         let store = PullRequestStore(cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
                                      auth: { _, rejected in
+                                         if auth.disconnected { return .connectAccount(instanceId: nil, replacing: nil) }
                                          if let rejected { auth.rejected.append(rejected) }
                                          return rejected == nil ? .token("t1") : .token("t2")
                                      },
@@ -222,6 +229,8 @@ struct PullRequestStoreReviewTests {
         await waitUntil { store.detail?.pull.number == 2 && !store.isLoadingDetail }
         gate.open()
         #expect(await submit.value == .submitted(warning: nil))
+        // A reload of the wrong PR would run in the background: give it time.
+        await waitUntil(timeout: .milliseconds(300)) { provider.detailFetches[1] != 1 || provider.detailFetches[2] != 1 }
         #expect(reviews.landed.map(\.number) == [1])
         #expect(provider.detailFetches[2] == 1)
         #expect(provider.detailFetches[1] == 1)
@@ -280,12 +289,58 @@ struct PullRequestStoreReviewTests {
         #expect(store.drafts[.review(pullId: "1", .approve)] == "LGTM")
     }
 
+    @Test("Until the reload after a review is in, the buttons stay off and a second review isn't sent")
+    func busyUntilReloadLands() async {
+        let store = await loadedStore()
+        let gate = AsyncGate()
+        provider.detailGate = gate
+        #expect(await store.submitReview(.approve) == .submitted(warning: nil))
+        await gate.waiting()
+        #expect(store.isReviewBusy)
+        #expect(await store.submitReview(.approve) == .ignored)
+        #expect(reviews.calls.count == 1)
+        gate.open()
+        await waitUntil { !store.isReviewBusy }
+        #expect(!store.isReviewBusy)
+        #expect(!store.isLoadingDetail)
+    }
+
+    @Test("A reload that loses the token on the way doesn't leave the detail spinning")
+    func lostTokenClearsLoading() async {
+        let store = await loadedStore()
+        let gate = AsyncGate()
+        provider.detailGate = gate
+        _ = await store.submitReview(.approve)
+        await gate.waiting()
+        #expect(store.isLoadingDetail)
+        auth.disconnected = true
+        await store.refresh()
+        gate.open()
+        await waitUntil(timeout: .seconds(2)) { !store.isLoadingDetail }
+        #expect(!store.isLoadingDetail)
+    }
+
+    @Test("A panel whose action the reloaded PR no longer offers closes")
+    func panelClosesWhenActionGoes() async {
+        let store = await loadedStore()
+        store.reviewPanel = .requestChanges
+        store.drafts[.review(pullId: "1", .requestChanges)] = "Add tests"
+        provider.mergedOnReload = true
+        reviews.errors = [PullRequestActionError.rejected("it was merged")]
+        _ = await store.submitReview(.requestChanges)
+        await waitUntil { store.detail?.pull.state == .merged && !store.isLoadingDetail }
+        #expect(store.reviewPanel == nil)
+        #expect(store.drafts[.review(pullId: "1", .requestChanges)] == "Add tests")
+    }
+
     @Test("A landed review closes its panel, with or without its comment")
     func landedClosesPanel() async {
         let store = await loadedStore()
         store.reviewPanel = .approve
         #expect(await store.submitReview(.approve) == .submitted(warning: nil))
         #expect(store.reviewPanel == nil)
+        // The buttons are back once the reload is in.
+        await waitUntil { !store.isReviewBusy }
 
         reviews.warning = "Approved, but the comment couldn't be posted: boom"
         store.reviewPanel = .approve
