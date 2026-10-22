@@ -151,6 +151,17 @@ struct GraphLinesTests {
         #expect(result.lines[0].rows == [1, 2, 3])
     }
 
+    @Test("Two remotes on one tip: the one a local branch tracks owns what a pull would bring",
+          arguments: [true, false])
+    func trackedRemoteClaimsFirst(trackedFirst: Bool) {
+        let result = lines(GraphFixture.sharedRemoteTip(trackedFirst: trackedFirst))
+        #expect(line(.remote("origin/feature/login"), in: result)?.rows == [1, 3])
+        #expect(line(.remote("origin/feature/login"), in: result)?.forkRow == 4)
+        #expect(line(.remote("fork/feature/login"), in: result) == nil)
+        #expect(result.colorOwnerOfRow[1] == .remote("origin/feature/login"))
+        #expect(result.colorOwnerOfRow[3] == .remote("origin/feature/login"))
+    }
+
     @Test("The lines partition the rows and every row points back at its line")
     func partition() {
         let input = GraphInput(commits: GraphFixture.gitflow, headSha: "cartPayment",

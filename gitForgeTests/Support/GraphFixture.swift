@@ -81,6 +81,17 @@ enum GraphFixture {
         ]
     }
 
+    /// Rows: 0 `m` (main, HEAD), 1 `s2`, 2 `l`, 3 `s1`, 4 `b`, 5 `base`. `feature/login` on `l` is one
+    /// ahead and two behind `origin/feature/login` on `s2`, where `fork/feature/login`, which no
+    /// local branch tracks, sits too. `trackedFirst` puts the tracked remote first in `refs`.
+    static func sharedRemoteTip(trackedFirst: Bool) -> GraphInput {
+        let remotes = [remote("origin/feature/login", "s2"), remote("fork/feature/login", "s2")]
+        return GraphInput(commits: commits("m base\ns2 s1\nl b\ns1 b\nb base\nbase"), headSha: "m",
+                          refs: [local("main", "m", head: true),
+                                 local("feature/login", "l", upstream: "origin/feature/login", ahead: 1, behind: 2)]
+                              + (trackedFirst ? remotes : remotes.reversed()))
+    }
+
     /// A reproducible history for the performance benchmark, newest first: `main`
     /// plus up to `branches` feature branches alive at the same time. Built from
     /// the oldest commit to the newest:
