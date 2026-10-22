@@ -168,11 +168,16 @@ final class HistoryStore {
     // MARK: Dependencies
     private let cli: GitCLI
     private let tasks: OwnedTasks
+    private let repositoryURL: URL
+    private let defaults: UserDefaults
     @ObservationIgnored weak var refsSource: (any HistoryRefsSource)?
 
-    init(cli: GitCLI, tasks: OwnedTasks) {
+    init(cli: GitCLI, tasks: OwnedTasks, repositoryURL: URL, defaults: UserDefaults = .standard) {
         self.cli = cli
         self.tasks = tasks
+        self.repositoryURL = repositoryURL
+        self.defaults = defaults
+        showsRemoteBranches = defaults.bool(forKey: Self.remoteBranchesKey(for: repositoryURL))
     }
 
     /// Drops the heavy caches (log, graph, details, diff) when the session
@@ -209,9 +214,28 @@ final class HistoryStore {
 
     private var stashes: [Stash] { refsSource?.stashes ?? [] }
 
+    /// Every remote branch is in the graph (§4.2), not only the ones local branches
+    /// track. Remembered per repository (`setShowsRemoteBranches(_:)`).
+    private(set) var showsRemoteBranches: Bool
+
+    /// "gitForge.history.remoteBranches.<standardized path>", like `WorkingCopyStore.signOffKey(for:)`.
+    static func remoteBranchesKey(for repositoryURL: URL) -> String {
+        "gitForge.history.remoteBranches.\(repositoryURL.standardizedFileURL.path(percentEncoded: false))"
+    }
+
+    /// Stores the choice and reloads the log with the new scope. The same value does
+    /// nothing.
+    func setShowsRemoteBranches(_ on: Bool) async {
+        guard on != showsRemoteBranches else { return }
+        showsRemoteBranches = on
+        defaults.set(on, forKey: Self.remoteBranchesKey(for: repositoryURL))
+        await reloadLog()
+    }
+
     /// The scope the next first page is fetched with, from the refs as they
     /// are now (§3.1): HEAD, local branches not merged into it, what a pull
-    /// would bring, the remote trunk, tags and stashes (`HistoryScope.make`).
+    /// would bring, the remote trunk, tags and stashes, and every remote
+    /// branch with `showsRemoteBranches` (`HistoryScope.make`).
     /// The stash set a log is fetched with is the one it keeps
     /// (`HistoryLog.stashShas`), even if the live list changes meanwhile.
     func currentScope() -> HistoryScope {
@@ -220,7 +244,7 @@ final class HistoryStore {
                                  unmergedLocalBranchRefs: refsSource?.unmergedLocalBranchRefs ?? [],
                                  stashes: stashes,
                                  remoteTrunks: remoteTrunks(in: refs),
-                                 includesAllRemotes: false)
+                                 includesAllRemotes: showsRemoteBranches)
     }
 
     /// `currentScope().revisions`.

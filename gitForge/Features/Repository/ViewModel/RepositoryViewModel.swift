@@ -164,7 +164,7 @@ final class RepositoryViewModel {
         self.conflicts = ConflictStore(repositoryURL: repository.url)
         let tasks = OwnedTasks()
         self.tasks = tasks
-        self.history = HistoryStore(cli: cli, tasks: tasks)
+        self.history = HistoryStore(cli: cli, tasks: tasks, repositoryURL: repository.url)
         self.workingCopy = WorkingCopyStore(cli: cli, repositoryURL: repository.url, tasks: tasks)
         history.refsSource = self
     }

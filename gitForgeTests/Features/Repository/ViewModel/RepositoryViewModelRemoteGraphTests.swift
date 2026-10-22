@@ -152,6 +152,40 @@ struct RepositoryViewModelRemoteGraphTests {
         #expect(vm.history.graphLayouts[row].node == GraphNode(column: 1, kind: .commit, color: .main, isGhost: true))
     }
 
+    @Test("Turning the toggle on loads a branch that only exists on the server; turning it off drops it")
+    func toggleLoadsServerBranches() async throws {
+        let remotes = try await Self.makeRemotes()
+        defer { remotes.remove() }
+        // `release/2.0` exists on the server only: no local branch tracks it.
+        try await remotes.other.gitAsync("switch", "-q", "-c", "release/2.0")
+        try await remotes.other.gitAsync("commit", "-q", "--allow-empty", "-m", "release one")
+        try await remotes.other.gitAsync("push", "-q", "origin", "release/2.0")
+        try await remotes.work.gitAsync("fetch", "-q", "origin")
+        let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        // The view model's own store remembers the toggle in the real defaults; this one has
+        // its own, and reads the refs from the view model like it does.
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let history = HistoryStore(cli: GitCLI(workingDirectory: remotes.work.url), tasks: OwnedTasks(),
+                                   repositoryURL: remotes.work.url, defaults: suite.defaults)
+        history.refsSource = vm
+        await vm.loadRefs()
+        await history.loadInitial()
+        #expect(!history.showsRemoteBranches)
+        #expect(!history.commits.contains { $0.subject == "release one" })
+
+        await history.setShowsRemoteBranches(true)
+        let row = try #require(history.commits.firstIndex { $0.subject == "release one" })
+        #expect(history.graphLayouts[row].node.isGhost)
+        #expect(history.loadedScope?.remoteTips.keys.sorted() == ["origin/main", "origin/release/2.0"])
+        #expect(!history.isScopeStale)
+
+        await history.setShowsRemoteBranches(false)
+        #expect(!history.commits.contains { $0.subject == "release one" })
+        #expect(history.loadedScope?.remoteTips.isEmpty == true)
+        #expect(!history.isScopeStale)
+    }
+
     private static let pageSizeKey = "appTheme.commitPageSize"
 
     @Test("A page fetched after the remote moved still walks the log the first page walked")

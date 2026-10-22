@@ -115,6 +115,88 @@ struct HistoryStoreGraphTests {
         #expect(vm.history.graphScope() == vm.history.currentScope().revisions)
     }
 
+    // MARK: Remote branches toggle
+
+    /// A store for the repository at `url` that remembers its toggle in `defaults` and reads
+    /// its refs from `source`. The repository needn't exist: a reload then fails and sets
+    /// `loadError`, which these tests don't look at.
+    private static func makeStore(_ url: URL, defaults: TestDefaults, source: RepositoryViewModel) -> HistoryStore {
+        let store = HistoryStore(cli: GitCLI(workingDirectory: url), tasks: OwnedTasks(),
+                                 repositoryURL: url, defaults: defaults.defaults)
+        store.refsSource = source
+        return store
+    }
+
+    private static func missingRepositoryURL() -> URL {
+        URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")
+    }
+
+    @Test("The remote branches toggle is remembered per repository")
+    func toggleRemembered() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        let urlA = Self.missingRepositoryURL()
+        let urlB = Self.missingRepositoryURL()
+        let store = Self.makeStore(urlA, defaults: suite, source: vm)
+        #expect(!store.showsRemoteBranches)
+
+        await store.setShowsRemoteBranches(true)
+        #expect(store.showsRemoteBranches)
+        let key = HistoryStore.remoteBranchesKey(for: urlA)
+        #expect(suite.defaults.bool(forKey: key))
+        #expect(Self.makeStore(urlA, defaults: suite, source: vm).showsRemoteBranches)
+        #expect(!Self.makeStore(urlB, defaults: suite, source: vm).showsRemoteBranches)
+
+        await store.setShowsRemoteBranches(false)
+        #expect(!suite.defaults.bool(forKey: key))
+        #expect(!Self.makeStore(urlA, defaults: suite, source: vm).showsRemoteBranches)
+    }
+
+    @Test("The toggle's key is the standardized path of the repository")
+    func toggleKey() {
+        let url = URL(fileURLWithPath: "/var/empty/a/../repo")
+        #expect(HistoryStore.remoteBranchesKey(for: url) == "gitForge.history.remoteBranches./var/empty/repo")
+    }
+
+    @Test("With the toggle on, the scope loads every remote branch")
+    func toggleScope() {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 0),
+                   GraphFixture.remote("origin/main", "m"),
+                   GraphFixture.remote("origin/release/2.0", "r"),
+                   GraphFixture.remote("fork/topic", "t")]
+        let url = Self.missingRepositoryURL()
+        let off = Self.makeStore(url, defaults: suite, source: vm)
+        #expect(!off.currentScope().includesAllRemotes)
+        #expect(off.graphScope() == ["HEAD", "--tags"])
+
+        suite.defaults.set(true, forKey: HistoryStore.remoteBranchesKey(for: url))
+        let on = Self.makeStore(url, defaults: suite, source: vm)
+        #expect(on.currentScope().includesAllRemotes)
+        #expect(on.currentScope().remoteTips == ["origin/main": "m", "origin/release/2.0": "r", "fork/topic": "t"])
+        // Each sha once, in the order of the branch names.
+        #expect(on.graphScope() == ["HEAD", "t", "m", "r", "--tags"])
+    }
+
+    @Test("Setting the same value doesn't reload the log")
+    func toggleSameValue() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let store = Self.makeStore(Self.missingRepositoryURL(), defaults: suite, source: Self.makeVM())
+        let before = store.logGen
+        await store.setShowsRemoteBranches(false)
+        #expect(store.logGen == before)
+        await store.setShowsRemoteBranches(true)
+        #expect(store.logGen == before &+ 1)
+        await store.setShowsRemoteBranches(true)
+        #expect(store.logGen == before &+ 1)
+        await store.setShowsRemoteBranches(false)
+        #expect(store.logGen == before &+ 2)
+    }
+
     @Test("A page appended to a log keeps the log's scope; purge forgets it")
     func appendKeepsScope() {
         let vm = Self.makeVM()
