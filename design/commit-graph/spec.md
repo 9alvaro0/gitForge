@@ -90,7 +90,7 @@ Una **línea** es una cadena de primeros padres. Dos nociones distintas que el p
 
 1. HEAD (la rama actual o, con HEAD suelto, el commit actual).
 2. Ramas locales, por prioridad: `main`/`master`/`trunk`, `develop`/`dev`, `release/*`, `hotfix/*`, el resto. Dentro de la misma prioridad, la punta más **abajo** primero y, a igualdad, por nombre. Así, una rama de la que salen otras apiladas encima se queda con sus commits. El tronco remoto de §3.1 entra aquí con la prioridad de su tronco.
-3. Ramas remotas que no continúan una local (§4.1), la punta más abajo primero (como las locales dentro de un nivel).
+3. Ramas remotas que no continúan una local (§4.1), la punta más abajo primero (como las locales dentro de un nivel). **(Decidido en G3)** Antes van todas las que sigue alguna rama local y después las demás, cada grupo con la punta más abajo primero. Así, con dos remotos, la ramita que muestra lo que traería un pull es de la remota de tu rama y lleva su color en todos sus commits (§4.1), aunque la misma rama de otro remoto apunte al mismo commit o a uno más abajo.
 4. Commits sin reclamar (ramas borradas, tags sueltos): cada uno abre una línea sin nombre, de arriba abajo.
 
 Una stash solo reclama su propio commit. Si su padre no tiene dueño, lo reclama una línea normal sin nombre. Así una stash nunca pinta de discontinuo la línea de una rama (es la protección que ya existe hoy y debe mantenerse).
@@ -173,6 +173,7 @@ Además aparecen, en fantasma, las ramas que solo existen en el servidor, con co
   - Los contadores van en línea tras el nombre, separados por una barra fina como la de la nube, en `monoSmall`.
   - El borde discontinuo es 3–3, como los fantasmas del grafo, y también lo lleva un chip remoto cuyo commit es fantasma.
   - Con el interruptor apagado no lleva chip ninguna remota que no siga una rama local, salvo el tronco remoto. Antes se veían si su commit estaba cargado, por ejemplo la rama de una PR ya mergeada.
+  - Entre los chips remotos de un commit van primero los de remotas que sigue una rama local y el del tronco remoto, para que el de tu rama no quede escondido tras "+N".
 
 ### 4.5 Interruptor
 
