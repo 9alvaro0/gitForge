@@ -21,6 +21,8 @@ final class AppState {
     let gitCredentials: AccountGitCredentials
     let accountChooser: AccountChooser
     let pullRequestAuth: AccountPullRequestAuth
+    /// The Reviews inbox: the open pull requests of the repos the user follows.
+    let reviews: ReviewsStore
     /// The identity profile a repository (or a clone in progress) uses.
     let profileLookup: ActiveProfileLookup
     let network: NetworkMonitor
@@ -58,11 +60,89 @@ final class AppState {
         let activeProfileId: @Sendable (String) async -> UUID? = { await profileLookup.profileId(forRepoAt: $0) }
         self.gitCredentials = AccountGitCredentials(store: accountStore, refresher: refresher, activeProfileId: activeProfileId,
                                                     chooseAccount: { remote in await chooser.choose(remote) })
-        self.pullRequestAuth = AccountPullRequestAuth(store: accountStore, refresher: refresher, activeProfileId: activeProfileId,
-                                                      chooseAccount: { remote in await chooser.choose(remote) })
+        let requestAuth = AccountPullRequestAuth(store: accountStore, refresher: refresher, activeProfileId: activeProfileId,
+                                                 chooseAccount: { remote in await chooser.choose(remote) })
+        self.pullRequestAuth = requestAuth
         self.network = network ?? NetworkMonitor()
+        // `localRemotesForReviews` needs `self`, which can't be captured until
+        // every property is set: the environment reaches it through a weak
+        // reference that is filled in last. The other closures hold the
+        // sub-stores, not `self`.
+        let owner = WeakAppState()
+        self.reviews = ReviewsStore(environment: ReviewsEnvironment(
+            accounts: { Self.reviewsAccounts(in: accountStore) },
+            localRemotes: { await owner.appState?.localRemotesForReviews() ?? [] },
+            token: { id, rejected in await requestAuth.access(accountId: id, rejected: rejected) },
+            makeProvider: { PullRequestProviderFactory.make(for: $0) },
+            makeBrowser: { RemoteRepoBrowserFactory.make(for: $0) },
+            makeActivity: { ReviewActivitySourceFactory.make(for: $0) },
+            snapshots: ReviewsSnapshotStore()
+        ))
         self.catalog.gitCredentials = gitCredentials
         self.catalog.pullRequestAuth = pullRequestAuth
+        owner.appState = self
+    }
+
+    // MARK: - Reviews inbox
+
+    /// A weak reference to the `AppState` still being built, for the closures
+    /// of the Reviews environment.
+    @MainActor
+    private final class WeakAppState {
+        weak var appState: AppState?
+    }
+
+    /// Most `origin` reads at once: one cheap `git` process each, so a long
+    /// catalog doesn't spawn them all together.
+    private static let remoteReadConcurrency = 8
+
+    /// The accounts the inbox reads with, with their instance, in
+    /// `AccountStore.accounts` order: those that sign, and those to reconnect
+    /// (their repos keep the pull requests they have until they're connected
+    /// again). An unverified one isn't asked for anything.
+    private static func reviewsAccounts(in store: AccountStore) -> [(account: HostingAccount, instance: HostingInstance)] {
+        store.accounts.compactMap { account in
+            let toReconnect: Bool
+            if case .needsAttention = account.status { toReconnect = true } else { toReconnect = false }
+            guard toReconnect || AccountGitCredentials.signs(account),
+                  let instance = store.instances.first(where: { $0.id == account.instanceId }) else { return nil }
+            return (account, instance)
+        }
+    }
+
+    /// The catalog's clones whose `origin` is on a declared instance, in the
+    /// catalog's order, each with the account assigned to that `origin`. A
+    /// clone without an `origin`, or on an undeclared host, gives nothing.
+    func localRemotesForReviews() async -> [LocalRemote] {
+        let instances = accounts.instances
+        let clones = catalog.repositories.map { repository in
+            (repository: repository,
+             assigned: accounts.assignedAccountId(repoPath: repository.path, remoteName: "origin"))
+        }
+        return await withTaskGroup(of: (index: Int, remote: LocalRemote?).self) { group in
+            func read(_ index: Int) {
+                let clone = clones[index]
+                group.addTask {
+                    guard let url = await GitCLI(workingDirectory: clone.repository.url).remoteURL("origin"),
+                          let host = RemoteHost.parse(url, instances: instances) else { return (index, nil) }
+                    return (index, LocalRemote(host: host, repository: clone.repository, assignedAccountId: clone.assigned))
+                }
+            }
+            var next = 0
+            while next < min(Self.remoteReadConcurrency, clones.count) {
+                read(next)
+                next += 1
+            }
+            var found: [(index: Int, remote: LocalRemote)] = []
+            for await result in group {
+                if let remote = result.remote { found.append((result.index, remote)) }
+                if next < clones.count {
+                    read(next)
+                    next += 1
+                }
+            }
+            return found.sorted { $0.index < $1.index }.map(\.remote)
+        }
     }
 
     // MARK: - Bootstrap
@@ -73,6 +153,9 @@ final class AppState {
         async let gitCheck: Void = gitEnvironment.refreshGitInstallation()
         async let configRead: Void = gitEnvironment.refreshGlobalConfig()
         await catalog.load()
+        // Before anything can refresh the inbox: the snapshot replaces what's
+        // live.
+        reviews.loadSnapshot()
         _ = await gitCheck
         _ = await configRead
 
@@ -94,6 +177,11 @@ final class AppState {
         // Keychain prompt comes after the window is restored.
         accounts.retireLegacyTokens(from: LegacyTokenKeychain())
         Task { await accountValidator.validateDueAccounts() }
+
+        // The Reviews inbox: read once now, then every few minutes while the
+        // app is online and in front. Last, so the accounts are settled.
+        Task { await reviews.refresh(force: true) }
+        reviews.startAutoRefresh(isOnline: { [network] in network.isOnline }, isActive: { NSApp.isActive })
     }
 
     // MARK: - Repository open / activate (cross-cutting: catalog + ui)

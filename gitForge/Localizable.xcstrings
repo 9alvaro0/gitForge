@@ -13273,6 +13273,22 @@
         }
       }
     },
+    "Reviews" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisiones"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisões"
+          }
+        }
+      }
+    },
     "SSH authentication failed" : {
       "localizations" : {
         "es" : {

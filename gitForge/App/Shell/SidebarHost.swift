@@ -20,6 +20,8 @@ struct SidebarHost: View {
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
             pullsBadge: appState.catalog.activeViewModel?.pullRequests.items.count ?? 0,
             conflictsBadge: appState.catalog.activeViewModel?.conflicts.files.filter { !$0.resolved }.count ?? 0,
+            reviewsBadge: appState.reviews.badgeCount,
+            reviewsActive: appState.ui.workspaceSection == .reviews,
             refs: appState.catalog.activeViewModel?.refs ?? [],
             identity: identitySnapshot.identity,
             scopeTag: identitySnapshot.scopeTag,

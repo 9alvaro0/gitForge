@@ -9,6 +9,9 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
     case pulls
     case conflict
     case settings
+    /// The Reviews inbox: global, it belongs to no repository, so it isn't a
+    /// workspace item.
+    case reviews
 
     var id: String { rawValue }
 
@@ -21,6 +24,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         case .pulls:    return String(localized: "Pull requests")
         case .conflict: return String(localized: "Conflicts")
         case .settings: return String(localized: "Settings")
+        case .reviews:  return String(localized: "Reviews")
         }
     }
 
@@ -33,6 +37,7 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         case .pulls:    return "arrow.triangle.pull"
         case .conflict: return "exclamationmark.triangle"
         case .settings: return "gearshape"
+        case .reviews:  return "tray.2"
         }
     }
 

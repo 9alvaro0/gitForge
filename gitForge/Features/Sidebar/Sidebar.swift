@@ -14,6 +14,11 @@ struct Sidebar: View {
     let stashesBadge: Int
     let pullsBadge: Int
     let conflictsBadge: Int
+    /// Open pull requests waiting on the user, across every followed repo.
+    let reviewsBadge: Int
+    /// The Reviews inbox is the section on screen. The workspace items
+    /// compare against `activeSection`, so none looks selected meanwhile.
+    let reviewsActive: Bool
     let refs: [GitRef]
     let identity: GitIdentity
     let scopeTag: SidebarUserCard.ScopeTag
@@ -100,17 +105,26 @@ struct Sidebar: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .top, spacing: 0) {
-            SidebarRepoSwitcher(
-                repositories: repositories,
-                activeRepository: activeRepository,
-                statusFor: statusFor,
-                onSelectRepo: onSelectRepo,
-                onRemoveRepo: onRemoveRepo,
-                onRevealRepo: onRevealRepo,
-                onOpenExisting: onOpenExisting,
-                onCloneNew: onCloneNew,
-                onOpenSettings: onOpenSettings
-            )
+            // Reviews is global: it stays with or without an active repository.
+            VStack(spacing: Spacing.s4) {
+                SidebarNavItem(
+                    section: .reviews,
+                    badge: reviewsBadge > 0 ? reviewsBadge : nil,
+                    isActive: reviewsActive,
+                    onSelect: { onSelectSection(.reviews) }
+                )
+                SidebarRepoSwitcher(
+                    repositories: repositories,
+                    activeRepository: activeRepository,
+                    statusFor: statusFor,
+                    onSelectRepo: onSelectRepo,
+                    onRemoveRepo: onRemoveRepo,
+                    onRevealRepo: onRevealRepo,
+                    onOpenExisting: onOpenExisting,
+                    onCloneNew: onCloneNew,
+                    onOpenSettings: onOpenSettings
+                )
+            }
             .padding(.horizontal, Spacing.s8)
             .padding(.bottom, Spacing.s8)
         }
@@ -150,6 +164,7 @@ struct Sidebar: View {
         statusFor: RepoStatusSnapshot.previewStatusFor(active: active),
         activeSection: section,
         unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
+        reviewsBadge: 4, reviewsActive: section == .reviews,
         refs: [
             GitRef(name: "main", kind: .localBranch, targetSha: "a", isHead: true),
             GitRef(name: "feature/lane-legend", kind: .localBranch, targetSha: "b", isHead: false),

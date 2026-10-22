@@ -129,6 +129,8 @@ struct ShellView: View {
         } else {
             switch appState.ui.workspaceSection {
             case .settings: SettingsView()
+            // Stand-in until `ReviewsView()` exists.
+            case .reviews:  Text(verbatim: "Reviews").frame(maxWidth: .infinity, maxHeight: .infinity)
             default:        WelcomeView()
             }
         }
