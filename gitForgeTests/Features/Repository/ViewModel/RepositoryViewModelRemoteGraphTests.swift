@@ -100,6 +100,58 @@ struct RepositoryViewModelRemoteGraphTests {
         #expect(!vm.history.isScopeStale)
     }
 
+    /// Adds `count` tags on HEAD to `repo`'s packed refs. Only `GitCLI.refs()` lists tags, so
+    /// reading the refs gets about ten times slower than reading the stashes or the unmerged
+    /// branches.
+    private static func addTags(_ count: Int, to repo: GitTestRepo) async throws {
+        let sha = try await repo.gitAsync("rev-parse", "HEAD").trimmingCharacters(in: .whitespacesAndNewlines)
+        // Zero-padded names sort after the heads and remotes already packed, if any.
+        let tags = (1...count).map { String(format: "%@ refs/tags/t%05d\n", sha, $0) }.joined()
+        let packed = repo.read(".git/packed-refs") ?? "# pack-refs with: peeled fully-peeled \n"
+        try repo.write(packed + tags, to: ".git/packed-refs")
+    }
+
+    @Test("A refresh after a fetch from the shell loads what a pull would bring")
+    func refreshAfterShellFetch() async throws {
+        let remotes = try await Self.makeRemotes()
+        defer { remotes.remove() }
+        try await Self.addTags(5000, to: remotes.work)
+        let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        await vm.loadRefs()
+        await vm.history.loadInitial()
+        // A fetch the watcher never saw. The refresh reloads the log while it reads the new
+        // refs; with the tags, its reload builds its scope before they land, from the old ones.
+        try await remotes.serverCommit("server one")
+        try await remotes.work.gitAsync("fetch", "-q", "origin")
+
+        await vm.refresh()
+        let row = try #require(Self.row("server one", in: vm))
+        #expect(vm.history.graphLayouts[row].node.isGhost)
+        #expect(!vm.history.isScopeStale)
+    }
+
+    @Test("Deleting the local main without reloading the log loads origin/main as the trunk")
+    func deleteMainLoadsRemoteTrunk() async throws {
+        let remotes = try await Self.makeRemotes()
+        defer { remotes.remove() }
+        // A local main that tracks nothing, so origin/main isn't in the scope while it exists.
+        try await remotes.work.gitAsync("branch", "-q", "--unset-upstream", "main")
+        try await remotes.work.gitAsync("switch", "-q", "-c", "feature")
+        try await remotes.work.gitAsync("commit", "-q", "--allow-empty", "-m", "feature one")
+        try await remotes.serverCommit("server one")
+        try await remotes.work.gitAsync("fetch", "-q", "origin")
+        let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        await vm.loadRefs()
+        await vm.history.loadInitial()
+        #expect(Self.row("server one", in: vm) == nil)
+
+        // `deleteBranch` refreshes the refs without reloading the log.
+        let main = try #require(vm.localBranches.first { $0.name == "main" })
+        _ = try await vm.deleteBranch(main).get()
+        let row = try #require(Self.row("server one", in: vm))
+        #expect(vm.history.graphLayouts[row].node == GraphNode(column: 1, kind: .commit, color: .main, isGhost: true))
+    }
+
     private static let pageSizeKey = "appTheme.commitPageSize"
 
     @Test("A page fetched after the remote moved still walks the log the first page walked")
