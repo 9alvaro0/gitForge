@@ -30,6 +30,11 @@ Menor que se queda:
 
 Suite completa tras los arreglos: 1671 pasan, 0 fallan, 1 fallo esperado (15 pruebas más). El build no da avisos de nuestros ficheros.
 
+## Prueba real (2026-10-22)
+
+- **Qué se probó y qué no:** con cuentas reales, la bandeja con un GitLab self-managed y github.com, el detalle y el diff de una MR de un repo sin clonar, la hoja de clonar con la URL rellena, "Open in repository" y la foto al volver a abrir la app. No se probó aprobar ni comentar en una MR real, ni un arranque de verdad sin red.
+- **Dos fallos encontrados y arreglados, cada uno con su test en rojo primero:** (1) con dos tokens revocados guardados (uno de GitLab.com y un duplicado del self-managed) junto a cuentas que funcionan, la bandeja enseñaba dos avisos "Reconnect your GitLab account" aunque esas cuentas no tenían ningún repo seguido; ahora el aviso sale solo para una cuenta caída que tiene algún repo seguido, y una que conserva sus repos sigue avisando (spec §4.2). (2) Con un filtro vacío (por ejemplo Mine sin nada tuyo), cada refresco cambiaba el estado vacío por el indicador de carga durante toda la ronda, cada 5 minutos y al entrar en Revisiones; ahora el indicador solo sale si hay algo por saber: aún no hay repos seguidos, o un repo sin leer cuya cuenta no está esperando reconectarse.
+
 ## Desviaciones del spec
 
 - **Cuenta de un repo con empate (spec §4.5):** el spec pide preguntar con el selector cuando dos cuentas de la misma instancia ven el mismo repo y ninguna regla desempata. En un empate de verdad, R1 sigue eligiendo sin preguntar: la cuenta del login del dueño y, si no, la primera en el orden del almacén (las que firman van antes), entre las que vieron el repo por actividad o, si ninguna lo vio, entre las de la instancia (plan, Ruling 4). Un clon sin cuenta asignada ya no cae en esa regla: su cuenta sale de `AccountResolver`, como en su pantalla de Pull requests, y solo empata si allí también se preguntaría. Pendiente de que Alvaro lo confirme.
