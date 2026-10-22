@@ -1,11 +1,24 @@
 import SwiftUI
 
+/// What the pull request detail offers to do on disk. Inside a repository it
+/// checks the branch out and resolves conflicts locally; without the
+/// repository (Reviews) there is no local work, and one button takes their
+/// place.
+enum PullRequestLocalActions {
+    /// The repository is open here: check out, resolve locally.
+    case repository(integrate: () async -> RepositoryViewModel.IntegrationOutcome,
+                    checkout: () async -> Result<String, Error>)
+    /// Reviews: no local work; one button in their place.
+    case remote(title: String, systemImage: String, action: @MainActor () -> Void)
+}
+
 /// Right-hand side of Pull requests: header, merge banner, then Checks /
 /// Overview / Commits / Files.
 struct PullRequestDetailView: View {
     let store: PullRequestStore
-    let integrateLocally: () async -> RepositoryViewModel.IntegrationOutcome
-    let checkoutBranch: () async -> Result<String, Error>
+    let localActions: PullRequestLocalActions
+    /// Names the repository in the header; for lists that mix several (Reviews).
+    var showsRepository: Bool = false
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -34,11 +47,11 @@ struct PullRequestDetailView: View {
                     PullRequestDetailHeader(
                         pullRequest: pr,
                         hostLabel: store.host?.provider.label,
+                        repositoryLabel: showsRepository ? store.host?.slug : nil,
                         commitCount: store.commits.isEmpty ? nil : store.commits.count,
                         reviewers: store.detail?.reviewers ?? [],
                         labels: store.detail?.labels ?? [],
-                        checkingOut: checkingOut,
-                        onCheckout: { Task { await runCheckout() } },
+                        leading: headerLeadingAction,
                         actions: { compact in
                             AnyView(PullRequestActionsBar(store: store, compact: compact, onMerge: { showMergeSheet = true }))
                         }
@@ -143,7 +156,7 @@ struct PullRequestDetailView: View {
                         detail: store.detail,
                         banner: AnyView(banner),
                         localMergeRunning: store.localMergeRunning,
-                        onTryLocalMerge: { showLocalMergeConfirm = true }
+                        onTryLocalMerge: resolvesLocally ? { showLocalMergeConfirm = true } : nil
                     )
                 case .commits:
                     PullRequestCommitsTab(commits: store.commits, loading: store.isLoadingDetail)
@@ -167,7 +180,23 @@ struct PullRequestDetailView: View {
         return String(localized: "Will fetch, check out \(pr.sourceBranch), and merge \(pr.targetBranch) into it. Conflicts route you to the Conflicts view.")
     }
 
+    /// What takes the place of "Check out branch" in the header.
+    private var headerLeadingAction: HeaderLeadingAction {
+        switch localActions {
+        case .repository:
+            .checkout(running: checkingOut, action: { Task { await runCheckout() } })
+        case .remote(let title, let systemImage, let action):
+            .button(title: title, systemImage: systemImage, action: { action() })
+        }
+    }
+
+    /// Only a repository on disk can integrate the branch ("Resolve locally").
+    private var resolvesLocally: Bool {
+        if case .repository = localActions { true } else { false }
+    }
+
     private func runCheckout() async {
+        guard case .repository(_, let checkoutBranch) = localActions else { return }
         checkingOut = true
         defer { checkingOut = false }
         switch await checkoutBranch() {
@@ -182,6 +211,7 @@ struct PullRequestDetailView: View {
     }
 
     private func runLocalMerge() async {
+        guard case .repository(let integrateLocally, _) = localActions else { return }
         let outcome = await integrateLocally()
         let pr = store.selected
         switch outcome {
@@ -203,8 +233,7 @@ struct PullRequestDetailView: View {
 
 #Preview("Detail") {
     @Previewable @State var theme = AppTheme()
-    PullRequestDetailView(store: .previewWithDetail, integrateLocally: { .clean },
-                          checkoutBranch: { .success("feature") })
+    PullRequestDetailView(store: .previewWithDetail, localActions: .preview)
         .previewAppState(.preview)
         .frame(width: 900, height: 720)
         .appTheme(theme)

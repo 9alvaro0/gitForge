@@ -5,11 +5,10 @@ import SwiftUI
 /// account.
 struct PullsView: View {
     let store: PullRequestStore
-    /// Integrates the selected PR locally ("Resolve locally"); session-wide
-    /// work owned by `RepositoryViewModel`.
-    let integrateLocally: () async -> RepositoryViewModel.IntegrationOutcome
-    /// Fetches and checks out the selected PR's branch.
-    var checkoutBranch: () async -> Result<String, Error> = { .failure(PullCheckoutError.noSelection) }
+    /// What the detail does on disk: integrates the selected PR locally
+    /// ("Resolve locally") and checks out its branch; session-wide work owned
+    /// by `RepositoryViewModel`.
+    let localActions: PullRequestLocalActions
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -74,7 +73,7 @@ struct PullsView: View {
                 Rectangle().fill(theme.colors.separator).frame(width: 1)
                 Group {
                     if store.selected != nil {
-                        PullRequestDetailView(store: store, integrateLocally: integrateLocally, checkoutBranch: checkoutBranch)
+                        PullRequestDetailView(store: store, localActions: localActions)
                     } else {
                         EmptyState(symbol: "arrow.triangle.pull", title: selectTitle)
                     }
@@ -171,7 +170,7 @@ struct PullsView: View {
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    PullsView(store: .previewWithPullRequests, integrateLocally: { .clean })
+    PullsView(store: .previewWithPullRequests, localActions: .preview)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -185,7 +184,7 @@ struct PullsView: View {
         s.isLoading = true
         return s
     }()
-    PullsView(store: store, integrateLocally: { .clean })
+    PullsView(store: store, localActions: .preview)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
@@ -199,7 +198,7 @@ struct PullsView: View {
         s.requiresToken = true
         return s
     }()
-    PullsView(store: store, integrateLocally: { .clean })
+    PullsView(store: store, localActions: .preview)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)

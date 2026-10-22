@@ -1,16 +1,24 @@
 import SwiftUI
 
+/// The button ahead of the review and merge ones: "Check out branch" where
+/// the repository is open, or whichever one stands in for it.
+enum HeaderLeadingAction {
+    case checkout(running: Bool, action: () -> Void)
+    case button(title: String, systemImage: String, action: () -> Void)
+}
+
 /// Top of the PR detail: state, number and host, the actions, the title,
 /// who wants to merge what into what, and reviewers / labels.
 struct PullRequestDetailHeader: View {
     let pullRequest: PullRequest
     let hostLabel: String?
+    /// `owner/repo`, ahead of the host, where the list mixes repositories.
+    var repositoryLabel: String? = nil
     let commitCount: Int?
     let reviewers: [PullRequestDetail.Reviewer]
     let labels: [String]
-    let checkingOut: Bool
-    let onCheckout: () -> Void
-    /// Review and merge buttons, between "Check out branch" and "Open on …";
+    let leading: HeaderLeadingAction
+    /// Review and merge buttons, between the leading one and "Open on …";
     /// `compact` folds the review ones into a menu.
     var actions: (_ compact: Bool) -> AnyView = { _ in AnyView(EmptyView()) }
 
@@ -59,19 +67,32 @@ struct PullRequestDetailHeader: View {
     private var identity: some View {
         HStack(spacing: Spacing.s8) {
             PullRequestStatePill(state: pullRequest.state)
-            Text("#\(pullRequest.number)\(hostLabel.map { " · \($0)" } ?? "")")
+            Text("#\(pullRequest.number)\(identityDetail.map { " · \($0)" } ?? "")")
                 .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                 .foregroundStyle(theme.colors.textTertiary)
         }
         .fixedSize()
     }
 
+    /// What follows the number: the repository, when named, then the host.
+    /// "Open on …" keeps the host alone.
+    private var identityDetail: String? {
+        let parts = [repositoryLabel, hostLabel].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
     @ViewBuilder
     private func buttons(compact: Bool) -> some View {
-        GFButton(title: checkingOut ? String(localized: "Checking out…") : String(localized: "Check out branch"),
-                 disabled: checkingOut || pullRequest.state == .merged, action: onCheckout)
-            .help("Fetch and check out \(pullRequest.sourceBranch)")
-            .fixedSize()
+        switch leading {
+        case .checkout(let running, let action):
+            GFButton(title: running ? String(localized: "Checking out…") : String(localized: "Check out branch"),
+                     disabled: running || pullRequest.state == .merged, action: action)
+                .help("Fetch and check out \(pullRequest.sourceBranch)")
+                .fixedSize()
+        case .button(let title, let systemImage, let action):
+            GFButton(title: title, systemImage: systemImage, action: action)
+                .fixedSize()
+        }
         actions(compact)
         if let url = pullRequest.webURL {
             GFButton(title: hostLabel.map { String(localized: "Open on \($0)") } ?? String(localized: "Open on the web"),
