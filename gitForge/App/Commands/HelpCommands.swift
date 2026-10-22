@@ -8,6 +8,7 @@ struct HelpCommands: Commands {
     static let issuesURL = URL(string: "https://github.com/9alvaro0/gitForge/issues/new")!
 
     let updater: Updater
+    let appState: AppState
 
     var body: some Commands {
         CommandGroup(replacing: .help) {
@@ -15,6 +16,11 @@ struct HelpCommands: Commands {
                 updater.checkForUpdates()
             }
             .disabled(!updater.canCheckForUpdates)
+
+            Button("What's New in gitForge") {
+                appState.whatsNew.showFromMenu()
+            }
+            .disabled(!appState.whatsNew.canShowFromMenu)
 
             Divider()
 

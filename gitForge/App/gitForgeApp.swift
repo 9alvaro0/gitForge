@@ -100,7 +100,7 @@ struct GitForgeApp: App {
             FileCommands(appState: appState)
             ViewCommands(appState: appState)
             RepositoryCommands(appState: appState)
-            HelpCommands(updater: updater)
+            HelpCommands(updater: updater, appState: appState)
         }
     }
 }

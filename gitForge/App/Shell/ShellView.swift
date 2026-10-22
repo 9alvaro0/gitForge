@@ -10,6 +10,8 @@ struct ShellView: View {
     /// Optional so previews and tests run without Sparkle.
     @Environment(Updater.self) private var updater: Updater?
     @Environment(\.openURL) private var openURL
+    /// The What's New sheet this window took from `appState.whatsNew`.
+    @State private var whatsNewSheet: WhatsNewPresentation?
 
     var body: some View {
         NavigationSplitView {
@@ -70,7 +72,16 @@ struct ShellView: View {
         .onChange(of: updater?.launchNotice, initial: true) { _, notice in
             guard let notice else { return }
             updater?.launchNotice = nil
+            // The What's New sheet already says which version this is.
+            if case .installed = notice, appState.whatsNew.showsSheetThisLaunch { return }
             appState.ui.activeToast = Self.toast(for: notice)
+        }
+        // What's New, after an update or from the Help menu. macOS shows one
+        // sheet per window, so it waits while another one is up.
+        .onChange(of: appState.whatsNew.pending?.id, initial: true) { claimWhatsNew() }
+        .onChange(of: otherSheetUp) { claimWhatsNew() }
+        .sheet(item: $whatsNewSheet) { presentation in
+            WhatsNewSheet(presentation: presentation)
         }
         .sheet(item: Bindable(appState.ui).cloneRequest) { request in
             CloneSheet(request: request)
@@ -113,6 +124,20 @@ struct ShellView: View {
                 action: ToastAction(title: String(localized: "Download"), route: .openURL(Updater.releasesURL))
             )
         }
+    }
+
+    /// A sheet the shell presents is open in this window.
+    private var otherSheetUp: Bool {
+        appState.ui.cloneRequest != nil
+            || appState.ui.connectAccountRequest != nil
+            || appState.ui.addInstanceRequest != nil
+            || appState.accountChooser.request != nil
+    }
+
+    private func claimWhatsNew() {
+        guard whatsNewSheet == nil,
+              let presentation = appState.whatsNew.claim(otherSheetUp: otherSheetUp) else { return }
+        whatsNewSheet = presentation
     }
 
     /// Branch and ahead/behind (the old status bar's left half), or the
