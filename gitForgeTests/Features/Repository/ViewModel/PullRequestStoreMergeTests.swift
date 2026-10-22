@@ -107,21 +107,19 @@ struct PullRequestStoreMergeTests {
 
     private let provider = MergeFakeProvider()
 
-    init() {
-        PullRequestStore.mergeStatusRecheckDelay = .zero
-        PullRequestStore.checksPollInterval = .milliseconds(5)
-        PullRequestStore.checksPollLimit = 45
-    }
-
     /// A loaded list with PR 1's detail open (loaded directly, so the fetch
-    /// count is deterministic), any recheck awaited.
-    private func loadedStore() async -> PullRequestStore {
+    /// count is deterministic), any recheck awaited. Polls every 5 ms, at
+    /// most `pollLimit` times.
+    private func loadedStore(pollLimit: Int = 45) async -> PullRequestStore {
         let provider = provider
         let store = PullRequestStore(cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
                                      auth: { _, rejected in rejected == nil ? .token("t1") : .token("t2") },
                                      resolveHost: { Self.host },
                                      makeProvider: { _ in provider },
                                      makeReviewProvider: { _ in provider })
+        store.mergeStatusRecheckDelay = .zero
+        store.checksPollInterval = .milliseconds(5)
+        store.checksPollLimit = pollLimit
         await store.load(force: true)
         store.selected = store.items.first
         await store.loadDetail()
@@ -250,11 +248,17 @@ struct PullRequestStoreMergeTests {
         #expect(store.mergeReadiness?.canMerge == true)
     }
 
+    @Test("A store's polling settings stay its own when another store is set up")
+    func pollSettingsPerStore() async {
+        let first = await loadedStore(pollLimit: 2)
+        _ = await loadedStore(pollLimit: 45)
+        #expect(first.checksPollLimit == 2)
+    }
+
     @Test("A check stuck in the queue stops being read after the limit")
     func pollLimit() async {
-        PullRequestStore.checksPollLimit = 2
         provider.checkStates = [[.queued]]
-        let store = await loadedStore()
+        let store = await loadedStore(pollLimit: 2)
         let poll = Task { await store.pollWhileRunning() }
         await waitUntil { provider.checkFetches >= 3 }
         try? await Task.sleep(for: .milliseconds(100))
