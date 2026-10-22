@@ -41,6 +41,12 @@ struct CommitRow: View, Equatable {
     /// `nil` disables the click-to-filter affordance on the author cell.
     var onFilterByAuthor: ((String) -> Void)? = nil
 
+    /// The subject's colour: a ghost, a commit that only exists on the server
+    /// (graph v3 spec §4.3), reads as quietly as its date and sha.
+    static func subjectColor(isGhost: Bool, colors: GFColors) -> Color {
+        isGhost ? colors.textTertiary : colors.textPrimary
+    }
+
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
     @State private var rowDropTargeted = false
@@ -71,7 +77,7 @@ struct CommitRow: View, Equatable {
                 .fixedSize()
                 Text(commit.subject)
                     .textRole(.body, weight: isSelected ? .medium : .regular)
-                    .foregroundStyle(theme.colors.textPrimary)
+                    .foregroundStyle(Self.subjectColor(isGhost: layout.node.isGhost, colors: theme.colors))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }

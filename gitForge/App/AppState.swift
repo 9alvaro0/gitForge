@@ -26,6 +26,8 @@ final class AppState {
     /// The identity profile a repository (or a clone in progress) uses.
     let profileLookup: ActiveProfileLookup
     let network: NetworkMonitor
+    /// The What's New sheet shown after an update and from the Help menu.
+    let whatsNew: WhatsNewController
 
     init(
         catalog: RepositoryCatalog? = nil,
@@ -34,7 +36,8 @@ final class AppState {
         ui: WorkspaceUI? = nil,
         profiles: ProfileStore? = nil,
         accounts: AccountStore? = nil,
-        network: NetworkMonitor? = nil
+        network: NetworkMonitor? = nil,
+        whatsNew: WhatsNewController? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
@@ -43,6 +46,7 @@ final class AppState {
         self.gitEnvironment = gitEnvironment ?? GitEnvironment()
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
+        self.whatsNew = whatsNew ?? WhatsNewController()
         let profileStore = profiles ?? ProfileStore()
         self.profiles = profileStore
         let accountStore = accounts ?? AccountStore()

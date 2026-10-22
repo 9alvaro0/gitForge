@@ -48,6 +48,28 @@ docs**. The feed will be served at
 
 ## Per-release steps
 
+### 1. Prepare the release notes
+
+The notes live in `gitForge/Resources/WhatsNew/whats-new.json`, one entry per
+version, each text in English, Spanish and European Portuguese. The app ships
+that file and shows the version's highlights the first time it opens after
+updating; the English text also becomes the Sparkle and GitHub Release notes.
+
+Write them with Claude in the main checkout, on `main`:
+
+> prepara las novedades de la 1.4.0
+
+The `whats-new` skill reads the commits since the last tag, drafts the entry
+(highlights with an SF Symbol, title and one sentence; fixes; improvements)
+and its translations, and waits for your review. Once you accept it, it runs
+`./scripts/release-notes.sh check 1.4.0` and leaves one local commit touching
+only `whats-new.json`. It does not push.
+
+A release with nothing new for users gets an entry with `"highlights": []`:
+it still needs one, but it doesn't show the What's New sheet.
+
+### 2. Ship
+
 One command does the full pipeline:
 
 ```bash
@@ -56,23 +78,26 @@ One command does the full pipeline:
 
 This orchestrates: validate → bump `MARKETING_VERSION` and set `CURRENT_PROJECT_VERSION` to the
 same value (Sparkle compares the appcast's `sparkle:version` against
-`CFBundleVersion`) → generate release
-notes from `git log v{prev}..HEAD` (grouped into New / Fixes / Improvements)
-→ commit → `release.sh` → tag → push commit + tag → `gh release create`
-→ `update-appcast.sh` → commit and push the appcast.
+`CFBundleVersion`) → render the release notes from `whats-new.json`
+(`scripts/release-notes.sh render`) → commit → `release.sh` → tag → push
+commit + tag → `gh release create` → `update-appcast.sh` → commit and push the
+appcast.
 
 Useful flags:
 
 - `--dry-run` — print every step without doing anything.
-- `--skip-notes` — skip auto-generation; expects `docs/releases/v<version>.html`
-  to already exist (write notes by hand first).
+- `--skip-notes` — don't render; expects `docs/releases/v<version>.html` to
+  already exist (written by hand). The entry in `whats-new.json` is still
+  required, because the app shows it.
 - `--skip-push` — stop after tagging, before pushing to origin (the GitHub
   Release needs the tag on origin, so it is skipped too).
 - `--yes` / `-y` — skip the interactive confirmation prompt.
 
-Preflight refuses to run if: not on `main`, working tree dirty, local out of
-sync with `origin/main`, tag already exists, or version already in
-`docs/appcast.xml`.
+Preflight refuses to run if: not on `main`, working tree dirty, local `main`
+behind or diverged from `origin/main`, local `main` ahead with any commit that
+touches more than `whats-new.json`, tag already exists, version already in
+`docs/appcast.xml`, or no valid entry for the version in `whats-new.json`.
+Commits ahead that only touch the notes are pushed with the bump.
 
 If you prefer to drive each step manually, the underlying scripts still work
 standalone: `release.sh` (build/sign/notarize), `update-appcast.sh <version>`

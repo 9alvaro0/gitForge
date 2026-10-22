@@ -11,12 +11,17 @@ nonisolated enum GraphNodeStyle: Equatable, Sendable {
     case head
     /// Dashed square.
     case stash
+    /// Hollow dashed ring: a commit that only exists on the server (§4.3),
+    /// merge or not.
+    case ghost
 
-    /// A stash keeps its square even at HEAD; otherwise HEAD wins over merge.
+    /// A stash keeps its square even at HEAD; otherwise HEAD wins, then a
+    /// ghost, then a merge.
     static func `for`(_ row: GraphRow, isHeadCommit: Bool) -> GraphNodeStyle {
         switch row.node.kind {
         case .stash: .stash
         case _ where isHeadCommit: .head
+        case _ where row.node.isGhost: .ghost
         case .merge: .merge
         case .commit: .commit
         }

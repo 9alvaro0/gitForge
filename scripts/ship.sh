@@ -3,9 +3,10 @@
 # Cut a full gitForge release in one shot.
 #
 # Pipeline:
-#   1) Validate (semver, clean tree, on main, tag absent, version not in appcast)
+#   1) Validate (semver, clean tree, on main, tag absent, version not in appcast,
+#      release notes present in gitForge/Resources/WhatsNew/whats-new.json)
 #   2) Bump MARKETING_VERSION in the Xcode project
-#   3) Generate release notes from git log (unless --skip-notes)
+#   3) Render release notes from whats-new.json (unless --skip-notes)
 #   4) Commit version bump + notes
 #   5) release.sh        (build / sign / notarize / DMG)
 #   6) git tag vX.Y.Z
@@ -21,6 +22,11 @@
 #   ./scripts/ship.sh 1.0.2
 #   ./scripts/ship.sh 1.0.3 --dry-run
 #   ./scripts/ship.sh 1.0.4 --skip-notes   # use docs/releases/v1.0.4.html as-is
+#
+# The release notes are written beforehand with Claude ("prepara las
+# novedades de la X.Y.Z"), which leaves one local commit on main touching only
+# whats-new.json. Local main may be ahead of origin/main by such commits only;
+# they go up with the version bump.
 
 set -euo pipefail
 
@@ -38,7 +44,7 @@ while [[ $# -gt 0 ]]; do
     --skip-push)  SKIP_PUSH=1 ;;
     --yes|-y)     ASSUME_YES=1 ;;
     -h|--help)
-      sed -n '2,25p' "$0"; exit 0 ;;
+      sed -n '2,30p' "$0"; exit 0 ;;
     -*)
       echo "Unknown flag: $1" >&2; exit 2 ;;
     *)
@@ -90,11 +96,13 @@ NOTES_DIR="docs/releases"
 NOTES_HTML="${NOTES_DIR}/v${VERSION}.html"
 DMG_PATH="dist/gitForge-${VERSION}.dmg"
 TAG="v${VERSION}"
+WHATS_NEW="gitForge/Resources/WhatsNew/whats-new.json"
 
 # ---- Preflight -------------------------------------------------------------
 require git
 require gh
 require xcodebuild
+require jq
 
 log "Preflight"
 
@@ -111,12 +119,22 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   fail "Working tree is dirty. Commit or stash first."
 fi
 
-# Up to date with origin
+# Up to date with origin. Local main may be ahead only by commits that touch
+# nothing but the release notes; they are pushed with the bump.
 git fetch origin --quiet
 LOCAL=$(git rev-parse @)
 REMOTE=$(git rev-parse @{u} 2>/dev/null || echo "")
+NOTES_AHEAD=0
 if [[ -n "${REMOTE}" && "${LOCAL}" != "${REMOTE}" ]]; then
-  fail "Local main is not in sync with origin/main. Pull or push first."
+  git merge-base --is-ancestor "${REMOTE}" "${LOCAL}" \
+    || fail "Local main is behind or has diverged from origin/main. Pull first."
+  for commit in $(git rev-list "${REMOTE}..${LOCAL}"); do
+    # A merge commit lists no files here, so it is refused too.
+    files=$(git diff-tree --no-commit-id --name-only -r "${commit}")
+    [[ "${files}" == "${WHATS_NEW}" ]] \
+      || fail "Local main is ahead of origin/main with more than release notes ($(git log -1 --format='%h %s' "${commit}")). Push or drop it first."
+  done
+  NOTES_AHEAD=$(git rev-list --count "${REMOTE}..${LOCAL}")
 fi
 
 # Tag must not exist (local or remote)
@@ -132,6 +150,10 @@ if grep -q "sparkle:version=\"${VERSION}\"" "${APPCAST}"; then
   fail "Version ${VERSION} is already present in ${APPCAST}."
 fi
 
+# Release notes written and well formed: the app shows them after updating,
+# so this holds with --skip-notes too.
+./scripts/release-notes.sh check "${VERSION}" || exit 1
+
 # gh authenticated
 gh auth status >/dev/null 2>&1 || fail "gh CLI is not authenticated. Run: gh auth login"
 
@@ -145,19 +167,10 @@ else
   log "Bumping ${CURRENT_VERSION} → ${VERSION}"
 fi
 
-PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
-if [[ -n "${PREV_TAG}" ]]; then
-  RANGE="${PREV_TAG}..HEAD"
-  log "Release notes range: ${RANGE}"
-else
-  RANGE="HEAD"
-  log "No previous tag — release notes will include full history"
-fi
-
 cat <<SUMMARY
 
   Version       : ${VERSION}
-  Previous tag  : ${PREV_TAG:-<none>}
+  Notes ahead   : ${NOTES_AHEAD} commit(s), pushed with the release
   DMG output    : ${DMG_PATH}
   Tag           : ${TAG}
   Notes file    : ${NOTES_HTML}
@@ -198,64 +211,20 @@ else
   fi
 fi
 
-# ---- 2. Generate release notes --------------------------------------------
-generate_notes() {
-  local md_file="$1"
-  local html_file="$2"
-  local feats fixes perfs
-
-  # Strip leading "type(scope): " or "type: " from each subject
-  collect() {
-    git log "${RANGE}" --pretty=format:'%s' \
-      | grep -E "^$1(\([^)]+\))?:" \
-      | sed -E "s/^$1(\([^)]+\))?: //" \
-      || true
-  }
-
-  feats=$(collect 'feat')
-  fixes=$(collect 'fix')
-  perfs=$(collect 'perf')
-
-  {
-    echo "## What's new in ${VERSION}"
-    echo
-    [[ -n "${feats}" ]] && { echo "### New"; echo "${feats}" | sed 's/^/- /'; echo; }
-    [[ -n "${fixes}" ]] && { echo "### Fixes"; echo "${fixes}" | sed 's/^/- /'; echo; }
-    [[ -n "${perfs}" ]] && { echo "### Improvements"; echo "${perfs}" | sed 's/^/- /'; echo; }
-    if [[ -z "${feats}${fixes}${perfs}" ]]; then
-      echo "Maintenance release."
-    fi
-  } > "${md_file}"
-
-  # HTML version for Sparkle (body fragment, no <html> wrapper)
-  {
-    echo "<h2>What's new in ${VERSION}</h2>"
-    [[ -n "${feats}" ]] && { echo "<h3>New</h3><ul>"; echo "${feats}" | sed 's|^|<li>|;s|$|</li>|'; echo "</ul>"; }
-    [[ -n "${fixes}" ]] && { echo "<h3>Fixes</h3><ul>"; echo "${fixes}" | sed 's|^|<li>|;s|$|</li>|'; echo "</ul>"; }
-    [[ -n "${perfs}" ]] && { echo "<h3>Improvements</h3><ul>"; echo "${perfs}" | sed 's|^|<li>|;s|$|</li>|'; echo "</ul>"; }
-    if [[ -z "${feats}${fixes}${perfs}" ]]; then
-      echo "<p>Maintenance release.</p>"
-    fi
-  } > "${html_file}"
-}
-
-NOTES_MD=$(mktemp -t "gitforge-notes-${VERSION}.XXXXXX.md")
-trap 'rm -f "${NOTES_MD}"' EXIT
-
+# ---- 2. Render release notes ----------------------------------------------
+# One escaped HTML file serves Sparkle and the GitHub Release body.
 if (( SKIP_NOTES )); then
   [[ -f "${NOTES_HTML}" ]] || fail "--skip-notes requires ${NOTES_HTML} to exist"
   log "Skipping notes generation, using existing ${NOTES_HTML}"
-  # Still need a markdown for gh release. Use the HTML as-is — gh accepts it.
-  cp "${NOTES_HTML}" "${NOTES_MD}"
 else
-  log "Generating release notes from ${RANGE}"
+  log "Rendering release notes from ${WHATS_NEW}"
   if (( DRY_RUN )); then
-    printf '\033[1;90m[dry-run]\033[0m would generate %s and %s\n' "${NOTES_MD}" "${NOTES_HTML}"
+    printf '\033[1;90m[dry-run]\033[0m ./scripts/release-notes.sh render %s %s\n' "${VERSION}" "${NOTES_HTML}"
   else
     mkdir -p "${NOTES_DIR}"
-    generate_notes "${NOTES_MD}" "${NOTES_HTML}"
-    log "Generated notes:"
-    sed 's/^/    /' "${NOTES_MD}"
+    ./scripts/release-notes.sh render "${VERSION}" "${NOTES_HTML}"
+    log "Rendered notes:"
+    sed 's/^/    /' "${NOTES_HTML}"
   fi
 fi
 
@@ -299,12 +268,12 @@ run "git push origin '${TAG}'"
 # ---- 6. GitHub Release -----------------------------------------------------
 log "Creating GitHub Release ${TAG}"
 if (( DRY_RUN )); then
-  printf '\033[1;90m[dry-run]\033[0m gh release create %s %s --title "gitForge %s" --notes-file <generated>\n' \
-    "${TAG}" "${DMG_PATH}" "${VERSION}"
+  printf '\033[1;90m[dry-run]\033[0m gh release create %s %s --title "gitForge %s" --notes-file %s\n' \
+    "${TAG}" "${DMG_PATH}" "${VERSION}" "${NOTES_HTML}"
 else
   gh release create "${TAG}" "${DMG_PATH}" \
     --title "gitForge ${VERSION}" \
-    --notes-file "${NOTES_MD}"
+    --notes-file "${NOTES_HTML}"
 fi
 
 # ---- 7. Appcast ------------------------------------------------------------

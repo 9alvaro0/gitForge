@@ -149,7 +149,7 @@ Además aparecen, en fantasma, las ramas que solo existen en el servidor, con co
 
 - Un commit es fantasma si es alcanzable desde alguna rama remota cargada y no lo es desde HEAD, una rama local ni una stash. **(Decisión mía)** Los tags no cuentan: un CI que etiqueta releases en el servidor no debe ocultar el fantasma tras un fetch, y un commit al que solo llega un tag local no es fantasma porque no viene del servidor.
 - Se calcula dentro del motor en una pasada, con dos marcas que se propagan de hijos a padres: "alcanzable desde lo local" y "alcanzable desde una remota". El orden topológico garantiza que los hijos llegan antes.
-- Aspecto: línea discontinua (3–3) al 60 % de opacidad, nodo hueco discontinuo, asunto en `textTertiary` y chip remoto con borde discontinuo.
+- Aspecto: línea discontinua al 60 % de opacidad, nodo hueco discontinuo, asunto en `textTertiary` y chip remoto con borde discontinuo. **(Decidido en G2)** El discontinuo es de unos 3–3, con el periodo ajustado para que medio paso entre filas contenga un número entero de periodos (7,25 pt en regular y 5,75 en compacto). Cada mitad de curva usa su propio periodo: el que cabe un número entero de veces en su longitud y más se acerca al de las rectas, como mucho un 17 % más largo (la S de una columna en compacto) o un 9 % más corto. Así cada mitad, recta o curva, empieza con un trazo y acaba con un hueco completo, y el patrón sigue sin saltos de una fila a la siguiente y en el centro de una fila sin commit, como el primero de la pista propia de un merge fantasma. Las mitades discontinuas no se solapan en las uniones.
 - Los commits fantasma se seleccionan y muestran su detalle igual que cualquier otro. El fetch ya los descargó.
 - El fetch automático existente mantiene el fantasma al día.
 
@@ -179,9 +179,16 @@ Cada cambio de columna es una curva en S cúbica que ocupa exactamente una fila,
 
 Las filas son vistas separadas (un `Canvas` por fila). Una S entre dos centros de fila se parte en el punto medio entre filas: por simetría, en `t = 0.5` cae justo ahí, a medio camino en horizontal. Cada fila dibuja su mitad. La tabla deja 1 pt de separación entre filas, así que el `Canvas` de cada fila mide una fila más esa separación (el paso entre centros) y se centra en la fila: cada mitad llega al centro del hueco y las líneas no se cortan (decisión tomada en la verificación visual de G1).
 
+**(Decidido en G2)** Donde una línea sólida llega al centro de una fila sin commit y sigue, recta o doblándose, la fila dibuja sus dos mitades como un solo trazo. Dibujadas por separado, cada una acaba en plano justo en el centro, y en una pantalla 1x, donde ese centro cae en mitad de un píxel, cada una cubre solo la mitad de esa fila de píxeles: la línea se veía con una muesca clara en cada fila por la que pasaba. Donde hay commit, el nodo la tapa.
+
 ### 5.2 Hueco en los cruces
 
-Cada trazo lleva por debajo un borde del color de fondo de 1,5 pt a cada lado. Así, donde una línea pasa sobre otra se abre un pequeño hueco en la de debajo. Las verticales de las líneas se dibujan por encima de las curvas, de modo que las curvas pasan por debajo. El borde no actúa en un radio de 9 pt alrededor de cada nodo, para que las líneas que llegan a un mismo commit se unan limpias.
+Antes de dibujar cada trazo, la fila borra de lo que ya ha dibujado debajo una banda de 1,5 pt a cada lado del trazo, y por ella asoma el fondo de la propia fila. Así, donde una línea pasa sobre otra se abre un pequeño hueco en la de debajo. Las verticales de las líneas se dibujan por encima de las curvas, de modo que las curvas pasan por debajo. La banda no actúa en un radio de 12 pt (10 pt en densidad compacta) alrededor del nodo de la fila, para que las líneas que llegan a un mismo commit se unan limpias. Tampoco actúa en ese radio alrededor del punto donde una curva se une, en el centro de una fila sin commit, a una vertical de su columna que queda del mismo lado del centro: una unión que se funde con una línea que ya pasa (§3.3), o una línea que nace de otra.
+
+**(Decidido en G2)** El radio iba a ser de 9 pt alrededor de cada nodo. Pero una curva de una columna que llega al mismo punto que una vertical va dentro de la banda de esta hasta 11,2 pt de ese punto (9,3 pt en compacto), así que con 9 pt la banda le mordía el lado de dentro. Con 12 y 10 pt queda cubierta con margen, y el cruce real más cercano (a 13,5 pt, 11,1 en compacto) conserva todo su hueco. Una unión fundida no tiene nodo: sin su propio círculo, la banda de la vertical cortaba el final de la curva y las dos líneas se veían separadas. El círculo solo hace falta ahí: donde una línea se dobla o aterriza en una fila sin commit, la vertical queda al otro lado del centro y no llega a la curva, y un cruce cerca de ese punto conserva su hueco (en la verificación visual, un cruce a 10,7 pt de una curva que salía de una vertical se quedaba sin él). Además:
+
+- Cada fila borra solo lo que ella misma ha dibujado, así que el fondo de la fila (selección o hover) nunca se agujerea.
+- Las verticales sólidas pasan la unión entre filas tanto como el trazo de una curva puede pasarla (el ancho del trazo). Así, en un cruce justo en la unión, la vertical queda encima a los dos lados y no queda una astilla de la curva en el hueco.
 
 **(Decisión mía)** Se queda el hueco sutil. Con curvas, un cruce ya se lee como una X, y el hueco solo ayuda en los cruces casi paralelos. Si en la app real no aporta, se quita.
 
@@ -189,7 +196,9 @@ Cada trazo lleva por debajo un borde del color de fondo de 1,5 pt a cada lado. A
 
 ### 5.3 Nodos y métricas
 
-Sin cambios en formas ni en `GraphMetrics`, salvo lo necesario para que el halo de selección no se recorte en densidad compacta. El nodo fantasma es nuevo: hueco y discontinuo, del tamaño del nodo de commit.
+Sin cambios en formas ni en `GraphMetrics`, salvo los valores del hueco de §5.2. El nodo fantasma es nuevo: hueco y discontinuo, del tamaño del nodo de commit.
+
+**(Decidido en G2)** El radio exterior del halo de selección y del anillo de hover (el trazo incluido) no pasa de la mitad del alto de la fila. Así ninguno sale de su fila hacia la separación ni hacia la fila vecina, ni queda recortado. En regular no cambia nada. En compacto el halo del HEAD seleccionado mide 11 pt de radio en lugar de 12,25; el anillo de hover ya cabía. No se toca ningún valor de `GraphMetrics`: el límite lo aplica la geometría de la fila (`GraphRowGeometry.haloRadius(outer:)` y `hoverRingRadius(outer:)`).
 
 ### 5.4 Colores
 

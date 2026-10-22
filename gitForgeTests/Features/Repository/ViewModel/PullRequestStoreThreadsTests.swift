@@ -104,12 +104,6 @@ struct PullRequestStoreThreadsTests {
 
     private let provider = ThreadsFakeProvider()
 
-    init() {
-        PullRequestStore.mergeStatusRecheckDelay = .zero
-        PullRequestStore.checksPollInterval = .milliseconds(5)
-        PullRequestStore.checksPollLimit = 45
-    }
-
     static func thread(_ id: String, path: String = "f1.swift", line: Int = 3, resolved: Bool = false) -> ReviewThread {
         ReviewThread(id: id, path: path, oldPath: nil, ref: DiffLineRef(side: .new, line: line), originalLine: line,
                      isResolved: resolved, isOutdated: false, resolvedBy: nil,
@@ -131,6 +125,8 @@ struct PullRequestStoreThreadsTests {
                                      makeProvider: { _ in provider },
                                      makeReviewProvider: { _ in provider },
                                      parsePatch: parsePatch)
+        store.mergeStatusRecheckDelay = .zero
+        store.checksPollInterval = .milliseconds(5)
         await store.load(force: true)
         store.selected = store.items.first
         await store.loadDetail()
