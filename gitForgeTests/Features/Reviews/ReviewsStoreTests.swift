@@ -139,6 +139,8 @@ private final class Harness {
     var locals: [LocalRemote] = []
     /// Holds `localRemotes` until opened, when set.
     var localsGate: AsyncGate?
+    /// Calls to `localRemotes`.
+    private(set) var localReads = 0
     var now = Harness.date(1_790_000_000)
     /// The token an account that signs gives; its argument is the rejected one, if any.
     var answer: (String?) -> PullRequestAuthResult = { _ in .token("t") }
@@ -160,6 +162,7 @@ private final class Harness {
         ReviewsStore(environment: ReviewsEnvironment(
             accounts: { [self] in accounts.map { (account: $0, instance: Self.instance) } },
             localRemotes: { [self] in
+                localReads += 1
                 if let localsGate { await localsGate.wait() }
                 return locals
             },
@@ -449,6 +452,66 @@ struct ReviewsStoreTests {
         #expect(store.listContent == .groups(store.groups))
         again.open()
         await next.value
+    }
+
+    @Test("Without accounts a refresh reads no clones and writes nothing, and doesn't hold back the first with one")
+    func noAccounts() async {
+        let harness = Harness()
+        let account = harness.account
+        harness.accounts = []
+        harness.locals = [Harness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        await store.refresh(force: true)
+
+        #expect(harness.localReads == 0)
+        #expect(Self.reads(harness) == 0)
+        #expect(ReviewsSnapshotStore(directory: harness.directory).load() == nil)
+        #expect(store.repos.isEmpty)
+
+        // An account is connected right after: the next refresh reads, throttle or not.
+        harness.accounts = [account]
+        await store.refresh()
+        #expect(harness.localReads == 1)
+        #expect(store.badgeCount == 1)
+    }
+
+    @Test("When the last account goes, a refresh empties the inbox and saves it once")
+    func lastAccountRemoved() async throws {
+        let harness = Self.twoRepos()
+        harness.provider.state {
+            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let item = try #require(store.groups.first?.pulls.first)
+        store.selectedID = item.id
+        #expect(store.detailStore(for: item.repo.id) != nil)
+        let localReads = harness.localReads
+
+        harness.accounts = []
+        await store.refresh(force: true)
+
+        #expect(harness.localReads == localReads)
+        #expect(store.repos.isEmpty)
+        #expect(store.pulls.isEmpty)
+        #expect(store.repoErrors.isEmpty)
+        #expect(store.logins.isEmpty)
+        #expect(store.selectedID == nil)
+        #expect(store.badgeCount == 0)
+        #expect(store.detailStore(for: item.repo.id) == nil)
+        let onDisk = ReviewsSnapshotStore(directory: harness.directory).load()
+        #expect(onDisk?.repos.isEmpty == true)
+        #expect(onDisk?.pulls.isEmpty == true)
+
+        // Nothing left to clear: the next refreshes write nothing.
+        try FileManager.default.removeItem(at: harness.directory.appendingPathComponent("reviews.json"))
+        await store.refresh(force: true)
+        await store.refresh(force: true)
+        #expect(ReviewsSnapshotStore(directory: harness.directory).load() == nil)
+        #expect(harness.localReads == localReads)
     }
 
     @Test("Reloading a repo after a merge drops the merged pull request and lowers the count")

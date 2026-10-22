@@ -201,7 +201,8 @@ final class ReviewsStore {
     /// Works out the repos followed and reads their open pull requests. Does
     /// nothing while one runs, nor within `reloadThrottle` of the last unless
     /// forced. A cancelled round (Reviews left, the auto refresh stopped)
-    /// writes nothing to disk.
+    /// writes nothing to disk. Without accounts it reads nothing, not even
+    /// the clones: it only empties what removed accounts left.
     func refresh(force: Bool = false) async {
         let now = environment.now()
         guard !isRefreshing else { return }
@@ -212,6 +213,14 @@ final class ReviewsStore {
         lastRoundAt = now
 
         let accounts = environment.accounts()
+        // Nothing to read with: what the removed accounts left goes, and the
+        // round doesn't count for the throttle, so the first one connected
+        // reads at once.
+        guard !accounts.isEmpty else {
+            lastRoundAt = previousRound
+            clearWithoutAccounts()
+            return
+        }
         let tokens = TokenBook(ask: environment.token)
         var activity: [ActivityCandidate] = []
         for (account, instance) in accounts {
@@ -278,6 +287,19 @@ final class ReviewsStore {
         if let selectedID, !after.keys.contains(where: { selectedID.hasPrefix($0 + "#") }) {
             self.selectedID = nil
         }
+    }
+
+    /// No account left: the inbox empties, with what it knew of the accounts,
+    /// and is saved empty. With nothing to clear, nothing is written.
+    private func clearWithoutAccounts() {
+        if lastRefreshFailed { lastRefreshFailed = false }
+        guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || droppedByLimit > 0
+                || !memberships.isEmpty || !logins.isEmpty || !accountsNeedingAttention.isEmpty else { return }
+        adopt(FollowedSet(repos: [], dropped: 0))
+        memberships = [:]
+        logins = [:]
+        accountsNeedingAttention = []
+        saveSnapshot()
     }
 
     /// Accounts that gave a token leave `accountsNeedingAttention`; those to
