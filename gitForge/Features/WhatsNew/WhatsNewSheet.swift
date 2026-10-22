@@ -115,7 +115,8 @@ struct WhatsNewSheet: View {
                 dismiss()
             }
         }
-        .padding(.horizontal, Spacing.s20)
+        // Same inset as the content, so the link lines up with the text above.
+        .padding(.horizontal, Spacing.s24)
         .padding(.vertical, Spacing.s12)
     }
 }
