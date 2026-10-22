@@ -23,7 +23,7 @@ struct GraphRowGeometryTests {
         let pitch = density.rowList + HistoryTableLayout.rowSpacing
         let height = GraphRowGeometry.canvasHeight(pitch: pitch, metrics: density.graph)
         return GraphRowGeometry(style: GraphStyle(metrics: density.graph), size: CGSize(width: 120, height: height),
-                                overlapsJoints: overlapsJoints)
+                                overlapsJoints: overlapsJoints, rowSpacing: HistoryTableLayout.rowSpacing)
     }
 
     private static func segments(_ row: GraphRow, in geometry: GraphRowGeometry = geometry()) -> [(GraphSegment, GraphStep)] {
@@ -438,6 +438,58 @@ struct GraphRowGeometryTests {
             #expect(hypot(lowerStart.x - joint.x, lowerStart.y - joint.y) >= halfStroke,
                     sourceLocation: sourceLocation)
         }
+    }
+
+    // MARK: - Halo and hover ring
+
+    @Test("A geometry's row height is its pitch less the gap the table leaves between rows",
+          arguments: [DensityMetrics.regular, .compact])
+    func rowHeight(density: DensityMetrics) {
+        let geometry = Self.geometry(density)
+        #expect(geometry.rowSpacing == HistoryTableLayout.rowSpacing)
+        #expect(geometry.rowHeight == density.rowList)
+        // Without a gap, the pitch is the row.
+        let touching = GraphRowGeometry(style: geometry.style, size: CGSize(width: 120, height: geometry.size.height))
+        #expect(touching.rowSpacing == 0)
+        #expect(touching.rowHeight == touching.pitch)
+    }
+
+    @Test("The selection halo stays inside its row", arguments: [
+        (DensityMetrics.regular, 7.5, 13.0), (.regular, 4.5, 10.0), (.compact, 6.75, 11.0), (.compact, 3.75, 9.25),
+    ])
+    func haloInsideRow(density: DensityMetrics, outer: CGFloat, radius: CGFloat) {
+        let geometry = Self.geometry(density)
+        let halo = geometry.haloRadius(outer: outer)
+        #expect(halo == radius, "outer \(outer): \(halo)")
+        #expect(halo <= density.rowList / 2)
+        // A halo that already fits keeps its full outset.
+        if outer + density.graph.selectHaloOutset <= density.rowList / 2 {
+            #expect(halo == outer + density.graph.selectHaloOutset)
+        }
+    }
+
+    @Test("The hover ring's stroke stays inside its row", arguments: [
+        (DensityMetrics.regular, 7.5, 11.0), (.compact, 6.75, 10.25),
+    ])
+    func hoverInsideRow(density: DensityMetrics, outer: CGFloat, radius: CGFloat) {
+        let geometry = Self.geometry(density)
+        let ring = geometry.hoverRingRadius(outer: outer)
+        #expect(ring == radius, "outer \(outer): \(ring)")
+        // The path runs along the middle of the stroke: its outer edge is half the width further out.
+        #expect(ring + density.graph.hoverRingWidth / 2 <= density.rowList / 2)
+    }
+
+    @Test("A radius that would not fit the row is held back to the row's edge, the ring's stroke included",
+          arguments: [DensityMetrics.regular, .compact])
+    func radiiAreCapped(density: DensityMetrics) {
+        let geometry = Self.geometry(density)
+        let metrics = density.graph
+        // A node as large as the row: nothing reaches past its edge.
+        let outer = density.rowList / 2
+        #expect(geometry.haloRadius(outer: outer) == density.rowList / 2)
+        #expect(geometry.hoverRingRadius(outer: outer) == density.rowList / 2 - metrics.hoverRingWidth / 2)
+        // The row's height, not the canvas's, bounds them: the canvas reaches past the row, the halo must not.
+        #expect(geometry.size.height / 2 > density.rowList / 2)
     }
 }
 

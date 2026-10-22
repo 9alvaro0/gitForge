@@ -118,7 +118,8 @@ struct GraphColumnView: View {
         let isHovered = isHovered
         let overlapsJoints = !isDimmed
         Canvas { context, size in
-            let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints)
+            let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints,
+                                          rowSpacing: rowSpacing)
             painter.drawSteps(of: row, in: &context)
             painter.drawNode(row.node, as: node, isSelected: isSelected, isHovered: isHovered, in: &context)
         }
@@ -142,6 +143,8 @@ nonisolated struct GraphRowPainter {
     let size: CGSize
     /// `GraphRowGeometry.overlapsJoints`.
     var overlapsJoints = true
+    /// `GraphRowGeometry.rowSpacing`.
+    var rowSpacing: CGFloat = 0
 
     /// Dash of the stash node's square.
     private static let stashNodeDash: [CGFloat] = [2.5, 2]
@@ -168,7 +171,8 @@ nonisolated struct GraphRowPainter {
         // whole under a dashed stroke. Butt caps too, so it ends where the
         // half does.
         let band = StrokeStyle(lineWidth: edge + 2 * metrics.crossingGap, lineCap: .butt, lineJoin: .round)
-        let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints)
+        let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
+                                        rowSpacing: rowSpacing)
         // A dashed half (a stash's side step, a ghost line) is a dash and a gap
         // of half the geometry's period each (`GraphRowGeometry.dashPeriod`),
         // starting at the phase the geometry gives it, so the pattern runs on
@@ -229,7 +233,8 @@ nonisolated struct GraphRowPainter {
     }
 
     /// The node on top of the steps (spec v2 §4.5). Selection gets a soft halo
-    /// in the node's colour, hover a thin ring.
+    /// in the node's colour, hover a thin ring; neither reaches past the edge
+    /// of the row (`GraphRowGeometry.haloRadius(outer:)`).
     func drawNode(_ node: GraphNode, as shape: GraphNodeStyle, isSelected: Bool, isHovered: Bool,
                   in context: inout GraphicsContext) {
         let m = style.metrics
@@ -243,10 +248,12 @@ nonisolated struct GraphRowPainter {
         func circle(_ r: CGFloat) -> Path {
             Path(ellipseIn: CGRect(x: nodeCenter.x - r, y: nodeCenter.y - r, width: r * 2, height: r * 2))
         }
+        let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
+                                        rowSpacing: rowSpacing)
         if isSelected {
-            context.fill(circle(outer + m.selectHaloOutset), with: .color(color.opacity(m.selectHaloOpacity)))
+            context.fill(circle(geometry.haloRadius(outer: outer)), with: .color(color.opacity(m.selectHaloOpacity)))
         } else if isHovered {
-            context.stroke(circle(outer + m.hoverRingOutset),
+            context.stroke(circle(geometry.hoverRingRadius(outer: outer)),
                            with: .color(color.opacity(m.hoverRingOpacity)),
                            lineWidth: m.hoverRingWidth)
         }

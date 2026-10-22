@@ -194,7 +194,9 @@ Cada trazo lleva por debajo un borde del color de fondo de 1,5 pt a cada lado. A
 
 ### 5.3 Nodos y métricas
 
-Sin cambios en formas ni en `GraphMetrics`, salvo los valores del hueco de §5.2 y lo necesario para que el halo de selección no se recorte en densidad compacta. El nodo fantasma es nuevo: hueco y discontinuo, del tamaño del nodo de commit.
+Sin cambios en formas ni en `GraphMetrics`, salvo los valores del hueco de §5.2. El nodo fantasma es nuevo: hueco y discontinuo, del tamaño del nodo de commit.
+
+**(Decidido en G2)** El radio exterior del halo de selección y del anillo de hover (el trazo incluido) no pasa de la mitad del alto de la fila. Así ninguno sale de su fila hacia la separación ni hacia la fila vecina, ni queda recortado. En regular no cambia nada. En compacto el halo del HEAD seleccionado mide 11 pt de radio en lugar de 12,25; el anillo de hover ya cabía. No se toca ningún valor de `GraphMetrics`: el límite lo aplica la geometría de la fila (`GraphRowGeometry.haloRadius(outer:)` y `hoverRingRadius(outer:)`).
 
 ### 5.4 Colores
 

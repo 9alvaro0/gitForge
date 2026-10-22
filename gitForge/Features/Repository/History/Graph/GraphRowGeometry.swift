@@ -56,6 +56,9 @@ nonisolated struct GraphRowGeometry {
     /// show their overlap twice as strong, so its halves stop exactly on the
     /// joint, where the halves of an S meet with the same tangent.
     var overlapsJoints = true
+    /// The gap the table leaves between rows (`HistoryTableLayout.rowSpacing`):
+    /// the pitch less the row's own height. 0 for rows that touch.
+    var rowSpacing: CGFloat = 0
 
     /// How far a curve half runs past its joint, measured down the S: half
     /// the edge stroke. Along the slanted S that is at least as far. The part
@@ -121,10 +124,31 @@ nonisolated struct GraphRowGeometry {
     var center: CGFloat { size.height / 2 }
     /// Distance between row centres.
     var pitch: CGFloat { size.height - 2 * bleed }
+    /// The row's own height: the pitch less the gap the table leaves between rows.
+    var rowHeight: CGFloat { pitch - rowSpacing }
     /// The middle of the gap above the row, where the arriving halves join.
     var jointAbove: CGFloat { bleed }
     /// The middle of the gap below the row, where the leaving halves join.
     var jointBelow: CGFloat { size.height - bleed }
+
+    /// The outer radius of the selection halo around a node whose own outer
+    /// radius is `outer`: the node's outset (`selectHaloOutset`), but never
+    /// past the row's edge (half its height), which a halo would otherwise
+    /// cross into the gap and the next row, or get clipped by (§5.3). The
+    /// regular density's halo fits; the compact one's, around a HEAD, is held
+    /// to 11 pt instead of 12.25.
+    func haloRadius(outer: CGFloat) -> CGFloat {
+        min(outer + style.metrics.selectHaloOutset, rowHeight / 2)
+    }
+
+    /// The radius of the path the hover ring is stroked along around a node
+    /// whose outer radius is `outer`: the node's outset (`hoverRingOutset`),
+    /// but held back far enough that the stroke, which reaches half its width
+    /// past the path, stays inside the row too (§5.3).
+    func hoverRingRadius(outer: CGFloat) -> CGFloat {
+        let metrics = style.metrics
+        return min(outer + metrics.hoverRingOutset, rowHeight / 2 - metrics.hoverRingWidth / 2)
+    }
 
     /// Calls `body` with each half, its step and the dash phase the half starts
     /// with, in drawing order: every curve first, then the straight halves, so

@@ -305,6 +305,42 @@ struct GraphRowRenderTests {
         #expect(lit.contains(false), "no gaps")
     }
 
+    // MARK: - Selection and hover
+
+    @Test("A selected or hovered HEAD's halo and ring are drawn, and stop at the edges of their row",
+          arguments: [DensityMetrics.regular, .compact], [true, false])
+    func haloStopsAtTheRowEdge(density: DensityMetrics, selected: Bool) {
+        let metrics = density.graph, rowHeight = density.rowList, spacing = HistoryTableLayout.rowSpacing
+        let style = Self.style(metrics)
+        let row = Self.row(node: 1, color: .head)
+        // Three rows as the table lays them out, the gap between them included; the middle one is selected or hovered.
+        let size = CGSize(width: style.gutterWidth(lanes: Self.lanes), height: 3 * rowHeight + 2 * spacing)
+        guard let image = Self.render(ZStack(alignment: .topLeading) {
+            Color(red: 1, green: 0, blue: 0)
+            VStack(spacing: spacing) {
+                ForEach(0..<3, id: \.self) { index in
+                    GraphColumnView(row: row, maxLanes: Self.lanes, style: style, rowSpacing: spacing,
+                                    isHeadCommit: true, isSelected: selected && index == 1,
+                                    isHovered: !selected && index == 1)
+                        .frame(height: rowHeight)
+                }
+            }
+        }, size: size) else { return }
+        let x = style.laneCenter(1)
+        let top = rowHeight + spacing, bottom = top + rowHeight, center = top + rowHeight / 2
+        // Drawn: the halo fills out to near the edge; the ring is stroked at the node's outer radius plus its outset.
+        let reach = selected ? rowHeight / 2 - 1.5 : metrics.headOuterRadius + metrics.hoverRingOutset
+        for y in [center - reach, center + reach] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(!pixel.isClose(to: Self.background), "\(selected ? "halo" : "ring") at \(y): \(pixel)")
+        }
+        // Not past the row: neither just beyond its edge nor in the middle of the gap, above and below.
+        for y in [top - 0.25, top - spacing / 2, bottom + 0.25, bottom + spacing / 2] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.background), "\(selected ? "halo" : "ring") reaches \(y): \(pixel)")
+        }
+    }
+
     // MARK: - Geometry, written out independently of the painter
 
     /// Where the crossing gap must leave lines alone (§5.2): the node, and
