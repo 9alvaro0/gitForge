@@ -16,9 +16,11 @@ nonisolated struct GraphColoring: Sendable {
     /// **Fixed roles** come from what the owner is:
     /// - HEAD's branch, or a detached HEAD, is `.head`.
     /// - Rank 0 (`main`, `master`, `trunk`) is `.main`, rank 1 (`develop`, `dev`) is `.develop`.
+    ///   A remote trunk has the rank of the trunk it stands in for (§3.1), so the same roles.
     /// - A stash is `.stash`.
-    /// - A remote follows the local branch whose upstream it is, when that
-    ///   branch has a role to give; otherwise it is an ordinary owner.
+    /// - Any other remote follows the local branch whose upstream it is, when that
+    ///   branch has a role to give; otherwise it is an ordinary owner. A remote
+    ///   trunk follows no one, whatever tracks it.
     ///
     /// **The rest take a palette index**, one stretch of line at a time. A stretch
     /// is a drawn line in its column with a single colour owner; HEAD's line is
@@ -43,7 +45,7 @@ nonisolated struct GraphColoring: Sendable {
 
         var roles: [GraphOwner: GraphColorRole] = [:]
         for owner in owners {
-            roles[owner] = fixedRole(of: owner, headBranch: headBranch)
+            roles[owner] = fixedRole(of: owner, headBranch: headBranch, input: input)
         }
 
         // A remote's role is its local branch's. A fixed one is known now; a palette
@@ -51,7 +53,7 @@ nonisolated struct GraphColoring: Sendable {
         let localOfRemote = remoteFollowers(input, owners: owners, headBranch: headBranch)
         var followers: [GraphOwner: [GraphOwner]] = [:]
         for (remote, local) in localOfRemote {
-            if let fixed = fixedRole(of: local, headBranch: headBranch) {
+            if let fixed = fixedRole(of: local, headBranch: headBranch, input: input) {
                 roles[remote] = fixed
             } else {
                 followers[local, default: []].append(remote)
@@ -96,20 +98,21 @@ nonisolated struct GraphColoring: Sendable {
 
 private nonisolated extension GraphColoring {
     /// The role an owner has by what it is, or nil when it takes one from the palette.
-    static func fixedRole(of owner: GraphOwner, headBranch: String?) -> GraphColorRole? {
+    static func fixedRole(of owner: GraphOwner, headBranch: String?, input: GraphInput) -> GraphColorRole? {
         switch owner {
         case .head:
             return .head
         case .stash:
             return .stash
-        case .branch(let name):
-            if name == headBranch { return .head }
-            switch GraphPriority.rank(name) {
-            case 0: return .main
-            case 1: return .develop
+        case .branch(let name) where name == headBranch:
+            return .head
+        case .branch, .remote:
+            switch input.rank(of: owner) {
+            case 0?: return .main
+            case 1?: return .develop
             default: return nil
             }
-        case .remote, .unnamed:
+        case .unnamed:
             return nil
         }
     }
@@ -118,15 +121,16 @@ private nonisolated extension GraphColoring {
     /// whose upstream it is, provided that branch has a role to give, which is
     /// a fixed one or a place in the graph to get one from the palette. With
     /// several branches on one remote, the lowest priority rank wins and then
-    /// the name, so the order of the refs never matters.
+    /// the name, so the order of the refs never matters. A remote trunk is
+    /// never followed: its role comes from its own rank.
     static func remoteFollowers(_ input: GraphInput, owners: Set<GraphOwner>, headBranch: String?) -> [GraphOwner: GraphOwner] {
         var localOfRemote: [GraphOwner: GraphOwner] = [:]
         for ref in input.refs where ref.isLocalBranch {
-            guard let upstream = ref.upstream else { continue }
+            guard let upstream = ref.upstream, input.remoteTrunks[upstream] == nil else { continue }
             let remote = GraphOwner.remote(upstream)
             let local = GraphOwner.branch(ref.name)
             guard owners.contains(remote),
-                  owners.contains(local) || fixedRole(of: local, headBranch: headBranch) != nil else { continue }
+                  owners.contains(local) || fixedRole(of: local, headBranch: headBranch, input: input) != nil else { continue }
             if case .branch(let followed)? = localOfRemote[remote],
                (GraphPriority.rank(followed), followed) <= (GraphPriority.rank(ref.name), ref.name) {
                 continue

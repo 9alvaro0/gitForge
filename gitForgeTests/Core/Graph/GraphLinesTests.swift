@@ -5,6 +5,14 @@ import Testing
 @Suite("GraphLines")
 struct GraphLinesTests {
 
+    /// Rows: 0 `o`, 1 `r2`, 2 `f`, 3 `r1`, 4 `base`. HEAD's `feature` sits on `f`, and `origin/main`
+    /// stands in for the missing local main with its tip two commits ahead on `r2`.
+    private static let remoteTrunk = GraphInput(
+        commits: GraphFixture.commits("o base\nr2 r1\nf r1\nr1 base\nbase"), headSha: "f",
+        refs: [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o"),
+               GraphFixture.remote("origin/main", "r2")],
+        remoteTrunks: ["origin/main": 0])
+
     private func lines(_ input: GraphInput) -> GraphLines {
         GraphLines.build(input, rowOf: input.rowIndex())
     }
@@ -191,5 +199,27 @@ struct GraphLinesTests {
         #expect(single.headBranch == nil)
         #expect(single.firstPageEnd == 4)
         #expect(single.pageEnd(containing: 0) == 4)
+    }
+
+    @Test("Without a local main, origin/main claims as the trunk, before lower-ranked branches")
+    func remoteTrunkClaims() {
+        let result = lines(Self.remoteTrunk)
+        #expect(line(.remote("origin/main"), in: result)?.rows == [1])
+        #expect(line(.remote("origin/main"), in: result)?.forkRow == 3)
+        #expect(result.colorOwnerOfRow == [.branch("other"), .remote("origin/main"), .branch("feature"),
+                                           .remote("origin/main"), .remote("origin/main")])
+    }
+
+    @Test("A local branch that tracks the remote trunk doesn't continue it")
+    func trunkNotContinued() {
+        let input = GraphInput(commits: GraphFixture.commits("r2 r1\nr1 f\nf base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("feature", "f", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "r2")],
+            remoteTrunks: ["origin/main": 0])
+        let result = lines(input)
+        #expect(result.lines[0] == GraphLine(owner: .branch("feature"), rows: [2, 3], top: 2,
+                                             forkRow: nil, continuesPastEnd: false))
+        #expect(line(.remote("origin/main"), in: result)?.rows == [0, 1])
+        #expect(line(.remote("origin/main"), in: result)?.forkRow == 2)
     }
 }

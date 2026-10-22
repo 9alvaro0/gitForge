@@ -5,6 +5,14 @@ import Testing
 @Suite("CommitGraphEngine")
 struct CommitGraphEngineTests {
 
+    /// Rows: 0 `o`, 1 `r2`, 2 `f`, 3 `r1`, 4 `base`. HEAD's `feature` sits on `f`, and `origin/main`
+    /// stands in for the missing local main with its tip two commits ahead on `r2`.
+    private static let remoteTrunk = GraphInput(
+        commits: GraphFixture.commits("o base\nr2 r1\nf r1\nr1 base\nbase"), headSha: "f",
+        refs: [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o"),
+               GraphFixture.remote("origin/main", "r2")],
+        remoteTrunks: ["origin/main": 0])
+
     private static func gitflow(head: String = "feature/cart", pageEnds: [Int] = [], count: Int = 24) -> GraphInput {
         let commits = Array(GraphFixture.gitflow.prefix(count))
         let headSha = GraphFixture.gitflowRefs(head: head).first { $0.isHead }?.targetSha
@@ -210,5 +218,14 @@ struct CommitGraphEngineTests {
         #expect(full.rows[0] == first.rows[0])
         #expect(full.rows[1].node == first.rows[1].node)
         #expect(full.rows[1].stepsAbove == first.rows[1].stepsAbove)
+    }
+
+    @Test("Without a local main, origin/main is the trunk: its column, its colour, its server-only commits ghosts")
+    func remoteTrunkLayout() {
+        let layout = CommitGraphEngine.layout(Self.remoteTrunk)
+        GraphInvariants.check(layout, Self.remoteTrunk)
+        #expect(layout.rows[1].node == GraphNode(column: 1, kind: .commit, color: .main, isGhost: true))
+        #expect(layout.rows[3].node == GraphNode(column: 0, kind: .commit, color: .main, isGhost: false))
+        #expect(layout.rows[0].node.column == 2)
     }
 }

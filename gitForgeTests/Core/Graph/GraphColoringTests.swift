@@ -296,4 +296,14 @@ struct GraphColoringTests {
         #expect(bothPages.role(.branch("feature/y")) == .pool(1))
         #expect(bothPages.role(.branch("feature/a")) == .pool(0))
     }
+
+    @Test("A remote trunk has its trunk's role, even as a local branch's upstream",
+          arguments: [(0, GraphColorRole.main), (1, .develop)])
+    func remoteTrunkRole(rank: Int, role: GraphColorRole) {
+        let c = coloring(GraphInput(commits: GraphFixture.commits("r2 r1\nr1 f\nf base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("feature", "f", head: true, upstream: "origin/x", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/x", "r2")],
+            remoteTrunks: ["origin/x": rank]))
+        #expect(c.role(.remote("origin/x")) == role)
+    }
 }

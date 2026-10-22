@@ -17,8 +17,9 @@ nonisolated struct GraphColumns: Sendable {
     /// Assigns columns in two passes, so that nothing already placed ever moves
     /// when more history is loaded (§3.9):
     /// 1. **Reserved** lines, from row 0 down to where they end: HEAD, then the
-    ///    trunks (rank 0) and develop (rank 1). Only when the line's first row is
-    ///    in the first page; a later one is placed like any other line.
+    ///    trunks (rank 0) and develop (rank 1), a remote trunk standing in for a
+    ///    missing local one included. Only when the line's first row is in the
+    ///    first page; a later one is placed like any other line.
     /// 2. **The rest**, by first row, a line before a track starting on the same
     ///    row. A line takes the leftmost free column. A track whose target line
     ///    already has a column goes to the free column nearest to the span between
@@ -68,7 +69,7 @@ private nonisolated extension GraphColumns {
     }
 
     /// Indices of the lines that claim their column up front, in claim order:
-    /// HEAD's line, then rank 0, then rank 1, each rank by first row.
+    /// HEAD's line, then rank 0, then rank 1 (local or remote trunks), each rank by first row.
     static func reservedLines(_ input: GraphInput, _ lines: [GraphLine]) -> [Int] {
         let firstPageEnd = input.firstPageEnd
         let headOwner = input.headBranch.map(GraphOwner.branch) ?? .head
@@ -78,8 +79,8 @@ private nonisolated extension GraphColumns {
             guard let firstRow = line.rows.first, firstRow < firstPageEnd else { continue }
             if line.owner == headOwner {
                 head.append(index)
-            } else if case .branch(let name) = line.owner, GraphPriority.rank(name) <= 1 {
-                trunks.append((GraphPriority.rank(name), line.top, index))
+            } else if let rank = input.rank(of: line.owner), rank <= 1 {
+                trunks.append((rank, line.top, index))
             }
         }
         return head + trunks.sorted { ($0.rank, $0.top, $0.index) < ($1.rank, $1.top, $1.index) }.map(\.index)
