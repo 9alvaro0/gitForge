@@ -1,7 +1,7 @@
 import Foundation
 
-/// ⌘K results grouped by kind (Actions, Repositories, Branches, Commits,
-/// Files), each group ranked by its fuzzy score.
+/// ⌘K results grouped by kind (Actions, Repositories, Pull requests,
+/// Branches, Commits, Files), each group ranked by its match score.
 enum CommandPaletteSections {
     struct Row: Identifiable, Equatable {
         let item: CommandPaletteItem
@@ -21,22 +21,28 @@ enum CommandPaletteSections {
     static let searchLimit = 6
     static let scopedLimit = 50
 
-    static func build(items: [CommandPaletteItem], query: String, scope: CommandPaletteScope = .all) -> [Section] {
+    /// `pinned` rows (a pasted pull request link's) lead the Pull requests
+    /// group, which then goes first. They show in All and in the Pull requests
+    /// scope, whatever the query, and are not counted against the group's limit.
+    static func build(items: [CommandPaletteItem], query: String, scope: CommandPaletteScope = .all,
+                      pinned: [CommandPaletteItem] = []) -> [Section] {
         let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
-        let kinds: [CommandPaletteItem.Kind]
-        switch scope {
-        case .all: kinds = CommandPaletteItem.Kind.displayOrder
-        case .only(let kind): kinds = [kind]
+        let scopeKinds: [CommandPaletteItem.Kind] = switch scope {
+        case .all: CommandPaletteItem.Kind.displayOrder
+        case .only(let kind): [kind]
         }
+        let pinnedRows = scopeKinds.contains(.pull) ? pinned.map { Row(item: $0, match: nil) } : []
+        let kinds = pinnedRows.isEmpty ? scopeKinds : [.pull] + scopeKinds.filter { $0 != .pull }
         return kinds.compactMap { kind in
             let ofKind = items.filter { $0.kind == kind }
-            let rows: [Row]
+            let found: [Row]
             if searching {
-                rows = ranked(ofKind, query: query, limit: scope == .all ? searchLimit : scopedLimit)
+                found = ranked(ofKind, query: query, limit: scope == .all ? searchLimit : scopedLimit)
             } else {
                 let limit = scope == .all && kind != .command ? browseLimit : scopedLimit
-                rows = ofKind.prefix(limit).map { Row(item: $0, match: nil) }
+                found = ofKind.prefix(limit).map { Row(item: $0, match: nil) }
             }
+            let rows = kind == .pull ? pinnedRows + found : found
             return rows.isEmpty ? nil : Section(kind: kind, rows: rows)
         }
     }
@@ -45,7 +51,8 @@ enum CommandPaletteSections {
     private static func ranked(_ items: [CommandPaletteItem], query: String, limit: Int) -> [Row] {
         var scored: [(offset: Int, row: Row, score: Int)] = []
         for (offset, item) in items.enumerated() {
-            guard let match = FuzzyMatcher.match(query, in: item.label) else { continue }
+            guard let match = PaletteSearch.match(query, label: item.label, keywords: item.keywords, number: item.number)
+            else { continue }
             scored.append((offset, Row(item: item, match: match), match.score))
         }
         scored.sort { $0.score != $1.score ? $0.score > $1.score : $0.offset < $1.offset }

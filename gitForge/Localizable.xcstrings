@@ -13562,6 +13562,22 @@
         }
       }
     },
+    "Search actions, repositories, pull requests, branches, commits, files…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar acciones, repositorios, pull requests, ramas, commits, archivos…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar ações, repositórios, pull requests, ramos, commits, ficheiros…"
+          }
+        }
+      }
+    },
     "Search everything" : {
       "localizations" : {
         "es" : {

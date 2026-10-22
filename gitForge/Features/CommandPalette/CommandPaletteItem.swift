@@ -4,18 +4,20 @@ import Foundation
 struct CommandPaletteItem: Identifiable, Hashable {
     enum Kind: String, Hashable {
         case repo
+        case pull
         case commit
         case branch
         case file
         case command
 
         /// The order groups appear in ⌘K.
-        static let displayOrder: [Kind] = [.command, .repo, .branch, .commit, .file]
+        static let displayOrder: [Kind] = [.command, .repo, .pull, .branch, .commit, .file]
 
         var title: String {
             switch self {
             case .command: String(localized: "Actions")
             case .repo:    String(localized: "Repositories")
+            case .pull:    String(localized: "Pull requests")
             case .branch:  String(localized: "Branches")
             case .commit:  String(localized: "Commits")
             case .file:    String(localized: "Files")
@@ -28,6 +30,11 @@ struct CommandPaletteItem: Identifiable, Hashable {
     let label: String
     let hint: String?
     let action: PaletteAction
+    /// Other texts the query can find this row by (a pull request's repo
+    /// path, branch and author). Empty: only `label` is searched.
+    var keywords: [String] = []
+    /// A pull request's number, so `#482` finds it exactly.
+    var number: Int?
 }
 
 /// What happens when a palette item is selected.

@@ -126,7 +126,7 @@ struct CommandPaletteView: View {
 
     private var placeholder: String {
         switch scope {
-        case .all: String(localized: "Search actions, repositories, branches, commits, files…")
+        case .all: String(localized: "Search actions, repositories, pull requests, branches, commits, files…")
         case .only(let kind): String(localized: "Search \(kind.title.lowercased())…")
         }
     }
@@ -279,6 +279,7 @@ private struct PaletteRow: View {
         switch row.item.kind {
         case .command: "bolt"
         case .repo:    "folder"
+        case .pull:    "arrow.triangle.pull"
         case .branch:  "arrow.triangle.branch"
         case .commit:  "circle.circle"
         case .file:    "doc"
