@@ -389,7 +389,7 @@ struct GraphRowRenderTests {
             points.append((point, last.along + last.point.distance(to: point)))
         }
         let bend = points[points.count - 1].along
-        for index in 1...Int(pitch * 20) {
+        for _ in 1...Int(pitch * 20) {
             let last = points[points.count - 1]
             points.append((CGPoint(x: last.point.x, y: last.point.y + 0.05), last.along + 0.05))
         }
