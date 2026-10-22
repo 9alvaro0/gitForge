@@ -11,6 +11,8 @@ final class WhatsNewController {
     private(set) var pending: WhatsNewPresentation?
     /// This launch shows the sheet, so the "Updated to" toast is redundant.
     private(set) var showsSheetThisLaunch = false
+    /// A window is showing the sheet; the menu waits until it closes.
+    private(set) var isShowing = false
 
     @ObservationIgnored private let catalog: WhatsNewCatalog
     @ObservationIgnored private let gate: WhatsNewGate
@@ -31,7 +33,7 @@ final class WhatsNewController {
     }
 
     var canShowFromMenu: Bool {
-        latestRelease != nil
+        !isShowing && pending == nil && latestRelease != nil
     }
 
     /// Runs the launch rule once per controller, even if several windows
@@ -45,7 +47,7 @@ final class WhatsNewController {
 
     /// Help › What's New in gitForge: the newest notes up to this version.
     func showFromMenu() {
-        guard pending == nil, let release = latestRelease else { return }
+        guard canShowFromMenu, let release = latestRelease else { return }
         pending = WhatsNewPresentation(currentVersion: release.version, previousVersion: nil,
                                        releases: [release], source: .menu)
     }
@@ -56,10 +58,16 @@ final class WhatsNewController {
     func claim(otherSheetUp: Bool) -> WhatsNewPresentation? {
         guard !otherSheetUp, let presentation = pending else { return nil }
         pending = nil
+        isShowing = true
         if presentation.source == .launch {
             gate.markSeen(currentVersion)
         }
         return presentation
+    }
+
+    /// The window that claimed the sheet closed it.
+    func dismissed() {
+        isShowing = false
     }
 
     private var latestRelease: WhatsNewRelease? {

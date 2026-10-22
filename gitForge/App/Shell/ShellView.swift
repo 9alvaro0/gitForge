@@ -80,7 +80,10 @@ struct ShellView: View {
         // sheet per window, so it waits while another one is up.
         .onChange(of: appState.whatsNew.pending?.id, initial: true) { claimWhatsNew() }
         .onChange(of: otherSheetUp) { claimWhatsNew() }
-        .sheet(item: $whatsNewSheet) { presentation in
+        .sheet(item: $whatsNewSheet, onDismiss: {
+            appState.whatsNew.dismissed()
+            claimWhatsNew()
+        }) { presentation in
             WhatsNewSheet(presentation: presentation)
         }
         .sheet(item: Bindable(appState.ui).cloneRequest) { request in

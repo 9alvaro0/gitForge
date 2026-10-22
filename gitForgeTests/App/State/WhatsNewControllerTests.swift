@@ -96,6 +96,23 @@ struct WhatsNewControllerTests {
         }
     }
 
+    @Test("The menu does nothing while the sheet shows and works again after it closes")
+    func menuWhileShowing() {
+        TestDefaults.with { suite in
+            let controller = controller(gate(suite))
+            controller.evaluateAtLaunch()
+            #expect(controller.claim(otherSheetUp: false) != nil)
+            #expect(!controller.canShowFromMenu)
+            controller.showFromMenu()
+            #expect(controller.pending == nil)
+
+            controller.dismissed()
+            #expect(controller.canShowFromMenu)
+            controller.showFromMenu()
+            #expect(controller.claim(otherSheetUp: false)?.source == .menu)
+        }
+    }
+
     @Test("An empty catalog disables the menu and shows nothing")
     func emptyCatalog() {
         TestDefaults.with { suite in
