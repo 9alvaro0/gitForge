@@ -497,8 +497,8 @@ final class HistoryStore {
     }
 
     private func stage(_ log: HistoryLog, scope: HistoryScope, logGen gen: UInt64, baseRevision: UInt64?) -> StagedLog {
-        StagedLog(log: log, scope: scope, input: graphInput(for: log), logGen: gen, baseRevision: baseRevision,
-                  inputRevision: graphInputRevision)
+        StagedLog(log: log, scope: scope, input: graphInput(for: log, scope: scope), logGen: gen,
+                  baseRevision: baseRevision, inputRevision: graphInputRevision)
     }
 
     /// Lays `staged` out off the main actor, then publishes the log and its
@@ -526,7 +526,7 @@ final class HistoryStore {
                 return true
             }
             revision = graphInputRevision
-            input = graphInput(for: staged.log)
+            input = graphInput(for: staged.log, scope: staged.scope)
             layout = await layOut(input)
         }
         return false
@@ -559,11 +559,17 @@ final class HistoryStore {
     /// stashes, HEAD, the refs that name the lines, the remote trunks and
     /// the size of the palette.
     func graphInput() -> GraphInput {
-        graphInput(for: loadedLog)
+        graphInput(for: loadedLog, scope: loadedScope)
     }
 
-    private func graphInput(for log: HistoryLog) -> GraphInput {
-        let refs = refsSource?.refs ?? []
+    /// The input for `log`, fetched with `scope`. Its remote branches stay at
+    /// the tips the log was loaded with (`HistoryScope.pinning`): after a fetch
+    /// moved one, the log is laid out again before it reloads, and with the new
+    /// tip, which it may not have, the commits it loaded for that branch would
+    /// lose their name, column and ghost look until then. The chips follow.
+    private func graphInput(for log: HistoryLog, scope: HistoryScope?) -> GraphInput {
+        let live = refsSource?.refs ?? []
+        let refs = scope?.pinning(live) ?? live
         return GraphInput(commits: log.commits,
                           pageEnds: log.pageEnds,
                           headSha: refsSource?.headSha,

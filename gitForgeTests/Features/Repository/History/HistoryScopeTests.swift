@@ -76,4 +76,24 @@ struct HistoryScopeTests {
                           unmerged: ["refs/heads/topic"], stashes: [Stash(index: 0, sha: "s1", subject: "WIP")])
         #expect(!loaded.isOutdated(by: local))
     }
+
+    @Test("Pinning puts a remote branch of the scope that moved back at its tip; other refs stay as they are")
+    func pinning() {
+        let loaded = scope([GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                            GraphFixture.remote("origin/main", "u2")])
+        let fetched = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                       GraphFixture.remote("origin/main", "u3"), GraphFixture.remote("origin/topic", "t2"),
+                       GraphFixture.tag("v1", "u3")]
+        #expect(loaded.pinning(fetched) == [fetched[0], GraphFixture.remote("origin/main", "u2"), fetched[2], fetched[3]])
+    }
+
+    @Test("Pinning refs whose remote branches didn't move returns the same array, storage included")
+    func pinningNothingMoved() {
+        let refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                    GraphFixture.remote("origin/main", "u2"), GraphFixture.remote("origin/topic", "t")]
+        let pinned = scope(refs).pinning(refs)
+        #expect(pinned == refs)
+        // Array equality short-circuits on a shared buffer: the chips compare such refs in O(1).
+        #expect(pinned.withUnsafeBufferPointer { $0.baseAddress } == refs.withUnsafeBufferPointer { $0.baseAddress })
+    }
 }

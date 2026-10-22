@@ -105,6 +105,32 @@ struct HistoryStoreGraphTests {
         #expect(vm.history.isScopeStale)
     }
 
+    @Test("Until the log reloads, a remote branch of its scope that moved stays where the log was loaded with it")
+    func movedRemoteStaysUntilReload() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")]
+        vm.headSha = "m"
+        await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("u2 u1\nu1 m\nm a")))
+        let pull = GraphNode(column: 0, kind: .commit, color: .head, isGhost: true)
+        #expect(vm.history.graphLayouts.prefix(2).map(\.node) == [pull, pull])
+
+        // A fetch moves origin/main to a commit the log doesn't have; its refs land before the reload.
+        vm.refs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 3),
+                   GraphFixture.remote("origin/main", "u3")]
+        #expect(vm.history.isScopeStale)
+        await vm.history.recomputeGraph()
+        #expect(vm.history.graphLayouts.prefix(2).map(\.node) == [pull, pull])
+        #expect(vm.history.refChips.refs(on: "u2").map(\.name) == ["origin/main"])
+        Self.expectPublished(vm.history)
+
+        // So does a page appended before the reload.
+        vm.history.appendPage(GraphFixture.commits("a"))
+        #expect(vm.history.graphLayouts.prefix(2).map(\.node) == [pull, pull])
+        #expect(vm.history.refChips.refs(on: "u2").map(\.name) == ["origin/main"])
+        Self.expectPublished(vm.history)
+    }
+
     @Test("graphScope is the current scope's revisions, remote tips by sha")
     func graphScopeWithRemotes() {
         let vm = Self.makeVM()

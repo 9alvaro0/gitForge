@@ -50,4 +50,20 @@ nonisolated struct HistoryScope: Sendable, Equatable {
     func isOutdated(by current: HistoryScope) -> Bool {
         remoteTips != current.remoteTips || includesAllRemotes != current.includesAllRemotes
     }
+
+    /// `refs` with each remote branch of the scope at the tip it had when the scope was made,
+    /// so a log fetched with it is laid out with the tips it loaded until it reloads: a fetch
+    /// may move one to a commit the log doesn't have. The same array, storage included, when
+    /// none moved.
+    func pinning(_ refs: [GitRef]) -> [GitRef] {
+        func pinnedTip(_ ref: GitRef) -> String? {
+            guard ref.isRemoteBranch, let tip = remoteTips[ref.name], tip != ref.targetSha else { return nil }
+            return tip
+        }
+        guard !remoteTips.isEmpty, refs.contains(where: { pinnedTip($0) != nil }) else { return refs }
+        return refs.map { ref in
+            guard let tip = pinnedTip(ref) else { return ref }
+            return GitRef(name: ref.name, kind: ref.kind, targetSha: tip, isHead: ref.isHead)
+        }
+    }
 }
