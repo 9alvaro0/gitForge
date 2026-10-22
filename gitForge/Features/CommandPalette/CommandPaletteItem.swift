@@ -64,10 +64,11 @@ enum PaletteAction: Hashable {
     case noop
 
     /// Opens a panel or a sheet: ⌘↵ ("run without closing") still closes
-    /// the palette for these, or it would sit on top of what they show.
+    /// the palette for these, or it would sit on top of what they show. A
+    /// link may end in the connect sheet, and Reviews takes the window anyway.
     var presentsUI: Bool {
         switch self {
-        case .openRepository, .cloneRepository, .addInstance: true
+        case .openRepository, .cloneRepository, .addInstance, .openPullLink: true
         default: false
         }
     }

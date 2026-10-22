@@ -72,6 +72,17 @@ struct PaletteActionRouterTests {
         #expect(app.ui.addInstanceRequest?.url == "https://code.example.test")
     }
 
+    @Test("A pasted link goes to Reviews at once, before the inbox has read it")
+    func linkGoesToReviewsAtOnce() throws {
+        let app = AppState.isolated()
+        let link = try #require(PullRequestLink.parse("https://github.com/octo/lib/pull/7", instances: app.accounts.instances))
+
+        PaletteActionRouter(appState: app).route(.openPullLink(link))
+
+        // No suspension point since `route`: the read hasn't started yet.
+        #expect(app.ui.workspaceSection == .reviews)
+    }
+
     @Test("A link on an instance with no account goes to Reviews and asks to connect one")
     func linkWithoutAccounts() async throws {
         let app = AppState.isolated()
@@ -101,9 +112,13 @@ struct PaletteActionRouterTests {
         #expect(app.ui.connectAccountRequest == nil)
     }
 
-    @Test("Only adding an instance opens a sheet, so ⌘↵ still closes the palette for it")
-    func presentsUI() {
+    @Test("Adding an instance and opening a link may show a sheet, so ⌘↵ still closes the palette for them")
+    func presentsUI() throws {
+        let link = try #require(PullRequestLink.parse("https://github.com/octo/lib/pull/7",
+                                                      instances: HostingInstance.builtIns))
         #expect(PaletteAction.addInstance(kind: .github, host: "ghe.example.test").presentsUI)
+        // Its outcome can be the connect sheet.
+        #expect(PaletteAction.openPullLink(link).presentsUI)
         #expect(!PaletteAction.openPull(id: "x#1").presentsUI)
         #expect(!PaletteAction.showReviews(repoKey: "x").presentsUI)
     }

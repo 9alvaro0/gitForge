@@ -243,6 +243,9 @@ private struct PaletteRow: View {
                         .textRole(.monoSmall)
                         .foregroundStyle(theme.colors.textTertiary)
                         .lineLimit(1)
+                        // A pull request's `!482 · repo` tells two of the same
+                        // title apart: its title is cut first.
+                        .layoutPriority(row.item.kind == .pull ? 1 : 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

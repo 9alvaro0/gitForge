@@ -50,6 +50,9 @@ struct PaletteActionRouter {
             appState.ui.workspaceSection = .reviews
             appState.reviews.showRepo(repoKey)
         case .openPullLink(let link):
+            // Reviews before the read starts: its detail column says what's
+            // being opened (Ruling 11, "at once").
+            appState.ui.workspaceSection = .reviews
             Task { await openLink(link) }
         case .addInstance(let kind, let host):
             appState.ui.addInstanceRequest = AddInstanceRequest(kind: kind, url: "https://\(host)")

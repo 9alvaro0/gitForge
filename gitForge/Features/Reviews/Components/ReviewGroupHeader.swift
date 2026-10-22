@@ -26,15 +26,47 @@ struct ReviewGroupHeader: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, Spacing.s12)
-        // Closer to its own rows than to the group above.
-        .padding(.top, Spacing.s12)
-        .padding(.bottom, Spacing.s2)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.colors.bgContent)
+        .reviewSectionHeader()
         .help(Text(verbatim: "\(repo.host.host)/\(repo.host.slug)"))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// The heading over the pull requests opened from a link that aren't rows of
+/// the followed repos (R2 Ruling 9), with a repo's heading's look.
+struct ReviewOthersHeader: View {
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        Text("Others")
+            .textRole(.callout, weight: .semibold)
+            .foregroundStyle(theme.colors.textSecondary)
+            .lineLimit(1)
+            .reviewSectionHeader()
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+extension View {
+    /// What every heading of the inbox shares: its inset, a little closer
+    /// to its own rows than to the group above, and the list's background,
+    /// so the rows scroll under it while it's pinned.
+    func reviewSectionHeader() -> some View {
+        modifier(ReviewSectionHeaderChrome())
+    }
+}
+
+private struct ReviewSectionHeaderChrome: ViewModifier {
+    @Environment(\.appTheme) private var theme
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, Spacing.s12)
+            .padding(.top, Spacing.s12)
+            .padding(.bottom, Spacing.s2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(theme.colors.bgContent)
     }
 }
 
