@@ -26,10 +26,12 @@ extension RepositoryViewModel {
         guard gen == refsGen else { return }
 
         // Compared with what is in place before it is overwritten: the graph only
-        // needs laying out again when what it reads differs.
+        // needs laying out again when what it reads differs. The same refs are
+        // not written, so they keep their storage and everything that compares
+        // them later (the chips, the refs' own didSet) does so in O(1).
         var graphInputChanged = false
-        if let refs = refsResult {
-            graphInputChanged = refs != self.refs
+        if let refs = refsResult, refs != self.refs {
+            graphInputChanged = true
             self.refs = refs
         }
         // They pick the remote trunk the graph draws.

@@ -128,8 +128,9 @@ final class HistoryStore {
     private(set) var refChips: HistoryRefChips = .empty
     /// What `refChips` was made from. `apply` keeps the chips while the refs, the remote
     /// trunks and the toggle are the same, so a page or a palette change costs nothing here.
-    @ObservationIgnored private var refChipsSource: RefChipsSource?
-    private struct RefChipsSource: Equatable {
+    /// Tests read it to check that its refs share the published ones' storage.
+    @ObservationIgnored private(set) var refChipsSource: RefChipsSource?
+    struct RefChipsSource: Equatable {
         let refs: [GitRef]
         let remoteTrunks: [String: Int]
         let includesAllRemotes: Bool
@@ -641,10 +642,13 @@ final class HistoryStore {
         graphMaxLanes = max(1, layout.columnCount)
         let source = RefChipsSource(refs: input.refs, remoteTrunks: input.remoteTrunks,
                                     includesAllRemotes: loadedScope?.includesAllRemotes ?? false)
-        // Refs that didn't change share their storage, so this is O(1) for a page or a palette change.
-        guard source != refChipsSource else { return }
-        refChips = refChipsBuilder(source.refs, source.remoteTrunks, source.includesAllRemotes)
+        // O(1) while the refs share the source's storage, element by element otherwise. Kept
+        // even when equal, so after refs read again into a new buffer only the first page or
+        // relayout pays for the element-wise compare.
+        let changed = source != refChipsSource
         refChipsSource = source
+        guard changed else { return }
+        refChips = refChipsBuilder(source.refs, source.remoteTrunks, source.includesAllRemotes)
     }
 
     // MARK: Detail

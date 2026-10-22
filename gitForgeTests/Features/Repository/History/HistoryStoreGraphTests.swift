@@ -448,6 +448,46 @@ struct HistoryStoreGraphTests {
         #expect(builds.value == 3)
     }
 
+    /// Whether two non-empty arrays share one buffer: `Array ==` then answers without
+    /// comparing a single element.
+    private static func sharesStorage(_ lhs: [GitRef], _ rhs: [GitRef]) -> Bool {
+        lhs.withUnsafeBufferPointer { $0.baseAddress } == rhs.withUnsafeBufferPointer { $0.baseAddress }
+    }
+
+    @Test("Refs read again with the same content reuse the chips, and the next compare is by storage")
+    func chipsSourceTakesEqualRefs() throws {
+        let vm = Self.makeVM()
+        vm.refs = Self.trackedRefs
+        let builds = Self.countChipBuilds(vm.history)
+        vm.history.replaceLog(with: Self.chipCommits)
+        #expect(builds.value == 1)
+
+        // The same refs in a new buffer, as a refs read hands them over.
+        let reread = Self.trackedRefs.map { $0 }
+        #expect(reread == vm.refs && !Self.sharesStorage(reread, vm.refs))
+        vm.refs = reread
+        vm.history.appendPage(GraphFixture.commits("z"))
+        #expect(builds.value == 1)
+        // The chips' source now holds that buffer: the page after this one compares it in O(1).
+        let source = try #require(vm.history.refChipsSource)
+        #expect(Self.sharesStorage(source.refs, vm.refs))
+    }
+
+    @Test("loadRefs keeps the refs it has when it reads the same ones")
+    func loadRefsKeepsEqualRefs() async throws {
+        let repo = try await GitTestRepo.make { try $0.commit("c0", files: ["f.txt": "0\n"]) }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        let refs = vm.refs
+        #expect(!refs.isEmpty)
+        await vm.loadRefs()
+        #expect(Self.sharesStorage(vm.refs, refs))
+        try await repo.gitAsync("branch", "topic")
+        await vm.loadRefs()
+        #expect(vm.refs.contains { $0.name == "topic" })
+    }
+
     @Test("The chips are rebuilt when the loaded scope's toggle changes, and not before")
     func chipsRebuiltWhenToggleChanges() async {
         let suite = TestDefaults()
