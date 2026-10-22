@@ -99,12 +99,20 @@ final class ReviewsStore {
 
     var hasAccounts: Bool { !environment.accounts().isEmpty }
 
-    /// The accounts of `accountsNeedingAttention` with their instance, in
-    /// store order, for the inbox's "Reconnect" notices. One that was
-    /// removed meanwhile is left out.
+    /// The accounts of `accountsNeedingAttention` that own at least one
+    /// followed repo, with their instance, in store order, for the inbox's
+    /// "Reconnect" notices. A stale token saved next to working accounts, with
+    /// no repo of its own, is still in `accountsNeedingAttention` but says
+    /// nothing here: there's nothing in the inbox to reconnect it for. One
+    /// whose repos are still listed (a clone assigned to it, activity repos
+    /// carried over) keeps its notice (spec §4.2). One that was removed
+    /// meanwhile is left out.
     var accountsToReconnect: [(account: HostingAccount, instance: HostingInstance)] {
         guard !accountsNeedingAttention.isEmpty else { return [] }
-        return environment.accounts().filter { accountsNeedingAttention.contains($0.account.id) }
+        let owners = Set(repos.map(\.accountId))
+        return environment.accounts().filter {
+            accountsNeedingAttention.contains($0.account.id) && owners.contains($0.account.id)
+        }
     }
 
     /// The selected row, while the current filter shows it.

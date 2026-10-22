@@ -189,10 +189,11 @@ private final class Harness {
 
     static func key(_ path: String) -> String { FollowedRepos.key(host(path)) }
 
-    static func local(_ path: String) -> LocalRemote {
+    /// A clone of `path`; `account` is the one its own Pull requests screen reads it with, if any.
+    static func local(_ path: String, account: UUID? = nil) -> LocalRemote {
         LocalRemote(host: host(path), repository: Repository(url: URL(fileURLWithPath: "/r/\(path)"),
                                                             lastOpenedAt: date(1_780_000_000)),
-                    assignedAccountId: nil)
+                    assignedAccountId: account)
     }
 
     static func member(_ id: String, _ path: String) -> RemoteRepoSummary {
@@ -745,15 +746,60 @@ struct ReviewsStoreTests {
         let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
                                   status: .needsAttention(.revoked))
         harness.accounts.append(dead)
+        // The clone of team/app is read with the dead account: its repo stays listed.
+        harness.locals = [Harness.local("team/app", account: dead.id)]
         let store = harness.makeStore()
         #expect(store.accountsToReconnect.isEmpty)
 
         await store.refresh(force: true)
 
+        #expect(store.repos.first { $0.host.repo == "app" }?.accountId == dead.id)
         #expect(store.accountsToReconnect.map(\.account.id) == [dead.id])
         #expect(store.accountsToReconnect.map(\.instance.id) == [Harness.instance.id])
         // Removed meanwhile: no notice for an account that's gone.
         harness.accounts.removeLast()
+        #expect(store.accountsToReconnect.isEmpty)
+    }
+
+    @Test("A dead account that owns no followed repo needs attention but gets no reconnect notice")
+    func deadAccountWithoutReposHasNoNotice() async {
+        let harness = Self.twoRepos()
+        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+                                  status: .needsAttention(.revoked))
+        harness.accounts.append(dead)
+        let store = harness.makeStore()
+
+        await store.refresh(force: true)
+
+        #expect(store.accountsNeedingAttention == [dead.id])
+        #expect(store.repos.map(\.host.repo).sorted() == ["api", "app"])
+        #expect(store.repos.allSatisfy { $0.accountId != dead.id })
+        #expect(store.accountsToReconnect.isEmpty)
+    }
+
+    @Test("An account that goes dead keeps its notice while its repos stay, until it's connected again")
+    func carriedOverReposKeepTheNotice() async {
+        let harness = Self.twoRepos()
+        harness.provider.state {
+            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
+            $0.lists["team/api"] = [Harness.pr(2, by: "octo", updated: 200)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.accountsToReconnect.isEmpty)
+
+        // Its token was rejected meanwhile: both repos (a clone and a carried-over activity one) stay.
+        harness.account.status = .needsAttention(.revoked)
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(store.repos.count == 2)
+        #expect(store.accountsToReconnect.map(\.account.id) == [harness.account.id])
+
+        // Connected again.
+        harness.account.status = .ok
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(store.accountsNeedingAttention.isEmpty)
         #expect(store.accountsToReconnect.isEmpty)
     }
 }
