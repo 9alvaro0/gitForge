@@ -228,10 +228,6 @@ struct ReviewsStoreTests {
 
     private static func reads(_ harness: Harness) -> Int { harness.provider.state { $0.reads.count } }
 
-    /// How long a test waits for a held read to get to its gate. The default
-    /// 3 s is not enough when the whole suite stalls the machine for a while.
-    private static let patience: Duration = .seconds(15)
-
     @Test("Groups follow their newest update, and Team and Mine split the pull requests by author")
     func groupsAndFilters() async {
         let harness = Self.twoRepos()
@@ -438,7 +434,7 @@ struct ReviewsStoreTests {
         let reading = AsyncGate()
         harness.localsGate = reading
         let round = Task { await store.refresh(force: true) }
-        await reading.waiting(timeout: Self.patience)
+        await reading.waiting()
         #expect(store.repos.isEmpty)
         #expect(store.listContent == .loading)
 
@@ -465,7 +461,7 @@ struct ReviewsStoreTests {
             $0.gates["team/api"] = reading
         }
         let round = Task { await store.refresh(force: true) }
-        await reading.waiting(timeout: Self.patience)
+        await reading.waiting()
         #expect(store.repos.map(\.host.repo).sorted() == ["api", "app"])
         #expect(store.pulls[Harness.key("team/app")]?.isEmpty == true)
         #expect(store.pulls[Harness.key("team/api")] == nil)
@@ -489,7 +485,7 @@ struct ReviewsStoreTests {
         let again = AsyncGate()
         harness.localsGate = again
         let next = Task { await store.refresh(force: true) }
-        await again.waiting(timeout: Self.patience)
+        await again.waiting()
         #expect(store.listContent == .groups(store.groups))
         again.open()
         await next.value
@@ -513,12 +509,12 @@ struct ReviewsStoreTests {
         harness.localsGate = listing
         harness.provider.state { $0.gates["team/app"] = reading }
         let round = Task { await store.refresh(force: true) }
-        await listing.waiting(timeout: Self.patience)
+        await listing.waiting()
         #expect(store.isRefreshing)
         #expect(store.listContent == .empty)
 
         listing.open()
-        await reading.waiting(timeout: Self.patience)
+        await reading.waiting()
         #expect(store.isRefreshing)
         #expect(store.listContent == .empty)
 
@@ -547,7 +543,7 @@ struct ReviewsStoreTests {
         let listing = AsyncGate()
         harness.localsGate = listing
         let round = Task { await store.refresh(force: true) }
-        await listing.waiting(timeout: Self.patience)
+        await listing.waiting()
         #expect(store.listContent == .empty)
 
         listing.open()
