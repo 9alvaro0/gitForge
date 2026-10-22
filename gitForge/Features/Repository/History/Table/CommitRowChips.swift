@@ -19,6 +19,11 @@ struct CommitRowChips: View {
     /// Lane colour of this commit in the graph; branch chips take it as a
     /// tint so each chip matches the line it labels.
     var laneColor: Color? = nil
+    /// How each remote chip is named and bordered (§4.4): the prefix when two remotes share a
+    /// branch name, a dashed border when it is away from its local branch.
+    var chips: HistoryRefChips = .empty
+    /// This commit only exists on the server: its remote chips get a dashed border.
+    var isGhost = false
 
     @Environment(\.appTheme) private var theme
     @Environment(\.branchDropTracker) private var dropTracker
@@ -42,15 +47,7 @@ struct CommitRowChips: View {
     @ViewBuilder
     private func chipView(for ref: GitRef) -> some View {
         let isCurrent = ref.isLocalBranch && ref.name == currentBranch
-        let chip = BranchChip(
-            name: ref.displayName,
-            current: isCurrent,
-            remote: ref.isRemoteBranch,
-            tag: ref.isTag,
-            hasRemoteCounterpart: hasRemoteCounterpart(for: ref),
-            maxNameWidth: maxNameWidth,
-            laneColor: laneColor
-        )
+        let chip = branchChip(for: ref, maxNameWidth: maxNameWidth)
         if ref.isLocalBranch, let onBranchDrop {
             chip
                 // The payload closure runs when the drag starts: record the
@@ -72,6 +69,21 @@ struct CommitRowChips: View {
         } else {
             chip
         }
+    }
+
+    private func branchChip(for ref: GitRef, maxNameWidth: CGFloat?) -> BranchChip {
+        BranchChip(
+            name: chips.label(for: ref),
+            current: ref.isLocalBranch && ref.name == currentBranch,
+            remote: ref.isRemoteBranch,
+            tag: ref.isTag,
+            hasRemoteCounterpart: hasRemoteCounterpart(for: ref),
+            maxNameWidth: maxNameWidth,
+            laneColor: laneColor,
+            ahead: ref.ahead ?? 0,
+            behind: ref.behind ?? 0,
+            dashedBorder: chips.isDashed(ref, onGhost: isGhost)
+        )
     }
 
     /// Names of local branches present on this commit. Remote-tracking refs
@@ -102,7 +114,9 @@ struct CommitRowChips: View {
                 let aWeight = Self.refWeight(a)
                 let bWeight = Self.refWeight(b)
                 if aWeight != bWeight { return aWeight < bWeight }
-                return a.displayName < b.displayName
+                // Remotes sharing a branch name (shown with their prefix) fall back to the full name.
+                if a.displayName != b.displayName { return a.displayName < b.displayName }
+                return a.name < b.name
             }
     }
 
@@ -158,14 +172,7 @@ struct CommitRowChips: View {
                 .tracking(0.5)
                 .foregroundStyle(theme.colors.textTertiary)
             ForEach(hiddenRefs) { ref in
-                BranchChip(
-                    name: ref.displayName,
-                    current: ref.isLocalBranch && ref.name == currentBranch,
-                    remote: ref.isRemoteBranch,
-                    tag: ref.isTag,
-                    hasRemoteCounterpart: hasRemoteCounterpart(for: ref),
-                    laneColor: laneColor
-                )
+                branchChip(for: ref, maxNameWidth: nil)
             }
         }
         .padding(Spacing.s12)
@@ -176,13 +183,31 @@ struct CommitRowChips: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
+    let refs = [
+        // a1: HEAD, ahead and behind its upstream.
+        GitRef(name: "main", kind: .localBranch, targetSha: "a1", isHead: true, upstream: "origin/main", ahead: 2, behind: 1),
+        // b2: the upstream away from its local branch (dashed), and a fork's branch of the same name (both prefixed).
+        GitRef(name: "origin/main", kind: .remoteBranch(remote: "origin"), targetSha: "b2", isHead: false),
+        GitRef(name: "fork/main", kind: .remoteBranch(remote: "fork"), targetSha: "b2", isHead: false),
+        // c3: a local branch behind its upstream; d4: that upstream, on a ghost commit.
+        GitRef(name: "feature/chips", kind: .localBranch, targetSha: "c3", isHead: false,
+               upstream: "origin/feature/chips", ahead: 0, behind: 3),
+        GitRef(name: "origin/feature/chips", kind: .remoteBranch(remote: "origin"), targetSha: "d4", isHead: false),
+        GitRef(name: "v0.1.0", kind: .tag, targetSha: "c3", isHead: false),
+    ]
+    let chips = HistoryRefChips.make(refs: refs, remoteTrunks: [:], includesAllRemotes: true)
     VStack(alignment: .leading, spacing: 8) {
-        CommitRowChips(
-            commitSha: "abc1234",
-            refs: GitRef.previewSamples,
-            currentBranch: "main",
-            onBranchDrop: nil
-        )
+        ForEach(["a1", "b2", "c3", "d4"], id: \.self) { sha in
+            CommitRowChips(
+                commitSha: sha,
+                refs: chips.refs(on: sha),
+                currentBranch: "main",
+                onBranchDrop: nil,
+                laneColor: LaneColors.color(.lane(.lane2), dark: true, accent: .accentColor),
+                chips: chips,
+                isGhost: sha == "d4"
+            )
+        }
     }
     .padding()
     .frame(width: 320)

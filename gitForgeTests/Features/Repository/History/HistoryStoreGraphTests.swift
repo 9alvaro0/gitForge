@@ -272,6 +272,104 @@ struct HistoryStoreGraphTests {
         Self.expectPublished(vm.history)
     }
 
+    // MARK: Ref chips
+
+    /// `u` (a remote branch's tip) and `p` (an old PR's) on top of `m`, as a first page.
+    private static let chipCommits = GraphFixture.commits("u m\np a\nm a\na")
+
+    /// `main` behind `origin/main`, and `origin/old-pr` that no local branch tracks.
+    private static let untrackedRefs = [GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
+                                        GraphFixture.remote("origin/main", "u"), GraphFixture.remote("origin/old-pr", "p")]
+
+    /// The same, with `topic` tracking `origin/old-pr`.
+    private static let trackedRefs = untrackedRefs
+        + [GraphFixture.local("topic", "p", upstream: "origin/old-pr", ahead: 0, behind: 0)]
+
+    @Test("The chips are published with the graph and follow the loaded scope's toggle")
+    func chipsWithGraph() async {
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        vm.headSha = "m"
+        vm.history.replaceLog(with: Self.chipCommits)
+        // Nothing tracks `origin/old-pr`, and the toggle is off.
+        #expect(vm.history.refChips.refs(on: "u").map(\.name) == ["origin/main"])
+        #expect(vm.history.refChips.refs(on: "p").isEmpty)
+        #expect(vm.history.refChips == HistoryRefChips.make(refs: vm.refs, remoteTrunks: vm.history.graphInput().remoteTrunks,
+                                                            includesAllRemotes: false))
+        let before = vm.history.graphLayouts
+
+        // A branch starts tracking it. Until the layout lands, rows and chips stay as they were.
+        let engine = Self.hold(vm, passes: [0])
+        vm.refs = Self.trackedRefs
+        async let recompute: Void = vm.history.recomputeGraph()
+        await engine.gate(0).waiting()
+        #expect(vm.history.graphLayouts == before)
+        #expect(vm.history.refChips.refs(on: "p").isEmpty)
+        engine.gate(0).open()
+        await recompute
+        #expect(vm.history.refChips.refs(on: "p").map(\.name).sorted() == ["origin/old-pr", "topic"])
+        Self.expectPublished(vm.history)
+    }
+
+    @Test("A recompute that changes nothing about the chips leaves them as they were")
+    func chipsUnchanged() async {
+        let vm = Self.makeVM()
+        vm.refs = Self.trackedRefs
+        vm.history.replaceLog(with: Self.chipCommits)
+        let chips = vm.history.refChips
+        await vm.history.recomputeGraph()
+        #expect(vm.history.refChips == chips)
+    }
+
+    @Test("A log fetched with the toggle on shows every remote branch; one fetched with it off keeps hiding them")
+    func chipsFollowLoadedScope() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        let store = Self.makeStore(Self.missingRepositoryURL(), defaults: suite, source: vm)
+        store.replaceLog(with: Self.chipCommits)
+        #expect(store.refChips.refs(on: "p").isEmpty)
+
+        // The reload this starts fails (there is no repository), so the old log and its scope stay.
+        await store.setShowsRemoteBranches(true)
+        await store.recomputeGraph()
+        #expect(store.refChips.refs(on: "p").isEmpty)
+
+        // A log fetched with the toggle on has the chips of every remote branch.
+        store.replaceLog(with: Self.chipCommits)
+        #expect(store.refChips.refs(on: "p").map(\.name) == ["origin/old-pr"])
+        await store.recomputeGraph()
+        #expect(store.refChips.refs(on: "p").map(\.name) == ["origin/old-pr"])
+    }
+
+    @Test("A log laid out again after the refs changed is shown with the chips of the refs it was laid out with")
+    func chipsOfTheRelaidInput() async {
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        vm.headSha = "m"
+        let engine = Self.hold(vm, passes: [0])
+        async let published = vm.history.publish(vm.history.stageFirstPage(Self.chipCommits))
+        await engine.gate(0).waiting()
+        // The pass in flight was staged with the old refs; these land before it ends.
+        vm.refs = Self.trackedRefs
+        await vm.history.recomputeGraph()
+        engine.gate(0).open()
+        #expect(await published)
+        #expect(vm.history.refChips.refs(on: "p").map(\.name).sorted() == ["origin/old-pr", "topic"])
+        Self.expectPublished(vm.history)
+    }
+
+    @Test("Purging the log drops its chips")
+    func purgeDropsChips() {
+        let vm = Self.makeVM()
+        vm.refs = Self.trackedRefs
+        vm.history.replaceLog(with: Self.chipCommits)
+        #expect(vm.history.refChips != .empty)
+        vm.history.purge()
+        #expect(vm.history.refChips == .empty)
+    }
+
     // MARK: Interleavings
 
     /// Lays graphs out like the real engine, but holds the passes listed in

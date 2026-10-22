@@ -118,6 +118,10 @@ final class HistoryStore {
     /// Columns the graph assigns, reserved ones included
     /// (`GraphLayout.columnCount`), at least 1.
     var graphMaxLanes: Int = 1
+    /// The refs drawn as chips, published with the layout they came with: made from the
+    /// refs and remote trunks that layout was laid out with and from the toggle of the
+    /// loaded scope, so chips and graph never disagree (§4.4).
+    private(set) var refChips: HistoryRefChips = .empty
     /// Row index one past the end of each loaded page, as `GraphInput.pageEnds`
     /// wants it: only the first page reserves columns, so loading the next
     /// page leaves every row already drawn as it was (§3.9).
@@ -194,6 +198,7 @@ final class HistoryStore {
         loadedScope = nil
         graphLayouts = []
         graphMaxLanes = 1
+        refChips = .empty
         graphPageEnds = []
         detailCache.removeAll()
         detailCacheOrder.removeAll()
@@ -485,11 +490,11 @@ final class HistoryStore {
 
     /// Lays `staged` out off the main actor, then publishes the log and its
     /// graph in one main-actor turn: `commits`, `loadedRawCount`,
-    /// `graphPageEnds`, `loadedStashShas`, `loadedScope`, `graphLayouts` and
-    /// `graphMaxLanes`, followed by `finish`, the caller's own state that
-    /// goes with this log (`hasMore`, the selection…). Nothing is awaited
-    /// between the install and `finish`, so a newer load can't publish in
-    /// between and be overwritten.
+    /// `graphPageEnds`, `loadedStashShas`, `loadedScope`, `graphLayouts`,
+    /// `graphMaxLanes` and `refChips`, followed by `finish`, the caller's own
+    /// state that goes with this log (`hasMore`, the selection…). Nothing is
+    /// awaited between the install and `finish`, so a newer load can't publish
+    /// in between and be overwritten.
     ///
     /// If refs, HEAD or the palette changed during a pass (a recompute was
     /// asked for), the log is laid out again from the current ones before
@@ -499,15 +504,17 @@ final class HistoryStore {
     @discardableResult
     func publish(_ staged: StagedLog, then finish: @MainActor () -> Void = {}) async -> Bool {
         var revision = staged.inputRevision
-        var layout = await layOut(staged.input)
+        var input = staged.input
+        var layout = await layOut(input)
         while isWanted(staged) {
             guard revision != graphInputRevision else {
-                install(staged, layout)
+                install(staged, layout, from: input)
                 finish()
                 return true
             }
             revision = graphInputRevision
-            layout = await layOut(graphInput(for: staged.log))
+            input = graphInput(for: staged.log)
+            layout = await layOut(input)
         }
         return false
     }
@@ -518,18 +525,18 @@ final class HistoryStore {
         staged.logGen == logGen && (staged.baseRevision.map { $0 == logRevision } ?? true)
     }
 
-    /// Installs the staged log, its scope and `layout` as the published
-    /// ones, in one main-actor turn. The loaders reach it through `publish`,
-    /// which lays the log out off the main actor first; previews call it
-    /// directly, through the hooks in `HistoryStore+Preview.swift`.
-    func install(_ staged: StagedLog, _ layout: GraphLayout) {
+    /// Installs the staged log, its scope and `layout` (laid out from `input`)
+    /// as the published ones, in one main-actor turn. The loaders reach it
+    /// through `publish`, which lays the log out off the main actor first;
+    /// previews call it directly, through the hooks in `HistoryStore+Preview.swift`.
+    func install(_ staged: StagedLog, _ layout: GraphLayout, from input: GraphInput) {
         let log = staged.log
         commits = log.commits
         loadedRawCount = log.rawCount
         graphPageEnds = log.pageEnds
         loadedStashShas = log.stashShas
         loadedScope = staged.scope
-        apply(layout)
+        apply(layout, from: input)
         logRevision &+= 1
         // Any recompute still running was computed for the previous log.
         graphLayoutGen &+= 1
@@ -578,7 +585,7 @@ final class HistoryStore {
         let input = graphInput()
         let layout = input.commits.isEmpty ? GraphLayout.empty : await layOut(input)
         guard gen == graphLayoutGen else { return }
-        apply(layout)
+        apply(layout, from: input)
     }
 
     private func layOut(_ input: GraphInput) async -> GraphLayout {
@@ -586,13 +593,19 @@ final class HistoryStore {
         return await Task.detached { await engine(input) }.value
     }
 
-    /// Shows `layout`'s rows and column count: the last step of `install` and
-    /// `relayout`, and of the synchronous hook in `HistoryStore+Preview.swift`.
-    func apply(_ layout: GraphLayout) {
+    /// Shows `layout`'s rows and column count, and the chips of the `input` it was
+    /// laid out from: the last step of `install` and `relayout`, and of the
+    /// synchronous hook in `HistoryStore+Preview.swift`. The chips follow the
+    /// toggle of the loaded scope, not the live one: a log fetched without the
+    /// remote branches has none of them to label.
+    func apply(_ layout: GraphLayout, from input: GraphInput) {
         graphLayouts = layout.rows
         graphMaxLanes = max(1, layout.columnCount)
+        let chips = HistoryRefChips.make(refs: input.refs, remoteTrunks: input.remoteTrunks,
+                                         includesAllRemotes: loadedScope?.includesAllRemotes ?? false)
+        // Unchanged chips keep their storage, so the rows' equality check ends at once.
+        if chips != refChips { refChips = chips }
     }
-
 
     // MARK: Detail
 

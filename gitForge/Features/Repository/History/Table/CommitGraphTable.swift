@@ -20,7 +20,8 @@ struct CommitGraphTable: View {
     /// every layout, and did so for each row SwiftUI built — O(visible rows ×
     /// commits) on every re-render of History.
     let maxLanes: Int
-    let refsBySha: [String: [GitRef]]
+    /// The refs drawn as chips (`HistoryStore.refChips`), published with the layouts.
+    let refChips: HistoryRefChips
     let currentBranch: String?
     /// Commit HEAD points at (detached or not); marks HEAD in the graph.
     var headSha: String? = nil
@@ -164,7 +165,7 @@ struct CommitGraphTable: View {
                                     maxLanes: maxLanes,
                                     rowHeight: rowHeight,
                                     tableLayout: layout,
-                                    refs: refsBySha[commit.sha] ?? [],
+                                    chips: refChips,
                                     currentBranch: currentBranch,
                                     isSelected: commit.sha == selectedSha,
                                     graphStyle: style,
@@ -234,7 +235,7 @@ struct CommitGraphTable: View {
         commits: vm.history.commits,
         layouts: vm.history.graphLayouts,
         maxLanes: vm.history.graphMaxLanes,
-        refsBySha: vm.refsBySha,
+        refChips: vm.history.refChips,
         currentBranch: vm.currentBranchName,
         selectedSha: vm.history.commits.first?.sha,
         workingCopyDirty: !vm.workingCopy.status.isClean,

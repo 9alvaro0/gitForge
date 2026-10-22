@@ -14,7 +14,7 @@ struct CommitRow: View, Equatable {
             && lhs.maxLanes == rhs.maxLanes
             && lhs.rowHeight == rhs.rowHeight
             && lhs.tableLayout == rhs.tableLayout
-            && lhs.refs == rhs.refs
+            && lhs.chips == rhs.chips
             && lhs.currentBranch == rhs.currentBranch
             && lhs.isSelected == rhs.isSelected
             && lhs.graphStyle == rhs.graphStyle
@@ -29,7 +29,9 @@ struct CommitRow: View, Equatable {
     let maxLanes: Int
     let rowHeight: CGFloat
     let tableLayout: HistoryTableLayout
-    let refs: [GitRef]
+    /// The chips of the whole log: the row draws the ones on its commit, named and bordered as
+    /// they say.
+    let chips: HistoryRefChips
     let currentBranch: String?
     let isSelected: Bool
     var graphStyle = GraphStyle()
@@ -46,6 +48,9 @@ struct CommitRow: View, Equatable {
     static func subjectColor(isGhost: Bool, colors: GFColors) -> Color {
         isGhost ? colors.textTertiary : colors.textPrimary
     }
+
+    /// The refs with a chip on this commit.
+    private var refs: [GitRef] { chips.refs(on: commit.sha) }
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
@@ -72,7 +77,9 @@ struct CommitRow: View, Equatable {
                     maxNameWidth: min(160, tableLayout.description * 0.3),
                     maxVisible: tableLayout.description < 360 ? 1 : 2,
                     // The chips take the colour of the commit's own line.
-                    laneColor: graphStyle.color(for: layout.node.color)
+                    laneColor: graphStyle.color(for: layout.node.color),
+                    chips: chips,
+                    isGhost: layout.node.isGhost
                 )
                 .fixedSize()
                 Text(commit.subject)
@@ -237,7 +244,7 @@ private nonisolated struct SideClip: Shape {
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
-            refs: GitRef.previewSamples,
+            chips: HistoryRefChips.make(refs: GitRef.previewSamples, remoteTrunks: [:], includesAllRemotes: true),
             currentBranch: "main",
             isSelected: true,
             dimmed: false,
@@ -249,7 +256,7 @@ private nonisolated struct SideClip: Shape {
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
-            refs: [],
+            chips: .empty,
             currentBranch: "main",
             isSelected: false,
             dimmed: false,
@@ -261,7 +268,7 @@ private nonisolated struct SideClip: Shape {
             maxLanes: 2,
             rowHeight: 28,
             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
-            refs: [],
+            chips: .empty,
             currentBranch: "main",
             isSelected: false,
             dimmed: true,

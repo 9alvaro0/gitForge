@@ -175,7 +175,7 @@ struct HistoryView: View {
                     commits: viewModel.history.commits,
                     layouts: viewModel.history.graphLayouts,
                     maxLanes: viewModel.history.graphMaxLanes,
-                    refsBySha: viewModel.refsBySha,
+                    refChips: viewModel.history.refChips,
                     currentBranch: viewModel.currentBranchName,
                     headSha: viewModel.headSha,
                     selectedSha: viewModel.history.selectedCommitId,
