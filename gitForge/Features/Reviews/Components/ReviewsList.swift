@@ -17,7 +17,7 @@ struct ReviewsList: View {
             if let repo = store.filteredRepo {
                 // A row of its own, the column's whole width: the path and
                 // its button would crowd the header (R2 Ruling 7).
-                ReviewsRepoFilterBar(repo: repo) { store.repoFilter = nil }
+                ReviewsRepoFilterBar(repo: repo) { store.showAllRepos() }
                     .padding(.horizontal, Spacing.s12)
                     .padding(.bottom, Spacing.s8)
             }

@@ -78,9 +78,9 @@ final class ReviewsStore {
     var filter: ReviewsFilter = .team
     /// The repo the inbox is narrowed to (`ReviewRepo.id`), with the pull
     /// requests of both halves; `nil` shows every repo, by `filter` (R2
-    /// Ruling 7). `showRepo(_:)` sets it, and a refresh that stops following
-    /// the repo clears it.
-    var repoFilter: String?
+    /// Ruling 7). `showRepo(_:)` sets it; `showAllRepos()`, `reveal(_:)` and
+    /// a refresh that stops following the repo clear it.
+    private(set) var repoFilter: String?
     var selectedID: InboxPull.ID?
     /// Pull requests opened from a link that weren't rows of the followed
     /// list when they landed, by opening order, the last one first (R2
@@ -220,16 +220,66 @@ final class ReviewsStore {
         }
     }
 
-    // Not private: `ReviewsStore+Palette.swift` reads these two as well.
-    func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
+    private func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
         guard let login = logins[accountId], let author = pull.authorLogin else { return false }
         return author.lowercased() == login.lowercased()
     }
 
+    // Not private: `ReviewsStore+Palette.swift` reads these two as well.
     static func newerFirst(_ lhs: PullRequest, _ rhs: PullRequest) -> Bool {
         let left = lhs.updatedAt ?? .distantPast
         let right = rhs.updatedAt ?? .distantPast
         return left == right ? lhs.number > rhs.number : left > right
+    }
+
+    /// The rows of every followed repo, in `repos` order.
+    var followedRows: [InboxPull] {
+        repos.flatMap { repo in (pulls[repo.id] ?? []).map { InboxPull(repo: repo, pull: $0) } }
+    }
+
+    // MARK: Selection and repo filter
+
+    /// Selects `id` from outside the list (R2 Ruling 8). For a row of a
+    /// followed repo, the inbox moves to the half that shows it, Mine if it's
+    /// the user's and Team if not, and drops the filter by a repo other than
+    /// its own; for an Other, it drops the filter by repo, which hides the
+    /// Others. `false`, with nothing changed, when `id` is neither.
+    @discardableResult
+    func reveal(_ id: InboxPull.ID) -> Bool {
+        if let item = followedRows.first(where: { $0.id == id }) {
+            filter = half(showing: item)
+            if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
+        } else if others.contains(where: { $0.id == id }) {
+            repoFilter = nil
+        } else {
+            return false
+        }
+        selectedID = id
+        return true
+    }
+
+    /// Narrows the inbox to the followed repo `repoKey` (R2 Ruling 7); any
+    /// other key changes nothing. The selection stays if it's one of that
+    /// repo's pull requests and goes if not.
+    func showRepo(_ repoKey: String) {
+        guard repos.contains(where: { $0.id == repoKey }) else { return }
+        repoFilter = repoKey
+        if let selectedID, !selectedID.hasPrefix(repoKey + "#") { self.selectedID = nil }
+    }
+
+    /// Shows every repo again, the × of the filter bar (R2 Ruling 7). The
+    /// repo's view showed both halves, so a row picked there stays selected:
+    /// the inbox moves to the half that shows it, as `reveal` does.
+    func showAllRepos() {
+        repoFilter = nil
+        if let selectedID, let item = followedRows.first(where: { $0.id == selectedID }) {
+            filter = half(showing: item)
+        }
+    }
+
+    /// Mine for the user's own pull request, Team for anyone else's.
+    private func half(showing item: InboxPull) -> ReviewsFilter {
+        isMine(item.pull, accountId: item.repo.accountId) ? .mine : .team
     }
 
     // MARK: Snapshot

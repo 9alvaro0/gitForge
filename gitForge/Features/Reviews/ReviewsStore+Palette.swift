@@ -1,8 +1,9 @@
 import Foundation
 
-/// What ⌘K reads from the inbox and what it does to it (R2 Rulings 6 to 9):
-/// the pull requests to search, the followed repos that aren't cloned, the
-/// filter by repo, picking a row from outside the list and the Others shown.
+/// What ⌘K reads from the inbox (R2 Rulings 6, 7 and 9): the pull requests
+/// to search, the followed repos that aren't cloned, the repo the inbox is
+/// narrowed to and the Others shown. What it does to the inbox, `reveal` and
+/// `showRepo`, is in `ReviewsStore.swift`, next to the filter they set.
 extension ReviewsStore {
     /// The repo `repoFilter` names, while it's still followed.
     var filteredRepo: ReviewRepo? {
@@ -41,38 +42,5 @@ extension ReviewsStore {
     /// (Ruling 6).
     var unclonedRepos: [ReviewRepo] {
         repos.filter { $0.localURL == nil }
-    }
-
-    /// Selects `id` from outside the list (Ruling 8). For a row of a
-    /// followed repo, the inbox moves to the half that shows it, Mine if it's
-    /// the user's and Team if not, and drops the filter by a repo other than
-    /// its own; for an Other, it drops the filter by repo, which hides the
-    /// Others. `false`, with nothing changed, when `id` is neither.
-    @discardableResult
-    func reveal(_ id: InboxPull.ID) -> Bool {
-        if let item = followedRows.first(where: { $0.id == id }) {
-            filter = isMine(item.pull, accountId: item.repo.accountId) ? .mine : .team
-            if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
-        } else if others.contains(where: { $0.id == id }) {
-            repoFilter = nil
-        } else {
-            return false
-        }
-        selectedID = id
-        return true
-    }
-
-    /// Narrows the inbox to the followed repo `repoKey` (Ruling 7); any other
-    /// key changes nothing. The selection stays if it's one of that repo's
-    /// pull requests and goes if not.
-    func showRepo(_ repoKey: String) {
-        guard repos.contains(where: { $0.id == repoKey }) else { return }
-        repoFilter = repoKey
-        if let selectedID, !selectedID.hasPrefix(repoKey + "#") { self.selectedID = nil }
-    }
-
-    /// The rows of every followed repo, in `repos` order.
-    private var followedRows: [InboxPull] {
-        repos.flatMap { repo in (pulls[repo.id] ?? []).map { InboxPull(repo: repo, pull: $0) } }
     }
 }

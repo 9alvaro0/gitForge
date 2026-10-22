@@ -106,7 +106,7 @@ struct ReviewsStorePaletteTests {
         #expect(store.pulls[Self.api] == nil)
         #expect(store.listContent == .empty)
         // The whole inbox does wait for team/api.
-        store.repoFilter = nil
+        store.showAllRepos()
         #expect(store.listContent == .loading)
 
         reading.open()
@@ -124,11 +124,54 @@ struct ReviewsStorePaletteTests {
         #expect(store.selectedID == own)
         #expect(store.selectedItem?.id == own)
 
-        store.repoFilter = nil
+        store.showAllRepos()
         store.selectedID = Self.id(Self.app, 3)
         store.showRepo(Self.api)
         #expect(store.selectedID == nil)
         #expect(store.selectedItem == nil)
+    }
+
+    @Test("Showing every repo again keeps a selection picked while narrowed: the inbox moves to the half that shows it")
+    func showAllReposKeepsSelection() async {
+        let (store, _) = await Self.loaded()
+        #expect(store.filter == .team)
+
+        // The user's own, picked in the repo's view with Team on.
+        let own = Self.id(Self.api, 2)
+        store.showRepo(Self.api)
+        store.selectedID = own
+        store.showAllRepos()
+
+        #expect(store.repoFilter == nil)
+        #expect(store.filter == .mine)
+        #expect(store.selectedID == own)
+        #expect(store.selectedItem?.id == own)
+
+        // A teammate's, picked with Mine on.
+        let teammate = Self.id(Self.api, 1)
+        store.showRepo(Self.api)
+        store.selectedID = teammate
+        store.showAllRepos()
+
+        #expect(store.repoFilter == nil)
+        #expect(store.filter == .team)
+        #expect(store.selectedID == teammate)
+        #expect(store.selectedItem?.id == teammate)
+    }
+
+    @Test("Showing every repo again with nothing selected only drops the filter")
+    func showAllReposWithoutSelection() async {
+        let (store, _) = await Self.loaded()
+        store.filter = .mine
+        store.showRepo(Self.api)
+
+        store.showAllRepos()
+
+        #expect(store.repoFilter == nil)
+        #expect(store.filteredRepo == nil)
+        #expect(store.filter == .mine)
+        #expect(store.selectedID == nil)
+        #expect(store.groups.map(\.repo.id) == [Self.api, Self.app])
     }
 
     @Test("The filter goes when its repo stops being followed, and stays while it is")
