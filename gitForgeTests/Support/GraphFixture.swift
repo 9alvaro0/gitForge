@@ -85,7 +85,17 @@ enum GraphFixture {
     /// ahead and two behind `origin/feature/login` on `s2`, where `fork/feature/login`, which no
     /// local branch tracks, sits too. `trackedFirst` puts the tracked remote first in `refs`.
     static func sharedRemoteTip(trackedFirst: Bool) -> GraphInput {
-        let remotes = [remote("origin/feature/login", "s2"), remote("fork/feature/login", "s2")]
+        loginServerLine(forkTip: "s2", trackedFirst: trackedFirst)
+    }
+
+    /// `sharedRemoteTip` with `fork/feature/login` one commit lower, on `s1` (row 3), below the
+    /// tracked `origin/feature/login` on `s2`.
+    static func untrackedRemoteBelow(trackedFirst: Bool) -> GraphInput {
+        loginServerLine(forkTip: "s1", trackedFirst: trackedFirst)
+    }
+
+    private static func loginServerLine(forkTip: String, trackedFirst: Bool) -> GraphInput {
+        let remotes = [remote("origin/feature/login", "s2"), remote("fork/feature/login", forkTip)]
         return GraphInput(commits: commits("m base\ns2 s1\nl b\ns1 b\nb base\nbase"), headSha: "m",
                           refs: [local("main", "m", head: true),
                                  local("feature/login", "l", upstream: "origin/feature/login", ahead: 1, behind: 2)]

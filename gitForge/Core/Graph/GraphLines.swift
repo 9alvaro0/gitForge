@@ -96,9 +96,10 @@ private nonisolated extension GraphLines {
             ownership.claim(candidate.owner, from: candidate.row)
         }
 
-        // 3. Remote branches that continue no local one and are no trunk, the lowest tip first.
-        //    On a shared tip, one a local branch tracks goes before the rest, so what a pull
-        //    would bring is its line, in its local branch's colour (§4.1); then by name.
+        // 3. Remote branches that continue no local one and are no trunk. The ones a local
+        //    branch tracks go before the rest, so what a pull would bring is their line, in
+        //    their local branch's colour (§4.1), even where an untracked remote sits on it,
+        //    lower or on the same tip. Then the lowest tip first, then by name.
         let continued = Set(branches.compactMap(\.continuedRemote))
         let tracked = Set(input.refs.lazy.filter(\.isLocalBranch).compactMap(\.upstream))
         let remotes = input.refs
@@ -106,7 +107,7 @@ private nonisolated extension GraphLines {
             .compactMap { ref in
                 rowOf[ref.targetSha].map { (name: ref.name, row: $0, untracked: tracked.contains(ref.name) ? 0 : 1) }
             }
-        for remote in remotes.sorted(by: { (-$0.row, $0.untracked, $0.name) < (-$1.row, $1.untracked, $1.name) }) {
+        for remote in remotes.sorted(by: { ($0.untracked, -$0.row, $0.name) < ($1.untracked, -$1.row, $1.name) }) {
             ownership.claim(.remote(remote.name), from: remote.row)
         }
 

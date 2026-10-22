@@ -272,6 +272,18 @@ struct CommitGraphEngineTests {
         #expect(layout.rows[3].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
     }
 
+    @Test("An untracked remote below the tracked one: the whole server side is in the branch's colour",
+          arguments: [true, false])
+    func untrackedRemoteBelowColour(trackedFirst: Bool) {
+        let input = GraphFixture.untrackedRemoteBelow(trackedFirst: trackedFirst)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        let local = layout.rows[2].node.color
+        #expect(local == .pool(0))
+        #expect(layout.rows[1].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
+        #expect(layout.rows[3].node == GraphNode(column: layout.rows[1].node.column, kind: .commit, color: local, isGhost: true))
+    }
+
     @Test("Only ahead of its upstream: nothing is a ghost and the remote draws no line")
     func aheadOnly() {
         let layout = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.commits("l2 l1\nl1 base\nbase"), headSha: "l2",

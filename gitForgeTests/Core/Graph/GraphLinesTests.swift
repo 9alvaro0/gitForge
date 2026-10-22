@@ -162,6 +162,17 @@ struct GraphLinesTests {
         #expect(result.colorOwnerOfRow[3] == .remote("origin/feature/login"))
     }
 
+    @Test("An untracked remote below the tracked one takes nothing from what a pull would bring",
+          arguments: [true, false])
+    func trackedRemoteClaimsBeforeLowerUntracked(trackedFirst: Bool) {
+        let result = lines(GraphFixture.untrackedRemoteBelow(trackedFirst: trackedFirst))
+        #expect(line(.remote("origin/feature/login"), in: result)?.rows == [1, 3])
+        #expect(line(.remote("origin/feature/login"), in: result)?.forkRow == 4)
+        #expect(line(.remote("fork/feature/login"), in: result) == nil)
+        #expect(result.colorOwnerOfRow[1] == .remote("origin/feature/login"))
+        #expect(result.colorOwnerOfRow[3] == .remote("origin/feature/login"))
+    }
+
     @Test("The lines partition the rows and every row points back at its line")
     func partition() {
         let input = GraphInput(commits: GraphFixture.gitflow, headSha: "cartPayment",
