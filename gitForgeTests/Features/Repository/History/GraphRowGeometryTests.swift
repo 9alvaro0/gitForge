@@ -80,7 +80,7 @@ struct GraphRowGeometryTests {
         #expect(geometry.jointBelow - geometry.center == geometry.pitch / 2)
     }
 
-    @Test("A straight step above runs from the joint above to the centre; below, from the centre to the joint below")
+    @Test("A straight half above runs from past the joint above to the centre, one below from the centre to past the joint below; a dimmed row's stop on the joints")
     func straightHalves() {
         // Each runs 2 pt past its joint (`straightOverlap`).
         let segments = Self.segments(Self.row(above: [Self.step(0, 0)], below: [Self.step(0, 0), Self.step(1, 1)]))

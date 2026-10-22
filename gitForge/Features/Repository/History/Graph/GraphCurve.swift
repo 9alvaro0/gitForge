@@ -91,7 +91,7 @@ nonisolated enum GraphCurve {
     }
 
     /// Panels `arcLength` splits `0...1` into. One already gives 0.01 pt for a
-    /// half of an S up to thirty columns wide, but only ten for the whole S.
+    /// half of an S up to twenty columns wide, but only ten for the whole S.
     private static let panels = 2
     /// The positive nodes of the 8-point Gauss–Legendre rule on `-1...1`; the
     /// negative ones mirror them.

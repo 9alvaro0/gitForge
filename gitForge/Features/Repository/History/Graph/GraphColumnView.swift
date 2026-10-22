@@ -117,6 +117,7 @@ struct GraphColumnView: View {
         let isSelected = isSelected
         let isHovered = isHovered
         let overlapsJoints = !isDimmed
+        let rowSpacing = rowSpacing
         Canvas { context, size in
             let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints,
                                           rowSpacing: rowSpacing)
