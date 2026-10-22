@@ -54,6 +54,8 @@ struct CommitGraphTable: View {
     var onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
+    /// Ghosts turn opaque with it (`GraphStyle.ghostOpacity`).
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     /// The table takes keyboard focus when a row is clicked, so ↑ / ↓ can
     /// walk the history (a commit list a keyboard can't drive fails the HIG
     /// and leaves keyboard-only users stuck).
@@ -101,7 +103,9 @@ struct CommitGraphTable: View {
             accent: theme.accentSwatch,
             accentColor: theme.colors.accent,
             dark: theme.effectiveMode == .dark,
-            nodeFill: theme.colors.bgContent
+            nodeFill: theme.colors.bgContent,
+            ghostOpacity: GraphStyle.ghostOpacity(increasedContrast: theme.increasedContrast,
+                                                  reduceTransparency: reduceTransparency)
         )
     }
 

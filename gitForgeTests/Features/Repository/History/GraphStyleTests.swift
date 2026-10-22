@@ -28,4 +28,18 @@ struct GraphStyleTests {
         #expect(a != GraphStyle(metrics: .compact, accent: .blue, accentColor: .orange, dark: false, nodeFill: .white))
         #expect(a != GraphStyle(metrics: .compact, accent: .coral, accentColor: .orange, dark: true, nodeFill: .white))
     }
+
+    @Test("Ghosts are translucent unless Increase Contrast or Reduce Transparency is on",
+          arguments: [(false, false, 0.6), (true, false, 1.0), (false, true, 1.0), (true, true, 1.0)])
+    func ghostOpacity(contrast: Bool, transparency: Bool, expected: Double) {
+        #expect(GraphStyle.ghostOpacity(increasedContrast: contrast, reduceTransparency: transparency) == expected)
+    }
+
+    @Test("A style is translucent for ghosts unless told otherwise, and the opacity is part of its identity")
+    func ghostOpacityOfAStyle() {
+        #expect(GraphStyle().ghostOpacity == 0.6)
+        #expect(GraphStyle(ghostOpacity: 1).ghostOpacity == 1)
+        #expect(GraphStyle() == GraphStyle(ghostOpacity: 0.6))
+        #expect(GraphStyle() != GraphStyle(ghostOpacity: 1))
+    }
 }

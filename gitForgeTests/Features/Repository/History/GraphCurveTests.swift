@@ -60,6 +60,51 @@ struct GraphCurveTests {
         }
     }
 
+    @Test("A straight half's arc length is its height")
+    func straightArcLength() {
+        let half = GraphCurve.leaving(fromX: 14, toX: 14, center: 14.5, height: 29, overlap: 0)
+        #expect(abs(GraphCurve.arcLength(half) - 14.5) < 0.01)
+    }
+
+    @Test("The arc length of any piece of an S, whole or half, with or without overlap, is within 0.01 pt of a fine polyline",
+          arguments: [CGFloat(29), 23], [0, 1, 2, 3, 6, 10, 20])
+    func arcLengthMatchesPolyline(height: CGFloat, columns: Int) {
+        let x1 = 14 * CGFloat(columns)
+        let whole = GraphCurve.step(fromX: 0, toX: x1, top: 0, height: height)
+        let pieces: [GraphCurve.Bezier] = [
+            whole,
+            GraphCurve.leaving(fromX: 0, toX: x1, center: 0, height: height),
+            GraphCurve.arriving(fromX: 0, toX: x1, center: height, height: height),
+            GraphCurve.leaving(fromX: 0, toX: x1, center: 0, height: height, overlap: 1),
+            GraphCurve.arriving(fromX: 0, toX: x1, center: height, height: height, overlap: 1),
+            GraphCurve.piece(of: whole, from: 0.2, to: 0.9),
+        ]
+        for piece in pieces {
+            let expected = Self.polylineLength(of: piece)
+            #expect(abs(GraphCurve.arcLength(piece) - expected) < 0.01, "\(piece) \(expected)")
+        }
+    }
+
+    @Test("The half an S leaves and the half it arrives with are the same length, so both rows give its dash the same period",
+          arguments: [CGFloat(29), 23], [1, 2, 3, 6])
+    func halvesAreMirrorImages(height: CGFloat, columns: Int) {
+        let x1 = 14 * CGFloat(columns)
+        let leaving = GraphCurve.leaving(fromX: 0, toX: x1, center: 0, height: height)
+        let arriving = GraphCurve.arriving(fromX: 0, toX: x1, center: height, height: height)
+        #expect(abs(GraphCurve.arcLength(leaving) - GraphCurve.arcLength(arriving)) < 1e-6)
+    }
+
+    private static func polylineLength(of curve: GraphCurve.Bezier, segments: Int = 20_000) -> CGFloat {
+        var length: CGFloat = 0
+        var previous = curve.start
+        for index in 1...segments {
+            let point = GraphCurve.point(on: curve, at: CGFloat(index) / CGFloat(segments))
+            length += hypot(point.x - previous.x, point.y - previous.y)
+            previous = point
+        }
+        return length
+    }
+
     private static func expectClose(_ a: CGPoint, _ b: CGPoint,
                                     sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(abs(a.x - b.x) < 1e-9 && abs(a.y - b.y) < 1e-9, "\(a) vs \(b)", sourceLocation: sourceLocation)
