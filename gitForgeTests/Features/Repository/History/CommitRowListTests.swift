@@ -82,47 +82,55 @@ struct CommitRowListTests {
         let window: NSWindow
         let view: NSHostingView<Table>
 
-        init(_ table: Table, height: CGFloat = 600, until condition: () -> Bool) {
+        init(_ table: Table, height: CGFloat = 600, until condition: () -> Bool,
+             timeout: Duration = Host.timeout) async {
             window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 200, height: height),
                               styleMask: [.borderless], backing: .buffered, defer: false)
             view = NSHostingView(rootView: table)
             window.contentView = view
-            settle(until: condition)
+            await settle(until: condition, timeout: timeout)
         }
 
-        func show(_ table: Table, until condition: () -> Bool) {
+        func show(_ table: Table, until condition: () -> Bool, timeout: Duration = Host.timeout) async {
             view.rootView = table
-            settle(until: condition)
+            await settle(until: condition, timeout: timeout)
         }
 
         /// Scrolls the table to the bottom of its content, as the user would.
-        func scrollToEnd(until condition: () -> Bool) {
+        func scrollToEnd(until condition: () -> Bool) async {
             guard let scrollView = Self.scrollView(in: view), let document = scrollView.documentView else { return }
             let clip = scrollView.contentView
             let bottom = document.isFlipped ? document.bounds.maxY - clip.bounds.height : document.bounds.minY
             clip.scroll(to: NSPoint(x: clip.bounds.minX, y: bottom))
             scrollView.reflectScrolledClipView(clip)
-            settle(until: condition)
+            await settle(until: condition, timeout: Host.timeout)
         }
+
+        /// How long to wait for something that should happen.
+        static let timeout: Duration = .seconds(2)
+        /// How long to watch for something that should not happen.
+        static let quiet: Duration = .milliseconds(500)
 
         private static func scrollView(in view: NSView) -> NSScrollView? {
             if let scrollView = view as? NSScrollView { return scrollView }
             return view.subviews.lazy.compactMap { scrollView(in: $0) }.first
         }
 
-        /// Lays out and draws again, in short run-loop slices, until `condition`
-        /// has held on two passes in a row (a state that flaps does not count) or
-        /// two seconds have gone by. It does not fail on a timeout: the caller's
-        /// own assertion then reports what is missing. A slow machine gets the
-        /// time it needs and a fast one does not wait for a fixed number of passes.
-        private func settle(until condition: () -> Bool) {
-            let deadline = Date().addingTimeInterval(2)
+        /// Lays out and draws again, every 10 ms, until `condition` has held on
+        /// two passes in a row (a state that flaps does not count) or `timeout`
+        /// has gone by. It does not fail on a timeout: the caller's own assertion
+        /// then reports what is missing. A slow machine gets the time it needs and
+        /// a fast one does not wait for a fixed number of passes. It sleeps between
+        /// passes rather than spinning the run loop, so the main actor stays free
+        /// for the suites running beside this one.
+        private func settle(until condition: () -> Bool, timeout: Duration) async {
+            let deadline = ContinuousClock.now + timeout
             var passesHolding = 0
-            while passesHolding < 2, Date() < deadline {
+            while passesHolding < 2, ContinuousClock.now < deadline {
                 view.layoutSubtreeIfNeeded()
                 window.display()
                 passesHolding = condition() ? passesHolding + 1 : 0
-                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                try? await Task.sleep(for: .milliseconds(10))
             }
         }
     }
@@ -136,65 +144,64 @@ struct CommitRowListTests {
         commits((0..<count).map { "c\($0)" })
     }
 
-    /// Room for about nine rows: shorter than `log(15)`, whose end the lazy
-    /// stack still builds ahead of the scroll.
+    /// Room for about nine rows, fewer than `log(15)` has.
     private static let shortViewport: CGFloat = 200
 
     @Test("A reload that moves commits to new rows redraws every row with its new data")
-    func rowsFollowAShift() {
+    func rowsFollowAShift() async {
         let log = DrawLog()
         let initial = ["a": "a0", "b": "b0", "c": "c0"]
-        let host = Host(Table(commits: Self.commits(["a", "b", "c"]), tags: ["a0", "b0", "c0"], log: log),
-                        until: { log.snapshot == initial })
+        let host = await Host(Table(commits: Self.commits(["a", "b", "c"]), tags: ["a0", "b0", "c0"], log: log),
+                              until: { log.snapshot == initial })
         #expect(log.snapshot == initial)
 
         // `replaceLog` lands first, with the graph of the old log still in place.
         let shifted = Self.commits(["s", "a", "b", "c"])
         let staleGraph = ["s": "a0", "a": "b0", "b": "c0", "c": "none"]
-        host.show(Table(commits: shifted, tags: ["a0", "b0", "c0"], log: log), until: { log.snapshot == staleGraph })
+        await host.show(Table(commits: shifted, tags: ["a0", "b0", "c0"], log: log), until: { log.snapshot == staleGraph })
         #expect(log.snapshot == staleGraph)
 
         // Then the recomputed graph.
         let recomputed = ["s": "s1", "a": "a1", "b": "b1", "c": "c1"]
-        host.show(Table(commits: shifted, tags: ["s1", "a1", "b1", "c1"], log: log), until: { log.snapshot == recomputed })
+        await host.show(Table(commits: shifted, tags: ["s1", "a1", "b1", "c1"], log: log), until: { log.snapshot == recomputed })
         #expect(log.snapshot == recomputed)
 
         // Dropping the top row shifts everything back up.
         let shiftedBack = { log.snapshot["a"] == "a2" && log.snapshot["b"] == "b2" && log.snapshot["c"] == "c2" }
-        host.show(Table(commits: Self.commits(["a", "b", "c"]), tags: ["a2", "b2", "c2"], log: log), until: shiftedBack)
+        await host.show(Table(commits: Self.commits(["a", "b", "c"]), tags: ["a2", "b2", "c2"], log: log), until: shiftedBack)
         #expect(shiftedBack())
     }
 
     @Test("Only the last row pages in more")
-    func pagingHook() {
+    func pagingHook() async {
         let log = DrawLog()
         var appeared: [String] = []
         let onLast: (Commit) -> Void = { appeared.append($0.sha) }
-        let host = Host(Table(commits: Self.commits(["a", "b"]), tags: [], log: log, onLastRowAppear: onLast),
-                        until: { appeared == ["b"] })
+        let host = await Host(Table(commits: Self.commits(["a", "b"]), tags: [], log: log, onLastRowAppear: onLast),
+                              until: { appeared == ["b"] })
         #expect(appeared == ["b"])
-        host.show(Table(commits: Self.commits(["a", "b", "c", "d"]), tags: [], log: log, onLastRowAppear: onLast),
-                  until: { appeared == ["b", "d"] })
+        await host.show(Table(commits: Self.commits(["a", "b", "c", "d"]), tags: [], log: log, onLastRowAppear: onLast),
+                        until: { appeared == ["b", "d"] })
         #expect(appeared == ["b", "d"])
     }
 
     @Test("A shorter log whose last row is already on screen still pages in more, once")
-    func pagingAfterShrink() {
+    func pagingAfterShrink() async {
         let log = DrawLog()
         var appeared: [String] = []
         let onLast: (Commit) -> Void = { appeared.append($0.sha) }
-        let host = Host(Table(commits: Self.commits(["a", "b", "c", "d"]), tags: [], log: log, onLastRowAppear: onLast),
-                        until: { appeared == ["d"] })
+        let host = await Host(Table(commits: Self.commits(["a", "b", "c", "d"]), tags: [], log: log, onLastRowAppear: onLast),
+                              until: { appeared == ["d"] })
         #expect(appeared == ["d"])
         // A reload drops the last two pages: `b`, on screen all along, is the last row now.
-        host.show(Table(commits: Self.commits(["a", "b"]), tags: [], log: log, onLastRowAppear: onLast),
-                  until: { appeared == ["d", "b"] })
+        await host.show(Table(commits: Self.commits(["a", "b"]), tags: [], log: log, onLastRowAppear: onLast),
+                        until: { appeared == ["d", "b"] })
         #expect(appeared == ["d", "b"])
     }
 
     @Test("A long log shown in a short viewport pages in more only once its end is scrolled to",
           arguments: [false, true])
-    func longLogWaitsForTheEnd(eager: Bool) {
+    func longLogWaitsForTheEnd(eager: Bool) async {
         let log = DrawLog()
         var appeared: [String] = []
         let onLast: (Commit) -> Void = { appeared.append($0.sha) }
@@ -202,42 +209,45 @@ struct CommitRowListTests {
             Table(commits: Self.log(count), tags: [], log: log, onLastRowAppear: onLast, eager: eager)
         }
         let rowsDrawn = { log.snapshot["c0"] != nil && log.snapshot["c5"] != nil }
-        let host = Host(table(15), height: Self.shortViewport, until: { rowsDrawn() && !appeared.isEmpty })
+        let host = await Host(table(15), height: Self.shortViewport, until: { rowsDrawn() && !appeared.isEmpty },
+                              timeout: Host.quiet)
         #expect(rowsDrawn())
         #expect(appeared.isEmpty)
-        host.scrollToEnd(until: { !appeared.isEmpty })
+        await host.scrollToEnd(until: { !appeared.isEmpty })
         #expect(appeared == ["c14"])
         // The page lands below the rows on screen: nothing more until it is scrolled to.
-        host.show(table(60), until: { appeared.count > 1 })
+        await host.show(table(60), until: { appeared.count > 1 }, timeout: Host.quiet)
         #expect(appeared == ["c14"])
     }
 
     @Test("A table wider than the window pages in more once its end is scrolled to")
-    func wideTablePages() {
+    func wideTablePages() async {
         let log = DrawLog()
         var appeared: [String] = []
         let onLast: (Commit) -> Void = { appeared.append($0.sha) }
-        let host = Host(Table(commits: Self.log(15), tags: [], log: log, onLastRowAppear: onLast, wide: true),
-                        height: Self.shortViewport, until: { log.snapshot["c0"] != nil && !appeared.isEmpty })
+        let host = await Host(Table(commits: Self.log(15), tags: [], log: log, onLastRowAppear: onLast, wide: true),
+                              height: Self.shortViewport, until: { log.snapshot["c0"] != nil && !appeared.isEmpty },
+                              timeout: Host.quiet)
         #expect(appeared.isEmpty)
-        host.scrollToEnd(until: { !appeared.isEmpty })
+        await host.scrollToEnd(until: { !appeared.isEmpty })
         #expect(appeared == ["c14"])
     }
 
     @Test("The same rows published again while the end is on screen page in more again")
-    func pagingAfterRepublish() {
+    func pagingAfterRepublish() async {
         let log = DrawLog()
         var appeared: [String] = []
         let onLast: (Commit) -> Void = { appeared.append($0.sha) }
         let rows = Self.commits(["a", "b", "c", "d"])
-        let host = Host(Table(commits: rows, tags: [], log: log, onLastRowAppear: onLast), until: { appeared == ["d"] })
+        let host = await Host(Table(commits: rows, tags: [], log: log, onLastRowAppear: onLast), until: { appeared == ["d"] })
         #expect(appeared == ["d"])
         // The same log drawn again, as any re-render does: nothing to page in.
-        host.show(Table(commits: rows, tags: [], log: log, onLastRowAppear: onLast), until: { appeared.count > 1 })
+        await host.show(Table(commits: rows, tags: [], log: log, onLastRowAppear: onLast), until: { appeared.count > 1 },
+                        timeout: Host.quiet)
         #expect(appeared == ["d"])
         // A reload superseded the page load and published the same rows.
-        host.show(Table(commits: rows, tags: [], log: log, onLastRowAppear: onLast, revision: 1),
-                  until: { appeared == ["d", "d"] })
+        await host.show(Table(commits: rows, tags: [], log: log, onLastRowAppear: onLast, revision: 1),
+                        until: { appeared == ["d", "d"] })
         #expect(appeared == ["d", "d"])
     }
 }
