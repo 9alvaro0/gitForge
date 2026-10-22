@@ -311,6 +311,43 @@ struct RepositoryViewModelRemoteGraphTests {
         #expect(!vm.history.isScopeStale)
     }
 
+    @Test("A scope reload whose deepest loaded commit left the scope stops at twice the depth, with more to load")
+    func scopeReloadStopsAtTwiceTheDepth() async throws {
+        let remotes = try await Self.makeRemotes()
+        defer { remotes.remove() }
+        // main at c0 is behind origin/main by s1 … s20; three pages of three load s20 … s12.
+        for index in 1...20 { try await remotes.other.gitAsync("commit", "-q", "--allow-empty", "-m", "s\(index)") }
+        try await remotes.other.gitAsync("push", "-q", "origin", "main")
+        try await remotes.work.gitAsync("fetch", "-q", "origin")
+        let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        vm.history.pageSize = { 3 }
+        await vm.loadRefs()
+        await vm.history.loadInitial()
+        for _ in 0..<2 {
+            let last = try #require(vm.history.commits.last)
+            await vm.history.loadMoreIfNeeded(currentItem: last)
+        }
+        #expect(vm.history.loadedRawCount == 9 && vm.history.commits.last?.subject == "s12")
+
+        // The server rewrites main as t1 … t30 on c0: no ref in the scope reaches s12 any more,
+        // and the walk has 31 commits. The reload stops at 18, twice the 9 loaded.
+        try await remotes.other.gitAsync("reset", "-q", "--hard", "HEAD~20")
+        for index in 1...30 { try await remotes.other.gitAsync("commit", "-q", "--allow-empty", "-m", "t\(index)") }
+        try await remotes.other.gitAsync("push", "-q", "-f", "origin", "main")
+        #expect(await vm.fetch())
+        #expect(vm.history.commits.first?.subject == "t30")
+        #expect(!vm.history.commits.contains { $0.subject == "s12" })
+        #expect(vm.history.loadedRawCount == 18)
+        #expect(vm.history.graphPageEnds == [3, 6, 9, 12, 15, 18])
+        #expect(vm.history.hasMore)
+        #expect(!vm.history.isScopeStale)
+
+        // Paging goes on from there.
+        let last = try #require(vm.history.commits.last)
+        await vm.history.loadMoreIfNeeded(currentItem: last)
+        #expect(vm.history.loadedRawCount == 21)
+    }
+
     @Test("A watcher refresh after a fetch from the shell keeps the pages loaded")
     func watcherScopeReloadKeepsDepth() async throws {
         let (remotes, vm, picked) = try await Self.threePagesLoaded()

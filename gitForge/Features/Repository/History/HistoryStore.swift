@@ -398,10 +398,10 @@ final class HistoryStore {
     /// moved a remote branch of the scope), it keeps every commit loaded, not
     /// the same count: it refetches as many raw commits as are loaded, at least
     /// a page, in one walk and, when new commits on top pushed the deepest
-    /// loaded one out of it, the pages after them until it is back in
-    /// (`fetchLog`). It splits them into pages (`HistoryLog.paged`): the log the
-    /// user would have after scrolling as far, so the rows they were looking at
-    /// and the selection on them stay.
+    /// loaded one out of it, the pages after them until it is back in, up to
+    /// twice the raw commits that were loaded (`fetchLog`). It splits them into
+    /// pages (`HistoryLog.paged`): the log the user would have after scrolling
+    /// as far, so the rows they were looking at and the selection on them stay.
     ///
     /// Preserves the user's selection when the previously-selected commit
     /// is still in the new log; otherwise falls back to the new first
@@ -414,6 +414,8 @@ final class HistoryStore {
         loadError = nil
         let pageSize = self.pageSize()
         let limit = keepingDepth ? max(pageSize, loadedRawCount) : pageSize
+        // A deepest commit that left the scope is never found: stop at twice the old depth.
+        let cap = max(limit, 2 * loadedRawCount)
         do {
             async let stashTask = cli.stashes()
             async let unmergedTask = cli.unmergedLocalBranches()
@@ -423,7 +425,7 @@ final class HistoryStore {
             refsSource?.stashes = freshStashes
             refsSource?.unmergedLocalBranchRefs = freshUnmerged
             let scope = currentScope()
-            guard let fetched = try await fetchLog(limit: limit, reaching: deepest, scope: scope,
+            guard let fetched = try await fetchLog(limit: limit, reaching: deepest, cap: cap, scope: scope,
                                                    pageSize: pageSize, gen: gen) else { return }
             let raw = fetched.commits
             // Each page of the split goes over the rows before it: off the main actor for a deep log.
@@ -446,16 +448,18 @@ final class HistoryStore {
 
     /// The first `limit` commits of `scope`'s walk. When they fill `limit` and leave out
     /// `deepest`, the pages after them follow, fetched by `--skip` as pagination does, until
-    /// one holds it or comes back short. `isFull` says whether the last fetch filled its
-    /// limit: there may be more to load. Nil when a newer load superseded this one.
-    private func fetchLog(limit: Int, reaching deepest: String?, scope: HistoryScope,
+    /// one holds it, one comes back short or `cap` raw commits are in: a commit that left the
+    /// scope would otherwise page through the rest of the history. `isFull` says whether the
+    /// last fetch filled its limit: there may be more to load. Nil when a newer load
+    /// superseded this one.
+    private func fetchLog(limit: Int, reaching deepest: String?, cap: Int, scope: HistoryScope,
                           pageSize: Int, gen: UInt64) async throws -> (commits: [Commit], isFull: Bool)? {
         var raw = try await cli.log(limit: limit, skip: 0, refs: scope.revisions)
         guard gen == logGen else { return nil }
         var isFull = raw.count == limit
         guard let deepest else { return (raw, isFull) }
         var reached = raw.contains { $0.sha == deepest }
-        while isFull, !reached {
+        while isFull, !reached, raw.count < cap {
             let page = try await cli.log(limit: pageSize, skip: raw.count, refs: scope.revisions)
             guard gen == logGen else { return nil }
             raw += page
