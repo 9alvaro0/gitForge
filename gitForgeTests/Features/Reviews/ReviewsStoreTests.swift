@@ -289,6 +289,38 @@ struct ReviewsStoreTests {
         #expect(!store.lastRefreshFailed)
     }
 
+    @Test("A server that's down or busy keeps the repo's pull requests, without an error", arguments: [500, 502, 503, 429])
+    func transientServerError(code: Int) async {
+        let harness = Harness()
+        harness.locals = [Harness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        harness.provider.state { $0.failures["team/app"] = .server(code, "Service Unavailable") }
+        await store.refresh(force: true)
+
+        #expect(store.pulls[Harness.key("team/app")]?.map(\.number) == [1])
+        #expect(store.repoErrors.isEmpty)
+        #expect(store.badgeCount == 1)
+    }
+
+    @Test("Any other server error still drops the repo's pull requests and says why")
+    func otherServerError() async {
+        let harness = Harness()
+        harness.locals = [Harness.local("team/app")]
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        let error = PullRequestFetchError.server(422, "Unprocessable")
+        harness.provider.state { $0.failures["team/app"] = error }
+        await store.refresh(force: true)
+
+        #expect(store.pulls[Harness.key("team/app")] == nil)
+        #expect(store.repoErrors[Harness.key("team/app")] == PullRequestStore.message(for: error))
+    }
+
     @Test("Offline, a refresh keeps the snapshot's pull requests and its date, and says it failed")
     func offlineKeepsSnapshot() async {
         let harness = Self.twoRepos()

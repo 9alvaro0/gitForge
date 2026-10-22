@@ -107,10 +107,11 @@ extension ReviewsStore {
     enum ReadFailure {
         /// 401: renew the token and retry once.
         case rejected
-        /// No network or TLS: keep what the repo had, without a message.
+        /// No network or TLS, or a server that's down or busy (5xx, 429):
+        /// keep what the repo had, without a message.
         case offline
-        /// 403, 404, a response that can't be read, a server error: the repo
-        /// loses its pull requests and shows why.
+        /// 403, 404, a response that can't be read, any other server error:
+        /// the repo loses its pull requests and shows why.
         case failed(String)
     }
 
@@ -129,6 +130,8 @@ extension ReviewsStore {
         guard case .failure(let error) = read.result else { return nil }
         switch error as? PullRequestFetchError {
         case .unauthorized: return .rejected
+        // It'll pass: the pull requests read last stay, as offline.
+        case .server(let code, _) where code >= 500 || code == 429: return .offline
         case .forbidden, .notFound, .decoding, .server: return .failed(PullRequestStore.message(for: error))
         case .network, .tls, nil: return .offline
         }
