@@ -14,7 +14,8 @@ import SwiftUI
 /// copies the log nor builds an array of rows.
 struct CommitRowList<Row: View>: View {
     let commits: [Commit]
-    /// Fired when the last row appears, so the host can page in more.
+    /// Fired with the last commit when the end of the list comes into view, so
+    /// the host can page in more.
     var onLastRowAppear: ((Commit) -> Void)? = nil
     @ViewBuilder let row: (_ index: Int, _ commit: Commit) -> Row
 
@@ -22,11 +23,21 @@ struct CommitRowList<Row: View>: View {
         let commits = commits
         ForEach(commits.indices.lazy.map { CommitRowRef(index: $0, sha: commits[$0].sha) }, id: \.sha) { ref in
             row(ref.index, commits[ref.index])
-                // Only the last row pages in more: firing for every row
-                // spawned a Task per row scrolled past.
-                .onAppear {
-                    if ref.index == commits.count - 1 { onLastRowAppear?(commits[ref.index]) }
-                }
+        }
+        // An empty marker after the rows pages in more, not the last row's own
+        // `onAppear`: a reload that drops pages while the end is on screen leaves
+        // a last row that was visible all along and keeps its identity, so it
+        // never appears again. The marker's identity is the log's length and last
+        // sha, so a log that ends elsewhere gets a new marker, which appears. It
+        // comes from a one-element `ForEach`: the lazy stack doesn't run
+        // `onAppear` again for an `.id` change on a plain child. Only the marker
+        // fires, not every row, so scrolling spawns one Task per page, not per row.
+        if let last = commits.last, let onLastRowAppear {
+            ForEach([CommitRowListEnd(count: commits.count, lastSha: last.sha)], id: \.self) { _ in
+                Color.clear
+                    .frame(height: 0)
+                    .onAppear { onLastRowAppear(last) }
+            }
         }
     }
 }
@@ -35,4 +46,10 @@ struct CommitRowList<Row: View>: View {
 nonisolated struct CommitRowRef: Sendable {
     let index: Int
     let sha: String
+}
+
+/// Identity of the marker after the last row: it changes whenever the log ends elsewhere.
+nonisolated struct CommitRowListEnd: Hashable, Sendable {
+    let count: Int
+    let lastSha: String
 }

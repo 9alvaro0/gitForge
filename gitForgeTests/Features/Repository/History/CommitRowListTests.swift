@@ -132,4 +132,18 @@ struct CommitRowListTests {
                   until: { appeared == ["b", "d"] })
         #expect(appeared == ["b", "d"])
     }
+
+    @Test("A shorter log whose last row is already on screen still pages in more, once")
+    func pagingAfterShrink() {
+        let log = DrawLog()
+        var appeared: [String] = []
+        let onLast: (Commit) -> Void = { appeared.append($0.sha) }
+        let host = Host(Table(commits: Self.commits(["a", "b", "c", "d"]), tags: [], log: log, onLastRowAppear: onLast),
+                        until: { appeared == ["d"] })
+        #expect(appeared == ["d"])
+        // A reload drops the last two pages: `b`, on screen all along, is the last row now.
+        host.show(Table(commits: Self.commits(["a", "b"]), tags: [], log: log, onLastRowAppear: onLast),
+                  until: { appeared == ["d", "b"] })
+        #expect(appeared == ["d", "b"])
+    }
 }
