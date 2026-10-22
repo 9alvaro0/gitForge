@@ -5,7 +5,10 @@ import os
 /// Pull / merge requests of the active repository: the open list and the
 /// detail pane (overview, commits, files). Owned by `RepositoryViewModel`
 /// (`viewModel.pullRequests`) but self-contained — it only needs the repo's
-/// `GitCLI` to resolve the remote host, and `auth` for the token.
+/// `GitCLI` to resolve the remote host, and `auth` for the token. The Reviews
+/// inbox also builds one per remote repository that may not be on disk: no
+/// `GitCLI`, a host and an `auth` given by the caller, and `prepareForDetail`
+/// instead of a list load.
 ///
 /// Integrating a PR locally ("Resolve locally") stays on the view model: it
 /// checks out, merges and refreshes conflicts, which is session-wide work.
@@ -64,6 +67,9 @@ final class PullRequestStore {
     var detailGen: UInt64 = 0
     /// Drives the spinner on "Resolve locally" while a try-merge runs.
     var localMergeRunning = false
+    /// The PR to open once the list has it (`selectWhenLoaded`): another
+    /// screen asked for it before the list was there.
+    private(set) var pendingSelectionNumber: Int?
 
     // MARK: Review
     /// Whether the host takes "Request changes" (GitLab varies by version);
@@ -188,13 +194,15 @@ final class PullRequestStore {
     static let commitChecksCacheCap = 64
 
     /// - Parameters:
+    ///   - cli: the repo's `GitCLI`; `nil` for a repository that isn't on
+    ///     disk, whose host then comes from `resolveHost` (none, by default).
     ///   - auth: the token for a host (the repo's account); defaults to "connect".
     ///   - resolveHost / suggestInstance / makeProvider: default to the repo's
     ///     `origin` against the built-in instances and the real GitHub /
     ///     GitLab clients; tests pass fakes.
     ///   - parsePatch: reads a file's patch to place the threads on its lines;
     ///     tests count the reads.
-    init(cli: GitCLI,
+    init(cli: GitCLI?,
          auth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          silentAuth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
@@ -204,7 +212,7 @@ final class PullRequestStore {
          parsePatch: @escaping @Sendable (String) -> [DiffHunk] = { DiffParser.parse($0) }) {
         self.auth = auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.silentAuth = silentAuth ?? auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
-        self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
+        self.resolveHost = resolveHost ?? { await cli?.remoteHost(instances: HostingInstance.builtIns) }
         self.suggestInstance = suggestInstance ?? { nil }
         self.makeProvider = makeProvider
         self.makeReviewProvider = makeReviewProvider
@@ -350,22 +358,12 @@ final class PullRequestStore {
         listGen &+= 1
         let gen = listGen
 
-        guard let resolvedHost = await resolveHost() else {
-            host = nil
+        guard let access = await resolveAccess() else {
             items = []
-            requiresToken = false
-            suggestedInstance = await suggestInstance()
             return
         }
-        suggestedInstance = nil
-        host = resolvedHost
-        Self.logger.info("Pulls: detected host \(resolvedHost.host, privacy: .public) (\(resolvedHost.provider.rawValue, privacy: .public))")
-
-        guard var token = await authorize(resolvedHost) else {
-            items = []
-            currentToken = nil
-            return
-        }
+        let resolvedHost = access.host
+        var token = access.token
 
         let provider = makeProvider(resolvedHost)
         do {
@@ -390,10 +388,7 @@ final class PullRequestStore {
         // The closed list is refetched next time it's shown.
         closedLoaded = false
         closedItems = []
-        if currentUser == nil || currentUserToken != token {
-            currentUser = try? await provider.fetchCurrentUser(host: resolvedHost, token: token)
-            currentUserToken = currentUser == nil ? nil : token
-        }
+        await readCurrentUserIfNeeded(provider: provider, host: resolvedHost, token: token)
         // CI badges fill in afterwards, so the list (and Refresh) don't wait
         // on one lookup per row.
         let openItems = items
@@ -404,6 +399,53 @@ final class PullRequestStore {
         if scope == .closed {
             await loadClosed()
         }
+    }
+
+    /// The host and a token for it, as the list and the detail both need:
+    /// the detected host (else an instance to add may be offered) and the
+    /// repo's account token (else "connect", "no account chosen" or the
+    /// error — `authorize` sets which). `nil` = nothing to fetch with.
+    private func resolveAccess() async -> (host: RemoteHost, token: String)? {
+        guard let resolvedHost = await resolveHost() else {
+            host = nil
+            requiresToken = false
+            suggestedInstance = await suggestInstance()
+            return nil
+        }
+        suggestedInstance = nil
+        host = resolvedHost
+        Self.logger.info("Pulls: detected host \(resolvedHost.host, privacy: .public) (\(resolvedHost.provider.rawValue, privacy: .public))")
+
+        guard let token = await authorize(resolvedHost) else {
+            currentToken = nil
+            return nil
+        }
+        return (resolvedHost, token)
+    }
+
+    /// Reads the token owner's login unless it's known for this token.
+    private func readCurrentUserIfNeeded(provider: PullRequestProvider, host: RemoteHost, token: String) async {
+        guard currentUser == nil || currentUserToken != token else { return }
+        currentUser = try? await provider.fetchCurrentUser(host: host, token: token)
+        currentUserToken = currentUser == nil ? nil : token
+    }
+
+    /// Gets the store ready to open a PR's detail without the list: the
+    /// host and token as `load` finds them (the same "connect" states) and
+    /// the token owner's login. Reads neither the list nor the CI. `false`
+    /// = no host or no token, nothing to open it with.
+    func prepareForDetail() async -> Bool {
+        error = nil
+        guard let access = await resolveAccess() else { return false }
+        currentToken = access.token
+        await readCurrentUserIfNeeded(provider: makeProvider(access.host), host: access.host, token: access.token)
+        return true
+    }
+
+    /// Opens `number` as soon as the list has it (`pullToAutoSelect`), for a
+    /// screen that asks before the list loads. Kept until the list has it.
+    func selectWhenLoaded(number: Int) {
+        pendingSelectionNumber = number
     }
 
     /// Open the detail pane for `pr`: clears any prior detail state and
@@ -442,10 +484,15 @@ final class PullRequestStore {
         clearMerge()
     }
 
-    /// The PR the list should open: the first row when nothing is selected
-    /// or the selection left the list — unless it left because it was just
-    /// merged here.
+    /// The PR the list should open: the one asked for with `selectWhenLoaded`
+    /// once the list has it (even over another selection); else the first row
+    /// when nothing is selected or the selection left the list — unless it
+    /// left because it was just merged here.
     func pullToAutoSelect() -> PullRequest? {
+        if let number = pendingSelectionNumber, let wanted = visibleItems.first(where: { $0.number == number }) {
+            pendingSelectionNumber = nil
+            return wanted
+        }
         guard let selected else { return visibleItems.first }
         if visibleItems.contains(where: { $0.id == selected.id }) || keepsSelectionOutsideList { return nil }
         return visibleItems.first
@@ -658,6 +705,7 @@ final class PullRequestStore {
         scope = .open
         currentUser = nil
         currentUserToken = nil
+        pendingSelectionNumber = nil
         ciByPull = [:]
         host = nil
         error = nil

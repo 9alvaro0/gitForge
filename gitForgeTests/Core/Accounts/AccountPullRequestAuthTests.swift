@@ -87,6 +87,43 @@ struct AccountPullRequestAuthTests {
         #expect(plain.store.accounts[0].status == .needsAttention(.revoked))
     }
 
+    @Test("By account id: a usable account gives its token, without a repo")
+    func accountIdToken() async throws {
+        let s = setup()
+        let account = try add(s.store, login: "octo", secret: AccountSecret(accessToken: "test-oauth"))
+        #expect(await s.auth.access(accountId: account.id) == .token("test-oauth"))
+    }
+
+    @Test("By account id: an account that needs attention, or one that's gone, offers to connect")
+    func accountIdUnusable() async throws {
+        let s = setup()
+        let dead = try add(s.store, .gitLabDotCom, login: "old", status: .needsAttention(.revoked),
+                           secret: AccountSecret(accessToken: "test-dead"))
+        #expect(await s.auth.access(accountId: dead.id)
+                == .connectAccount(instanceId: HostingInstance.gitLabDotCom.id, replacing: dead.id))
+        #expect(await s.auth.access(accountId: UUID()) == .connectAccount(instanceId: nil, replacing: nil))
+    }
+
+    @Test("By account id: a rejected token is refreshed once, as for a repo")
+    func accountIdRejected() async throws {
+        let refreshes = LockedList<String>()
+        let s = setup(refresh: { refreshToken in
+            refreshes.append(refreshToken)
+            return TokenGrant(accessToken: "test-new", refreshToken: "r2", expiresIn: 7200, scopes: nil)
+        })
+        let account = try add(s.store, .gitLabDotCom, login: "tanuki",
+                              secret: AccountSecret(accessToken: "test-old", refreshToken: "r1",
+                                                    accessTokenExpiresAt: Date().addingTimeInterval(3600)))
+        #expect(await s.auth.access(accountId: account.id, rejected: "test-old") == .token("test-new"))
+        #expect(refreshes.values == ["r1"])
+
+        let plain = setup()
+        let github = try add(plain.store, login: "octo", secret: AccountSecret(accessToken: "test-oauth"))
+        #expect(await plain.auth.access(accountId: github.id, rejected: "test-oauth")
+                == .connectAccount(instanceId: HostingInstance.gitHubDotCom.id, replacing: github.id))
+        #expect(plain.store.accounts[0].status == .needsAttention(.revoked))
+    }
+
     @Test("Offline while refreshing: a failure to show, not Connect")
     func refreshOffline() async throws {
         let s = setup(refresh: { _ in throw HostingAuthError.network("offline") })
