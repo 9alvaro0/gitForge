@@ -64,3 +64,6 @@ Icon
 # Claude Code local settings
 .claude/settings.local.json
 .claude/worktrees/
+
+# Brainstorming mockups and agent workspaces
+.superpowers/
