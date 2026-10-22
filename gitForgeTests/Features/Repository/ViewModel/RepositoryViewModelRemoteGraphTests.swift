@@ -91,13 +91,24 @@ struct RepositoryViewModelRemoteGraphTests {
         defer { remotes.remove() }
         try await remotes.serverCommit("server one")
         try await remotes.work.gitAsync("fetch", "-q", "origin")
+        try await remotes.work.gitAsync("tag", "v1")
         let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
         await vm.history.loadInitial()
 
-        #expect(!vm.refs.isEmpty)
+        // The first page waits for the branches only; the tags come with loadRefs.
+        #expect(vm.refs.contains { $0.isLocalBranch } && vm.refs.contains { $0.isRemoteBranch })
+        #expect(!vm.refs.contains { $0.isTag })
         let row = try #require(Self.row("server one", in: vm))
         #expect(vm.history.graphLayouts[row].node.isGhost)
         #expect(!vm.history.isScopeStale)
+
+        let commits = vm.history.commits
+        await vm.loadRefs()
+        #expect(vm.refs.contains { $0.isTag })
+        #expect(vm.history.commits == commits)
+        #expect(vm.history.graphLayouts[row].node.isGhost)
+        let tagged = try #require(vm.history.commits.first { $0.subject == "c0" })
+        #expect(vm.history.refChips.refs(on: tagged.sha).contains { $0.name == "v1" })
     }
 
     /// Adds `count` tags on HEAD to `repo`'s packed refs. Only `GitCLI.refs()` lists tags, so

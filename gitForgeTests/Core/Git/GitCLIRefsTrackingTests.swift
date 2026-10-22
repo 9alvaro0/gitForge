@@ -52,6 +52,25 @@ struct GitCLIRefsTrackingTests {
         return (repo, remote)
     }
 
+    @Test("Without tags, the refs are the same branches with the same tracking, and no tag")
+    func refsWithoutTags() async throws {
+        let (repo, remote) = try await Self.pushedRepo()
+        defer { repo.remove(); remote.remove() }
+        try await repo.gitAsync("commit", "-q", "--allow-empty", "-m", "local one")
+        try await repo.gitAsync("branch", "-q", "topic")
+        try await repo.gitAsync("tag", "v1")
+        try await repo.gitAsync("tag", "-a", "v2", "-m", "Release")
+
+        let all = try await repo.cli.refs()
+        let branches = try await repo.cli.refs(includingTags: false)
+        #expect(all.filter(\.isTag).count == 2)
+        #expect(!branches.contains { $0.isTag })
+        #expect(branches == all.filter { !$0.isTag })
+        let main = try #require(branches.first { $0.isLocalBranch && $0.name == "main" })
+        #expect(main.upstream == "origin/main" && main.ahead == 1 && main.behind == 0)
+        #expect(branches.contains { $0.isRemoteBranch && $0.name == "origin/main" })
+    }
+
     @Test("remoteHeads names the branch each remote's HEAD points at")
     func remoteHeads() async throws {
         let (repo, remote) = try await Self.pushedRepo()

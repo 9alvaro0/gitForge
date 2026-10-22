@@ -1,14 +1,19 @@
 import Foundation
 
 extension GitCLI {
-    func refs() async throws -> [GitRef] {
+    /// Local branches, remote branches and, with `includingTags`, tags. Without
+    /// them the read skips what makes it slow in a repo with thousands of tags
+    /// (each one's subject, peeled): the history's first page only needs the
+    /// branches.
+    func refs(includingTags: Bool = true) async throws -> [GitRef] {
         // %(*objectname) is the dereferenced commit for annotated tags; empty for
         // everything else. We prefer it over %(objectname) (which would be the tag
         // OBJECT, not the commit, for annotated tags).
         // Upstream, track, date and subject feed the Branches table; the
         // subject goes last so a tab inside it can't shift the columns.
         let format = "%(objectname)%09%(*objectname)%09%(refname)%09%(HEAD)%09%(upstream:short)%09%(upstream:track)%09%(creatordate:unix)%09%(contents:subject)"
-        let result = try await run(["for-each-ref", "--format=\(format)", "refs/heads", "refs/remotes", "refs/tags"])
+        let patterns = ["refs/heads", "refs/remotes"] + (includingTags ? ["refs/tags"] : [])
+        let result = try await run(["for-each-ref", "--format=\(format)"] + patterns)
         return Self.parseRefs(result.stdout)
     }
 

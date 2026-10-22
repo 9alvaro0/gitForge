@@ -343,20 +343,23 @@ final class HistoryStore {
             // Stashes, unmerged-branch refs and the refs feed currentScope();
             // without them the first page walks an incomplete scope (no
             // remote branches) and jumps when the log reloads. Read in
-            // parallel the ones no earlier loadRefs() seeded.
+            // parallel the ones no earlier loadRefs() seeded. The refs without
+            // tags: neither the scope nor the graph needs them, and in a repo
+            // with thousands of tags they would hold the first page back.
             let needsStashes = stashes.isEmpty
             let needsUnmerged = refsSource?.unmergedLocalBranchRefs.isEmpty ?? true
             let needsRefs = refsSource?.refs.isEmpty ?? true
             if needsStashes || needsUnmerged || needsRefs {
                 async let stashTask: [Stash]? = needsStashes ? try? cli.stashes() : nil
                 async let unmergedTask: [String]? = needsUnmerged ? try? cli.unmergedLocalBranches() : nil
-                async let refsTask: [GitRef]? = needsRefs ? try? cli.refs() : nil
+                async let refsTask: [GitRef]? = needsRefs ? try? cli.refs(includingTags: false) : nil
                 async let remoteHeadsTask: [String: String]? = needsRefs ? try? cli.remoteHeads() : nil
                 let (freshStashes, freshUnmerged, freshRefs, freshRemoteHeads)
                     = await (stashTask, unmergedTask, refsTask, remoteHeadsTask)
                 guard gen == logGen else { return }
-                // Seeds only: a loadRefs() that landed meanwhile read them too,
-                // and as late or later.
+                // Seeds only: what a loadRefs() that landed meanwhile wrote stays,
+                // tags included. The one that lands later brings the tags, and its
+                // refs differ from these, so it lays the published log out again.
                 if let freshStashes, stashes.isEmpty {
                     refsSource?.stashes = freshStashes
                 }
