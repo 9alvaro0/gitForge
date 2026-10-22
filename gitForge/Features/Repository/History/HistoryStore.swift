@@ -390,15 +390,22 @@ final class HistoryStore {
     /// the ScrollView keeps its offset when HEAD moves (checkout, pull,
     /// commit, merge, watcher tick…).
     ///
+    /// With `keepingDepth`, for a reload the user didn't ask for (a fetch
+    /// moved a remote branch of the scope), it refetches as many raw commits
+    /// as are loaded, at least a page, in one walk, and splits them into pages
+    /// (`HistoryLog.paged`): the log the user had after scrolling as far, so
+    /// the rows they were looking at and the selection on them stay.
+    ///
     /// Preserves the user's selection when the previously-selected commit
-    /// is still in the new page; otherwise falls back to the new first
+    /// is still in the new log; otherwise falls back to the new first
     /// commit (matching `loadInitial`'s default).
-    func reloadLog() async {
+    func reloadLog(keepingDepth: Bool = false) async {
         let previousSelection = selectedCommitId
         logGen &+= 1
         let gen = logGen
         loadError = nil
         let pageSize = self.pageSize()
+        let limit = keepingDepth ? max(pageSize, loadedRawCount) : pageSize
         do {
             async let stashTask = cli.stashes()
             async let unmergedTask = cli.unmergedLocalBranches()
@@ -408,10 +415,15 @@ final class HistoryStore {
             refsSource?.stashes = freshStashes
             refsSource?.unmergedLocalBranchRefs = freshUnmerged
             let scope = currentScope()
-            let page = try await cli.log(limit: pageSize, skip: 0, refs: scope.revisions)
+            let raw = try await cli.log(limit: limit, skip: 0, refs: scope.revisions)
             guard gen == logGen else { return }
-            await publish(stageFirstPage(page, scope: scope, logGen: gen)) {
-                hasMore = page.count == pageSize
+            // Each page of the split goes over the rows before it: off the main actor for a deep log.
+            let log = raw.count > pageSize
+                ? await Task.detached { HistoryLog.paged(raw, pageSize: pageSize, stashShas: scope.stashShas) }.value
+                : HistoryLog.firstPage(raw, stashShas: scope.stashShas)
+            guard gen == logGen else { return }
+            await publish(stage(log, scope: scope, logGen: gen, baseRevision: nil)) {
+                hasMore = raw.count == limit
                 if let prev = previousSelection, commitsById[prev] == nil {
                     selectedCommitId = commits.first?.id
                 }

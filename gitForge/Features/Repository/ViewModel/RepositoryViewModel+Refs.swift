@@ -70,9 +70,11 @@ extension RepositoryViewModel {
     /// Reloads the log when the refs now ask for remote branches it wasn't
     /// fetched with (`HistoryStore.isScopeStale`): after a fetch, a push, a
     /// refresh or a branch change moved one, or when a repo opens. The refs
-    /// must be read first.
+    /// must be read first. The user didn't ask for it, often a background
+    /// fetch did, so it keeps the pages already loaded and the selection on
+    /// them (`reloadLog(keepingDepth:)`).
     func reloadLogIfScopeMoved() async {
         guard history.isScopeStale else { return }
-        await history.reloadLog()
+        await history.reloadLog(keepingDepth: true)
     }
 }

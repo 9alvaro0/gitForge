@@ -25,6 +25,22 @@ nonisolated struct HistoryLog: Sendable, Equatable {
         return log
     }
 
+    /// A log of `commits`, fetched in one walk with `stashShas` in its scope, split
+    /// into pages of `pageSize` raw commits as if they had loaded one by one
+    /// (`firstPage`, then `appending` each next one): the same rows and page ends,
+    /// so its first page reserves the same columns (§3.9).
+    static func paged(_ commits: [Commit], pageSize: Int, stashShas: Set<String>) -> HistoryLog {
+        let size = max(pageSize, 1)
+        var log = firstPage(Array(commits.prefix(size)), stashShas: stashShas)
+        var start = size
+        while start < commits.count {
+            let end = min(start + size, commits.count)
+            log = log.appending(Array(commits[start..<end]), scopeStashShas: stashShas)
+            start = end
+        }
+        return log
+    }
+
     /// This log with `page` appended. The page was fetched with the scope's
     /// stashes at the time, `scopeStashShas`. Only the ones that are rows of
     /// the new page join the log's stashes, and internals go from the new

@@ -63,6 +63,22 @@ struct HistoryStoreGraphTests {
         Self.expectPublished(vm.history)
     }
 
+    @Test("A walk split into pages is the log those pages make loaded one by one")
+    func pagedLog() {
+        let vm = Self.makeVM()
+        vm.stashes = [Stash(index: 0, sha: "s", subject: "WIP")]
+        // `s`'s index commit `idx` lands on the page after it; the last page is short.
+        let raw = GraphFixture.commits("d c\nc b\ns b idx\nidx\nb a\na")
+        vm.history.replaceLog(with: Array(raw[0..<2]))
+        vm.history.appendPage(Array(raw[2..<4]))
+        vm.history.appendPage(Array(raw[4..<6]))
+        let paged = HistoryLog.paged(raw, pageSize: 2, stashShas: ["s"])
+        #expect(paged == vm.history.loadedLog)
+        #expect(paged.pageEnds == [2, 3, 5] && paged.rawCount == 6)
+        #expect(HistoryLog.paged(Array(raw.prefix(2)), pageSize: 2, stashShas: ["s"])
+                == HistoryLog.firstPage(Array(raw.prefix(2)), stashShas: ["s"]))
+    }
+
     @Test("A page that adds no rows adds no page end")
     func emptyPage() {
         let vm = Self.makeVM()

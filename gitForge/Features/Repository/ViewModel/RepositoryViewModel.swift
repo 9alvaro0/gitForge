@@ -236,12 +236,12 @@ final class RepositoryViewModel {
 
     /// Watcher-driven refresh. Skips the log reload unless HEAD or a local
     /// branch tip actually moved, or a remote branch in the log's scope did
-    /// (a fetch from the terminal) — letting the watcher reload it on every
-    /// tick was the source of feedback loops with our own write paths. Every
-    /// local tip counts, not just HEAD's: the graph walks all local branches,
-    /// so a commit made in another worktree or a `git branch -f` from the
-    /// terminal must show up too.
-    private func refreshFromExternalChange() async {
+    /// (a fetch, ours or from the terminal) — letting the watcher reload it on
+    /// every tick was the source of feedback loops with our own write paths.
+    /// Every local tip counts, not just HEAD's: the graph walks all local
+    /// branches, so a commit made in another worktree or a `git branch -f`
+    /// from the terminal must show up too. Internal for tests.
+    func refreshFromExternalChange() async {
         let previousBranch = currentBranchName
         let previousTips = localBranchTips
         async let statusTask: Void = workingCopy.refreshStatus()
@@ -257,8 +257,11 @@ final class RepositoryViewModel {
         // this the file row updates but the diff stays on the previous
         // snapshot until the user re-selects.
         await workingCopy.reloadSelectedDiff()
-        if currentBranchName != previousBranch || localBranchTips != previousTips || history.isScopeStale {
+        if currentBranchName != previousBranch || localBranchTips != previousTips {
             await history.reloadLog()
+        } else {
+            // Only remote branches moved: the reload a fetch asks for, which keeps the pages loaded.
+            await reloadLogIfScopeMoved()
         }
     }
 

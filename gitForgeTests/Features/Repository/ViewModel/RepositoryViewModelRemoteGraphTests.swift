@@ -217,4 +217,84 @@ struct RepositoryViewModelRemoteGraphTests {
         #expect(vm.history.loadedRawCount == 5)
         #expect(vm.history.graphLayouts.count == oldWalk.count)
     }
+
+    // MARK: Scope reloads keep the depth
+
+    /// `work` with c0 … c9 one behind origin/main, three pages of three loaded (server one,
+    /// c9 … c2) and `c3`, on the third page, selected.
+    private static func threePagesLoaded() async throws -> (remotes: Remotes, vm: RepositoryViewModel, picked: Commit) {
+        let remotes = try await makeRemotes(commits: 10)
+        try await remotes.serverCommit("server one")
+        try await remotes.work.gitAsync("fetch", "-q", "origin")
+        let vm = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        vm.history.pageSize = { 3 }
+        await vm.loadRefs()
+        await vm.history.loadInitial()
+        for _ in 0..<2 {
+            let last = try #require(vm.history.commits.last)
+            await vm.history.loadMoreIfNeeded(currentItem: last)
+        }
+        #expect(vm.history.loadedRawCount == 9 && vm.history.graphPageEnds == [3, 6, 9])
+        let picked = try #require(vm.history.commits.first { $0.subject == "c3" })
+        vm.history.selectedCommitId = picked.id
+        return (remotes, vm, picked)
+    }
+
+    /// The reloaded log is the one the user had after scrolling as far: same raw depth, still
+    /// more to load, the selection kept.
+    private static func expectDepthKept(_ vm: RepositoryViewModel, picked: Commit,
+                                        sourceLocation: SourceLocation = #_sourceLocation) {
+        #expect(vm.history.commits.first?.subject == "server two", sourceLocation: sourceLocation)
+        #expect(vm.history.loadedRawCount == 9, sourceLocation: sourceLocation)
+        #expect(vm.history.graphPageEnds == [3, 6, 9], sourceLocation: sourceLocation)
+        #expect(vm.history.hasMore, sourceLocation: sourceLocation)
+        #expect(vm.history.selectedCommitId == picked.id, sourceLocation: sourceLocation)
+        #expect(!vm.history.isScopeStale, sourceLocation: sourceLocation)
+    }
+
+    @Test("The reload after a fetch moved a remote branch keeps the pages loaded, laid out as if scrolled one by one")
+    func scopeReloadKeepsDepth() async throws {
+        let (remotes, vm, picked) = try await Self.threePagesLoaded()
+        defer { remotes.remove() }
+
+        try await remotes.serverCommit("server two")
+        #expect(await vm.fetch())
+        Self.expectDepthKept(vm, picked: picked)
+
+        // A log scrolled page by page over the same walk has the same rows, pages and graph.
+        let scrolled = RepositoryViewModel(repository: Repository(url: remotes.work.url))
+        await scrolled.loadRefs()
+        let revisions = try #require(vm.history.loadedScope?.revisions)
+        #expect(scrolled.history.graphScope() == revisions)
+        let cli = remotes.work.cli
+        scrolled.history.replaceLog(with: try await cli.log(limit: 3, skip: 0, refs: revisions))
+        scrolled.history.appendPage(try await cli.log(limit: 3, skip: 3, refs: revisions))
+        scrolled.history.appendPage(try await cli.log(limit: 3, skip: 6, refs: revisions))
+        #expect(vm.history.commits == scrolled.history.commits)
+        #expect(vm.history.graphPageEnds == scrolled.history.graphPageEnds)
+        #expect(vm.history.loadedRawCount == scrolled.history.loadedRawCount)
+        #expect(vm.history.graphLayouts == scrolled.history.graphLayouts)
+    }
+
+    @Test("A watcher refresh after a fetch from the shell keeps the pages loaded")
+    func watcherScopeReloadKeepsDepth() async throws {
+        let (remotes, vm, picked) = try await Self.threePagesLoaded()
+        defer { remotes.remove() }
+
+        try await remotes.serverCommit("server two")
+        try await remotes.work.gitAsync("fetch", "-q", "origin")
+        await vm.refreshFromExternalChange()
+        Self.expectDepthKept(vm, picked: picked)
+    }
+
+    @Test("A reload because a local branch moved starts over from the first page")
+    func localReloadStartsOver() async throws {
+        let (remotes, vm, _) = try await Self.threePagesLoaded()
+        defer { remotes.remove() }
+
+        try await remotes.work.gitAsync("commit", "-q", "--allow-empty", "-m", "local one")
+        await vm.refreshFromExternalChange()
+        #expect(vm.history.commits.contains { $0.subject == "local one" })
+        #expect(vm.history.loadedRawCount == 3 && vm.history.graphPageEnds == [3])
+    }
 }
