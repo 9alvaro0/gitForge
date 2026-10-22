@@ -52,6 +52,9 @@ struct GitForgeApp: App {
                 .environment(appState.profiles)
                 .environment(updater)
                 .frame(minWidth: Self.minWindowSize.width, minHeight: Self.minWindowSize.height)
+                // Before `ShellView` exists (git is still being checked), so
+                // the "Updated to" toast already knows whether the sheet shows.
+                .onAppear { appState.whatsNew.evaluateAtLaunch() }
                 .task { await appState.bootstrap() }
                 .onChange(of: scenePhase) { _, newPhase in
                     guard newPhase == .active else { return }
