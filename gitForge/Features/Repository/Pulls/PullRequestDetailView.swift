@@ -43,6 +43,11 @@ struct PullRequestDetailView: View {
                             AnyView(PullRequestActionsBar(store: store, compact: compact, onMerge: { showMergeSheet = true }))
                         }
                     )
+                    // The review panel opens over the buttons from here, so a
+                    // header relayout doesn't close it.
+                    .overlayPreferenceValue(ReviewPanelAnchor.self) { anchor in
+                        ReviewPanelHost(store: store, anchor: anchor)
+                    }
                     tabBar
                 }
                 .padding(.horizontal, Spacing.s24)

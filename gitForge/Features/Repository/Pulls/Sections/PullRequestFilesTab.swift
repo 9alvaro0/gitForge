@@ -42,6 +42,8 @@ struct PullRequestFilesTab: View {
             .onChange(of: listIDs) { _, ids in
                 selectedPath = Self.selection(keeping: selectedPath, ids: ids, files: files)
             }
+            // A box on the file left behind doesn't take the focus back.
+            .onChange(of: selectedPath) { store.selectedFileChanged() }
         }
     }
 
@@ -136,7 +138,8 @@ struct PullRequestFilesTab: View {
         }
     }
 
-    /// The diff keeps showing when the threads can't load.
+    /// The diff keeps showing when the threads can't load. While Retry
+    /// works, the bar stays and says so.
     private func threadsErrorBar(_ error: String) -> some View {
         HStack(spacing: Spacing.s8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -145,7 +148,12 @@ struct PullRequestFilesTab: View {
                 .textRole(.callout, weight: .semibold)
                 .foregroundStyle(theme.colors.textPrimary)
             Spacer(minLength: 0)
-            GFButton(title: String(localized: "Retry"), size: .small) { Task { await store.loadThreads() } }
+            if store.isLoadingThreads {
+                ProgressView().controlSize(.small)
+            }
+            GFButton(title: String(localized: "Retry"), size: .small, disabled: store.isLoadingThreads) {
+                Task { await store.loadThreads() }
+            }
         }
         .padding(.horizontal, Spacing.s12)
         .padding(.vertical, Spacing.s6)

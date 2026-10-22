@@ -471,6 +471,23 @@
         }
       }
     },
+    "%@: %@" : {
+      "comment" : "A failed action's message after the pull or merge request it was on, as in \"#42: …\"",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
     "%lld %@ accounts could be used for %@. gitForge will remember your choice for this repository." : {
       "localizations" : {
         "es" : {

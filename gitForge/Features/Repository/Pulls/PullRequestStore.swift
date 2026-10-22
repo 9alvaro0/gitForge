@@ -69,24 +69,51 @@ final class PullRequestStore {
     /// Whether the host takes "Request changes" (GitLab varies by version);
     /// read with each detail, kept across PRs of the same repo.
     var requestChangesSupport: RequestChangesSupport?
+    /// Bumped by every probe for `requestChangesSupport` and by `reset`: an
+    /// older probe's answer lands nowhere.
+    @ObservationIgnored private var supportGen: UInt64 = 0
     /// The verdict being sent; disables the buttons meanwhile.
     var submittingReview: ReviewVerdict?
+    /// The open Approve / Request changes panel. Kept here, not in the
+    /// header's buttons: the header lays them out in several variants, each
+    /// with its own state, and a relayout would close the panel.
+    var reviewPanel: ReviewVerdict?
+    /// The PR whose detail reloads after a review (`isReviewBusy`).
+    var reviewSettlingPullId: String?
     /// What the user is typing in the review boxes (`ReviewDraftKey`).
-    var drafts: [ReviewDraftKey: String] = [:]
+    let drafts = ReviewDrafts()
 
     // MARK: Threads
     /// The selected PR's review threads; `placedThreads` says where each shows.
     var threads: [ReviewThread] = [] { didSet { placeThreads() } }
     private(set) var placedThreads: PlacedThreads = .empty
+    /// The lines of the selected PR's patches, for `placedThreads`.
+    @ObservationIgnored private var lineIndex = DiffLineIndex()
     var isLoadingThreads = false
     /// Why the threads didn't load. The diff shows all the same.
     var threadsError: String?
     /// The line a new comment is being written on. One box is open at a
     /// time (their shortcuts would collide): opening it closes the reply
     /// box, whose draft stays.
-    var composerTarget: CommentTarget? { didSet { if composerTarget != nil { replyingThreadId = nil } } }
+    var composerTarget: CommentTarget? {
+        didSet {
+            guard let composerTarget else { return }
+            replyingThreadId = nil
+            // The same box again is on screen already: it won't ask.
+            if composerTarget != oldValue { focusRequest = .comment(pullId: selected?.id ?? "", target: composerTarget) }
+        }
+    }
     /// The thread whose reply box is open.
-    var replyingThreadId: String? { didSet { if replyingThreadId != nil { composerTarget = nil } } }
+    var replyingThreadId: String? {
+        didSet {
+            guard let replyingThreadId else { return }
+            composerTarget = nil
+            if replyingThreadId != oldValue { focusRequest = .reply(pullId: selected?.id ?? "", threadId: replyingThreadId) }
+        }
+    }
+    /// The box that takes the focus when it next comes on screen: one just
+    /// opened, or one that went off screen with it (`claimFocus`).
+    @ObservationIgnored var focusRequest: ReviewDraftKey?
     /// The comments and replies being sent.
     var sendingDrafts: Set<ReviewDraftKey> = []
     /// The threads being resolved or reopened.
@@ -96,6 +123,9 @@ final class PullRequestStore {
     private(set) var filesDetail: PullRequestDetail?
     /// Bumped by every thread load and by `select`: an older load lands nowhere.
     @ObservationIgnored var threadsGen: UInt64 = 0
+    /// The head of the diff `threads` were read against: once the diff on
+    /// screen is another, their line numbers may point at other code.
+    @ObservationIgnored var threadsHead: String?
 
     // MARK: Merge
     /// What the merge sheet offers, read when it opens.
@@ -139,6 +169,7 @@ final class PullRequestStore {
     private let suggestInstance: @MainActor () async -> InstanceSuggestion?
     private let makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
     let makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider
+    private let parsePatch: @Sendable (String) -> [DiffHunk]
     private var detailTask: Task<Void, Never>?
     private var ciTask: Task<Void, Never>?
     /// Bumped by every list load so a slow CI fill for an older list drops
@@ -161,19 +192,24 @@ final class PullRequestStore {
     ///   - resolveHost / suggestInstance / makeProvider: default to the repo's
     ///     `origin` against the built-in instances and the real GitHub /
     ///     GitLab clients; tests pass fakes.
+    ///   - parsePatch: reads a file's patch to place the threads on its lines;
+    ///     tests count the reads.
     init(cli: GitCLI,
          auth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          silentAuth: (@MainActor (RemoteHost, String?) async -> PullRequestAuthResult)? = nil,
          resolveHost: (@MainActor () async -> RemoteHost?)? = nil,
          suggestInstance: (@MainActor () async -> InstanceSuggestion?)? = nil,
          makeProvider: @escaping @MainActor (RemoteHost) -> PullRequestProvider = { PullRequestProviderFactory.make(for: $0) },
-         makeReviewProvider: @escaping @MainActor (RemoteHost) -> PullRequestReviewProvider = { PullRequestReviewProviderFactory.make(for: $0) }) {
+         makeReviewProvider: @escaping @MainActor (RemoteHost) -> PullRequestReviewProvider = { PullRequestReviewProviderFactory.make(for: $0) },
+         parsePatch: @escaping @Sendable (String) -> [DiffHunk] = { DiffParser.parse($0) }) {
         self.auth = auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.silentAuth = silentAuth ?? auth ?? { _, _ in .connectAccount(instanceId: nil, replacing: nil) }
         self.resolveHost = resolveHost ?? { await cli.remoteHost(instances: HostingInstance.builtIns) }
         self.suggestInstance = suggestInstance ?? { nil }
         self.makeProvider = makeProvider
         self.makeReviewProvider = makeReviewProvider
+        self.parsePatch = parsePatch
+        lineIndex = DiffLineIndex(parse: parsePatch)
     }
 
     /// Asks `auth` for a token and updates the connect state; nil = no token.
@@ -381,6 +417,19 @@ final class PullRequestStore {
         detailTask = Task { [weak self] in await self?.loadDetail() }
     }
 
+    /// Reloads the open PR's detail without the caller waiting for it: a
+    /// write's answer (and its toast) shouldn't wait on four reads. A
+    /// select or a later load supersedes it.
+    func reloadDetailInBackground(then done: (@MainActor () -> Void)? = nil) {
+        // As `select` does: the load this replaces lands nowhere from now.
+        detailGen &+= 1
+        detailTask?.cancel()
+        detailTask = Task { [weak self] in
+            await self?.loadDetail()
+            done?()
+        }
+    }
+
     /// Close the detail pane. The invalidated loader won't clear its own
     /// loading flag (the gen moved), so it's reset here.
     func closeDetail() {
@@ -408,8 +457,13 @@ final class PullRequestStore {
     func loadDetail() async {
         detailGen &+= 1
         let gen = detailGen
-        guard let pr = selected, let host else { return }
+        // A load this one replaced won't clear the flag: the gen moved.
+        guard let pr = selected, let host else {
+            isLoadingDetail = false
+            return
+        }
         guard let token = currentToken else {
+            isLoadingDetail = false
             detailError = String(localized: "The account's token isn't available. Refresh the list.")
             return
         }
@@ -428,8 +482,7 @@ final class PullRequestStore {
             async let checksResult = Self.capture { try await provider.fetchChecks(host: host, pull: pr, token: token) }
             return await (detailResult, commitsResult, filesResult, checksResult)
         }
-        let reviewProvider = makeReviewProvider(host)
-        async let support = reviewProvider.requestChangesSupport(host: host, token: token)
+        probeRequestChangesSupport(host: host, token: token)
         var (detail, commits, files, checks) = await fetchAll(token)
         // The token went bad since the list loaded: one fresh one, one retry.
         if case .failure(PullRequestFetchError.unauthorized) = detail,
@@ -442,7 +495,9 @@ final class PullRequestStore {
         checksPollsLeft = Self.checksPollLimit
         settleReadsLeft = 0
         switch detail {
-        case .success(let value): self.detail = value
+        case .success(let value):
+            self.detail = value
+            closeReviewPanelIfGone()
         case .failure(let error): detailError = Self.message(for: error)
         }
         switch commits {
@@ -462,12 +517,25 @@ final class PullRequestStore {
         // Checks are a nice-to-have: a failure leaves the tab empty rather
         // than flagging the whole detail.
         if case .success(let value) = checks { self.checks = value }
-        let readSupport = await support
-        if gen == detailGen { requestChangesSupport = readSupport }
         recheckMergeStatusIfComputing(gen: gen)
         // After the detail: GitLab tells outdated threads apart by its head.
         guard gen == detailGen else { return }
         await loadThreads()
+    }
+
+    /// Asks whether the host takes "Request changes" without holding the
+    /// detail: a GitLab's first answer needs `/version` and a GraphQL probe.
+    /// The buttons follow when it lands.
+    private func probeRequestChangesSupport(host: RemoteHost, token: String) {
+        supportGen &+= 1
+        let gen = supportGen
+        let provider = makeReviewProvider(host)
+        Task { [weak self] in
+            let support = await provider.requestChangesSupport(host: host, token: token)
+            guard let self, gen == self.supportGen else { return }
+            self.requestChangesSupport = support
+            self.closeReviewPanelIfGone()
+        }
     }
 
     /// One more read of the detail alone, a moment later, while the host
@@ -527,6 +595,7 @@ final class PullRequestStore {
         guard let read, !Task.isCancelled, gen == detailGen else { return }
         detail = read.0
         if let checks = read.1 { self.checks = checks }
+        closeReviewPanelIfGone()
     }
 
     /// Refresh: the list, and the open PR with it, threads included. What
@@ -600,9 +669,11 @@ final class PullRequestStore {
         silentToken = nil
         commitChecksCache = [:]
         lastLoadedAt = nil
+        supportGen &+= 1
         requestChangesSupport = nil
         submittingReview = nil
-        drafts = [:]
+        reviewSettlingPullId = nil
+        drafts.removeAll()
         sendingDrafts = []
         resolvingThreadIds = []
         isMerging = false
@@ -617,15 +688,19 @@ final class PullRequestStore {
         detailError = nil
         threadsGen &+= 1
         threads = []
+        threadsHead = nil
+        lineIndex = DiffLineIndex(parse: parsePatch)
         threadsError = nil
         isLoadingThreads = false
         composerTarget = nil
         replyingThreadId = nil
+        focusRequest = nil
         filesDetail = nil
+        reviewPanel = nil
     }
 
     private func placeThreads() {
-        placedThreads = ThreadPlacement.place(threads, in: files)
+        placedThreads = ThreadPlacement.place(threads, in: files, index: &lineIndex)
     }
 
     private func clearMerge() {
@@ -642,6 +717,13 @@ final class PullRequestStore {
     private static func capture<T: Sendable>(_ block: @Sendable () async throws -> T) async -> Result<T, Error> {
         do { return .success(try await block()) }
         catch { return .failure(error) }
+    }
+
+    /// A failed write's message after the PR it was on ("#42: …"), since
+    /// its toast may show once another PR is on screen.
+    static func naming(_ pull: PullRequest, on host: RemoteHost, _ message: String) -> String {
+        String(localized: "\(host.provider.reference(pull.number)): \(message)",
+               comment: "A failed action's message after the pull or merge request it was on, as in \"#42: …\"")
     }
 
     static func message(for error: Error) -> String {

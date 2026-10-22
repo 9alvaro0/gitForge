@@ -10,6 +10,12 @@ struct ReviewComposer: View {
     /// The send button stays disabled until there's non-blank text.
     var requiresText = false
     var sending = false
+    /// Asked each time the box comes on screen: whether it takes the focus.
+    /// A box in a scrolling diff comes back on screen often, and only some
+    /// of those times should it take the focus from wherever it is.
+    var claimsFocus: () -> Bool = { true }
+    /// The box went off screen, and whether it had the focus then.
+    var onLeave: (_ hadFocus: Bool) -> Void = { _ in }
     let onSend: () -> Void
     let onCancel: () -> Void
 
@@ -30,15 +36,18 @@ struct ReviewComposer: View {
                     .help(Text(verbatim: "⌘↩"))
             }
         }
-        .onAppear { focused = true }
-        // With a list holding focus (the Files tab's file list), the request
-        // in onAppear lands before the editor can take it and typing goes
+        // With a list holding focus (the Files tab's file list), a first
+        // request lands before the editor can take it and typing goes
         // nowhere: ask again once the box is on screen, as the command
         // palette does.
         .task {
+            guard claimsFocus() else { return }
+            focused = true
             await Task.yield()
             focused = true
         }
+        // Read before the focus goes: SwiftUI reports leaving first.
+        .onDisappear { onLeave(focused) }
     }
 
     private var canSend: Bool {

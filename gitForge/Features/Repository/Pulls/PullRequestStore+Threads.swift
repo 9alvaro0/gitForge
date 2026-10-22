@@ -12,7 +12,9 @@ nonisolated enum ThreadActionResult: Equatable, Sendable {
 
 extension PullRequestStore {
     /// Reads the selected PR's threads. A failure only sets `threadsError`:
-    /// the detail and the diff stay as they are.
+    /// the detail and the diff stay as they are, and so do the threads,
+    /// unless they were read against another diff (their lines may be other
+    /// code now).
     func loadThreads() async {
         guard let pull = selected, let host else { return }
         threadsGen &+= 1
@@ -20,6 +22,8 @@ extension PullRequestStore {
         let detailGen = detailGen
         // Outdated is judged against the diff on screen.
         let shown = [filesDetail, detail].compactMap { $0 }.first { $0.pull.id == pull.id }
+        // The head of the diff on screen: unknown when its detail failed.
+        let screenHead = filesDetail?.pull.id == pull.id ? filesDetail?.pull.headSha : nil
         let provider = makeReviewProvider(host)
         isLoadingThreads = true
         defer { if gen == threadsGen { isLoadingThreads = false } }
@@ -29,9 +33,11 @@ extension PullRequestStore {
             }
             guard gen == threadsGen, detailGen == self.detailGen, let read else { return }
             threads = read
+            threadsHead = screenHead
             threadsError = nil
         } catch {
             guard gen == threadsGen, detailGen == self.detailGen else { return }
+            if threadsHead == nil || threadsHead != screenHead { threads = [] }
             threadsError = Self.message(for: error)
         }
     }
@@ -82,6 +88,45 @@ extension PullRequestStore {
         return outcome
     }
 
+    // MARK: Focus
+
+    /// Whether the box for `key` takes the focus as it comes on screen: once
+    /// when it opens, and again only if it went off screen with it (scrolled
+    /// away mid-sentence). Otherwise scrolling it back would take the focus
+    /// from wherever the user is now.
+    func claimFocus(_ key: ReviewDraftKey) -> Bool {
+        guard focusRequest == key else { return false }
+        focusRequest = nil
+        return true
+    }
+
+    /// The box for `key` went off screen, with or without the focus. A box
+    /// that closed has nothing to come back to; one that left without the
+    /// focus drops a request it never took.
+    func composerLeft(_ key: ReviewDraftKey, hadFocus: Bool) {
+        guard hadFocus, isOpen(key) else {
+            if focusRequest == key { focusRequest = nil }
+            return
+        }
+        focusRequest = key
+    }
+
+    /// The Files tab picked another file: the box on the old one left
+    /// because of it, not because it scrolled away, and shouldn't take the
+    /// focus from the list when that file comes back. Dropped after the
+    /// update, since the box reports leaving after the selection changes.
+    func selectedFileChanged() {
+        Task { [weak self] in self?.focusRequest = nil }
+    }
+
+    private func isOpen(_ key: ReviewDraftKey) -> Bool {
+        switch key {
+        case .comment(let pullId, let target): selected?.id == pullId && composerTarget == target
+        case .reply(let pullId, let threadId): selected?.id == pullId && replyingThreadId == threadId
+        case .review(let pullId, let verdict): selected?.id == pullId && reviewPanel == verdict
+        }
+    }
+
     // MARK: Sending
 
     /// Sends the trimmed draft under `key`, once at a time per draft. The
@@ -113,13 +158,13 @@ extension PullRequestStore {
                          _ call: (String) async throws -> Void) async -> ThreadActionResult {
         do {
             guard try await withToken(host, call) != nil else {
-                return .failed(String(localized: "The account's token isn't available. Refresh the list."))
+                return .failed(Self.naming(pull, on: host, String(localized: "The account's token isn't available. Refresh the list.")))
             }
             return .done
         } catch {
             let failure = PullRequestActionError.from(error)
-            let message = failure.message(for: action, account: currentUser, host: host.host,
-                                          isMergeRequest: host.provider == .gitlab)
+            let message = Self.naming(pull, on: host, failure.message(for: action, account: currentUser, host: host.host,
+                                                                      isMergeRequest: host.provider == .gitlab))
             switch failure {
             case .changedOnHost:
                 if selected?.id == pull.id { await loadThreads() }

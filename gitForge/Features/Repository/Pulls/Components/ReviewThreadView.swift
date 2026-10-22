@@ -16,6 +16,10 @@ struct ReviewThreadView: View {
     let onCancelReply: () -> Void
     let onReply: () -> Void
     let onToggleResolved: () -> Void
+    /// Whether the reply box takes the focus as it comes on screen, and
+    /// told when it leaves (`ReviewComposer`).
+    var claimsFocus: () -> Bool = { true }
+    var onReplyLeave: (_ hadFocus: Bool) -> Void = { _ in }
 
     @Environment(\.appTheme) private var theme
     @State private var expanded = false
@@ -86,7 +90,8 @@ struct ReviewThreadView: View {
     private var footer: some View {
         if isReplying {
             ReviewComposer(text: $replyText, placeholder: String(localized: "Reply…"), sendTitle: String(localized: "Reply"),
-                           requiresText: true, sending: sending, onSend: onReply, onCancel: onCancelReply)
+                           requiresText: true, sending: sending, claimsFocus: claimsFocus, onLeave: onReplyLeave,
+                           onSend: onReply, onCancel: onCancelReply)
         } else {
             HStack(spacing: Spacing.s8) {
                 if thread.canReply {
@@ -111,7 +116,8 @@ struct ReviewThreadView: View {
 }
 
 /// Looks like the box it opens; a draft left in it shows as its first line.
-/// Its own view, so typing in any box redraws only this line, not the card.
+/// Its own view, reading only its own draft: typing in another box doesn't
+/// redraw it, and typing in this one redraws only this line.
 private struct ReplyField: View {
     @Binding var text: String
     let onTap: () -> Void

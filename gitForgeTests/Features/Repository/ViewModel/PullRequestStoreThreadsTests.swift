@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Testing
 @testable import gitForge
 
@@ -20,6 +21,8 @@ private final class ThreadsFakeProvider: PullRequestProvider, PullRequestReviewP
     var threadsGate: AsyncGate?
     /// PR 1's head per detail read, in order; the last repeats.
     var heads = ["sha1"]
+    /// Thrown by PR 1's detail reads after the first.
+    var reloadDetailError: Error?
     /// PR 1's check states per read, in order; the last repeats.
     var checkStates: [[CICheck.State]] = [[]]
     private(set) var calls: [Call] = []
@@ -46,6 +49,7 @@ private final class ThreadsFakeProvider: PullRequestProvider, PullRequestReviewP
     func fetchCommitChecks(host: RemoteHost, sha: String, token: String) async throws -> [CICheck] { [] }
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
         detailFetches[number, default: 0] += 1
+        if number == 1, detailFetches[number, default: 0] > 1, let reloadDetailError { throw reloadDetailError }
         let head = number == 1 ? (heads.count > 1 ? heads.removeFirst() : heads[0]) : "sha\(number)"
         return PullRequestDetail(pull: Self.pull(number, head: head), descriptionMarkdown: nil, labels: [], reviewers: [],
                                  assignees: [], mergeable: true, ciStatus: nil,
@@ -119,13 +123,14 @@ struct PullRequestStoreThreadsTests {
                                            side: .new)!
 
     /// A loaded list with PR 1's detail and threads open.
-    private func loadedStore() async -> PullRequestStore {
+    private func loadedStore(parsePatch: @escaping @Sendable (String) -> [DiffHunk] = { DiffParser.parse($0) }) async -> PullRequestStore {
         let provider = provider
         let store = PullRequestStore(cli: GitCLI(workingDirectory: URL(fileURLWithPath: "/var/empty")),
                                      auth: { _, rejected in rejected == nil ? .token("t1") : .token("t2") },
                                      resolveHost: { Self.host },
                                      makeProvider: { _ in provider },
-                                     makeReviewProvider: { _ in provider })
+                                     makeReviewProvider: { _ in provider },
+                                     parsePatch: parsePatch)
         await store.load(force: true)
         store.selected = store.items.first
         await store.loadDetail()
@@ -155,6 +160,42 @@ struct PullRequestStoreThreadsTests {
         #expect(store.threadsError == nil)
     }
 
+    @Test("A Refresh that changed the diff and couldn't reload the threads drops them: their lines may be other code now")
+    func failedReloadOnNewDiff() async {
+        provider.heads = ["sha1", "sha2"]
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        #expect(store.placedThreads.inline["f1.swift"] != nil)
+        provider.threadErrors = [PullRequestFetchError.server(500, "x")]
+        await store.refresh()
+        #expect(store.threadsError != nil)
+        #expect(store.threads.isEmpty)
+        #expect(store.placedThreads == .empty)
+    }
+
+    @Test("A Refresh whose detail failed reads new files of an unknown head: a failed thread reload drops the threads")
+    func failedReloadWithUnknownHead() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        provider.reloadDetailError = PullRequestFetchError.server(500, "x")
+        provider.threadErrors = [PullRequestFetchError.server(500, "x")]
+        await store.refresh()
+        #expect(store.detailError != nil)
+        #expect(store.threadsError != nil)
+        #expect(store.threads.isEmpty)
+    }
+
+    @Test("A failed thread reload on the same diff keeps the threads where they were")
+    func failedReloadOnSameDiff() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let store = await loadedStore()
+        provider.threadErrors = [PullRequestFetchError.server(500, "x")]
+        await store.refresh()
+        #expect(store.threadsError != nil)
+        #expect(store.threads.map(\.id) == ["T1"])
+        #expect(store.placedThreads.inline["f1.swift"]?[DiffLineRef(side: .new, line: 3)]?.map(\.id) == ["T1"])
+    }
+
     @Test("Refresh keeps the draft and the open composer")
     func refreshKeepsComposer() async {
         let store = await loadedStore()
@@ -181,6 +222,83 @@ struct PullRequestStoreThreadsTests {
         #expect(store.replyingThreadId == "T1")
         #expect(store.drafts[.reply(pullId: "1", threadId: "T1")] == "Half a sentence")
         #expect(store.threads.map(\.id) == ["T1"])
+    }
+
+    @Test("Typing in one box doesn't touch what reads another; the box's own readers hear it, its first write too")
+    func draftsObservedPerBox() async {
+        let store = await loadedStore()
+        let first = ReviewDraftKey.reply(pullId: "1", threadId: "T1")
+        let other = ReviewDraftKey.reply(pullId: "1", threadId: "T2")
+        let changes = CallCount()
+        withObservationTracking { _ = store.drafts[first] } onChange: { changes.add() }
+        store.drafts[other] = "typing elsewhere"
+        #expect(changes.value == 0)
+        store.drafts[first] = "x"
+        #expect(changes.value == 1)
+
+        withObservationTracking { _ = store.drafts[first] } onChange: { changes.add() }
+        store.drafts[first] = nil
+        #expect(changes.value == 2)
+    }
+
+    @Test("A box takes the focus when it opens; back on screen, only if it left with it")
+    func focusOnOpenOnly() async {
+        let store = await loadedStore()
+        let key = ReviewDraftKey.comment(pullId: "1", target: Self.target)
+        #expect(!store.claimFocus(key))
+        store.composerTarget = Self.target
+        #expect(store.claimFocus(key))
+        // Scrolled away while the user was elsewhere: coming back doesn't steal it.
+        store.composerLeft(key, hadFocus: false)
+        #expect(!store.claimFocus(key))
+        // Scrolled away mid-sentence: coming back, the user can go on typing.
+        store.composerLeft(key, hadFocus: true)
+        #expect(store.claimFocus(key))
+        // Closed with the focus: nothing left to take it back.
+        store.composerTarget = nil
+        store.composerLeft(key, hadFocus: true)
+        #expect(!store.claimFocus(key))
+    }
+
+    @Test("Opening the open box again leaves no focus request; one its box never took goes when the box leaves without the focus")
+    func focusRequestNotLeftBehind() async {
+        let store = await loadedStore()
+        let comment = ReviewDraftKey.comment(pullId: "1", target: Self.target)
+        store.composerTarget = Self.target
+        #expect(store.claimFocus(comment))
+        // "+" again on the line whose box is open: the box is on screen already.
+        store.composerTarget = Self.target
+        #expect(!store.claimFocus(comment))
+
+        let reply = ReviewDraftKey.reply(pullId: "1", threadId: "T1")
+        store.replyingThreadId = "T1"
+        store.composerLeft(reply, hadFocus: false)
+        #expect(!store.claimFocus(reply))
+    }
+
+    @Test("A box that leaves because another file was picked doesn't take the focus back")
+    func fileSwitchDropsFocusRequest() async {
+        let store = await loadedStore()
+        let key = ReviewDraftKey.comment(pullId: "1", target: Self.target)
+        store.composerTarget = Self.target
+        #expect(store.claimFocus(key))
+        // The list picks another file, then the box reports leaving with the focus.
+        store.selectedFileChanged()
+        store.composerLeft(key, hadFocus: true)
+        await waitUntil(timeout: .seconds(1)) { store.focusRequest == nil }
+        #expect(!store.claimFocus(key))
+    }
+
+    @Test("Opening a reply box again takes the focus again")
+    func replyFocusOnReopen() async {
+        let store = await loadedStore()
+        let key = ReviewDraftKey.reply(pullId: "1", threadId: "T1")
+        store.replyingThreadId = "T1"
+        #expect(store.claimFocus(key))
+        #expect(!store.claimFocus(key))
+        store.replyingThreadId = nil
+        store.replyingThreadId = "T1"
+        #expect(store.claimFocus(key))
     }
 
     @Test("Opening a box closes the other one; their drafts stay")
@@ -235,7 +353,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         store.drafts[.reply(pullId: "1", threadId: "T1")] = "Done"
         provider.writeErrors = [PullRequestFetchError.notFound]
-        #expect(await store.reply(to: store.threads[0]) == .changedOnHost("It changed on the host since it loaded."))
+        #expect(await store.reply(to: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded."))
         #expect(store.drafts[.reply(pullId: "1", threadId: "T1")] == "Done")
         #expect(provider.threadFetches[1] == 2)
     }
@@ -246,7 +364,7 @@ struct PullRequestStoreThreadsTests {
         store.drafts[.comment(pullId: "1", target: Self.target)] = "x"
         provider.writeErrors = [PullRequestActionError.forbidden]
         #expect(await store.addComment(at: Self.target)
-                == .failed("Your account (user-of-t1 on github.com) can't comment on this pull request."))
+                == .failed("#1: Your account (user-of-t1 on github.com) can't comment on this pull request."))
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == "x")
         #expect(provider.threadFetches[1] == 1)
     }
@@ -256,7 +374,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         store.drafts[.comment(pullId: "1", target: Self.target)] = "x"
         provider.writeErrors = [PullRequestActionError.headChanged]
-        #expect(await store.addComment(at: Self.target) == .changedOnHost("New commits were pushed — review them and try again."))
+        #expect(await store.addComment(at: Self.target) == .changedOnHost("#1: New commits were pushed — review them and try again."))
         #expect(provider.detailFetches[1] == 2)
         #expect(provider.threadFetches[1] == 2)
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == "x")
@@ -288,13 +406,25 @@ struct PullRequestStoreThreadsTests {
         #expect(!store.threads[0].isResolved && store.threads[0].resolvedBy == nil && store.threads[0].canResolve)
     }
 
+    @Test("Resolving a thread or a Refresh with the same diff places the threads without parsing the patch again")
+    func placingDoesNotReparse() async {
+        provider.threads[1] = [Self.thread("T1")]
+        let parses = CallCount()
+        let store = await loadedStore(parsePatch: { parses.add(); return DiffParser.parse($0) })
+        #expect(parses.value == 1)
+        #expect(await store.setResolved(true, thread: store.threads[0]) == .done)
+        await store.refresh()
+        #expect(parses.value == 1)
+        #expect(store.placedThreads.inline["f1.swift"]?[DiffLineRef(side: .new, line: 3)]?.map(\.id) == ["T1"])
+    }
+
     @Test("Resolving a thread someone deleted reloads the threads")
     func resolveGone() async {
         provider.threads[1] = [Self.thread("T1")]
         let store = await loadedStore()
         provider.threads[1] = []
         provider.writeErrors = [PullRequestActionError.changedOnHost]
-        #expect(await store.setResolved(true, thread: store.threads[0]) == .changedOnHost("It changed on the host since it loaded."))
+        #expect(await store.setResolved(true, thread: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded."))
         #expect(store.threads.isEmpty)
     }
 
@@ -329,6 +459,20 @@ struct PullRequestStoreThreadsTests {
         #expect(store.threads.map(\.id) == ["T2"])
         #expect(provider.threadFetches[1] == 1)
         #expect(store.drafts[.comment(pullId: "1", target: Self.target)] == nil)
+    }
+
+    @Test("A refusal that lands after switching PRs names the PR it was on")
+    func refusalAfterSwitchNamesItsPR() async throws {
+        let store = await loadedStore()
+        store.drafts[.comment(pullId: "1", target: Self.target)] = "On PR 1"
+        let gate = AsyncGate()
+        provider.gate = gate
+        provider.writeErrors = [PullRequestActionError.forbidden]
+        let send = Task { await store.addComment(at: Self.target) }
+        await gate.waiting()
+        store.select(try #require(store.items.last))
+        gate.open()
+        #expect(await send.value == .failed("#1: Your account (user-of-t1 on github.com) can't comment on this pull request."))
     }
 
     @Test("Resolving two threads in a row: both reach the host")

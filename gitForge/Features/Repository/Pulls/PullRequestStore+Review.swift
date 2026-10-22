@@ -8,6 +8,41 @@ nonisolated enum ReviewDraftKey: Hashable, Sendable {
     case comment(pullId: String, target: CommentTarget)
 }
 
+/// What the user is typing in the review boxes, one observed box per
+/// draft: a keystroke redraws only the views that read that draft, not
+/// every "Reply…" field on screen.
+@MainActor
+final class ReviewDrafts {
+    @Observable @MainActor
+    final class Box {
+        var text: String?
+    }
+
+    private var boxes: [ReviewDraftKey: Box] = [:]
+
+    subscript(key: ReviewDraftKey) -> String? {
+        get { box(key).text }
+        set {
+            let box = box(key)
+            if box.text != newValue { box.text = newValue }
+        }
+    }
+
+    /// Every draft goes (a repo switch).
+    func removeAll() {
+        for box in boxes.values where box.text != nil { box.text = nil }
+    }
+
+    /// Made on the first read too, so a view that read a draft before it
+    /// was written hears its first write.
+    private func box(_ key: ReviewDraftKey) -> Box {
+        if let box = boxes[key] { return box }
+        let box = Box()
+        boxes[key] = box
+        return box
+    }
+}
+
 nonisolated enum ReviewSubmitResult: Equatable, Sendable {
     /// Landed; `warning` when its comment didn't (GitLab posts it apart).
     case submitted(warning: String?)
@@ -25,6 +60,12 @@ extension PullRequestStore {
                         requestChanges: requestChangesSupport)
     }
 
+    /// The review buttons are off: a review is going, or the selected PR's
+    /// detail is still reloading after one (it may say "Approved" by then).
+    var isReviewBusy: Bool {
+        submittingReview != nil || (reviewSettlingPullId != nil && reviewSettlingPullId == selected?.id)
+    }
+
     func draftBinding(_ key: ReviewDraftKey) -> Binding<String> {
         Binding(get: { self.drafts[key] ?? "" }, set: { self.drafts[key] = $0 })
     }
@@ -32,8 +73,9 @@ extension PullRequestStore {
     /// Approves or requests changes on the selected PR with its draft as the
     /// comment. The PR is captured up front: switching PRs mid-flight
     /// doesn't redirect the review, and only reloads the detail it belongs to.
+    /// It answers as soon as the host does; the reload follows on its own.
     func submitReview(_ verdict: ReviewVerdict) async -> ReviewSubmitResult {
-        guard let selectedPull = selected, let host, submittingReview == nil else { return .ignored }
+        guard let selectedPull = selected, let host, !isReviewBusy else { return .ignored }
         let pull = detail?.pull.id == selectedPull.id ? (detail?.pull ?? selectedPull) : selectedPull
         let key = ReviewDraftKey.review(pullId: pull.id, verdict)
         let body = drafts[key] ?? ""
@@ -47,24 +89,45 @@ extension PullRequestStore {
                 try await provider.submitReview(host: host, pull: pull, verdict: verdict, body: body, token: token)
             }
             guard let warning = outcome else {
-                return .failed(String(localized: "The account's token isn't available. Refresh the list."))
+                return .failed(Self.naming(pull, on: host, String(localized: "The account's token isn't available. Refresh the list.")))
             }
             // A comment that didn't post stays as a draft so it isn't lost.
             if warning == nil { drafts[key] = nil }
-            if selected?.id == pull.id { await loadDetail() }
-            return .submitted(warning: warning)
+            if selected?.id == pull.id {
+                reviewPanel = nil
+                settle(pull)
+            }
+            return .submitted(warning: warning.map { Self.naming(pull, on: host, $0) })
         } catch {
             let failure = PullRequestActionError.from(error)
             // The PR moved on the host: show what it is now. The draft stays.
             switch failure {
             case .headChanged, .changedOnHost, .rejected:
-                if selected?.id == pull.id { await loadDetail() }
+                if selected?.id == pull.id { settle(pull) }
             case .forbidden, .pendingReview, .other:
                 break
             }
             let action: PullRequestAction = verdict == .approve ? .approve : .requestChanges
-            return .failed(failure.message(for: action, account: currentUser, host: host.host,
-                                           isMergeRequest: host.provider == .gitlab))
+            return .failed(Self.naming(pull, on: host, failure.message(for: action, account: currentUser, host: host.host,
+                                                                      isMergeRequest: host.provider == .gitlab)))
         }
+    }
+
+    /// Reloads `pull`'s detail in the background, the review buttons off
+    /// until it's in: until then they'd offer what was just done.
+    private func settle(_ pull: PullRequest) {
+        reviewSettlingPullId = pull.id
+        reloadDetailInBackground { [weak self] in
+            if self?.reviewSettlingPullId == pull.id { self?.reviewSettlingPullId = nil }
+        }
+    }
+
+    /// The open panel's action is gone (the PR merged or closed, or the
+    /// host no longer takes it): the panel goes too, its draft stays.
+    func closeReviewPanelIfGone() {
+        guard let verdict = reviewPanel else { return }
+        let actions = reviewActions
+        let offered = verdict == .approve ? actions.approve == .available : actions.requestChanges == .available
+        if !offered { reviewPanel = nil }
     }
 }
