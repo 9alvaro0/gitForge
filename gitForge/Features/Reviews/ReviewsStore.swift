@@ -12,10 +12,12 @@ struct ReviewsEnvironment {
     /// stays in `accountsNeedingAttention` and its repos keep their pull
     /// requests until it's connected again. The store puts the accounts that
     /// sign first, so a dead one never wins a repo as an instance's first
-    /// account (Ruling 4.3); an assignment or the owner's login still can
+    /// account (Ruling 4.3); the owner's login or its own activity still can
     /// give it one.
     var accounts: @MainActor () -> [(account: HostingAccount, instance: HostingInstance)]
-    /// The catalog's clones whose `origin` is on a declared instance. A
+    /// The catalog's clones whose `origin` is on a declared instance, each
+    /// with the account its own Pull requests screen reads it with, when one
+    /// stands out (`LocalRemote.assignedAccountId`); nobody is asked. A
     /// refresh cancelled while this runs commits nothing: `GitCLI` reads the
     /// remotes with `try?`, so a cancelled read comes back empty.
     var localRemotes: @MainActor () async -> [LocalRemote]

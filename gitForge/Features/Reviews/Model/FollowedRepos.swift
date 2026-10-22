@@ -26,7 +26,9 @@ nonisolated struct ReviewRepo: Codable, Equatable, Identifiable, Sendable {
 nonisolated struct LocalRemote: Equatable, Sendable {
     let host: RemoteHost
     let repository: Repository
-    /// The account the user assigned to this `origin`, if any.
+    /// The account the clone's own Pull requests screen reads it with: the
+    /// user's choice, or the automatic rules' pick among the accounts that
+    /// sign. `nil` when none fits or several do and nothing tells them apart.
     let assignedAccountId: UUID?
 }
 
@@ -60,10 +62,15 @@ nonisolated enum FollowedRepos {
 
     /// Joins the local clones and the API activity into one list of repos.
     ///
-    /// - `accounts` are the usable ones, in the order of `AccountStore.accounts`.
-    /// - A repo that comes both ways keeps the local's host and account; its
-    ///   clone URL is the API's.
-    /// - A local repo with no usable account on its instance is left out.
+    /// - `accounts` are the ones the inbox reads with
+    ///   (`ReviewsEnvironment.accounts`), in the order it prefers them: those
+    ///   that sign first, each group in the order of `AccountStore.accounts`.
+    /// - A repo that comes both ways keeps the local's host; its clone URL is
+    ///   the API's.
+    /// - A clone keeps the account it comes with (`LocalRemote.assignedAccountId`).
+    ///   Without one it takes the best of the accounts whose activity reached
+    ///   it, else of its instance's (Ruling 4: the owner's login, else the first).
+    /// - A local repo with no account of the inbox on its instance is left out.
     /// - The result is ordered by `lastActivity` (newest first, then by key)
     ///   and cut to `limit`.
     static func merge(local: [LocalRemote], activity: [ActivityCandidate],
@@ -82,8 +89,8 @@ nonisolated enum FollowedRepos {
                 draft.lastActivity = max(draft.lastActivity ?? opened, opened)
                 drafts[repoKey] = draft
             } else {
-                drafts[repoKey] = Draft(host: remote.host, localAccountId: account.id, sources: [.local],
-                                    lastActivity: opened, localURL: remote.repository.url)
+                drafts[repoKey] = Draft(host: remote.host, localAccountId: account.id, localAccountAssigned: assigned != nil,
+                                        sources: [.local], lastActivity: opened, localURL: remote.repository.url)
             }
         }
 
@@ -119,6 +126,9 @@ nonisolated enum FollowedRepos {
         var host: RemoteHost
         /// The account a clone resolved to (Ruling 4); `nil` for activity-only repos.
         var localAccountId: UUID?
+        /// The clone came with its account (`LocalRemote.assignedAccountId`):
+        /// the activity doesn't change it.
+        var localAccountAssigned = false
         var sources: Set<FollowSource> = []
         var lastActivity: Date?
         var apiCloneURL: String?
@@ -126,12 +136,13 @@ nonisolated enum FollowedRepos {
         /// Accounts whose activity reached this repo.
         var seenBy: Set<UUID> = []
 
-        /// A repo with a clone keeps the clone's account; an activity-only one
+        /// A clone that came with its account keeps it. Otherwise the repo
         /// takes the best of the accounts that saw it (owner's login, else the
-        /// first in `accounts` order). `nil` only if none is left.
+        /// first in `accounts` order), and a clone no activity reached keeps
+        /// the one it resolved to. `nil` only if none is left.
         func repo(accounts: [HostingAccount]) -> ReviewRepo? {
-            let accountId = localAccountId
-                ?? FollowedRepos.preferredAccount(for: host, among: accounts.filter { seenBy.contains($0.id) })?.id
+            let seen = FollowedRepos.preferredAccount(for: host, among: accounts.filter { seenBy.contains($0.id) })?.id
+            let accountId = localAccountAssigned ? localAccountId : seen ?? localAccountId
             guard let accountId else { return nil }
             return ReviewRepo(host: host, accountId: accountId, sources: sources, lastActivity: lastActivity,
                               cloneURL: apiCloneURL ?? "https://\(host.host)/\(host.owner)/\(host.repo).git",

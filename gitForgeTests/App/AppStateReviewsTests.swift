@@ -11,9 +11,11 @@ struct AppStateReviewsTests {
         }
     }
 
-    private func addAccount(_ app: AppState, status: HostingAccount.Status = .ok) throws -> HostingAccount {
-        let account = HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, login: "tanuki-test",
-                                     method: .personalToken, status: status)
+    @discardableResult
+    private func addAccount(_ app: AppState, login: String = "tanuki-test", status: HostingAccount.Status = .ok,
+                            linkedProfileId: UUID? = nil) throws -> HostingAccount {
+        let account = HostingAccount(instanceId: HostingInstance.gitLabDotCom.id, login: login,
+                                     method: .personalToken, status: status, linkedProfileId: linkedProfileId)
         try app.accounts.addAccount(account, secret: AccountSecret(accessToken: "test-pat-value"))
         return account
     }
@@ -41,7 +43,7 @@ struct AppStateReviewsTests {
         #expect(remote.assignedAccountId == account.id)
     }
 
-    @Test("Without an assignment the remote still counts, with no account")
+    @Test("With no account on its instance the remote still counts, with no account")
     func unassigned() async throws {
         let app = AppState.isolated()
         let repo = try await clone(origin: "git@gitlab.com:team/app.git")
@@ -52,6 +54,57 @@ struct AppStateReviewsTests {
 
         #expect(remote.host.id == "gitlab.com/team/app")
         #expect(remote.assignedAccountId == nil)
+    }
+
+    @Test("Without an assignment, a clone takes its identity profile's account, as its Pull requests screen does")
+    func profileAccount() async throws {
+        let app = AppState.isolated()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.git("remote", "add", "origin", "https://gitlab.com/team/app.git")
+            try repo.git("config", "user.email", "lucia@work.example.test")
+        }
+        defer { repo.remove() }
+        let profile = GitProfile(name: "Work", userName: "Lucia", userEmail: "lucia@work.example.test")
+        app.profiles.add(profile)
+        // First in the store's order, and the owner is neither login.
+        try addAccount(app, login: "tanuki-test")
+        let linked = try addAccount(app, login: "lucia-work", linkedProfileId: profile.id)
+        app.catalog.repositories = [Repository(url: repo.url)]
+
+        let remote = try #require(await app.localRemotesForReviews().first)
+
+        #expect(remote.assignedAccountId == linked.id)
+    }
+
+    @Test("A clone set to the system's credentials takes the automatic account, as its Pull requests screen does")
+    func systemChoice() async throws {
+        let app = AppState.isolated()
+        let repo = try await clone(origin: "https://gitlab.com/team/app.git")
+        defer { repo.remove() }
+        let account = try addAccount(app)
+        app.catalog.repositories = [Repository(url: repo.url)]
+        app.accounts.setChoice(.system, repoPath: repo.url.path(percentEncoded: false), remoteName: "origin")
+
+        let remote = try #require(await app.localRemotesForReviews().first)
+
+        #expect(remote.assignedAccountId == account.id)
+        #expect(app.accounts.choice(repoPath: repo.url.path(percentEncoded: false), remoteName: "origin") == .system)
+    }
+
+    @Test("Two accounts and nothing to tell them apart: no account, and nobody is asked")
+    func ambiguousClone() async throws {
+        let app = AppState.isolated()
+        let repo = try await clone(origin: "https://gitlab.com/team/app.git")
+        defer { repo.remove() }
+        try addAccount(app, login: "tanuki-test")
+        try addAccount(app, login: "lucia-work")
+        app.catalog.repositories = [Repository(url: repo.url)]
+
+        let remote = try #require(await app.localRemotesForReviews().first)
+
+        #expect(remote.assignedAccountId == nil)
+        #expect(app.accountChooser.request == nil)
+        #expect(app.accounts.choice(repoPath: repo.url.path(percentEncoded: false), remoteName: "origin") == nil)
     }
 
     @Test("A clone without an origin gives nothing")

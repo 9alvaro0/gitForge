@@ -111,21 +111,25 @@ final class AppState {
     }
 
     /// The catalog's clones whose `origin` is on a declared instance, in the
-    /// catalog's order, each with the account assigned to that `origin`. A
-    /// clone without an `origin`, or on an undeclared host, gives nothing.
+    /// catalog's order. Each comes with the account its own Pull requests
+    /// screen reads it with (`AccountPullRequestAuth.resolution`, with the
+    /// clone's identity profile), or none when several fit; nobody is asked.
+    /// A clone without an `origin`, or on an undeclared host, gives nothing.
     func localRemotesForReviews() async -> [LocalRemote] {
         let instances = accounts.instances
-        let clones = catalog.repositories.map { repository in
-            (repository: repository,
-             assigned: accounts.assignedAccountId(repoPath: repository.path, remoteName: "origin"))
-        }
+        let clones = catalog.repositories
+        let profileLookup = profileLookup
+        let auth = pullRequestAuth
         return await withTaskGroup(of: (index: Int, remote: LocalRemote?).self) { group in
             func read(_ index: Int) {
-                let clone = clones[index]
+                let repository = clones[index]
                 group.addTask {
-                    guard let url = await GitCLI(workingDirectory: clone.repository.url).remoteURL("origin"),
+                    guard let url = await GitCLI(workingDirectory: repository.url).remoteURL("origin"),
                           let host = RemoteHost.parse(url, instances: instances) else { return (index, nil) }
-                    return (index, LocalRemote(host: host, repository: clone.repository, assignedAccountId: clone.assigned))
+                    let profile = await profileLookup.profileId(forRepoAt: repository.path)
+                    let resolution = await auth.resolution(host: host, repoPath: repository.path, activeProfileId: profile)
+                    let accountId: UUID? = if case .account(let account) = resolution { account.id } else { nil }
+                    return (index, LocalRemote(host: host, repository: repository, assignedAccountId: accountId))
                 }
             }
             var next = 0

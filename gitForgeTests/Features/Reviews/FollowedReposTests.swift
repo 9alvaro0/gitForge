@@ -39,6 +39,24 @@ struct FollowedReposTests {
         #expect(set.repos.first { $0.host.repo == "api" }?.accountId == Self.marta.id)
     }
 
+    @Test("A clone with no account of its own takes one that saw its activity, not the instance's first")
+    func unassignedLocalFollowsActivity() {
+        // Without the activity, marta would read it: first, and neither login is the owner.
+        let set = FollowedRepos.merge(local: [Self.local("team/api", opened: 1)],
+                                      activity: [Self.activity("team/api", Self.octo, at: 5)],
+                                      accounts: [Self.marta, Self.octo], instances: [Self.gitlab])
+        #expect(set.repos.map(\.accountId) == [Self.octo.id])
+        #expect(set.repos.first?.sources == [.local, .activity])
+    }
+
+    @Test("A clone with an account of its own keeps it, whoever saw its activity")
+    func assignedLocalKeepsAccount() {
+        let set = FollowedRepos.merge(local: [Self.local("team/api", opened: 1, assigned: Self.marta.id)],
+                                      activity: [Self.activity("team/api", Self.octo, at: 5)],
+                                      accounts: [Self.marta, Self.octo], instances: [Self.gitlab])
+        #expect(set.repos.map(\.accountId) == [Self.marta.id])
+    }
+
     @Test("A local repo on an instance without a usable account is left out")
     func noAccount() {
         let github = LocalRemote(host: RemoteHost.make(fullName: "octo/app", on: .gitHubDotCom)!,
