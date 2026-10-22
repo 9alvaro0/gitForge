@@ -11,6 +11,9 @@ extension RepositoryViewModel {
             return "\(host.slug) · \(host.provider.label.lowercased())"
         case .conflict where mergeState.isInProgress:
             return mergeStateSubtitle
+        case .reviews:
+            // The inbox belongs to no repository: no branch under its title.
+            return ""
         case .changes:
             // The staged / unstaged counts the old status bar showed.
             let branch = currentBranchName ?? String(localized: "Detached HEAD")

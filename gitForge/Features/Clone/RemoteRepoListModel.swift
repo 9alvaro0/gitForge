@@ -17,7 +17,7 @@ final class RemoteRepoListModel {
         case failed(String)
     }
 
-    static let pageSize = 50
+    static let pageSize = RemoteRepoBrowserFactory.pageSize
 
     let kind: HostingInstance.Kind
     private(set) var accounts: [HostingAccount] = []

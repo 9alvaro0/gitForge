@@ -2,7 +2,7 @@ import Foundation
 
 /// Lightweight summary of a repo as listed by GitHub/GitLab API endpoints.
 /// Enough to render a row in the clone picker and resolve the URL git needs.
-struct RemoteRepoSummary: Sendable, Identifiable, Equatable {
+nonisolated struct RemoteRepoSummary: Sendable, Identifiable, Equatable, Codable {
     let id: String
     let name: String
     let fullName: String         // "owner/repo" (GitHub) or "group/repo" (GitLab)
@@ -16,11 +16,17 @@ struct RemoteRepoSummary: Sendable, Identifiable, Equatable {
 /// Browses the repos an account can see. Drives "My repos" in `CloneSheet`.
 protocol RemoteRepoBrowsing: Sendable {
     /// One page of repos from the instance API at `apiBase`. `page` is
-    /// 1-based; 50 results per page. An empty array means no more pages.
+    /// 1-based; `RemoteRepoBrowserFactory.pageSize` results per page. An empty
+    /// array means no more pages.
     func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary]
 }
 
 enum RemoteRepoBrowserFactory {
+    /// Repos in a page of `fetchUserRepos`: what both browsers ask for with
+    /// `per_page`. Whoever decides from a page's length (the clone picker's
+    /// "more", the Reviews inbox's completeness of a membership) reads it here.
+    nonisolated static let pageSize = 50
+
     static func make(for kind: HostingInstance.Kind, session: URLSession = RemoteAPI.session) -> any RemoteRepoBrowsing {
         switch kind {
         case .github: GitHubRepoBrowser(session: session)
@@ -40,7 +46,7 @@ struct GitHubRepoBrowser: RemoteRepoBrowsing {
             throw PullRequestFetchError.network("bad URL")
         }
         components.queryItems = [
-            URLQueryItem(name: "per_page", value: "50"),
+            URLQueryItem(name: "per_page", value: String(RemoteRepoBrowserFactory.pageSize)),
             URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "sort", value: "updated"),
             URLQueryItem(name: "direction", value: "desc"),
@@ -102,7 +108,7 @@ struct GitLabRepoBrowser: RemoteRepoBrowsing {
             URLQueryItem(name: "simple", value: "false"),
             URLQueryItem(name: "order_by", value: "last_activity_at"),
             URLQueryItem(name: "sort", value: "desc"),
-            URLQueryItem(name: "per_page", value: "50"),
+            URLQueryItem(name: "per_page", value: String(RemoteRepoBrowserFactory.pageSize)),
             URLQueryItem(name: "page", value: String(page)),
         ]
         guard let url = components.url else { throw PullRequestFetchError.network("bad URL") }

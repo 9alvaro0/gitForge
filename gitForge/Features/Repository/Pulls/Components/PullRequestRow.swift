@@ -5,6 +5,8 @@ import AppKit
 struct PullRequestRow: View {
     let pullRequest: PullRequest
     let hostLabel: String?
+    /// How the host writes the number (`!482` on GitLab); `#482` by default.
+    var reference: String? = nil
     let ci: CIStatus?
     let isSelected: Bool
     let onSelect: () -> Void
@@ -17,7 +19,7 @@ struct PullRequestRow: View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: Spacing.s6) {
                 HStack(spacing: Spacing.s8) {
-                    Text("#\(pullRequest.number)")
+                    Text(verbatim: reference ?? "#\(pullRequest.number)")
                         .font(AppFont.font(.monoSmall, monoFamily: theme.monoFont))
                         .foregroundStyle(theme.colors.textTertiary)
                     if let hostLabel {

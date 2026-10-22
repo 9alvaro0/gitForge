@@ -6,7 +6,9 @@ struct PullRequestOverviewTab: View {
     let detail: PullRequestDetail?
     var banner: AnyView = AnyView(EmptyView())
     var localMergeRunning: Bool = false
-    var onTryLocalMerge: () -> Void = {}
+    /// `nil` where there is no repository to integrate in (Reviews): no
+    /// "Resolve locally".
+    var onTryLocalMerge: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -32,12 +34,17 @@ struct PullRequestOverviewTab: View {
         HStack(spacing: Spacing.s12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(theme.colors.warn)
-            Text("This branch conflicts with its target. Merge the target into it locally and resolve the conflicts here.")
+            // Without a repository here there is nowhere to resolve them.
+            Text(onTryLocalMerge == nil
+                 ? String(localized: "This branch conflicts with its target.")
+                 : String(localized: "This branch conflicts with its target. Merge the target into it locally and resolve the conflicts here."))
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            GFButton(title: localMergeRunning ? String(localized: "Resolving…") : String(localized: "Resolve locally"), disabled: localMergeRunning,
-                     action: onTryLocalMerge)
+            if let onTryLocalMerge {
+                GFButton(title: localMergeRunning ? String(localized: "Resolving…") : String(localized: "Resolve locally"), disabled: localMergeRunning,
+                         action: onTryLocalMerge)
+            }
         }
         .padding(Spacing.s12)
         .background(RoundedRectangle(cornerRadius: Radius.card).fill(theme.colors.bgContent))
@@ -80,7 +87,7 @@ struct PullRequestOverviewTab: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    PullRequestOverviewTab(detail: .previewSample)
+    PullRequestOverviewTab(detail: .previewSample, onTryLocalMerge: {})
         .frame(width: 800, height: 600)
         .background(theme.colors.bgElevated)
         .appTheme(theme)

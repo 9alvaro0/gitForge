@@ -31,6 +31,7 @@ struct EmptyState<Action: View>: View {
             Text(title)
                 .textRole(.headline)
                 .foregroundStyle(theme.colors.textPrimary)
+                .multilineTextAlignment(.center)
             if let subtitle {
                 Text(subtitle)
                     .textRole(.callout)

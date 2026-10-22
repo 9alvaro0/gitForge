@@ -3,8 +3,8 @@ import Foundation
 /// Provider-agnostic representation of a GitHub pull request or a GitLab
 /// merge request. Both APIs are mapped onto this model so the UI never has
 /// to branch on provider.
-nonisolated struct PullRequest: Sendable, Equatable, Identifiable {
-    enum State: Sendable, Equatable {
+nonisolated struct PullRequest: Sendable, Equatable, Identifiable, Codable {
+    enum State: String, Sendable, Equatable, Codable {
         case open
         case closed
         case merged

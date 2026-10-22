@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Switches the main column over the active `WorkspaceSection`. All eight
+/// Switches the main column over the active `WorkspaceSection`. All nine
 /// destinations share the same `RepositoryViewModel`, so this lives in `App/`
 /// rather than any individual feature.
 struct ContentRouter: View {
@@ -15,10 +15,14 @@ struct ContentRouter: View {
         case .stashes:  StashesView(viewModel: viewModel)
         case .pulls:
             PullsView(store: viewModel.pullRequests,
-                      integrateLocally: { await viewModel.attemptLocalMergeForPullRequest() },
-                      checkoutBranch: { await viewModel.checkoutPullRequestBranch() })
+                      localActions: .repository(
+                          integrate: { await viewModel.attemptLocalMergeForPullRequest() },
+                          checkout: { await viewModel.checkoutPullRequestBranch() }))
         case .conflict: ConflictView(viewModel: viewModel)
         case .settings: SettingsView()
+        // Inside a repository so going to Reviews and back does not mount
+        // the repository again.
+        case .reviews:  ReviewsView(store: appState.reviews)
         }
     }
 }

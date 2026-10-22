@@ -52,16 +52,8 @@ final class AccountPullRequestAuth {
                 rejected: String? = nil, interactive: Bool = true) async -> PullRequestAuthResult {
         let instance = store.instance(forHost: host.host)
         let profile = await activeProfileId(repoPath)
-        // The API has no "system" credential: a remote set to the system's
-        // for git still uses the account the automatic rules pick here.
         let manual = store.choice(repoPath: repoPath, remoteName: remoteName)
-        var assignments = store.assignments
-        if manual == .system { assignments[repoPath]?[remoteName] = nil }
-        var resolution = AccountResolver.resolve(remoteHost: host.host, remoteOwner: host.owner, repoPath: repoPath,
-                                                 remoteName: remoteName, activeProfileId: profile,
-                                                 instances: store.instances,
-                                                 accounts: store.accounts.filter(AccountGitCredentials.signs),
-                                                 assignments: assignments)
+        var resolution = self.resolution(host: host, repoPath: repoPath, remoteName: remoteName, activeProfileId: profile)
         if case .ambiguous(let candidates) = resolution {
             guard interactive else { return .cancelled }
             guard let chooseAccount else { return connect(instanceId: instance?.id) }
@@ -74,6 +66,44 @@ final class AccountPullRequestAuth {
         guard case .account(let account) = resolution, let instance else {
             return connect(instanceId: instance?.id)
         }
+        return await token(for: account, on: instance, rejected: rejected)
+    }
+
+    /// The account a repo remote's pull requests use, before anyone is
+    /// asked: only the accounts that sign, and a remote set to the system's
+    /// credentials for git still gets the account the automatic rules pick
+    /// (the API has no "system" credential). The Reviews inbox reads a clone
+    /// with it, so it acts as the account the repo's own screen uses.
+    func resolution(host: RemoteHost, repoPath: String, remoteName: String = "origin",
+                    activeProfileId: UUID?) -> AccountResolution {
+        var assignments = store.assignments
+        if store.choice(repoPath: repoPath, remoteName: remoteName) == .system { assignments[repoPath]?[remoteName] = nil }
+        return AccountResolver.resolve(remoteHost: host.host, remoteOwner: host.owner, repoPath: repoPath,
+                                       remoteName: remoteName, activeProfileId: activeProfileId,
+                                       instances: store.instances,
+                                       accounts: store.accounts.filter(AccountGitCredentials.signs),
+                                       assignments: assignments)
+    }
+
+    /// The token of a given account, without a repo to resolve it from: the
+    /// Reviews inbox follows repositories that may not be on disk, each by
+    /// the account that found them. A missing or unusable account reads as
+    /// "connect", as for a repo.
+    func access(accountId: UUID, rejected: String? = nil) async -> PullRequestAuthResult {
+        guard let account = store.accounts.first(where: { $0.id == accountId }),
+              let instance = store.instances.first(where: { $0.id == account.instanceId }) else {
+            return .connectAccount(instanceId: nil, replacing: nil)
+        }
+        guard AccountGitCredentials.signs(account) else {
+            return .connectAccount(instanceId: instance.id, replacing: account.id)
+        }
+        return await token(for: account, on: instance, rejected: rejected)
+    }
+
+    /// The account's token, refreshed after a rejection (`rejected`); what
+    /// can't be fixed here reads as "connect" or, when it may pass, a failure.
+    private func token(for account: HostingAccount, on instance: HostingInstance,
+                       rejected: String?) async -> PullRequestAuthResult {
         do {
             if let rejected {
                 return .token(try await refresher.refreshAfterRejection(for: account, on: instance, rejected: rejected))

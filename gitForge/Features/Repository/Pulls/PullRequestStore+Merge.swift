@@ -77,7 +77,8 @@ extension PullRequestStore {
 
     /// Merges the selected PR as the sheet's draft says, pinned to the head
     /// the user saw. Only when the host says it can merge; afterwards the
-    /// list and the detail reload, and the PR stays selected.
+    /// list (if it was ever loaded) and the detail reload, and the PR stays
+    /// selected.
     func merge() async -> MergeResult {
         guard let selectedPull = selected, let host, !isMerging else { return .ignored }
         let pull = detail?.pull ?? selectedPull
@@ -102,7 +103,9 @@ extension PullRequestStore {
                 selected?.state = .merged
                 if detail?.pull.id == pull.id { detail?.pull.state = .merged }
             }
-            await load(force: true)
+            // A store that only opened the detail (Reviews) has no list to
+            // bring up to date: its screen reads the repo again itself.
+            if lastLoadedAt != nil { await load(force: true) }
             if selected?.id == pull.id {
                 await loadDetail()
                 if let merged = detail?.pull, merged.id == pull.id { selected = merged }

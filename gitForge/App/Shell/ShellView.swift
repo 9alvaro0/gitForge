@@ -157,6 +157,7 @@ struct ShellView: View {
         } else {
             switch appState.ui.workspaceSection {
             case .settings: SettingsView()
+            case .reviews:  ReviewsView(store: appState.reviews)
             default:        WelcomeView()
             }
         }

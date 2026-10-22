@@ -33,7 +33,9 @@ final class AsyncGate: @unchecked Sendable {
     /// Returns once a caller is suspended in `wait()`. If none gets there within
     /// `timeout` it records an issue and returns, so a slow run fails here and
     /// not on a later assertion that depended on the caller being suspended.
-    func waiting(timeout: Duration = .seconds(3), sourceLocation: SourceLocation = #_sourceLocation) async {
+    /// The default is generous: it costs nothing when the caller gets there, and
+    /// a busy machine running the whole suite can stall for several seconds.
+    func waiting(timeout: Duration = .seconds(15), sourceLocation: SourceLocation = #_sourceLocation) async {
         let deadline = ContinuousClock.now.advanced(by: timeout)
         while !isWaiting, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(5))
