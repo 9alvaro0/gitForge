@@ -31,7 +31,16 @@ struct WhatsNewSheet: View {
             footer
         }
         .frame(width: Self.width)
-        .onExitCommand { dismiss() }
+        .background(theme.colors.bgElevated)
+        // Esc closes it whatever has focus, like the Cancel button of the
+        // app's other sheets (`onExitCommand` needs a focused view).
+        .background {
+            Button(action: { dismiss() }, label: { EmptyView() })
+                .keyboardShortcut(.cancelAction)
+                .opacity(0)
+                .focusable(false)
+                .accessibilityHidden(true)
+        }
     }
 
     private var content: some View {
@@ -183,7 +192,6 @@ private struct WhatsNewSheetPreview: View {
 
     var body: some View {
         WhatsNewSheet(presentation: presentation, language: "es")
-            .background(theme.colors.bgElevated)
             .appTheme(theme)
             .preferredColorScheme(scheme)
             .onAppear { theme.systemColorScheme = scheme }
