@@ -353,7 +353,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         store.drafts[.reply(pullId: "1", threadId: "T1")] = "Done"
         provider.writeErrors = [PullRequestFetchError.notFound]
-        #expect(await store.reply(to: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded. Reloaded."))
+        #expect(await store.reply(to: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded."))
         #expect(store.drafts[.reply(pullId: "1", threadId: "T1")] == "Done")
         #expect(provider.threadFetches[1] == 2)
     }
@@ -424,7 +424,7 @@ struct PullRequestStoreThreadsTests {
         let store = await loadedStore()
         provider.threads[1] = []
         provider.writeErrors = [PullRequestActionError.changedOnHost]
-        #expect(await store.setResolved(true, thread: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded. Reloaded."))
+        #expect(await store.setResolved(true, thread: store.threads[0]) == .changedOnHost("#1: It changed on the host since it loaded."))
         #expect(store.threads.isEmpty)
     }
 

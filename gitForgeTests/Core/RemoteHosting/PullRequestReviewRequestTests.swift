@@ -135,6 +135,28 @@ struct GitLabReviewFlowTests {
         #expect(warning == "Approved, but the comment couldn't be posted: Server returned 500: boom")
     }
 
+    @Test("A comment the host refuses after the verdict names the account", arguments: [403, 401])
+    func noteRefused(status: Int) async throws {
+        let (server, provider, host, pull) = Self.setUp()
+        server.on("POST", "\(Self.mr)/approve", status: 201, body: Data("{}".utf8))
+        server.on("POST", "\(Self.mr)/notes", status: status, body: Data(#"{"message":"Not allowed"}"#.utf8))
+        server.on("GET", "/api/v4/user", fixture: "gitlab-user")
+        let warning = try await provider.submitReview(host: host, pull: pull, verdict: .approve, body: "LGTM", token: "t")
+        #expect(warning == "Approved, but the comment couldn't be posted: "
+                + "Your account (tanuki-test on \(server.host)) can't comment on this merge request.")
+    }
+
+    @Test("A comment the host turns down shows its message, not its JSON")
+    func noteInvalid() async throws {
+        let (server, provider, host, pull) = Self.setUp()
+        server.on("POST", "\(Self.mr)/approve", status: 201, body: Data("{}".utf8))
+        server.on("POST", "\(Self.mr)/notes", status: 400,
+                  body: Data(#"{"message":{"note":["is too long (maximum is 1000000 characters)"]}}"#.utf8))
+        let warning = try await provider.submitReview(host: host, pull: pull, verdict: .approve, body: "LGTM", token: "t")
+        #expect(warning == "Approved, but the comment couldn't be posted: "
+                + "Server returned 400: is too long (maximum is 1000000 characters)")
+    }
+
     @Test("A refused approval (GitLab's 401) with a working token reads as refused, not as a dead token")
     func approvalRefused() async {
         let (server, provider, host, pull) = Self.setUp()
@@ -210,6 +232,28 @@ struct GitLabReviewFlowTests {
         #expect(server.requests("POST", "\(Self.mr)/notes").map { $0.json?["body"] as? String }
                 == ["Add tests\n\n/submit_review requested_changes"])
         #expect(server.requests("POST", "\(Self.mr)/approve").isEmpty)
+    }
+
+    @Test("A probe that failed isn't remembered: the next ask probes again until one answers")
+    func failedProbeRetried() async {
+        let (server, provider, host, _) = Self.setUp()
+        server.on("GET", "/api/v4/version", fixture: "gitlab-version")
+        server.on("POST", "/api/graphql", status: 502, body: Data("<html>Bad gateway</html>".utf8))
+        server.on("POST", "/api/graphql", fixture: "gitlab-graphql-mutations")
+        for _ in 0..<3 { _ = await provider.requestChangesSupport(host: host, token: "t") }
+        #expect(server.requests("POST", "/api/graphql").count == 2)
+    }
+
+    @Test("A probe that answered without the mutation is remembered", arguments: [
+        #"{"data":{"__type":{"fields":[{"name":"mergeRequestAccept"}]}}}"#,
+        #"{"errors":[{"message":"Introspection is disabled"}]}"#,
+    ])
+    func answeredProbeKept(answer: String) async {
+        let (server, provider, host, _) = Self.setUp()
+        server.on("GET", "/api/v4/version", fixture: "gitlab-version")
+        server.on("POST", "/api/graphql", body: Data(answer.utf8))
+        for _ in 0..<2 { _ = await provider.requestChangesSupport(host: host, token: "t") }
+        #expect(server.requests("POST", "/api/graphql").count == 1)
     }
 
     @Test("Before 17.3 nothing is posted and the reason comes back")

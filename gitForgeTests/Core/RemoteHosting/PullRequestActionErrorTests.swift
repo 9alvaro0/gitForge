@@ -22,6 +22,35 @@ struct PullRequestActionErrorTests {
         #expect(PullRequestActionError.from(input) == expected)
     }
 
+    @Test("Unknown statuses quote the host's message, not its raw body", arguments: [
+        (PullRequestFetchError.server(503, #"{"message":"503 Service Unavailable"}"#),
+         PullRequestActionError.other("Server returned 503: 503 Service Unavailable")),
+        // GitLab's answer to a comment on a line it can't place.
+        (.server(400, #"{"message":"400 Bad request - Note {:line_code=>[\"can't be blank\"]}"}"#),
+         .other(#"Server returned 400: 400 Bad request - Note {:line_code=>["can't be blank"]}"#)),
+        // A proxy's error page: the toast shows its first 200 characters.
+        (.server(502, "<html>" + String(repeating: "x", count: 300) + "</html>"),
+         .other("Server returned 502: <html>" + String(repeating: "x", count: 194))),
+    ])
+    func serverBodies(input: PullRequestFetchError, expected: PullRequestActionError) {
+        #expect(PullRequestActionError.from(input) == expected)
+    }
+
+    @Test("A change on the host doesn't claim a reload the caller may skip")
+    func changedOnHostCopy() {
+        #expect(PullRequestActionError.changedOnHost.message(for: .resolve, account: nil, host: "github.com", isMergeRequest: false)
+                == "It changed on the host since it loaded.")
+    }
+
+    @Test("A GraphQL FORBIDDEN error is a refusal, like a 403")
+    func graphQLForbidden() {
+        struct Payload: Decodable { let ok: Bool }
+        let answer = #"{"data":null,"errors":[{"type":"FORBIDDEN","message":"marta does not have the correct permissions to execute `ResolveReviewThread`"}]}"#
+        #expect(throws: PullRequestFetchError.forbidden) {
+            try RemoteAPI.decodeGraphQL(Data(answer.utf8), as: Payload.self)
+        }
+    }
+
     @Test("A body that isn't JSON is quoted, cut to 200 characters")
     func plainBody() {
         let long = String(repeating: "x", count: 250)

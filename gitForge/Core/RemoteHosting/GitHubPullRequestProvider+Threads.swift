@@ -36,8 +36,9 @@ extension GitHubPullRequestProvider {
                                                        token: token), session: session)
     }
 
-    /// A thread that's gone answers "Could not resolve to a node"; any
-    /// other GraphQL error is the host's refusal, in its words.
+    /// A thread that's gone answers "Could not resolve to a node". A
+    /// `FORBIDDEN` error (no permission) comes out of `decodeGraphQL` as a
+    /// 403; any other GraphQL error is the host's refusal, in its words.
     func setResolved(_ resolved: Bool, host: RemoteHost, pull: PullRequest, thread: ReviewThread, token: String) async throws {
         let data = try await RemoteAPI.send(Self.resolveRequest(host: host, threadId: thread.id, resolved: resolved, token: token),
                                             session: session)

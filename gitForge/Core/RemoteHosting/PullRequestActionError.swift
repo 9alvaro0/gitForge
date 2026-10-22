@@ -30,6 +30,9 @@ nonisolated enum PullRequestActionError: Error, Equatable, Sendable {
             return .pendingReview
         case .server(let status, let body) where [405, 406, 422].contains(status):
             return .rejected(hostMessage(fromBody: body))
+        case .server(let status, let body):
+            // The host's message, not its whole body (a proxy's HTML page).
+            return .other(PullRequestFetchError.server(status, hostMessage(fromBody: body)).localizedDescription)
         default:
             return .other(fetch.localizedDescription)
         }
@@ -66,7 +69,8 @@ nonisolated enum PullRequestActionError: Error, Equatable, Sendable {
         case .pendingReview:
             return String(localized: "You have a pending review started on GitHub. Submit or discard it there first.")
         case .changedOnHost:
-            return String(localized: "It changed on the host since it loaded. Reloaded.")
+            // No "reloaded": the caller skips the reload when the PR is no longer shown.
+            return String(localized: "It changed on the host since it loaded.")
         case .rejected(let reason):
             return String(localized: "The host refused: \(reason)")
         case .other(let message):
