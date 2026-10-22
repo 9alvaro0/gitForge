@@ -26,7 +26,8 @@ protocol HistoryRefsSource: AnyObject {
 final class HistoryStore {
     // MARK: Log
     /// The published log. The loaders publish it together with its graph
-    /// (`publish(_:)`); only tests and previews set it directly.
+    /// (`publish(_:)`); only tests and previews set it directly, usually
+    /// through the hooks in `HistoryStore+Preview.swift`.
     var commits: [Commit] = [] {
         // `uniquingKeysWith: { _, new in new }` instead of
         // `uniqueKeysWithValues:` — the latter traps on duplicate ids. The
@@ -126,8 +127,9 @@ final class HistoryStore {
     /// log (refs, HEAD, palette) may have changed. A log staged before the
     /// bump recomputes once more after it is published.
     private var graphInputRevision: UInt64 = 0
-    /// Lays a graph out, always off the main actor. Tests swap it to hold a
-    /// pass and interleave it with another.
+    /// Lays a graph out, always off the main actor. A test seam: the race
+    /// tests swap it to hold a pass and interleave it with another; no
+    /// production code assigns it.
     @ObservationIgnored var graphEngine: @Sendable (GraphInput) async -> GraphLayout = {
         CommitGraphEngine.layout($0)
     }
@@ -447,22 +449,11 @@ final class HistoryStore {
         staged.logGen == logGen && (staged.baseRevision.map { $0 == logRevision } ?? true)
     }
 
-    /// Swaps in a fresh first page and its graph, laid out on the caller's
-    /// actor. For tests and previews; the loaders `publish` instead, so the
-    /// layout never runs on the main actor.
-    func replaceLog(with page: [Commit]) {
-        let staged = stageFirstPage(page)
-        install(staged.log, CommitGraphEngine.layout(staged.input))
-    }
-
-    /// Appends the next page and publishes the graph with it, laid out on the
-    /// caller's actor. For tests and previews, as `replaceLog(with:)`.
-    func appendPage(_ page: [Commit]) {
-        let staged = stageNextPage(page)
-        install(staged.log, CommitGraphEngine.layout(staged.input))
-    }
-
-    private func install(_ log: HistoryLog, _ layout: GraphLayout) {
+    /// Installs `log` and its `layout` as the published ones, in one
+    /// main-actor turn. The loaders reach it through `publish`, which lays the
+    /// log out off the main actor first; previews call it directly, through
+    /// the hooks in `HistoryStore+Preview.swift`.
+    func install(_ log: HistoryLog, _ layout: GraphLayout) {
         commits = log.commits
         loadedRawCount = log.rawCount
         graphPageEnds = log.pageEnds
@@ -521,16 +512,9 @@ final class HistoryStore {
         return await Task.detached { await engine(input) }.value
     }
 
-    /// Synchronous variant used by SwiftUI previews and any caller that
-    /// genuinely needs the graph populated before the next instruction.
-    /// Production paths should prefer `recomputeGraph()` to keep the main
-    /// actor free.
-    func recomputeGraphSync() {
-        graphLayoutGen &+= 1
-        apply(CommitGraphEngine.layout(graphInput()))
-    }
-
-    private func apply(_ layout: GraphLayout) {
+    /// Shows `layout`'s rows and column count: the last step of `install` and
+    /// `relayout`, and of the synchronous hook in `HistoryStore+Preview.swift`.
+    func apply(_ layout: GraphLayout) {
         graphLayouts = layout.rows
         graphMaxLanes = max(1, layout.columnCount)
     }
