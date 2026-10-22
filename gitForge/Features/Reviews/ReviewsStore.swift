@@ -146,6 +146,16 @@ final class ReviewsStore {
         return ordered.map(\.group) + failed
     }
 
+    /// The current filter's groups; with none, the loading placeholder while
+    /// a read runs, else the empty state. Not only the first read ever: the
+    /// first after connecting an account says nothing about its repos until
+    /// it lands, though an earlier read left a date.
+    var listContent: ReviewsListContent {
+        let groups = groups
+        if !groups.isEmpty { return .groups(groups) }
+        return isRefreshing ? .loading : .empty
+    }
+
     /// The open pull requests that aren't the user's: drafts don't count, and
     /// with an unknown login none is the user's (Ruling 7).
     var badgeCount: Int {

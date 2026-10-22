@@ -102,16 +102,13 @@ struct ReviewsList: View {
 
     @ViewBuilder
     private var content: some View {
-        let groups = store.groups
-        if groups.isEmpty {
-            if store.isRefreshing && store.lastRefreshedAt == nil {
-                // First read, nothing on disk yet.
-                PullsLoadingPlaceholder()
-            } else {
-                EmptyState(symbol: "arrow.triangle.pull",
-                           title: String(localized: "No open pull requests in the repositories you follow."))
-            }
-        } else {
+        switch store.listContent {
+        case .loading:
+            PullsLoadingPlaceholder()
+        case .empty:
+            EmptyState(symbol: "arrow.triangle.pull",
+                       title: String(localized: "No open pull requests in the repositories you follow."))
+        case .groups(let groups):
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
                     ForEach(groups) { group in

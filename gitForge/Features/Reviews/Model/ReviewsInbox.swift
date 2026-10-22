@@ -34,6 +34,15 @@ nonisolated struct ReviewGroup: Identifiable, Equatable, Sendable {
     var id: String { repo.id }
 }
 
+/// What the inbox's list shows under its header and notices.
+nonisolated enum ReviewsListContent: Equatable, Sendable {
+    case groups([ReviewGroup])
+    /// A read is running and there's nothing to show yet.
+    case loading
+    /// No open pull requests in the repos followed, as far as the last read knows.
+    case empty
+}
+
 /// What the Reviews detail offers where a repository's detail has its local
 /// actions (spec §4.3): clone a repo that isn't on this Mac, or go to the
 /// clone, where those actions are.

@@ -387,6 +387,38 @@ struct ReviewsStoreTests {
         #expect(Self.reads(harness) == 3)
     }
 
+    @Test("While a read runs with nothing to show, the list shows the loading placeholder, even after an earlier read")
+    func loadingPlaceholder() async {
+        let harness = Harness()
+        harness.locals = [Harness.local("team/app")]
+        let store = harness.makeStore()
+        // An earlier read found nothing: the inbox has a date and no groups.
+        await store.refresh(force: true)
+        #expect(store.lastRefreshedAt != nil)
+        #expect(store.listContent == .empty)
+
+        // The next one (say, the first after connecting an account) is still reading.
+        let reading = AsyncGate()
+        harness.localsGate = reading
+        harness.provider.state { $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 1)] }
+        let round = Task { await store.refresh(force: true) }
+        await reading.waiting()
+        #expect(store.listContent == .loading)
+        reading.open()
+        await round.value
+        #expect(store.listContent == .groups(store.groups))
+        #expect(store.groups.count == 1)
+
+        // With rows to show, a read doesn't hide them.
+        let again = AsyncGate()
+        harness.localsGate = again
+        let next = Task { await store.refresh(force: true) }
+        await again.waiting()
+        #expect(store.listContent == .groups(store.groups))
+        again.open()
+        await next.value
+    }
+
     @Test("Reloading a repo after a merge drops the merged pull request and lowers the count")
     func reloadAfterMerge() async {
         let harness = Harness()
