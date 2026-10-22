@@ -50,6 +50,8 @@ nonisolated struct RemoteHost: Sendable, Equatable, Identifiable, Codable {
     }
 }
 
+extension RemoteHost: Hashable {}
+
 extension RemoteHost {
     /// Parses a git remote URL (SSH or HTTPS) whose host is a declared
     /// instance (spec §4.1): its kind decides the provider and its API base
