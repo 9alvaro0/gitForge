@@ -89,22 +89,32 @@ private final class FakeProvider: PullRequestProvider, PullRequestReviewProvider
                      token: String) async throws {}
 }
 
-/// The account's repos on one page, then an empty one.
+/// The account's repos, 50 to a page, then an empty one.
 private final class FakeBrowser: RemoteRepoBrowsing, Sendable {
     struct State {
         var members: [RemoteRepoSummary] = []
+        /// What a token lists instead of `members`.
+        var membersByToken: [String: [RemoteRepoSummary]] = [:]
+        /// Listed after the members of any token: the clones, when the harness makes them members.
+        var clones: [RemoteRepoSummary] = []
         var failure: PullRequestFetchError?
         /// Reads of the first page: one per membership listing.
         var listings = 0
+        /// The highest page asked for.
+        var mostPages = 0
     }
+
+    static let pageSize = 50
 
     let state = Locked(State())
 
     func fetchUserRepos(apiBase: URL, token: String, page: Int) async throws -> [RemoteRepoSummary] {
         try state { state in
             if page == 1 { state.listings += 1 }
+            state.mostPages = max(state.mostPages, page)
             if let failure = state.failure { throw failure }
-            return page == 1 ? state.members : []
+            let all = (state.membersByToken[token] ?? state.members) + state.clones
+            return Array(all.dropFirst((page - 1) * Self.pageSize).prefix(Self.pageSize))
         }
     }
 }
@@ -139,7 +149,14 @@ private final class Harness {
     let provider = FakeProvider()
     let browser = FakeBrowser()
     let activity = FakeActivity()
-    var locals: [LocalRemote] = []
+    var locals: [LocalRemote] = [] { didSet { syncClones() } }
+    /// Whether the membership also lists the clones. A clone counts only when
+    /// an account belongs to its repo, so a test about something else keeps
+    /// this on; the membership tests turn it off and list their own members
+    /// in `browser`.
+    var clonesAreMembers = true { didSet { syncClones() } }
+    /// The token an account gets instead of the one `answer` gives, by account id.
+    var tokenFor: [UUID: PullRequestAuthResult] = [:]
     /// Holds `localRemotes` until opened, when set.
     var localsGate: AsyncGate?
     /// Calls to `localRemotes`.
@@ -175,6 +192,7 @@ private final class Harness {
                 if let account = accounts.first(where: { $0.id == accountId }), !AccountGitCredentials.signs(account) {
                     return .connectAccount(instanceId: Self.instance.id, replacing: accountId)
                 }
+                if let fixed = tokenFor[accountId] { return fixed }
                 if let rejected { renewals.append(rejected) }
                 return answer(rejected)
             },
@@ -184,6 +202,11 @@ private final class Harness {
             snapshots: ReviewsSnapshotStore(directory: directory),
             now: { [self] in now },
             makeReviewProvider: { [provider] _ in provider }))
+    }
+
+    private func syncClones() {
+        let clones = clonesAreMembers ? locals.map { Self.member("clone:\($0.host.slug)", $0.host.slug) } : []
+        browser.state { $0.clones = clones }
     }
 
     static func date(_ seconds: TimeInterval) -> Date { Date(timeIntervalSince1970: seconds) }
@@ -812,6 +835,234 @@ struct ReviewsStoreTests {
         #expect(store.logins[harness.account.id] == "marta")
         #expect(store.repos.contains { $0.host.repo == "api" })
         #expect(store.badgeCount == 1)
+    }
+
+    // MARK: Clones and membership
+
+    /// Clones of team/app (one open pull request) and oss/big (three), none of
+    /// them the user's. The account belongs to `members` and nothing else;
+    /// the clones are not members unless listed.
+    private static func twoClones(members: [String]) -> Harness {
+        let harness = Harness()
+        harness.clonesAreMembers = false
+        harness.locals = [Harness.local("team/app"), Harness.local("oss/big")]
+        harness.browser.state { $0.members = members.enumerated().map { Harness.member("m\($0.offset)", $0.element) } }
+        harness.provider.state {
+            $0.lists["team/app"] = [Harness.pr(1, by: "octo", updated: 100)]
+            $0.lists["oss/big"] = [Harness.pr(2, by: "lucia", updated: 200), Harness.pr(3, by: "jon", updated: 300),
+                                   Harness.pr(4, by: "ana", updated: 400)]
+        }
+        return harness
+    }
+
+    /// `count` repos of other people, none of them a clone.
+    private static func fillers(_ count: Int) -> [String] { (0..<count).map { "org/repo-\($0)" } }
+
+    private static func savedMembership(_ harness: Harness) -> MembershipCache? {
+        ReviewsSnapshotStore(directory: harness.directory).load()?.memberships[harness.account.id]
+    }
+
+    @Test("A clone of a repo the account doesn't belong to isn't followed: its pull requests aren't read or counted")
+    func cloneOfAForeignRepoIsNotFollowed() async {
+        let harness = Self.twoClones(members: ["team/app"])
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo) == ["app"])
+        #expect(store.repos.first?.sources == [.local])
+        #expect(harness.provider.state { $0.reads } == ["team/app"])
+        #expect(store.pulls[Harness.key("oss/big")] == nil)
+        #expect(store.groups.map(\.repo.host.repo) == ["app"])
+        #expect(store.badgeCount == 1)
+        #expect(Self.savedMembership(harness)?.isComplete == true)
+    }
+
+    @Test("A clone among the account's repos is followed, whatever the case of its path")
+    func cloneAmongTheMembersAnyCase() async {
+        let harness = Self.twoClones(members: ["Team/App", "OSS/Big"])
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+        #expect(store.badgeCount == 4)
+    }
+
+    @Test("A clone that stops being one of the account's repos leaves with its pull requests, error and detail store")
+    func cloneLeavesWithTheMembership() async {
+        let harness = Self.twoClones(members: ["team/app", "oss/big"])
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let big = Harness.key("oss/big")
+        #expect(store.repos.count == 2)
+        #expect(store.badgeCount == 4)
+        store.selectedID = "gitlab.example.test/oss/big#3"
+        #expect(store.detailStore(for: big) != nil)
+
+        harness.provider.state { $0.failures["oss/big"] = .notFound }
+        await store.refresh(force: true)
+        #expect(store.repoErrors[big] != nil)
+
+        // A day later the membership is read again, and it no longer lists oss/big.
+        harness.now = harness.now.addingTimeInterval(25 * 3600)
+        harness.browser.state { $0.members = [Harness.member("m0", "team/app")] }
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo) == ["app"])
+        #expect(store.pulls[big] == nil)
+        #expect(store.repoErrors[big] == nil)
+        #expect(store.detailStore(for: big) == nil)
+        #expect(store.selectedID == nil)
+        #expect(store.badgeCount == 1)
+        #expect(ReviewsSnapshotStore(directory: harness.directory).load()?.pulls[big] == nil)
+    }
+
+    @Test("A clone is followed when the membership can't be read")
+    func unreadableMembershipKeepsTheClones() async {
+        let harness = Self.twoClones(members: ["team/app"])
+        harness.browser.state { $0.failure = .network("The Internet connection appears to be offline.") }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+        #expect(store.badgeCount == 4)
+        // Nothing was learnt about the account: no list is kept.
+        #expect(Self.savedMembership(harness) == nil)
+    }
+
+    @Test("A clone is followed when the membership reached the page cap, since the list may be incomplete")
+    func membershipAtThePageCapKeepsTheClones() async {
+        let harness = Self.twoClones(members: Self.fillers(ReviewsStore.membershipPages * FakeBrowser.pageSize))
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(harness.browser.state { $0.mostPages } == ReviewsStore.membershipPages)
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+        #expect(store.badgeCount == 4)
+        #expect(Self.savedMembership(harness)?.repos.count == 500)
+        #expect(Self.savedMembership(harness)?.isComplete == false)
+
+        // The cached list is no more complete than when it was read.
+        await store.refresh(force: true)
+        #expect(harness.browser.state { $0.listings } == 1)
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+    }
+
+    @Test("A list that ends on an empty page just before the cap is complete, so it filters")
+    func membershipJustUnderThePageCapFilters() async {
+        // Nine full pages, then the tenth comes back empty.
+        let members = Self.fillers((ReviewsStore.membershipPages - 1) * FakeBrowser.pageSize - 1) + ["team/app"]
+        let harness = Self.twoClones(members: members)
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(members.count == 450)
+        #expect(harness.browser.state { $0.mostPages } == ReviewsStore.membershipPages)
+        #expect(Self.savedMembership(harness)?.isComplete == true)
+        #expect(store.repos.map(\.host.repo) == ["app"])
+        #expect(store.badgeCount == 1)
+    }
+
+    @Test("A dead account on the instance has no list and doesn't make the membership unknown")
+    func deadAccountDoesNotMakeTheInstanceUnknown() async {
+        let harness = Self.twoClones(members: ["team/app"])
+        let usable = harness.account
+        let dead = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth,
+                                  status: .needsAttention(.revoked))
+        harness.accounts.append(dead)
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.accountsNeedingAttention == [dead.id])
+        #expect(store.repos.map(\.host.repo) == ["app"])
+        #expect(store.repos.map(\.accountId) == [usable.id])
+        #expect(store.badgeCount == 1)
+    }
+
+    @Test("An instance with only dead accounts has no membership to filter by: its clones stay")
+    func onlyDeadAccountsKeepTheClones() async {
+        let harness = Self.twoClones(members: ["team/app"])
+        harness.account.status = .needsAttention(.revoked)
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+    }
+
+    @Test("A clone is followed when any account that signs on the instance belongs to its repo")
+    func membersOfSeveralAccountsAreJoined() async {
+        let harness = Self.twoClones(members: [])
+        let first = harness.account
+        let second = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth, status: .ok)
+        harness.accounts.append(second)
+        harness.tokenFor = [first.id: .token("first"), second.id: .token("second")]
+        harness.browser.state {
+            $0.membersByToken = ["first": [Harness.member("m0", "team/app")],
+                                 "second": [Harness.member("m1", "oss/big")]]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+
+        // Without the second account, oss/big has nobody.
+        harness.accounts.removeLast()
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(store.repos.map(\.host.repo) == ["app"])
+    }
+
+    @Test("A clone is followed when an account that signs has no list to read, even if the other one's lacks it")
+    func oneUnreadableListMakesTheInstanceUnknown() async {
+        let harness = Self.twoClones(members: [])
+        let first = harness.account
+        let second = HostingAccount(instanceId: Harness.instance.id, login: "octo", method: .oauth, status: .ok)
+        harness.accounts.append(second)
+        // The second account's token can't be had for now (offline), so its list isn't read.
+        harness.tokenFor = [first.id: .token("first"), second.id: .failed("offline")]
+        harness.browser.state { $0.membersByToken = ["first": [Harness.member("m0", "team/app")]] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+    }
+
+    /// Saves a snapshot that holds only the account's membership, as an earlier
+    /// build wrote it: no word on whether the list is complete.
+    private static func seedMembership(_ harness: Harness, repos: [String]) throws {
+        let cached = MembershipCache(fetchedAt: harness.now.addingTimeInterval(-3600),
+                                     repos: repos.enumerated().map { Harness.member("c\($0.offset)", $0.element) })
+        let snapshot = ReviewsSnapshot(version: ReviewsSnapshot.currentVersion,
+                                       savedAt: harness.now.addingTimeInterval(-3600), repos: [], pulls: [:],
+                                       memberships: [harness.account.id: cached], logins: [:])
+        ReviewsSnapshotStore(directory: harness.directory).save(snapshot)
+        let text = try String(contentsOf: harness.directory.appendingPathComponent("reviews.json"), encoding: .utf8)
+        #expect(!text.contains("isComplete"))
+    }
+
+    @Test("A cached list saved without its completeness is complete below the page cap, so it filters",
+          arguments: [1, 499])
+    func cachedListWithoutCompletenessFilters(count: Int) async throws {
+        let harness = Self.twoClones(members: [])
+        try Self.seedMembership(harness, repos: ["team/app"] + Self.fillers(count - 1))
+        let store = harness.makeStore()
+        store.loadSnapshot()
+        await store.refresh(force: true)
+
+        #expect(harness.browser.state { $0.listings } == 0)
+        #expect(store.repos.map(\.host.repo) == ["app"])
+        #expect(store.badgeCount == 1)
+    }
+
+    @Test("A cached list saved without its completeness that fills the page cap may be incomplete, so the clones stay")
+    func cachedListWithoutCompletenessAtTheCapKeepsTheClones() async throws {
+        let harness = Self.twoClones(members: [])
+        try Self.seedMembership(harness, repos: ["team/app"] + Self.fillers(499))
+        let store = harness.makeStore()
+        store.loadSnapshot()
+        await store.refresh(force: true)
+
+        #expect(harness.browser.state { $0.listings } == 0)
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
     }
 
     // MARK: Selection

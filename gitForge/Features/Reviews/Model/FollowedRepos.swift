@@ -71,20 +71,33 @@ nonisolated enum FollowedRepos {
     ///   Without one it takes the best of the accounts whose activity reached
     ///   it, else of its instance's (Ruling 4: the owner's login, else the first).
     /// - A local repo with no account of the inbox on its instance is left out.
+    /// - `memberKeys` holds, for each instance whose membership is known, the
+    ///   `key`s of the repos its accounts belong to. On such an instance a
+    ///   clone counts only if its key is among them, or if the activity
+    ///   reached it too (which makes it a member by construction). An
+    ///   instance with no entry is unknown, and its clones count. The
+    ///   default, none known, is every clone counting.
     /// - The result is ordered by `lastActivity` (newest first, then by key)
     ///   and cut to `limit`.
     static func merge(local: [LocalRemote], activity: [ActivityCandidate],
-                      accounts: [HostingAccount], instances: [HostingInstance]) -> FollowedSet {
+                      accounts: [HostingAccount], instances: [HostingInstance],
+                      memberKeys: [UUID: Set<String>] = [:]) -> FollowedSet {
         var drafts: [String: Draft] = [:]
+        let activityKeys = Set(activity.compactMap { candidate in
+            accountSeeing(candidate, in: accounts, instances: instances) == nil ? nil : key(candidate.host)
+        })
 
         for remote in local {
             guard let instance = instance(for: remote.host, in: instances) else { continue }
+            let repoKey = key(remote.host)
+            if let members = memberKeys[instance.id], !members.contains(repoKey), !activityKeys.contains(repoKey) {
+                continue
+            }
             let usable = accounts.filter { $0.instanceId == instance.id }
             let assigned = remote.assignedAccountId.flatMap { id in usable.first { $0.id == id } }
             guard let account = assigned ?? preferredAccount(for: remote.host, among: usable) else { continue }
 
             let opened = remote.repository.lastOpenedAt
-            let repoKey = key(remote.host)
             if var draft = drafts[repoKey] {
                 draft.lastActivity = max(draft.lastActivity ?? opened, opened)
                 drafts[repoKey] = draft
@@ -95,9 +108,7 @@ nonisolated enum FollowedRepos {
         }
 
         for candidate in activity {
-            guard let instance = instance(for: candidate.host, in: instances),
-                  let account = accounts.first(where: { $0.id == candidate.accountId && $0.instanceId == instance.id })
-            else { continue }
+            guard let account = accountSeeing(candidate, in: accounts, instances: instances) else { continue }
 
             let repoKey = key(candidate.host)
             var draft = drafts[repoKey] ?? Draft(host: candidate.host)
@@ -148,6 +159,14 @@ nonisolated enum FollowedRepos {
                               cloneURL: apiCloneURL ?? "https://\(host.host)/\(host.owner)/\(host.repo).git",
                               localURL: localURL)
         }
+    }
+
+    /// The account of the inbox that saw `candidate`, if it is one of its
+    /// instance's.
+    private static func accountSeeing(_ candidate: ActivityCandidate, in accounts: [HostingAccount],
+                                      instances: [HostingInstance]) -> HostingAccount? {
+        guard let instance = instance(for: candidate.host, in: instances) else { return nil }
+        return accounts.first { $0.id == candidate.accountId && $0.instanceId == instance.id }
     }
 
     /// The declared instance a repo lives on.

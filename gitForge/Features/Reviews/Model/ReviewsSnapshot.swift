@@ -6,6 +6,12 @@ import os
 nonisolated struct MembershipCache: Codable, Equatable, Sendable {
     var fetchedAt: Date
     var repos: [RemoteRepoSummary]
+    /// The read ended on an empty page before the page cap, so `repos` is
+    /// everything the account belongs to; `false` when it stopped at the cap
+    /// and there may be more. `nil` in a snapshot saved before this was
+    /// recorded (optional so those still decode): `ReviewsStore.isComplete(_:)`
+    /// reads it as complete when the list is shorter than the cap allows.
+    var isComplete: Bool? = nil
 }
 
 /// What the Reviews inbox knew when it last loaded: the repos it follows, their

@@ -17,9 +17,12 @@ struct ReviewsEnvironment {
     var accounts: @MainActor () -> [(account: HostingAccount, instance: HostingInstance)]
     /// The catalog's clones whose `origin` is on a declared instance, each
     /// with the account its own Pull requests screen reads it with, when one
-    /// stands out (`LocalRemote.assignedAccountId`); nobody is asked. A
-    /// refresh cancelled while this runs commits nothing: `GitCLI` reads the
-    /// remotes with `try?`, so a cancelled read comes back empty.
+    /// stands out (`LocalRemote.assignedAccountId`); nobody is asked. Which of
+    /// them the inbox follows is not decided here: `FollowedRepos.merge` keeps
+    /// a clone only if an account of its instance belongs to the repo, when
+    /// the memberships tell. A refresh cancelled while this runs commits
+    /// nothing: `GitCLI` reads the remotes with `try?`, so a cancelled read
+    /// comes back empty.
     var localRemotes: @MainActor () async -> [LocalRemote]
     /// An account's token; `rejected` is one that just got a 401.
     var token: @MainActor (_ accountId: UUID, _ rejected: String?) async -> PullRequestAuthResult
@@ -52,8 +55,10 @@ final class ReviewsStore {
     static let concurrency = 6
     /// How long an account's membership is used before it's read again.
     static let membershipTTL: TimeInterval = 24 * 3600
-    /// Most pages of membership read per account, 50 repos each (Ruling 3).
+    /// Most pages of membership read per account (Ruling 3).
     static let membershipPages = 10
+    /// Repos in a page of membership: what `RemoteRepoBrowsing` asks for.
+    static let membershipPageSize = 50
 
     /// The repos followed, most recent activity first.
     private(set) var repos: [ReviewRepo] = []
@@ -244,9 +249,13 @@ final class ReviewsStore {
         }
         let tokens = TokenBook(ask: environment.token)
         var activity: [ActivityCandidate] = []
+        // The membership of each account that could be had this round.
+        var lists: [UUID: MembershipCache] = [:]
         for (account, instance) in accounts {
             await tokens.prepare(account.id)
-            activity += await recentActivity(of: account, on: instance, tokens: tokens, now: now)
+            let list = await membership(of: account, on: instance, tokens: tokens, now: now)
+            lists[account.id] = list
+            activity += await recentActivity(of: account, on: instance, members: list?.repos, tokens: tokens, now: now)
                 ?? Self.carriedOver(repos, accountId: account.id)
         }
         let local = await environment.localRemotes()
@@ -258,7 +267,8 @@ final class ReviewsStore {
         }
         adopt(FollowedRepos.merge(local: local, activity: activity,
                                   accounts: Self.signingFirst(accounts.map { $0.account }),
-                                  instances: accounts.map { $0.instance }))
+                                  instances: accounts.map { $0.instance },
+                                  memberKeys: Self.memberKeys(accounts: accounts, lists: lists)))
 
         let outcomes = await readPulls(of: repos, tokens: tokens)
         // Cancelled while reading: what landed stays, nothing else follows.
@@ -335,11 +345,11 @@ final class ReviewsStore {
     // MARK: Discovery
 
     /// The repos `account` was recently active in, among those it belongs to
-    /// (Rulings 2 and 3). `nil` when its membership, its login or its
-    /// activity can't be read.
-    private func recentActivity(of account: HostingAccount, on instance: HostingInstance,
+    /// (`members`; Rulings 2 and 3). `nil` when its membership, its login or
+    /// its activity can't be read.
+    private func recentActivity(of account: HostingAccount, on instance: HostingInstance, members: [RemoteRepoSummary]?,
                                 tokens: TokenBook, now: Date) async -> [ActivityCandidate]? {
-        guard let members = await membership(of: account, on: instance, tokens: tokens, now: now) else { return nil }
+        guard let members else { return nil }
         let anyHost = members.lazy.compactMap { RemoteHost.make(fullName: $0.fullName, on: instance) }.first
         guard let login = await login(of: account, on: anyHost, tokens: tokens) else { return nil }
         let source = environment.makeActivity(instance.kind)
@@ -351,18 +361,20 @@ final class ReviewsStore {
     }
 
     /// The repos `account` belongs to: the cached list within
-    /// `membershipTTL`, else read again (Ruling 3). `nil` when it can't be read.
+    /// `membershipTTL`, else read again (Ruling 3). `nil` when it can't be
+    /// read. Whether the list is complete comes with it (`isComplete`).
     private func membership(of account: HostingAccount, on instance: HostingInstance,
-                            tokens: TokenBook, now: Date) async -> [RemoteRepoSummary]? {
+                            tokens: TokenBook, now: Date) async -> MembershipCache? {
         if let cached = memberships[account.id], now.timeIntervalSince(cached.fetchedAt) < Self.membershipTTL {
-            return cached.repos
+            return cached
         }
         let browser = environment.makeBrowser(instance.kind)
-        guard let members = try? await withToken(account.id, tokens, { token in
+        guard let read = try? await withToken(account.id, tokens, { token in
             try await Self.allPages(of: browser, apiBase: instance.apiBaseURL, token: token)
         }) else { return nil }
-        memberships[account.id] = MembershipCache(fetchedAt: now, repos: members)
-        return members
+        let list = MembershipCache(fetchedAt: now, repos: read.repos, isComplete: read.isComplete)
+        memberships[account.id] = list
+        return list
     }
 
     /// The user's login on `account` (Ruling 11): the account's own, else read

@@ -105,7 +105,9 @@ struct PreviewReviewsWorld {
     }
 
     private static func gitLabMembers(fillers: Int) -> [RemoteRepoSummary] {
-        [member("102", ledger, on: gitLab), member("103", infraModules, on: gitLab)]
+        // The clone is listed too: a clone counts only when the account belongs to its repo.
+        [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
+         member("103", infraModules, on: gitLab)]
             + (0..<fillers).map { member("9\($0)", "apps/archive/service-\($0)", on: gitLab) }
     }
 

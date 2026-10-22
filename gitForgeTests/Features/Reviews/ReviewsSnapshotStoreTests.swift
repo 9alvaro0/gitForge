@@ -50,6 +50,42 @@ struct ReviewsSnapshotStoreTests {
         #expect(ReviewsSnapshotStore(directory: dir).load() == snapshot)
     }
 
+    @Test("Whether a membership was read in full survives a round trip, in both cases")
+    func completenessRoundTrip() {
+        let dir = TemporaryDirectories.make("gitForge-reviews")
+        let store = ReviewsSnapshotStore(directory: dir)
+        for isComplete in [true, false] {
+            var snapshot = Self.snapshot()
+            snapshot.memberships[Self.martaAccount]?.isComplete = isComplete
+            store.save(snapshot)
+
+            let loaded = ReviewsSnapshotStore(directory: dir).load()
+            #expect(loaded == snapshot)
+            #expect(loaded?.memberships[Self.martaAccount]?.isComplete == isComplete)
+        }
+    }
+
+    @Test("A snapshot saved before memberships recorded whether they were complete still loads")
+    func withoutCompleteness() throws {
+        let dir = TemporaryDirectories.make("gitForge-reviews")
+        let store = ReviewsSnapshotStore(directory: dir)
+        var snapshot = Self.snapshot()
+        snapshot.memberships[Self.martaAccount]?.isComplete = true
+        store.save(snapshot)
+
+        // What an earlier build wrote: the same file without that key.
+        let current = try String(contentsOf: Self.fileURL(in: dir), encoding: .utf8)
+        let earlier = current.replacingOccurrences(of: "\"isComplete\":true,", with: "")
+        #expect(earlier != current)
+        #expect(!earlier.contains("isComplete"))
+        try Data(earlier.utf8).write(to: Self.fileURL(in: dir))
+
+        let loaded = store.load()
+        #expect(loaded == Self.snapshot())
+        #expect(loaded?.memberships[Self.martaAccount]?.repos == [Self.summary])
+        #expect(loaded?.memberships[Self.martaAccount]?.isComplete == nil)
+    }
+
     @Test("Saving again replaces the previous snapshot")
     func overwrite() {
         let dir = TemporaryDirectories.make("gitForge-reviews")

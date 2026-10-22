@@ -65,6 +65,91 @@ struct FollowedReposTests {
                                     instances: [.gitHubDotCom, Self.gitlab]).repos.isEmpty)
     }
 
+    // MARK: Membership of the clones
+
+    /// The keys of repos an account of the instance belongs to.
+    static func members(_ paths: String...) -> [UUID: Set<String>] {
+        [gitlab.id: Set(paths.map { FollowedRepos.key(host($0)) })]
+    }
+
+    @Test("On an instance whose members are known, a clone that isn't among them is left out")
+    func cloneOutsideTheMembers() {
+        let set = FollowedRepos.merge(local: [Self.local("team/app", opened: 1), Self.local("oss/big", opened: 2)],
+                                      activity: [], accounts: [Self.marta], instances: [Self.gitlab],
+                                      memberKeys: Self.members("team/app", "team/api"))
+        #expect(set.repos.map(\.host.repo) == ["app"])
+        #expect(set.dropped == 0)
+    }
+
+    @Test("A clone among the members stays, whatever the case of its path or of the member's")
+    func cloneAmongTheMembersAnyCase() {
+        let set = FollowedRepos.merge(local: [Self.local("Team/App", opened: 1)], activity: [],
+                                      accounts: [Self.marta], instances: [Self.gitlab],
+                                      memberKeys: Self.members("TEAM/app"))
+        #expect(set.repos.map(\.host.repo) == ["App"])
+        #expect(set.repos.first?.sources == [.local])
+    }
+
+    @Test("Known members that are none leave every clone of the instance out")
+    func knownWithNoMembers() {
+        let set = FollowedRepos.merge(local: [Self.local("oss/big", opened: 1)], activity: [],
+                                      accounts: [Self.marta], instances: [Self.gitlab],
+                                      memberKeys: [Self.gitlab.id: []])
+        #expect(set.repos.isEmpty)
+    }
+
+    @Test("On an instance with no entry in the member keys, every clone stays")
+    func unknownInstanceKeepsClones() {
+        let set = FollowedRepos.merge(local: [Self.local("team/app", opened: 1), Self.local("oss/big", opened: 2)],
+                                      activity: [], accounts: [Self.marta], instances: [Self.gitlab],
+                                      memberKeys: [:])
+        #expect(set.repos.map(\.host.repo).sorted() == ["app", "big"])
+    }
+
+    @Test("Members of another instance don't filter the clones of this one")
+    func otherInstanceMembersDontFilter() {
+        let github = LocalRemote(host: RemoteHost.make(fullName: "oss/big", on: .gitHubDotCom)!,
+                                 repository: Repository(url: URL(fileURLWithPath: "/r/big")), assignedAccountId: nil)
+        let octoHub = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "octo",
+                                     method: .oauth, status: .ok)
+        // GitLab is known and lists team/app; GitHub is unknown.
+        let set = FollowedRepos.merge(local: [Self.local("oss/big", opened: 1), github], activity: [],
+                                      accounts: [Self.marta, octoHub], instances: [Self.gitlab, .gitHubDotCom],
+                                      memberKeys: Self.members("team/app"))
+        #expect(set.repos.map(\.host.host) == ["github.com"])
+    }
+
+    @Test("A clone also seen through activity stays even if the members don't list it")
+    func cloneWithActivityStays() {
+        let set = FollowedRepos.merge(local: [Self.local("oss/big", opened: 1)],
+                                      activity: [Self.activity("OSS/Big", Self.marta, at: 5)],
+                                      accounts: [Self.marta], instances: [Self.gitlab],
+                                      memberKeys: Self.members("team/app"))
+        #expect(set.repos.count == 1)
+        #expect(set.repos[0].sources == [.local, .activity])
+        #expect(set.repos[0].host.repo == "big")
+        #expect(set.repos[0].localURL == URL(fileURLWithPath: "/r/oss/big"))
+    }
+
+    @Test("Activity of an account that isn't usable on the instance doesn't keep a clone that isn't a member")
+    func foreignActivityDoesNotKeepTheClone() {
+        let stranger = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "marta",
+                                      method: .oauth, status: .ok)
+        let set = FollowedRepos.merge(local: [Self.local("oss/big", opened: 1)],
+                                      activity: [Self.activity("oss/big", stranger, at: 5)],
+                                      accounts: [Self.marta, stranger], instances: [.gitHubDotCom, Self.gitlab],
+                                      memberKeys: Self.members("team/app"))
+        #expect(set.repos.isEmpty)
+    }
+
+    @Test("Activity-only repos aren't filtered by the member keys")
+    func activityRepoIsNotFiltered() {
+        let set = FollowedRepos.merge(local: [], activity: [Self.activity("oss/big", Self.marta, at: 5)],
+                                      accounts: [Self.marta], instances: [Self.gitlab],
+                                      memberKeys: [Self.gitlab.id: []])
+        #expect(set.repos.map(\.host.repo) == ["big"])
+    }
+
     @Test("Over 100 repos keeps the 100 most recent and counts the rest")
     func limit() {
         let activity = (0..<103).map { Self.activity("team/repo\($0)", Self.marta, at: TimeInterval($0)) }

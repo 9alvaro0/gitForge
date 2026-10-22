@@ -146,16 +146,51 @@ extension ReviewsStore {
     }
 
     /// Every page of the account's repos, until an empty one or
-    /// `membershipPages` (Ruling 3).
+    /// `membershipPages` (Ruling 3). `isComplete` says which: `true` when an
+    /// empty page ended the read, `false` when the cap did and the account
+    /// may belong to more.
     static func allPages(of browser: any RemoteRepoBrowsing, apiBase: URL,
-                         token: String) async throws -> [RemoteRepoSummary] {
+                         token: String) async throws -> (repos: [RemoteRepoSummary], isComplete: Bool) {
         var all: [RemoteRepoSummary] = []
         for page in 1...membershipPages {
             let batch = try await browser.fetchUserRepos(apiBase: apiBase, token: token, page: page)
-            if batch.isEmpty { break }
+            if batch.isEmpty { return (all, true) }
             all += batch
         }
-        return all
+        return (all, false)
+    }
+
+    /// Whether `list` holds every repo its account belongs to: as it was
+    /// read, or, for a list saved before that was recorded, if it is shorter
+    /// than the pages read could hold.
+    static func isComplete(_ list: MembershipCache) -> Bool {
+        list.isComplete ?? (list.repos.count < membershipPages * membershipPageSize)
+    }
+
+    /// For each instance whose membership is known, the keys
+    /// (`FollowedRepos.key`) of the repos its accounts belong to, joined.
+    ///
+    /// An instance is known when every account on it that signs has a
+    /// membership list from this round (`lists`, by account id) and each is
+    /// complete. If one of those accounts has none, or one may be missing
+    /// repos, the instance is unknown and has no entry. Accounts that need
+    /// attention are left out: they can read neither lists nor pull requests.
+    /// An instance with no account that signs has no entry either.
+    static func memberKeys(accounts: [(account: HostingAccount, instance: HostingInstance)],
+                           lists: [UUID: MembershipCache]) -> [UUID: Set<String>] {
+        var keys: [UUID: Set<String>] = [:]
+        var unknown: Set<UUID> = []
+        for (account, instance) in accounts where AccountGitCredentials.signs(account) {
+            guard !unknown.contains(instance.id) else { continue }
+            guard let list = lists[account.id], isComplete(list) else {
+                unknown.insert(instance.id)
+                keys[instance.id] = nil
+                continue
+            }
+            let own = list.repos.compactMap { RemoteHost.make(fullName: $0.fullName, on: instance) }
+            keys[instance.id, default: []].formUnion(own.map(FollowedRepos.key))
+        }
+        return keys
     }
 
     /// The account's matched activity as candidates for `FollowedRepos.merge`,
