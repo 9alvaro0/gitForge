@@ -251,13 +251,15 @@ struct RepositoryViewModelRemoteGraphTests {
         return (remotes, vm, picked)
     }
 
-    /// The reloaded log is the one the user had after scrolling as far: same raw depth, still
-    /// more to load, the selection kept.
+    /// The reloaded log is the one the user would have after scrolling as far: every commit
+    /// loaded before still is (server two pushes c2 out of the first nine, so a fourth page
+    /// brings it back), still more to load, the selection kept.
     private static func expectDepthKept(_ vm: RepositoryViewModel, picked: Commit,
                                         sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(vm.history.commits.first?.subject == "server two", sourceLocation: sourceLocation)
-        #expect(vm.history.loadedRawCount == 9, sourceLocation: sourceLocation)
-        #expect(vm.history.graphPageEnds == [3, 6, 9], sourceLocation: sourceLocation)
+        #expect(vm.history.commits.contains { $0.subject == "c2" }, sourceLocation: sourceLocation)
+        #expect(vm.history.loadedRawCount == 12, sourceLocation: sourceLocation)
+        #expect(vm.history.graphPageEnds == [3, 6, 9, 12], sourceLocation: sourceLocation)
         #expect(vm.history.hasMore, sourceLocation: sourceLocation)
         #expect(vm.history.selectedCommitId == picked.id, sourceLocation: sourceLocation)
         #expect(!vm.history.isScopeStale, sourceLocation: sourceLocation)
@@ -281,10 +283,32 @@ struct RepositoryViewModelRemoteGraphTests {
         scrolled.history.replaceLog(with: try await cli.log(limit: 3, skip: 0, refs: revisions))
         scrolled.history.appendPage(try await cli.log(limit: 3, skip: 3, refs: revisions))
         scrolled.history.appendPage(try await cli.log(limit: 3, skip: 6, refs: revisions))
+        scrolled.history.appendPage(try await cli.log(limit: 3, skip: 9, refs: revisions))
         #expect(vm.history.commits == scrolled.history.commits)
         #expect(vm.history.graphPageEnds == scrolled.history.graphPageEnds)
         #expect(vm.history.loadedRawCount == scrolled.history.loadedRawCount)
         #expect(vm.history.graphLayouts == scrolled.history.graphLayouts)
+    }
+
+    @Test("The scope reload keeps every commit that was loaded, so a selection on the last row stays")
+    func scopeReloadKeepsTheLastRow() async throws {
+        let (remotes, vm, _) = try await Self.threePagesLoaded()
+        defer { remotes.remove() }
+        let last = try #require(vm.history.commits.last)
+        #expect(last.subject == "c2")
+        vm.history.selectedCommitId = last.id
+
+        // More than a page of new commits: walking as deep as before leaves c5 … c2 out, and the
+        // reload walks two pages further to reach c2.
+        for index in 2...5 { try await remotes.serverCommit("server \(index)") }
+        #expect(await vm.fetch())
+        #expect(vm.history.commits.first?.subject == "server 5")
+        #expect(vm.history.commits.contains { $0.id == last.id })
+        #expect(vm.history.selectedCommitId == last.id)
+        #expect(vm.history.loadedRawCount == 15)
+        #expect(vm.history.graphPageEnds == [3, 6, 9, 12, 15])
+        #expect(vm.history.hasMore)
+        #expect(!vm.history.isScopeStale)
     }
 
     @Test("A watcher refresh after a fetch from the shell keeps the pages loaded")

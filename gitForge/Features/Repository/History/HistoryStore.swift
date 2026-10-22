@@ -395,16 +395,20 @@ final class HistoryStore {
     /// commit, merge, watcher tick…).
     ///
     /// With `keepingDepth`, for a reload the user didn't ask for (a fetch
-    /// moved a remote branch of the scope), it refetches as many raw commits
-    /// as are loaded, at least a page, in one walk, and splits them into pages
-    /// (`HistoryLog.paged`): the log the user had after scrolling as far, so
-    /// the rows they were looking at and the selection on them stay.
+    /// moved a remote branch of the scope), it keeps every commit loaded, not
+    /// the same count: it refetches as many raw commits as are loaded, at least
+    /// a page, in one walk and, when new commits on top pushed the deepest
+    /// loaded one out of it, the pages after them until it is back in
+    /// (`fetchLog`). It splits them into pages (`HistoryLog.paged`): the log the
+    /// user would have after scrolling as far, so the rows they were looking at
+    /// and the selection on them stay.
     ///
     /// Preserves the user's selection when the previously-selected commit
     /// is still in the new log; otherwise falls back to the new first
     /// commit (matching `loadInitial`'s default).
     func reloadLog(keepingDepth: Bool = false) async {
         let previousSelection = selectedCommitId
+        let deepest = keepingDepth ? commits.last?.sha : nil
         logGen &+= 1
         let gen = logGen
         loadError = nil
@@ -419,15 +423,16 @@ final class HistoryStore {
             refsSource?.stashes = freshStashes
             refsSource?.unmergedLocalBranchRefs = freshUnmerged
             let scope = currentScope()
-            let raw = try await cli.log(limit: limit, skip: 0, refs: scope.revisions)
-            guard gen == logGen else { return }
+            guard let fetched = try await fetchLog(limit: limit, reaching: deepest, scope: scope,
+                                                   pageSize: pageSize, gen: gen) else { return }
+            let raw = fetched.commits
             // Each page of the split goes over the rows before it: off the main actor for a deep log.
             let log = raw.count > pageSize
                 ? await Task.detached { HistoryLog.paged(raw, pageSize: pageSize, stashShas: scope.stashShas) }.value
                 : HistoryLog.firstPage(raw, stashShas: scope.stashShas)
             guard gen == logGen else { return }
             await publish(stage(log, scope: scope, logGen: gen, baseRevision: nil)) {
-                hasMore = raw.count == limit
+                hasMore = fetched.isFull
                 if let prev = previousSelection, commitsById[prev] == nil {
                     selectedCommitId = commits.first?.id
                 }
@@ -437,6 +442,27 @@ final class HistoryStore {
             guard gen == logGen else { return }
             loadError = error.userMessage
         }
+    }
+
+    /// The first `limit` commits of `scope`'s walk. When they fill `limit` and leave out
+    /// `deepest`, the pages after them follow, fetched by `--skip` as pagination does, until
+    /// one holds it or comes back short. `isFull` says whether the last fetch filled its
+    /// limit: there may be more to load. Nil when a newer load superseded this one.
+    private func fetchLog(limit: Int, reaching deepest: String?, scope: HistoryScope,
+                          pageSize: Int, gen: UInt64) async throws -> (commits: [Commit], isFull: Bool)? {
+        var raw = try await cli.log(limit: limit, skip: 0, refs: scope.revisions)
+        guard gen == logGen else { return nil }
+        var isFull = raw.count == limit
+        guard let deepest else { return (raw, isFull) }
+        var reached = raw.contains { $0.sha == deepest }
+        while isFull, !reached {
+            let page = try await cli.log(limit: pageSize, skip: raw.count, refs: scope.revisions)
+            guard gen == logGen else { return nil }
+            raw += page
+            isFull = page.count == pageSize
+            reached = page.contains { $0.sha == deepest }
+        }
+        return (raw, isFull)
     }
 
     func loadMoreIfNeeded(currentItem: Commit) async {
