@@ -360,6 +360,72 @@ struct HistoryStoreGraphTests {
         Self.expectPublished(vm.history)
     }
 
+    /// Swaps in a chips builder that counts its calls; the real one still builds.
+    private static func countChipBuilds(_ history: HistoryStore) -> CallCount {
+        let builds = CallCount()
+        history.refChipsBuilder = { refs, remoteTrunks, includesAllRemotes in
+            builds.add()
+            return HistoryRefChips.make(refs: refs, remoteTrunks: remoteTrunks, includesAllRemotes: includesAllRemotes)
+        }
+        return builds
+    }
+
+    @Test("The chips are rebuilt only when the refs or the remote trunks change; pages and relayouts reuse them")
+    func chipsRebuiltOnlyOnChange() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("feature", "f", head: true), GraphFixture.remote("origin/main", "m"),
+                   GraphFixture.remote("origin/other", "o")]
+        vm.headSha = "f"
+        let builds = Self.countChipBuilds(vm.history)
+        vm.history.replaceLog(with: GraphFixture.commits("f m\nm o\no"))
+        #expect(builds.value == 1)
+
+        // Neither a page, a recompute, a palette change nor a reload of the same refs rebuilds them.
+        let chips = vm.history.refChips
+        vm.history.appendPage(GraphFixture.commits("z"))
+        await vm.history.recomputeGraph()
+        await vm.history.setGraphPaletteSize(3)
+        vm.history.replaceLog(with: GraphFixture.commits("f m\nm o\no"))
+        await vm.history.publish(vm.history.stageFirstPage(GraphFixture.commits("f m\nm o\no")))
+        #expect(builds.value == 1)
+        #expect(vm.history.refChips == chips)
+
+        // Other remote trunk, same refs.
+        vm.remoteHeads = ["origin": "origin/other"]
+        await vm.history.recomputeGraph()
+        #expect(builds.value == 2)
+        await vm.history.recomputeGraph()
+        #expect(builds.value == 2)
+
+        // New refs.
+        vm.refs += [GraphFixture.tag("v1", "m")]
+        await vm.history.recomputeGraph()
+        #expect(builds.value == 3)
+        #expect(vm.history.refChips.refs(on: "m").map(\.name).contains("v1"))
+        vm.history.appendPage(GraphFixture.commits("y"))
+        #expect(builds.value == 3)
+    }
+
+    @Test("The chips are rebuilt when the loaded scope's toggle changes, and not before")
+    func chipsRebuiltWhenToggleChanges() async {
+        let suite = TestDefaults()
+        defer { suite.remove() }
+        let vm = Self.makeVM()
+        vm.refs = Self.untrackedRefs
+        let store = Self.makeStore(Self.missingRepositoryURL(), defaults: suite, source: vm)
+        let builds = Self.countChipBuilds(store)
+        store.replaceLog(with: Self.chipCommits)
+        #expect(builds.value == 1)
+        // The reload this starts fails, so the loaded scope keeps its toggle.
+        await store.setShowsRemoteBranches(true)
+        await store.recomputeGraph()
+        #expect(builds.value == 1)
+        store.replaceLog(with: Self.chipCommits)
+        #expect(builds.value == 2)
+        store.appendPage(GraphFixture.commits("z"))
+        #expect(builds.value == 2)
+    }
+
     @Test("Purging the log drops its chips")
     func purgeDropsChips() {
         let vm = Self.makeVM()

@@ -122,6 +122,18 @@ final class HistoryStore {
     /// refs and remote trunks that layout was laid out with and from the toggle of the
     /// loaded scope, so chips and graph never disagree (§4.4).
     private(set) var refChips: HistoryRefChips = .empty
+    /// What `refChips` was made from. `apply` keeps the chips while the refs, the remote
+    /// trunks and the toggle are the same, so a page or a palette change costs nothing here.
+    @ObservationIgnored private var refChipsSource: RefChipsSource?
+    private struct RefChipsSource: Equatable {
+        let refs: [GitRef]
+        let remoteTrunks: [String: Int]
+        let includesAllRemotes: Bool
+    }
+    /// Builds the chips. A test seam, like `graphEngine`: tests swap it to count builds.
+    @ObservationIgnored var refChipsBuilder: ([GitRef], [String: Int], Bool) -> HistoryRefChips = {
+        HistoryRefChips.make(refs: $0, remoteTrunks: $1, includesAllRemotes: $2)
+    }
     /// Row index one past the end of each loaded page, as `GraphInput.pageEnds`
     /// wants it: only the first page reserves columns, so loading the next
     /// page leaves every row already drawn as it was (§3.9).
@@ -199,6 +211,7 @@ final class HistoryStore {
         graphLayouts = []
         graphMaxLanes = 1
         refChips = .empty
+        refChipsSource = nil
         graphPageEnds = []
         detailCache.removeAll()
         detailCacheOrder.removeAll()
@@ -601,10 +614,12 @@ final class HistoryStore {
     func apply(_ layout: GraphLayout, from input: GraphInput) {
         graphLayouts = layout.rows
         graphMaxLanes = max(1, layout.columnCount)
-        let chips = HistoryRefChips.make(refs: input.refs, remoteTrunks: input.remoteTrunks,
-                                         includesAllRemotes: loadedScope?.includesAllRemotes ?? false)
-        // Unchanged chips keep their storage, so the rows' equality check ends at once.
-        if chips != refChips { refChips = chips }
+        let source = RefChipsSource(refs: input.refs, remoteTrunks: input.remoteTrunks,
+                                    includesAllRemotes: loadedScope?.includesAllRemotes ?? false)
+        // Refs that didn't change share their storage, so this is O(1) for a page or a palette change.
+        guard source != refChipsSource else { return }
+        refChips = refChipsBuilder(source.refs, source.remoteTrunks, source.includesAllRemotes)
+        refChipsSource = source
     }
 
     // MARK: Detail

@@ -51,4 +51,18 @@ nonisolated struct HistoryRefChips: Sendable, Equatable {
     func isDashed(_ ref: GitRef, onGhost: Bool) -> Bool {
         ref.isRemoteBranch && (onGhost || awayFromLocal.contains(ref.name))
     }
+
+    /// What a row draws for one of its refs, besides the ref itself.
+    struct RefLook: Equatable {
+        let ref: GitRef
+        let label: String
+        let isAway: Bool
+    }
+
+    /// Everything the chips on `sha` take from this model: its refs, each with its label and
+    /// away flag. A row compares looks, not whole models, so it redraws only when its own
+    /// chips change, at a cost of the refs on it.
+    func look(on sha: String) -> [RefLook] {
+        refs(on: sha).map { RefLook(ref: $0, label: label(for: $0), isAway: awayFromLocal.contains($0.name)) }
+    }
 }

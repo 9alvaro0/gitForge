@@ -108,21 +108,66 @@ struct HistoryRefChipsTests {
         #expect(HistoryRefChips.empty.label(for: GraphFixture.remote("origin/x", "x")) == "x")
     }
 
+    // MARK: Look of a commit's chips
+
+    @Test("A commit's look is its refs with their label and away flag; other commits' refs don't enter it")
+    func look() {
+        let refs = [GraphFixture.local("a", "x", upstream: "origin/a", ahead: 0, behind: 1), GraphFixture.remote("origin/a", "y"),
+                    GraphFixture.remote("origin/s", "y"), GraphFixture.remote("fork/s", "f")]
+        let chips = HistoryRefChips.make(refs: refs, remoteTrunks: [:], includesAllRemotes: true)
+        #expect(chips.look(on: "y").map(\.ref.name) == ["origin/a", "origin/s"])
+        #expect(chips.look(on: "y").map(\.label) == ["a", "origin/s"])
+        #expect(chips.look(on: "y").map(\.isAway) == [true, false])
+        #expect(chips.look(on: "nowhere").isEmpty)
+
+        let other = HistoryRefChips.make(refs: refs + [GraphFixture.tag("v1", "z"), GraphFixture.local("b", "z")],
+                                         remoteTrunks: [:], includesAllRemotes: true)
+        #expect(other.look(on: "y") == chips.look(on: "y"))
+    }
+
+    /// A row for the first sample commit with `chips`.
     @MainActor
-    @Test("Rows whose chips differ only in how a ref looks are not equal, so the table redraws them")
-    func rowEqualityCoversChips() {
-        let sha = Commit.previewSamples[0].sha
-        func row(localOn local: String) -> CommitRow {
-            let refs = [GraphFixture.local("a", local, upstream: "origin/a", ahead: 0, behind: 0),
-                        GraphFixture.remote("origin/a", sha)]
-            return CommitRow(commit: Commit.previewSamples[0], layout: .empty, maxLanes: 1, rowHeight: 28,
-                             tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
-                             chips: .make(refs: refs, remoteTrunks: [:], includesAllRemotes: false),
-                             currentBranch: nil, isSelected: false, dimmed: false,
-                             onSelect: {}, onDoubleClick: {}, onBranchDrop: nil)
+    private static func row(_ chips: HistoryRefChips) -> CommitRow {
+        CommitRow(commit: Commit.previewSamples[0], layout: .empty, maxLanes: 1, rowHeight: 28,
+                  tableLayout: HistoryTableLayout(viewport: 1100, graph: 80, author: 112, date: 92, commit: 64),
+                  chips: chips, currentBranch: nil, isSelected: false, dimmed: false,
+                  onSelect: {}, onDoubleClick: {}, onBranchDrop: nil)
+    }
+
+    @MainActor private static let sha = Commit.previewSamples[0].sha
+
+    @MainActor
+    @Test("Rows are equal while only refs of other commits change, so the table doesn't redraw them")
+    func rowEqualityIgnoresOtherCommits() {
+        let own = [GraphFixture.local("a", Self.sha, upstream: "origin/a", ahead: 1, behind: 0),
+                   GraphFixture.remote("origin/a", Self.sha)]
+        func chips(_ others: [GitRef]) -> HistoryRefChips {
+            .make(refs: own + others, remoteTrunks: [:], includesAllRemotes: true)
         }
-        // The same ref on the row both times; only whether the remote is away from its local differs.
-        #expect(row(localOn: sha) == row(localOn: sha))
-        #expect(row(localOn: sha) != row(localOn: "elsewhere"))
+        #expect(Self.row(chips([])) == Self.row(chips([GraphFixture.tag("v1", "elsewhere")])))
+        #expect(Self.row(chips([GraphFixture.local("b", "e1", upstream: "origin/b", ahead: 0, behind: 1),
+                                GraphFixture.remote("origin/b", "e2")]))
+                == Self.row(chips([GraphFixture.local("c", "e3", upstream: "origin/c", ahead: 4, behind: 0),
+                                   GraphFixture.remote("origin/c", "e4"), GraphFixture.tag("v2", "e5")])))
+    }
+
+    @MainActor
+    @Test("Rows are not equal when a ref on their own commit changes, so the table redraws them")
+    func rowEqualityCoversOwnChips() {
+        let remote = GraphFixture.remote("origin/a", Self.sha)
+        func chips(local: GitRef, extra: [GitRef] = []) -> HistoryRefChips {
+            .make(refs: [local, remote] + extra, remoteTrunks: [:], includesAllRemotes: true)
+        }
+        let local = GraphFixture.local("a", Self.sha, upstream: "origin/a", ahead: 1, behind: 0)
+        let base = Self.row(chips(local: local))
+        #expect(base == Self.row(chips(local: local)))
+        // A counter changes.
+        #expect(base != Self.row(chips(local: GraphFixture.local("a", Self.sha, upstream: "origin/a", ahead: 2, behind: 0))))
+        // The remote becomes away from its local branch.
+        #expect(base != Self.row(chips(local: GraphFixture.local("a", "elsewhere", upstream: "origin/a", ahead: 1, behind: 0))))
+        // A ref arrives on the commit.
+        #expect(base != Self.row(chips(local: local, extra: [GraphFixture.tag("v1", Self.sha)])))
+        // Another remote shares the name of one on the commit, which then shows its prefix.
+        #expect(base != Self.row(chips(local: local, extra: [GraphFixture.remote("fork/a", "elsewhere")])))
     }
 }

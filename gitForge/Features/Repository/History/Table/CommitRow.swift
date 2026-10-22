@@ -14,7 +14,7 @@ struct CommitRow: View, Equatable {
             && lhs.maxLanes == rhs.maxLanes
             && lhs.rowHeight == rhs.rowHeight
             && lhs.tableLayout == rhs.tableLayout
-            && lhs.chips == rhs.chips
+            && lhs.chips.look(on: lhs.commit.sha) == rhs.chips.look(on: rhs.commit.sha)
             && lhs.currentBranch == rhs.currentBranch
             && lhs.isSelected == rhs.isSelected
             && lhs.graphStyle == rhs.graphStyle
@@ -30,7 +30,7 @@ struct CommitRow: View, Equatable {
     let rowHeight: CGFloat
     let tableLayout: HistoryTableLayout
     /// The chips of the whole log: the row draws the ones on its commit, named and bordered as
-    /// they say.
+    /// they say. `==` compares only the look of those (`HistoryRefChips.look(on:)`).
     let chips: HistoryRefChips
     let currentBranch: String?
     let isSelected: Bool
