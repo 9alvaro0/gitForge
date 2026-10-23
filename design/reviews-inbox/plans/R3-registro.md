@@ -13,10 +13,38 @@
 | 9 | sin tests nuevos (vistas): 84 capturas (las previews de la bandeja, los avisos, la cabecera y "Search all" de ⌘K) en claro y oscuro, a 320 y 380 pt, en inglés y en español; 162/162 en las seis suites del store y de ⌘K | El aviso del patrón va el primero, con "Follow" y "Not now"; si pasa del límite (`exceedsLimit`), "Open Settings" y "Not now". `ReviewsNotice` gana un segundo botón sin fondo ni borde hasta el hover (`GFButton` no tiene estilo plano), el detalle pasa a varias líneas y la accesibilidad a `.contain`. El aviso del límite gana el detalle y "Open Settings" (`SettingsAnchor.reviews`). "Follow this repository" sale con un repo explorado, en la barra y en el estado vacío; un `.overLimit` saca un toast. "Hide from Reviews" solo en las cabeceras de repos seguidos. Cuatro previews (una más: el repo explorado sin PRs). Las capturas destaparon tres cosas: el patrón se partía en una `/`, y ahora lleva un *word joiner* tras cada barra; los textos de dos avisos seguidos no casaban por el ancho de cada símbolo, y el icono tiene ancho fijo; y los dos botones apilados del estado vacío tenían anchos distintos. El menú contextual no se puede capturar fuera de pantalla. |
 | 10 | error de compilación (`ReviewsSettingsModel`) → 6/6 con `ReviewsSettingsModelTests`; el orden numérico de las rutas falló primero en dos tests; suite completa 2364 en verde (1 fallo esperado) | Sección "Reviews" tras Cuentas (`SettingsAnchor.reviews`): repos seguidos por host con sus orígenes, el `origin` desfasado y "Hide" o "Stop following"; patrones con su número de repos, "Edit" en la misma fila y "Remove"; la propuesta con "Follow" (desactivado si pasa del límite, con el mensaje), "Edit" y "Not now"; ocultos con "Show again"; sin cuentas, "Connect account…". El editor valida con la Ruling 1 (el mensaje se pone en rojo al pulsar Save) y avisa del límite con `exceedsLimit(patternCount(...).total)`. Una propuesta editada se guarda como patrón y se responde solo si sigue siendo la propuesta (Ruling K). La hoja "Add repository…" filtra palabra a palabra (Ruling H); un repo seguido se queda como "Followed" y uno rechazado lo dice bajo su fila. 18 textos (el título "Add repository" no está en la tabla). 84 capturas: destaparon el orden de texto con números (`service-10` antes de `service-2`; ahora como Finder) y el borde de la lista de la hoja, recortado a la mitad. Arreglo tras la revisión: la etiqueta del segundo host quedaba dentro de la última fila del anterior; ahora cada host tras el primero lleva una línea encima y más aire arriba que abajo (`HostGroupLabel`, en la sección y en la hoja), como Cuentas separa sus instancias. |
 
+
+Suite completa al cierre: 2426 pasan, 0 fallan, 1 fallo esperado. Antes de la ronda final de arreglos, tras la segunda fusión con `main`, eran 2413. El build no da ningún aviso de nuestros ficheros; solo sale el de la herramienta de metadatos de AppIntents, que es del sistema. Una prueba de tiempo ajena a la fase (`RepositoryWatcherSuspendTests/defaultAllowsPoke`) falló una vez con la máquina cargada y pasó sola y en la siguiente ejecución completa.
+
+## Fusiones con main
+
+- Tras la tarea 4 se fusionó `main` con [#30](https://github.com/9alvaro0/gitForge/pull/30): arreglos de la prueba real de R2, como buscar PRs por palabras con letras seguidas o dejar a la vista la fila elegida en Revisiones. La suite completa siguió en verde (2277).
+- Antes de la revisión final se fusionó `main` con [#31](https://github.com/9alvaro0/gitForge/pull/31), [#32](https://github.com/9alvaro0/gitForge/pull/32) y [#33](https://github.com/9alvaro0/gitForge/pull/33), todas del grafo de la historia. No tocan ningún fichero de R3. La suite completa siguió en verde (2413).
+
 ## Desviaciones del spec
 
 - **Límite también para los manuales (Ruling 6):** el spec (§4.1) solo impide aceptar un patrón que pase de 100 repos. Añadir un repo a mano y "Follow this repository" también se rechazan si pasan del límite, para que un repo añadido a mano no quede fuera nada más añadirlo.
 - **Alcance de "Search all" en github.com y gitlab.com (Ruling 12):** el spec pide limitarlo a las organizaciones o grupos de la cuenta y a los repos a los que tiene acceso. Se usan los dueños de los repos de la pertenencia de la cuenta (los 5 con más repos). En gitlab.com no se buscan las MRs de proyectos personales, porque un espacio personal no es un grupo.
+
+Durante la ejecución se tomaron además estas decisiones. Las letras son las del ledger de la ejecución, y las que tocan un fichero de código llevan test:
+
+- **Acotar por encima del límite (L):** el plan rechazaba cualquier cambio que dejara la bandeja por encima de 100. Ahora solo se rechaza el que sube el total por encima del límite. Acotar un patrón, o seguir a mano un repo ya seguido, se aplica aunque la bandeja siga por encima: así se puede seguir el consejo del aviso, "acota tus patrones en Ajustes". La decisión vive en `exceedsLimit` (M), y ninguna vista compara con 100.
+- **Seguir un repo que el límite deja fuera (W):** con la bandeja por encima de 100, si el repo que se sigue a mano seguiría fuera, "Follow" avisa del límite en lugar de no hacer nada.
+- **Repos fuera por el límite (U):** cuentan como seguidos para la propuesta y para "Add repository…".
+- **Sin dueños en github.com o gitlab.com (N):** si la pertenencia de la cuenta no da ningún dueño, "Search all" no pregunta y sale "Nothing found". Sin dueños, GitHub buscaría en todo el sitio público.
+- **Pertenencia ilegible al buscar (P):** si no hay lista de pertenencia y no se puede leer, la búsqueda da "Couldn't search", no "Nothing found".
+- **El enlace pendiente sobrevive sin cuentas (O):** el plan pedía borrarlo al quedarse sin cuentas. Pero Revisiones refresca al aparecer, y con cero cuentas ese refresco borraba el enlace justo antes de conectar la primera. Ahora solo lo borran un enlace nuevo o el propio reintento. El texto del plan (tarea 7) está corregido.
+- **Búsquedas en "Conectar" al cerrar la hoja (R):** al cerrarse la hoja de conectar se olvidan. Así la fila vuelve a ser "Search all of …" y no abre otra vez la hoja.
+- **La selección de ⌘K sigue a su fila (T):** cuando llegan resultados y la consulta no ha cambiado, la selección se queda en la fila elegida, no en su posición. Antes, ↵ podía abrir una fila que el usuario no había elegido.
+- **Sin "Search all" con un enlace pegado (Y):** si lo escrito es el enlace de una PR/MR o el de un host por añadir, no salen las filas de buscar en el servidor.
+- **"Hide from Reviews" solo en repos seguidos (Q):** no sale en la cabecera de un repo explorado ni en Otras.
+- **Filtro de "Add repository…" (H):** cada palabra tiene que aparecer con sus letras seguidas, la misma regla que ⌘K desde #30.
+- **Renombrados (I y X):**
+  - Una consulta vieja sigue valiendo hasta que otra respuesta la sustituya.
+  - Una consulta que falla (403, 5xx o sin red) no se repite durante una hora, y la espera solo se guarda en memoria.
+  - Dentro del tope de 20 van primero los clones nunca consultados.
+- **Propuesta respondida (K y V):** guardar la propuesta desde Ajustes, editada o no, la marca como respondida aunque ya no sea la propuesta actual.
+- **Nombres inventados (Z):** los de las previews y los tests que sonaban a comercio se cambiaron por otros neutros (regla del repo público).
 
 ## Revisión final (subagente Opus)
 
@@ -29,3 +57,80 @@ Lista con arreglos: 2 importantes y 9 menores, todos en una pasada (Rulings U a 
 - **Y:** al pegar en ⌘K el enlace de una PR, o el de un host sin declarar, salían también filas "Search all of …" con la URL como texto. Ya no salen.
 - **Z:** los nombres inventados de las previews y los tests que no eran neutros pasan a otros que sí (weather, notes, maps, chat, fitness).
 - **Menores:** un guardado que llega tarde ya no cierra el editor de otro patrón; un patrón no válido lleva el triángulo de aviso, VoiceOver lo lee como "Invalid pattern" y lo anuncia al pulsar Save (texto nuevo con `es` y `pt-PT`); la cabecera de un repo explorado ya no tiene un menú contextual vacío; ocultar o dejar de seguir un repo mientras un refresco lee ya no le deja PRs escritas; y el título de un test de `merge` dice solo lo que comprueba.
+
+Lo que queda, sin arreglar a propósito: la prueba real del final y los menores diferidos.
+
+## Pendiente para Alvaro
+
+### Prueba real (no la puede hacer el agente)
+
+Lo visual se miró con capturas de las previews fuera de pantalla, con datos inventados, en claro y oscuro y en inglés y español. Nada se probó con cuentas reales. Falta:
+
+1. Pulsar Refresh justo después de unirte a un repo nuevo: sale sin esperar 24 h.
+2. Un clon cuyo repo se renombró (mejor uno privado de GitHub, que depende de seguir la redirección con el token): se sigue con la ruta nueva y Ajustes dice "origin still points to …".
+3. Una cuenta caducada con clones: se quedan con el aviso "Reconnect…" y, al reconectar, se leen.
+4. El patrón propuesto: aceptarlo, editarlo y quitarlo en Ajustes; pulsar "Not now" varias veces seguidas y ver qué propone después.
+5. Añadir un repo a mano desde Ajustes y ocultar otro, también desde el menú de la cabecera en la bandeja. El menú no se pudo capturar.
+6. En ⌘K, "Search all of" tu GitLab self-managed y github.com (con una cuenta en más de 5 organizaciones): encontrar una MR y un repo que no sigues, abrir el repo y pulsar "Follow this repository".
+7. Pegar un enlace de una instancia sin cuenta y conectar la cuenta: se abre solo al cerrar la hoja.
+8. VoiceOver en el editor de patrones con un patrón no válido.
+9. En oscuro, los separadores de ⌘K (pendiente desde R2), y el botón "Not now", que queda unos 9 pt por dentro del borde derecho de los demás botones.
+10. La primera ejecución de la CI con Xcode 26.
+
+### Menores diferidos
+
+Tests que faltan:
+- **Renombrados:** el camino del 401 en las consultas, una ronda cancelada durante las consultas y la redirección 301 de GitHub (depende del delegado de la sesión).
+- **Búsqueda en el host:**
+  - la deduplicación de `newestFirst` no tiene test;
+  - `escapedText` depende de que `q`/`search` no sea el último parámetro.
+- **Store:**
+  - un `openFoundRepo` que adelanta a un `openLink` en marcha;
+  - un repo encontrado que conserva una selección suya;
+  - `FollowPattern.matches` con un host en otras mayúsculas.
+- **⌘K:**
+  - no hay test del enrutado de `.searchHost`;
+  - el `onChange` que mueve la selección solo se comprueba compilando;
+  - un test del router deja una `Task` sin esperar.
+
+Comportamiento a pulir:
+- **Renombrados:** un clon renombrado vuelve a su ruta vieja si la pertenencia es desconocida (más de 24 h sin red).
+- **Límite:**
+  - mientras corre el primer refresco tras abrir la app, el límite no se comprueba (`lastRound` no va a la foto);
+  - el toast de W dice "pasaría del límite" aunque el total no cambie.
+- **⌘K y enlaces:**
+  - `openFoundRepo` de un repo seguido no toma turno en `linkGen`, igual que `showRepo` en R2;
+  - si la paleta cancela una búsqueda, queda guardada como "Error";
+  - las filas de "Search all" se crean con ids nuevos en cada pintado.
+- **Lecturas:** tras un 401, la lectura de un repo que acaba de salir de la bandeja aún se reintenta una vez (el resultado se descarta).
+- **Editor de patrones:**
+  - al guardar la propuesta sin cambios, el editor reaparece un instante mientras se leen sus repos;
+  - reabrir el mismo editor mientras guarda lo cierra al terminar;
+  - al editar la propuesta se pierde la marca "Proposed".
+- **Configuración:**
+  - los candidatos no válidos se descartan sin dejar rastro;
+  - un espacio dentro de un segmento de patrón se acepta;
+  - una versión 0 o negativa se lee como la 1;
+  - dos ficheros apartados en el mismo segundo chocan de nombre.
+
+Textos y accesibilidad:
+- En Ajustes, VoiceOver no dice de qué repo son los botones "Hide" y "Follow".
+
+Limpieza:
+- **Vistas:**
+  - `QuietButton` repite `GFButton`, que no tiene estilo plano;
+  - "Follow this repository" se construye en dos sitios;
+  - el *word joiner* solo está donde se llama, y la preview de `ReviewsNotice` parte el patrón;
+  - el estilo del campo del editor copia el de `SettingsEditableRow`;
+  - la cuenta de repos de un patrón se hace en la vista;
+  - el toast del límite está repetido;
+  - hay parámetros de `init` solo para las previews.
+- **Tamaño:** `ReviewsStore.swift` (~1180 líneas) y `ReviewsSettingsSection.swift` (~500) piden partirse.
+- **Store:**
+  - `lookUpPaths` repite el bucle de `readPulls`, y `PathRead.result` empieza como `.success(nil)`;
+  - `applyConfig` y `storeConfig` son internos;
+  - `MemberBook` se reconstruye en cada acceso;
+  - el comentario de cabecera de `ReviewsStore` no nombra `+Renames.swift`;
+  - el de `FollowOutcome.overLimit` se quedó corto tras L.
+- **Configuración en disco:** el sobre de `ReviewsConfigStore` repite los campos de `ReviewsConfig`, y su `VersionProbe` no es `nonisolated`.
+- **Búsqueda en el host:** los ayudantes de GitLab se repiten.

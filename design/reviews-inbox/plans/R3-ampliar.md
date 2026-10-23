@@ -606,7 +606,7 @@ static func searchOwners(on instance: HostingInstance, members: [RemoteRepoSumma
 - **`filteredRepo`** también devuelve un repo de `browsedRepos`. Con él, `groups` es un grupo con sus Otras.
 - **`openLink`** pone o borra `pendingLink`.
 - **`adopt`** quita de `browsedRepos` los que pasan a seguirse.
-- **`clearWithoutAccounts`** vacía `browsedRepos`, `hostSearches` y `pendingLink`.
+- **`clearWithoutAccounts`** vacía `browsedRepos` y `hostSearches`. `pendingLink` se queda: lo borran solo un `openLink` nuevo o el reintento (cambio durante la ejecución, ver `R3-registro.md`, desviación O).
 
 - [ ] **Paso 1: tests**
   - `searchInstances`: dos cuentas en `gitlab.example.test` y una en github.com → las dos instancias, una vez cada una.
@@ -631,7 +631,7 @@ static func searchOwners(on instance: HostingInstance, members: [RemoteRepoSumma
     - se añade una cuenta que firma al harness y `retryPendingLink()` → `.opened` y `pendingLink == nil`;
     - sin cuenta nueva → `nil` y `pendingLink == nil`;
     - un `openLink` posterior también lo borra.
-  - `clearedWithoutAccounts`: al quitar las cuentas y refrescar → `browsedRepos`, `hostSearches` y `pendingLink` vacíos.
+  - `clearedWithoutAccounts`: al quitar las cuentas y refrescar → `browsedRepos` y `hostSearches` vacíos, y `pendingLink` se conserva (desviación O).
 - [ ] **Paso 2: comprobar que fallan.** `-only-testing:gitForgeTests/ReviewsStoreSearchTests`.
 - [ ] **Paso 3: implementar** (Rulings 12 a 14).
 - [ ] **Paso 4: comprobar que pasan**, y que las suites del store siguen verdes.
