@@ -340,6 +340,17 @@ struct CommitGraphEngineTests {
         #expect(unborn == .empty)
     }
 
+    @Test("No connector when the rows are loaded but there is no HEAD commit, as on an orphan branch with staged files")
+    func noConnectorWithoutHeadCommit() {
+        let input = GraphInput(commits: GraphFixture.commits("c b\nb a\na"), headSha: nil,
+                               refs: [GraphFixture.local("main", "c")], hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.uncommitted == nil)
+        #expect(layout.rows[0].stepsAbove.isEmpty)
+        #expect(layout.rows.allSatisfy { !$0.stepsBelow.contains(.uncommitted) })
+    }
+
     @Test("HEAD's commit not loaded yet: the connector runs to the bottom edge and keeps column 0 to itself")
     func connectorPastTheEnd() {
         let input = GraphInput(commits: GraphFixture.commits("o2 o1\no1 o0"), headSha: "h",
@@ -365,7 +376,9 @@ struct CommitGraphEngineTests {
     func stashBesideConnector() {
         let input = GraphInput(commits: GraphFixture.commits("s a\na b\nb"), headSha: "a",
             refs: [GraphFixture.local("main", "a", head: true)], stashShas: ["s"], hasUncommittedChanges: true)
-        let rows = CommitGraphEngine.layout(input).rows
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        let rows = layout.rows
         #expect(rows[0].node == GraphNode(column: 1, kind: .stash, color: .stash, isGhost: false))
         #expect(rows[0].stepsBelow == [.uncommitted, GraphStep(from: 1, to: 0, color: .stash, stroke: .stash)])
     }
@@ -381,6 +394,40 @@ struct CommitGraphEngineTests {
         #expect(layout.rows[0].stepsBelow == [.uncommitted, GraphStep(from: 1, to: 0, color: .head, stroke: .solid),
                                               GraphStep(from: 1, to: 1, color: .main, stroke: .solid)])
         #expect(layout.columnCount == 2)
+    }
+
+    // Rows: 0 m (main, merges a and f), 1 x, 2 f (feature, HEAD), 3 a, 4 base.
+    @Test("A merge two rows above HEAD's tip raises HEAD's line when the tree is clean; with uncommitted changes it reaches the tip by a track of its own, from the side")
+    func mergeTwoRowsAboveHeadTip() {
+        func input(uncommitted: Bool) -> GraphInput {
+            GraphInput(commits: GraphFixture.commits("m a f\nx base\nf base\na base\nbase"), headSha: "f",
+                       refs: [GraphFixture.local("main", "m"), GraphFixture.local("feature", "f", head: true)],
+                       hasUncommittedChanges: uncommitted)
+        }
+        func step(_ from: Int, _ to: Int, _ color: GraphColorRole) -> GraphStep {
+            GraphStep(from: from, to: to, color: color, stroke: .solid)
+        }
+        // Clean: the merge joins f's line, which runs up from f to below the merge in column 0.
+        let clean = input(uncommitted: false)
+        let raised = CommitGraphEngine.layout(clean)
+        GraphInvariants.check(raised, clean)
+        #expect(raised.rows[2].node.column == 0)
+        #expect(raised.rows[0].stepsBelow == [step(1, 0, .head), step(1, 1, .main)])
+        #expect(raised.rows[1].stepsBelow.contains(step(0, 0, .head)))
+
+        // Dirty: column 0 above f carries only the connector. The merge leaves column 1 for a track in column 2,
+        // which, its parent two rows below, has no straight stretch: it bends straight on into f's node from the side.
+        let dirty = input(uncommitted: true)
+        let layout = CommitGraphEngine.layout(dirty)
+        GraphInvariants.check(layout, dirty)
+        #expect(layout.rows[2].node.column == 0)
+        #expect(layout.rows[0].stepsAbove == [.uncommitted])
+        for boundary in 0...1 {
+            #expect(layout.rows[boundary].stepsBelow.filter { $0.from == 0 } == [.uncommitted], "boundary \(boundary)")
+        }
+        #expect(layout.rows[0].stepsBelow == [.uncommitted, step(1, 1, .main), step(1, 2, .head)])
+        #expect(layout.rows[1].stepsBelow.filter { $0.to == 0 } == [.uncommitted, step(2, 0, .head)])
+        #expect(!layout.rows[1].stepsBelow.contains { $0.from == 2 && $0.to == 2 })
     }
 
     // Rows: 0 u2, 1 u1, 2 l (main, HEAD), 3 base. §8: HEAD behind, with and without uncommitted changes.
