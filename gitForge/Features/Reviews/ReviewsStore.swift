@@ -643,8 +643,10 @@ final class ReviewsStore {
     /// Other opened again moves to the top. Otherwise the selection goes and
     /// `openingLink` names the link while its detail is read (`readLink`);
     /// the pull request then joins the Others, unless a refresh listed it
-    /// meanwhile, and is selected. A later `openLink` wins: an earlier one
-    /// that lands after it adds its row, but neither selects it nor touches
+    /// meanwhile, and is selected. Read to no pull request, the selection
+    /// that went comes back if the list still shows it and nothing was
+    /// picked meanwhile. A later `openLink` wins: an earlier one that lands
+    /// after it adds its row, but neither selects anything nor touches
     /// `openingLink`.
     func openLink(_ link: PullRequestLink) async -> LinkOpenOutcome {
         linkGen &+= 1
@@ -659,11 +661,18 @@ final class ReviewsStore {
             openingLink = nil
             return .opened(id)
         }
+        let cleared = selectedID
         selectedID = nil
         openingLink = PendingLink(host: link.host, number: link.number)
         switch await readLink(link) {
         case .unread(let outcome):
-            if gen == linkGen { openingLink = nil }
+            if gen == linkGen {
+                openingLink = nil
+                if selectedID == nil, let cleared {
+                    selectedID = cleared
+                    dropHiddenSelection()
+                }
+            }
             return outcome
         case .read(let pull, let accountId):
             // A refresh may have run meanwhile: the repo and the list as they are now.

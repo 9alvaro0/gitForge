@@ -9,6 +9,7 @@ import Testing
 @MainActor
 struct ReviewsStoreOthersTests {
     private static let app = ReviewsHarness.key("team/app")
+    private static let api = ReviewsHarness.key("team/api")
     private static let lib = ReviewsHarness.key("oss/lib")
 
     /// The row id of pull request `number` in the repo with key `repo`.
@@ -224,11 +225,12 @@ struct ReviewsStoreOthersTests {
         #expect(store.openingLink == nil)
     }
 
-    @Test("A link no account can see fails, naming the repo and the number, and leaves nothing selected")
+    @Test("A link no account can see fails, naming the repo and the number, and gives back the selection it cleared")
     func unreadableLink() async {
         let (store, harness) = await Self.loaded()
         harness.provider.state { $0.detailFailures["t"] = .notFound }
-        store.selectedID = Self.id(Self.app, 1)
+        let selected = Self.id(Self.app, 1)
+        store.selectedID = selected
 
         let outcome = await store.openLink(Self.link("oss/lib", 5))
 
@@ -240,8 +242,73 @@ struct ReviewsStoreOthersTests {
         #expect(message.contains("!5"))
         #expect(message.hasSuffix(PullRequestStore.message(for: PullRequestFetchError.notFound)))
         #expect(store.others.isEmpty)
-        #expect(store.selectedID == nil)
+        #expect(store.selectedID == selected)
+        #expect(store.selectedItem?.id == selected)
         #expect(store.openingLink == nil)
+    }
+
+    @Test("A link that asks to connect an account gives back the selection it cleared")
+    func connectLinkGivesBackSelection() async throws {
+        let (store, _) = await Self.loaded()
+        let selected = Self.id(Self.api, 2)
+        store.selectedID = selected
+        let elsewhere = HostingInstance(kind: .gitlab, host: "code.example.test")
+        let link = PullRequestLink(host: try #require(RemoteHost.make(fullName: "oss/lib", on: elsewhere)), number: 5,
+                                   instanceId: elsewhere.id)
+
+        let outcome = await store.openLink(link)
+
+        #expect(outcome == .connectAccount(instanceId: elsewhere.id))
+        #expect(store.selectedID == selected)
+        #expect(store.selectedItem?.id == selected)
+    }
+
+    @Test("A failed link leaves nothing selected when the row it cleared left the list while it was read")
+    func failedLinkRowLeft() async {
+        let (store, harness) = await Self.loaded()
+        let gate = AsyncGate()
+        harness.provider.state {
+            $0.detailGates[5] = gate
+            $0.detailFailures["t"] = .notFound
+        }
+        store.selectedID = Self.id(Self.app, 1)
+
+        let opening = Task { await store.openLink(Self.link("oss/lib", 5)) }
+        await gate.waiting()
+        // team/app's !1 was merged elsewhere: the refresh no longer lists it.
+        harness.provider.state { $0.lists["team/app"] = [] }
+        await store.refresh(force: true)
+        gate.open()
+
+        guard case .failed = await opening.value else {
+            Issue.record("Expected a failure")
+            return
+        }
+        #expect(store.selectedID == nil)
+        #expect(store.selectedItem == nil)
+    }
+
+    @Test("A failed link doesn't take back a row picked while it was read")
+    func failedLinkKeepsNewPick() async {
+        let (store, harness) = await Self.loaded()
+        let gate = AsyncGate()
+        harness.provider.state {
+            $0.detailGates[5] = gate
+            $0.detailFailures["t"] = .notFound
+        }
+        store.selectedID = Self.id(Self.app, 1)
+
+        let opening = Task { await store.openLink(Self.link("oss/lib", 5)) }
+        await gate.waiting()
+        let picked = Self.id(Self.api, 2)
+        store.selectedID = picked
+        gate.open()
+
+        guard case .failed = await opening.value else {
+            Issue.record("Expected a failure")
+            return
+        }
+        #expect(store.selectedID == picked)
     }
 
     @Test("A rejected token is renewed once and the link read again")
