@@ -35,7 +35,7 @@ Build aparte con identificador `com.warwarelabs.gitForge.graphv3` y páginas de 
 - `ref/mkghost.sh` (`work`) y `ref/mkflow.sh` en `feature/cart`;
 - una copia local del repo de gitForge (470 commits en HEAD, 17 ramas remotas).
 
-Revisado en claro y regular y en oscuro y compacto, en la pantalla Retina (2x), ampliando las capturas. PENDIENTE: la revisión a 1x. No había monitor externo conectado; se hará cuando lo haya, antes de mergear.
+Revisado en claro y regular y en oscuro y compacto, en la pantalla Retina (2x), ampliando las capturas. No había monitor externo conectado; la revisión a 1x se hizo después del merge (ver «Revisión a 1x»).
 
 Con la build final:
 
@@ -60,7 +60,49 @@ Defectos encontrados y corregidos:
 
 V4 comprobado en la app: con la selección en la última fila cargada (fila 50 de 50), se empujó un commit a `develop` en el servidor desde otro clon y se pulsó Fetch. La selección se quedó en su fila, la tabla no saltó y el log pasó a los 73 commits del alcance, con el nuevo arriba en fantasma. La cabecera dijo "50 commits" en la primera captura, con las filas nuevas ya dibujadas, y "73" tras el siguiente desplazamiento: la ventana estaba en otro Escritorio cuando llegó la recarga. No se repitió.
 
-**Observación abierta (V7).** En `work` de `mkremotes` la tabla saltó alguna vez al principio justo al empezar a cargar la página 2. Pasó cuatro veces: una con la rueda y tres moviendo la barra de desplazamiento por accesibilidad. Con la herramienta de accesibilidad, todas las veces que saltó marcó el desplazamiento como no aplicado. Con una traza temporal, el marcador se ve y 40 ms después deja de verse, antes de que llegue la página: no hay `scrollTo`, ni cambio de selección, ni tabla recreada, ni recarga. Con la rueda en la build final, tres de tres veces sin salto, y nunca en las quince cargas de página de la copia de gitForge. No se ha encontrado una causa en la app, así que no hubo lote de arreglo. PENDIENTE: que Alvaro lo pruebe con el trackpad.
+**Observación abierta (V7).** En `work` de `mkremotes` la tabla saltó alguna vez al principio justo al empezar a cargar la página 2. Pasó cuatro veces: una con la rueda y tres moviendo la barra de desplazamiento por accesibilidad. Con la herramienta de accesibilidad, todas las veces que saltó marcó el desplazamiento como no aplicado. Con una traza temporal, el marcador se ve y 40 ms después deja de verse, antes de que llegue la página: no hay `scrollTo`, ni cambio de selección, ni tabla recreada, ni recarga. Con la rueda en la build final, tres de tres veces sin salto, y nunca en las quince cargas de página de la copia de gitForge. No se ha encontrado una causa en la app, así que no hubo lote de arreglo. Después del merge se reprodujo con scroll real (ver «V7 con scroll real»).
+
+### Revisión a 1x (2026-10-23, después del merge)
+
+Sobre `main` en `635ff07` (G1 a G4, #32 y #33), con la build aparte (Debug, `com.warwarelabs.gitForge.graphv3`, páginas de 50) en un monitor externo de 1920 × 1080 a 1x.
+
+- **Método.**
+  - Capturas de la ventana a píxel real (`screencapture -l`), ampliadas sin suavizar.
+  - Un script recorre cada columna de píxeles del grafo y avisa de cualquier píxel con menos tinta que los cuatro de encima y los cuatro de debajo. Detecta un corte de medio píxel: se comprobó con uno pintado a mano.
+  - Repos: `remotes2/work` de `mkremotes`, en `feature/cart`, con el interruptor apagado y encendido. Los de G4, en su registro.
+  - Oscuro y compacto, y claro y normal.
+- **Cortes:** ninguno en las quince capturas de G3 y G4.
+- **Uniones entre filas.**
+  - En normal la recta mide 2 píxeles, los dos cubiertos del todo, y la unión no se distingue del resto.
+  - En compacto la recta cae entre dos píxeles, cada uno cubierto al 75 %. En la unión se solapan las mitades de las dos filas y esos píxeles suben al 94 % en una banda de 4 píxeles. En oscuro, con la captura ampliada, se ve un nudo algo más claro cada 23 píxeles; a tamaño real apenas se nota. Es el límite aceptado en G2 («Uniones algo más oscuras en compacto»).
+- **Por detrás** (`develop ↓61`). Los fantasmas en ámbar, discontinuos y nítidos. Con HEAD en `feature/cart`, su línea entra con una curva en `dev: base`, el commit de la línea de HEAD del que nace `feature/cart`.
+- **Separadas** (`feature/login ↑1 ↓2`). La ramita fantasma nace de `login: form`, del color de la rama; curva y nodos huecos discontinuos, limpios.
+- **Por delante** (`feature/cart ↑2`). Ningún fantasma y chip remoto discontinuo en `cart: model`.
+- **Tronco remoto.** `origin/main` en turquesa, con sus dos commits del servidor en fantasma y su chip discontinuo.
+- **Interruptor encendido.** `fork/main`, `fork/release/2.0` y `origin/main` en fantasma y los chips con prefijo. La curva larga de `origin/main` hasta `main: setup`, sin cortes.
+- **Chips.** El borde discontinuo 3–3 es nítido a 1x, también el de los chips con prefijo; contadores alineados con el texto en las dos densidades.
+- **Llavero.** Cada build nueva de la app aparte pide la contraseña del llavero para leer la cuenta guardada (cambia la firma). La revisión no la necesita: se deniega.
+
+### V7 con scroll real (2026-10-23)
+
+Se reproduce sin accesibilidad. Con eventos de rueda reales (los manda computer use, en pasos de 50 pt con su fase), en `remotes2/work` y con páginas de 50, se vio de tres formas:
+
+1. **Al cargar la página 2.** Con capturas cada 220 ms: la tabla está 15 filas abajo, cerca del final de la página 1; carga la página 2 y en el fotograma siguiente está arriba. El resto del scroll sigue desde ahí.
+2. **En mitad del scroll.** Con una traza temporal, 3 s después de recargar el log: de 74 pt a 0, con 50 filas y sin carga de página.
+3. **Sin scroll.** Con la tabla quieta a 200 pt, se crea un tag desde el terminal. El vigilante relee las refs, el grafo se recalcula (`HistoryStore.apply`) y 11 ms después la tabla está arriba. Coincidió con el sondeo de estado de las Recientes.
+
+Frecuencia: 2 de 15 intentos de scroll hasta cargar la página 2, y 1 de 29 recálculos con la tabla quieta fuera del principio.
+
+En el momento del salto, la traza descarta:
+
+- un `scrollTo`, ni el de la selección ni el de las flechas;
+- que la tabla se cree de nuevo (no vuelve a aparecer);
+- una recarga del log: en los casos 2 y 3 no se publica ninguna página;
+- un cambio de tamaño del contenido o del contenedor.
+
+Tampoco salta con el sondeo de Recientes solo, con la activación de la app sola, ni con diez recálculos seguidos con la tabla quieta. Lo común a los casos 1 y 3, los de traza completa, es que el grafo se publica (una página o un recálculo) y todas las filas visibles se redibujan.
+
+Sin causa, no hay lote de arreglo. La sospecha es el anclaje del desplazamiento de la pila perezosa de SwiftUI cuando cambian las filas visibles, según el momento en que llega el cambio. Para seguir hace falta reproducirlo a voluntad. Por ejemplo, con un arnés de depuración dentro de la app que publique el grafo y mande eventos de rueda en bucle. Con él se mediría la frecuencia y se probarían `.scrollPosition(id:)`, una `ScrollView` de un solo eje y la cabecera sin fijar. El trackpad no se probó: computer use solo manda eventos de rueda.
 
 ### Accesibilidad (Tarea 8, Paso 5)
 
