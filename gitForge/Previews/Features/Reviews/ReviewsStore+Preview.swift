@@ -186,11 +186,7 @@ struct PreviewReviewsWorld {
         let gitLabMembers = populated ? Self.gitLabMembers(fillers: fillers, siblings: siblings, settings: settings) : []
         let gitLabHits = populated ? Self.gitLabHits(now: now, fillers: fillers, siblings: siblings, settings: settings)
             : []
-        let gitHubMembers = populated
-            ? [Self.member("201", Self.designTokens, on: Self.gitHub)]
-                + (settings == .absent ? [] : ([Self.ossLib] + Self.unfollowedGitHub).enumerated()
-                    .map { Self.member("20\(2 + $0.offset)", $0.element, on: Self.gitHub) })
-            : []
+        let gitHubMembers = populated ? Self.gitHubMembers(settings: settings) : []
         let gitHubHits = populated ? [ActivityHit(ref: .path(Self.designTokens), at: now.addingTimeInterval(-1800))] : []
         let host = PreviewReviewsHost(lists: populated ? Self.lists(now: now) : [:],
                                       linked: populated ? Self.linked(now: now) : [:],
@@ -256,12 +252,18 @@ struct PreviewReviewsWorld {
 
     private static func gitLabMembers(fillers: Int, siblings: Siblings, settings: SettingsExtras) -> [RemoteRepoSummary] {
         // The clone is listed too: a clone counts only when the account belongs to its repo.
-        var members = [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
-                       member("103", infraModules, on: gitLab), member("104", releaseTools, on: gitLab)]
-            + (0..<fillers).map { member("9\($0)", "apps/archive/service-\($0)", on: gitLab) }
+        // Appended step by step: long `+` chains outran the Xcode 26 type checker on CI.
+        var members: [RemoteRepoSummary] = [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
+                                            member("103", infraModules, on: gitLab),
+                                            member("104", releaseTools, on: gitLab)]
+        for index in 0..<fillers {
+            members.append(member("9\(index)", "apps/archive/service-\(index)", on: gitLab))
+        }
         if siblings != .absent {
-            members += [member("105", weatherApp, on: gitLab), member("106", notesApp, on: gitLab)]
-                + siblingApps.enumerated().map { member("10\(7 + $0.offset)", $0.element, on: gitLab) }
+            members.append(contentsOf: [member("105", weatherApp, on: gitLab), member("106", notesApp, on: gitLab)])
+            for (offset, path) in siblingApps.enumerated() {
+                members.append(member("10\(7 + offset)", path, on: gitLab))
+            }
         }
         if siblings == .proposingOverLimit {
             members += (0..<siblingFillerCount).map {
@@ -269,11 +271,25 @@ struct PreviewReviewsWorld {
             }
         }
         if settings != .absent {
-            members += [member("110", ledgerSandbox, on: gitLab), member("111", buildCache, on: gitLab)]
-                + unfollowedGitLab.enumerated().map { member("11\(2 + $0.offset)", $0.element, on: gitLab) }
+            members.append(member("110", ledgerSandbox, on: gitLab))
+            members.append(member("111", buildCache, on: gitLab))
+            for (offset, path) in unfollowedGitLab.enumerated() {
+                members.append(member("11\(2 + offset)", path, on: gitLab))
+            }
         }
         if settings == .overLimit {
-            members += (0..<toolFillerCount).map { member("7\($0)", "tools/legacy/script-\($0)", on: gitLab) }
+            for index in 0..<toolFillerCount {
+                members.append(member("7\(index)", "tools/legacy/script-\(index)", on: gitLab))
+            }
+        }
+        return members
+    }
+
+    private static func gitHubMembers(settings: SettingsExtras) -> [RemoteRepoSummary] {
+        var members: [RemoteRepoSummary] = [member("201", designTokens, on: gitHub)]
+        guard settings != .absent else { return members }
+        for (offset, path) in ([ossLib] + unfollowedGitHub).enumerated() {
+            members.append(member("20\(2 + offset)", path, on: gitHub))
         }
         return members
     }
@@ -281,14 +297,21 @@ struct PreviewReviewsWorld {
     /// The fillers are older than the rest, so they're the ones left out.
     private static func gitLabHits(now: Date, fillers: Int, siblings: Siblings,
                                    settings: SettingsExtras) -> [ActivityHit] {
-        [ActivityHit(ref: .projectId("102"), at: now.addingTimeInterval(-2 * 3600)),
-         ActivityHit(ref: .projectId("103"), at: now.addingTimeInterval(-5 * 3600)),
-         ActivityHit(ref: .projectId("104"), at: now.addingTimeInterval(-26 * 3600))]
-            + (0..<fillers).map { ActivityHit(ref: .projectId("9\($0)"), at: now.addingTimeInterval(-Double(2 + $0) * 86_400)) }
-            + (siblings == .absent ? [] : [ActivityHit(ref: .projectId("105"), at: now.addingTimeInterval(-30 * 3600)),
-                                         ActivityHit(ref: .projectId("106"), at: now.addingTimeInterval(-50 * 3600))])
-            + (settings == .absent ? [] : [ActivityHit(ref: .projectId("110"), at: now.addingTimeInterval(-60 * 3600)),
-                                         ActivityHit(ref: .projectId("111"), at: now.addingTimeInterval(-70 * 3600))])
+        // Built step by step: as one expression it outran the Xcode 26 type checker on CI.
+        func hit(_ id: String, hoursAgo: Double) -> ActivityHit {
+            ActivityHit(ref: .projectId(id), at: now.addingTimeInterval(-hoursAgo * 3600))
+        }
+        var hits: [ActivityHit] = [hit("102", hoursAgo: 2), hit("103", hoursAgo: 5), hit("104", hoursAgo: 26)]
+        for index in 0..<fillers {
+            hits.append(hit("9\(index)", hoursAgo: Double(2 + index) * 24))
+        }
+        if siblings != .absent {
+            hits.append(contentsOf: [hit("105", hoursAgo: 30), hit("106", hoursAgo: 50)])
+        }
+        if settings != .absent {
+            hits.append(contentsOf: [hit("110", hoursAgo: 60), hit("111", hoursAgo: 70)])
+        }
+        return hits
     }
 
     private static func pull(_ number: Int, _ title: String, by author: String, from branch: String,
