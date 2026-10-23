@@ -72,10 +72,15 @@ nonisolated struct ChosenCandidate: Equatable, Sendable {
 }
 
 /// What `FollowedRepos.merge` returns: the repos to load (at most
-/// `FollowedRepos.limit`) and how many were left out.
+/// `FollowedRepos.limit`) and the ones the limit left out. Those are
+/// followed too, only not loaded: a proposal or "Add repository…" doesn't
+/// offer them again (R3 Ruling U).
 nonisolated struct FollowedSet: Equatable, Sendable {
     var repos: [ReviewRepo]
-    var dropped: Int
+    /// The `FollowedRepos.key`s of the repos the limit left out.
+    var droppedKeys: Set<String>
+    /// How many repos the limit left out.
+    var dropped: Int { droppedKeys.count }
 }
 
 /// Decides which repositories the Reviews inbox follows (R1 Rulings 1, 4, 5, 12).
@@ -121,7 +126,7 @@ nonisolated enum FollowedRepos {
     /// - `hidden` holds the `key`s of the repos the user hid. They're removed
     ///   before ordering and cutting, so they don't count in `dropped` either.
     /// - The result is ordered by `lastActivity` (newest first, then by key)
-    ///   and cut to `limit`.
+    ///   and cut to `limit`; the keys of the rest are `droppedKeys`.
     static func merge(local: [LocalRemote], activity: [ActivityCandidate], chosen: [ChosenCandidate] = [],
                       hidden: Set<String> = [], accounts: [HostingAccount], instances: [HostingInstance],
                       memberKeys: [UUID: Set<String>] = [:]) -> FollowedSet {
@@ -184,7 +189,7 @@ nonisolated enum FollowedRepos {
                 let right = rhs.lastActivity ?? .distantPast
                 return left == right ? lhs.id < rhs.id : left > right
             }
-        return FollowedSet(repos: Array(repos.prefix(limit)), dropped: max(0, repos.count - limit))
+        return FollowedSet(repos: Array(repos.prefix(limit)), droppedKeys: Set(repos.dropFirst(limit).map(\.id)))
     }
 
     /// The `key`s that keep a clone whatever the membership says: those an

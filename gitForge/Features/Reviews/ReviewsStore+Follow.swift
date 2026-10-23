@@ -22,7 +22,7 @@ extension ReviewsStore {
 
     /// The repos of every account's membership list that aren't followed nor
     /// hidden, once each, by host and then by path (Ruling 15): what "Add
-    /// repository…" offers.
+    /// repository…" offers. One the limit leaves out is followed (Ruling U).
     var followableRepos: [FoundRepo] {
         let skipped = followingKeys
         var found: [FoundRepo] = []
@@ -40,12 +40,13 @@ extension ReviewsStore {
     /// What `pattern` would do, in place of `old` when it replaces one, with
     /// nothing changed (Ruling 6): `adds` counts the members it matches that
     /// aren't followed nor hidden; `total`, the repos followed with it,
-    /// counting those the limit would leave out. Before the first refresh
-    /// there's no round to merge on, and `total` is what's followed now plus
-    /// `adds`.
+    /// counting those the limit would leave out. Both are counted on the last
+    /// refresh's accounts, as the proposal is. Before the first refresh
+    /// there's no round to merge on: `adds` is counted on the inbox's
+    /// accounts, and `total` is what's followed now plus `adds`.
     func patternCount(_ pattern: FollowPattern, replacing old: FollowPattern?) -> (adds: Int, total: Int) {
-        let adds = MemberBook(accounts: inboxAccounts, memberships: memberships).shelf(host: pattern.host)
-            .map { additions(of: pattern, on: $0) } ?? 0
+        let adds = MemberBook(accounts: lastRound?.accounts ?? inboxAccounts, memberships: memberships)
+            .shelf(host: pattern.host).map { additions(of: pattern, on: $0) } ?? 0
         let total = total(with: Self.saving(pattern, replacing: old, in: config))
         return (adds, total ?? repos.count + droppedByLimit + adds)
     }
@@ -179,11 +180,13 @@ extension ReviewsStore {
     }
 
     /// The pattern to propose (Rulings 2 and 3): the first instance's, in the
-    /// order of the accounts, that has one. Its base is the instance's repos
-    /// followed from a clone or by activity (a hidden one isn't followed);
-    /// its members, every list of the instance's accounts; and it skips the
-    /// patterns accepted and the proposals answered. `nil` before the first
-    /// refresh: `total` needs a round to merge on.
+    /// order of the last refresh's accounts, that has one. Its base is the
+    /// instance's repos followed from a clone or by activity (a hidden one
+    /// isn't followed); its members, every list of the instance's accounts;
+    /// it has to add a member not followed, the ones the limit leaves out
+    /// counting as followed (Ruling U); and it skips the patterns accepted
+    /// and the proposals answered. `nil` before the first refresh: `total`
+    /// needs a round to merge on.
     func nextProposal() -> PatternProposal? {
         guard let lastRound else { return nil }
         let following = followingKeys
@@ -204,9 +207,10 @@ extension ReviewsStore {
 
     // MARK: Private
 
-    /// The keys of the repos followed and of the hidden ones.
+    /// The keys of the repos followed, those the limit leaves out too
+    /// (Ruling U), and of the hidden ones.
     private var followingKeys: Set<String> {
-        Set(repos.map(\.id)).union(config.hidden.map(FollowedRepos.key))
+        Set(repos.map(\.id)).union(droppedKeys).union(config.hidden.map(FollowedRepos.key))
     }
 
     /// The members of `shelf` that `pattern` matches and that aren't

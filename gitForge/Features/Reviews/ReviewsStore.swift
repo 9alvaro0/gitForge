@@ -78,8 +78,11 @@ final class ReviewsStore {
     private(set) var repoErrors: [String: String] = [:]
     /// Accounts to connect again: their token was rejected and couldn't be renewed.
     private(set) var accountsNeedingAttention: Set<UUID> = []
+    /// The keys (`FollowedRepos.key`) of the repos `FollowedRepos.limit`
+    /// leaves out: followed, only not loaded (R3 Ruling U).
+    private(set) var droppedKeys: Set<String> = []
     /// Repos left out by `FollowedRepos.limit`.
-    private(set) var droppedByLimit = 0
+    var droppedByLimit: Int { droppedKeys.count }
     private(set) var isRefreshing = false
     /// When the pull requests were last read; at launch, the snapshot's date.
     private(set) var lastRefreshedAt: Date?
@@ -510,7 +513,7 @@ final class ReviewsStore {
             return current.accountId == previous.accountId && current.host == previous.host
         }
         repos = followed.repos
-        droppedByLimit = followed.dropped
+        if droppedKeys != followed.droppedKeys { droppedKeys = followed.droppedKeys }
         pulls = pulls.filter { after[$0.key] != nil }
         repoErrors = repoErrors.filter { after[$0.key] != nil }
         latestRead = latestRead.filter { after[$0.key] != nil }
@@ -564,7 +567,7 @@ final class ReviewsStore {
                 || !accountsNeedingAttention.isEmpty else { return }
         others = []
         otherGens = [:]
-        adopt(FollowedSet(repos: [], dropped: 0))
+        adopt(FollowedSet(repos: [], droppedKeys: []))
         memberships = [:]
         logins = [:]
         lookups = [:]

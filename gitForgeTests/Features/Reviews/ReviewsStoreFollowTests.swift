@@ -468,6 +468,114 @@ struct ReviewsStoreFollowTests {
         #expect(store.repos.count == 3)
     }
 
+    /// Over the limit: three Android apps with the newest activity, 100
+    /// repos under `org/` after them and a fourth Android app, the oldest,
+    /// all followed by activity; 104 in all, so the limit leaves out the
+    /// fourth app and three of the `org/` repos. oss/lib is a member nobody
+    /// follows.
+    private static func overLimitHarness() -> ReviewsHarness {
+        let harness = ReviewsHarness()
+        let android = ["a", "b", "c"].map { "apps/\($0)/android/app" }
+        let busy = (0..<100).map { "org/repo-\($0)" }
+        harness.browser.state {
+            $0.members = android.enumerated().map { ReviewsHarness.member("b\($0.offset)", $0.element) }
+                + busy.enumerated().map { ReviewsHarness.member("m\($0.offset)", $0.element) }
+                + [ReviewsHarness.member("late", "apps/d/android/app"), ReviewsHarness.member("lib", "oss/lib")]
+        }
+        harness.activity.state {
+            $0.hits = android.indices.map { ActivityHit(ref: .projectId("b\($0)"), at: ReviewsHarness.date(1_789_000_100)) }
+                + busy.indices.map { ActivityHit(ref: .projectId("m\($0)"), at: ReviewsHarness.date(1_789_000_000)) }
+                + [ActivityHit(ref: .projectId("late"), at: ReviewsHarness.date(1_788_000_000))]
+        }
+        return harness
+    }
+
+    @Test("Over the limit, no pattern is proposed whose only additions are repos the limit leaves out")
+    func noProposalOfDroppedRepos() async {
+        let harness = Self.overLimitHarness()
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.repos.count == 100)
+        #expect(store.droppedByLimit == 4)
+        #expect(!store.repos.contains { $0.host.slug == "apps/d/android/app" })
+
+        #expect(store.proposal == nil)
+        #expect(store.patternCount(Self.pattern("apps/*/android/*"), replacing: nil).adds == 0)
+        #expect(store.patternCount(Self.pattern("org/*"), replacing: nil).adds == 0)
+    }
+
+    @Test("The repos to follow leave out those the limit drops: they're followed already")
+    func followableSkipsDroppedRepos() async {
+        let harness = Self.overLimitHarness()
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.droppedByLimit == 4)
+
+        #expect(store.followableRepos.map(\.host.slug) == ["oss/lib"])
+    }
+
+    @Test("With accounts on two instances, the proposal is the first instance's in the order of the accounts")
+    func proposalOrderAcrossInstances() async throws {
+        /// Three repos of the same shape followed by activity and a fourth
+        /// one not followed, on each instance: `apps/*/android/*` on the
+        /// GitLab instance, `octo/*` on github.com.
+        func harness(gitHubFirst: Bool) -> ReviewsHarness {
+            let harness = ReviewsHarness()
+            let octo = HostingAccount(instanceId: HostingInstance.gitHubDotCom.id, login: "octo", method: .oauth,
+                                      status: .ok)
+            harness.accounts = gitHubFirst ? [octo, harness.account] : [harness.account, octo]
+            harness.tokenFor[octo.id] = .token("t-octo")
+            harness.browser.state {
+                $0.members = ["a", "b", "c", "d"].enumerated().map {
+                    ReviewsHarness.member("gl\($0.offset)", "apps/\($0.element)/android/\($0.element)-app")
+                }
+                $0.membersByToken["t-octo"] = ["a", "b", "c", "d"].enumerated().map {
+                    ReviewsHarness.member("gh\($0.offset)", "octo/app-\($0.element)")
+                }
+            }
+            harness.activity.state {
+                $0.hits = (0..<3).flatMap {
+                    [ActivityHit(ref: .projectId("gl\($0)"), at: ReviewsHarness.date(1_789_000_000)),
+                     ActivityHit(ref: .projectId("gh\($0)"), at: ReviewsHarness.date(1_789_000_000))]
+                }
+            }
+            return harness
+        }
+
+        let gitLabFirst = harness(gitHubFirst: false).makeStore()
+        await gitLabFirst.refresh(force: true)
+        #expect(gitLabFirst.repos.count == 6)
+        let fromGitLab = try #require(gitLabFirst.proposal)
+        #expect(fromGitLab.pattern.host == ReviewsHarness.instance.host)
+        #expect(fromGitLab.pattern.text == "apps/*/android/*")
+        #expect(fromGitLab.adds == 1)
+
+        let gitHubFirst = harness(gitHubFirst: true).makeStore()
+        await gitHubFirst.refresh(force: true)
+        let fromGitHub = try #require(gitHubFirst.proposal)
+        #expect(fromGitHub.pattern.host == HostingInstance.gitHubDotCom.host)
+        #expect(fromGitHub.pattern.text == "octo/*")
+        #expect(fromGitHub.adds == 1)
+    }
+
+    @Test("What a pattern would add is counted on the accounts of the last refresh, as the proposal is")
+    func patternCountUsesTheRoundsAccounts() async throws {
+        let harness = Self.proposalHarness()
+        // Ana belongs to two more Android apps.
+        _ = Self.addAna(to: harness, members: [ReviewsHarness.member("a1", "apps/maps/android/maps-app"),
+                                               ReviewsHarness.member("a2", "apps/notes/android/notes-app")])
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let proposal = try #require(store.proposal)
+        #expect(proposal.adds == 3)
+
+        // Ana is removed; no refresh has run since.
+        harness.accounts.removeLast()
+        let count = store.patternCount(proposal.pattern, replacing: nil)
+        #expect(count.adds == proposal.adds)
+        #expect(count.total == proposal.total)
+    }
+
     @Test("Without accounts the proposal goes")
     func proposalClearedWithoutAccounts() async {
         let harness = Self.proposalHarness()

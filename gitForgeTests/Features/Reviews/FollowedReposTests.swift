@@ -161,12 +161,13 @@ struct FollowedReposTests {
         #expect(set.repos.map(\.host.repo) == ["big"])
     }
 
-    @Test("Over 100 repos keeps the 100 most recent and counts the rest")
+    @Test("Over 100 repos keeps the 100 most recent and names the rest")
     func limit() {
         let activity = (0..<103).map { Self.activity("team/repo\($0)", Self.marta, at: TimeInterval($0)) }
         let set = FollowedRepos.merge(local: [], activity: activity, accounts: [Self.marta], instances: [Self.gitlab])
         #expect(set.repos.count == 100)
         #expect(set.dropped == 3)
+        #expect(set.droppedKeys == Set(["team/repo0", "team/repo1", "team/repo2"].map { FollowedRepos.key(Self.host($0)) }))
         #expect(set.repos.first?.host.repo == "repo102")
         #expect(!set.repos.contains { $0.host.repo == "repo0" })
     }
