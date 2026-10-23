@@ -683,6 +683,7 @@ final class HistoryStore {
     /// toggle of the loaded scope, not the live one: a log fetched without the
     /// remote branches has none of them to label.
     func apply(_ layout: GraphLayout, from input: GraphInput) {
+        G5ApplyLog.shared.record()
         graphLayouts = layout.rows
         graphMaxLanes = max(1, layout.columnCount)
         showsUncommittedRow = input.hasUncommittedChanges

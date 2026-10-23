@@ -43,7 +43,11 @@ final class AppState {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
         // body so the init's own `@MainActor` context covers the calls.
-        self.catalog = catalog ?? RepositoryCatalog()
+        self.catalog = catalog ?? (G5BenchEnv.isActive
+            ? RepositoryCatalog(store: RepositoryStore(directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("g5bench-recents-\(ProcessInfo.processInfo.processIdentifier)")),
+                                defaults: UserDefaults(suiteName: "g5bench") ?? .standard)
+            : RepositoryCatalog())
         self.gitEnvironment = gitEnvironment ?? GitEnvironment()
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
@@ -175,6 +179,11 @@ final class AppState {
         // learned about profiles.
         profiles.seedFromGlobalIfEmpty(gitEnvironment.globalConfig)
 
+        if G5BenchEnv.isActive {
+            let runner = G5BenchRunner(appState: self)
+            Task { await runner.run() }
+            return
+        }
         if await catalog.restoreLastActive() {
             ui.workspaceSection = .history
         }

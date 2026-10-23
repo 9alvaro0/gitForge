@@ -1,4 +1,5 @@
 import SwiftUI
+import QuartzCore
 
 /// Everything a graph row needs to paint itself (graph v3 spec §5), resolved
 /// once per table render instead of once per row or per step. The table
@@ -119,6 +120,8 @@ struct GraphColumnView: View {
         let overlapsJoints = !isDimmed
         let rowSpacing = rowSpacing
         Canvas { context, size in
+            let benchStart = CACurrentMediaTime()
+            defer { G5BenchCounters.shared.canvas(started: benchStart, moving: false) }
             let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints,
                                           rowSpacing: rowSpacing)
             painter.drawSteps(of: row, in: &context)
