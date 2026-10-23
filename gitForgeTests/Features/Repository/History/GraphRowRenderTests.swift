@@ -6,8 +6,8 @@ import Testing
 /// Renders graph rows the way the History table stacks them, over a pure red
 /// background no line is drawn in, and reads their pixels back: where the
 /// crossing gap (§5.2) clears a line, the row's own background shows. The
-/// ghost tests (§4.3) draw over black instead, so a translucent line reads as
-/// its colour scaled by its opacity.
+/// ghost tests (§4.3) and the connector's (§3.5) draw over black instead, so a
+/// translucent line reads as its colour scaled by its opacity.
 ///
 /// Points are in the rendered view's coordinates, from its top-left corner:
 /// the row (or the first of the stacked rows) runs from `y = 0` to its height,
@@ -457,6 +457,118 @@ struct GraphRowRenderTests {
         let runs = lit.indices.filter { lit[$0] && !lit[($0 + lit.count - 1) % lit.count] }.count
         #expect(runs == 6, "\(runs) dashes: \(lit.map { $0 ? "#" : "." }.joined())")
         #expect(lit.contains(false), "no gaps")
+    }
+
+    // MARK: - The connector from the Uncommitted changes row
+
+    @Test("The connector is opaque dots in HEAD's colour, in step across the joint",
+          arguments: [DensityMetrics.regular, .compact])
+    func connectorDots(density: DensityMetrics) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let style = Self.style(metrics)
+        // The connector passes down column 0 through a row whose node is in column 1, into HEAD's commit below it.
+        // Ghosts are translucent here (0.6), the connector is not.
+        let rows = [Self.row(node: 1, above: [.uncommitted], below: [.uncommitted]),
+                    Self.row(node: 0, above: [.uncommitted], color: .head)]
+        guard let image = Self.render(rows, metrics: metrics, rowHeight: rowHeight, background: .black) else { return }
+        // A round dot every q from q/2 past the start of each half, so the last one above the joint and the first
+        // one below it are q apart, like any two others.
+        let q = GraphRowGeometry.dashPeriod(pitch: rowHeight) / 2
+        let x = style.laneCenter(0), joint = rowHeight
+        for y in [joint - q / 2, joint + q / 2] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.ghostBlue(1)), "dot at \(y): \(pixel)")
+        }
+        // Nothing on the joint, nor half-way to the next dot on either side.
+        for y in [joint - q, joint, joint + q] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.black), "gap at \(y): \(pixel)")
+        }
+    }
+
+    @Test("Under the Uncommitted changes row's square the connector starts where the next row carries it on; the square's inside is clear",
+          arguments: [DensityMetrics.regular, .compact])
+    func connectorStart(density: DensityMetrics) {
+        let metrics = density.graph, rowHeight = density.rowList
+        let style = Self.style(metrics)
+        // The Uncommitted changes row's start of the connector, then HEAD's row, where it arrives.
+        let head = Self.row(node: 0, above: [.uncommitted], color: .head, lanes: 1)
+        let size = CGSize(width: style.gutterWidth(lanes: 1), height: 2 * rowHeight)
+        guard let image = Self.render(ZStack(alignment: .topLeading) {
+            Color.black
+            VStack(spacing: 0) {
+                UncommittedConnectorView(step: .uncommitted, maxLanes: 1, style: style)
+                    .frame(height: rowHeight)
+                GraphColumnView(row: head, maxLanes: 1, style: style)
+                    .frame(height: rowHeight)
+            }
+        }, size: size) else { return }
+        let q = GraphRowGeometry.dashPeriod(pitch: rowHeight) / 2
+        let x = style.laneCenter(0), center = rowHeight / 2
+        // Inside the 9 pt square nothing is drawn: not at its centre, where the connector's half starts, nor where
+        // its first dot would be (q/2 below the centre), nor 3 pt below the centre.
+        for y in [center, center + q / 2, center + 3] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.black), "inside the square at \(y): \(pixel)")
+        }
+        // Across the joint the dots run on in step: the connector's last one, then HEAD's row's first.
+        for y in [rowHeight - q / 2, rowHeight + q / 2] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.ghostBlue(1)), "dot at \(y): \(pixel)")
+        }
+        let joint = image.pixel(at: CGPoint(x: x, y: rowHeight))
+        #expect(joint.isClose(to: Self.black), "joint: \(joint)")
+    }
+
+    @Test("Spaced as the table spaces its rows, the connector shows only whole dots under the square, none cut by its bottom edge",
+          arguments: [DensityMetrics.regular, .compact])
+    func connectorStartWholeDots(density: DensityMetrics) {
+        let metrics = density.graph, rowHeight = density.rowList, spacing = HistoryTableLayout.rowSpacing
+        let style = Self.style(metrics)
+        let head = Self.row(node: 0, above: [.uncommitted], color: .head, lanes: 1)
+        let size = CGSize(width: style.gutterWidth(lanes: 1), height: 2 * rowHeight + spacing)
+        guard let image = Self.render(ZStack(alignment: .topLeading) {
+            Color.black
+            VStack(spacing: spacing) {
+                UncommittedConnectorView(step: .uncommitted, maxLanes: 1, style: style, rowSpacing: spacing)
+                    .frame(height: rowHeight)
+                GraphColumnView(row: head, maxLanes: 1, style: style, rowSpacing: spacing)
+                    .frame(height: rowHeight)
+            }
+        }, size: size) else { return }
+        // Pitches 29 and 23, so a dot every q = 3.625 / 2.875 pt from q/2 below the centre. The first one drawn is
+        // the first whose centre is at least half the square plus a quarter of the stroke below the row's centre
+        // (5 / 4.9375 pt): in regular the one at 5.4375; in compact the one at 7.1875, since the one at 4.3125 would
+        // show past the square's bottom edge (4.5 pt) as a nub.
+        let (firstDot, clear): (CGFloat, [CGFloat]) = density == .regular ? (5.4375, []) : (7.1875, [4.6, 4.85, 5.35, 5.85])
+        let q = GraphRowGeometry.dashPeriod(pitch: rowHeight + spacing) / 2
+        #expect(q == (density == .regular ? 3.625 : 2.875))
+        // The cleared rect reaches the square's bottom edge in regular, the middle of the gap before the dot at
+        // 7.1875 in compact.
+        let depth = UncommittedConnectorView.clearedDepth(squareSide: 9, edgeWidth: metrics.edgeWidth, dotSpacing: q)
+        #expect(depth == (density == .regular ? 4.5 : 5.75))
+        let x = style.laneCenter(0), center = rowHeight / 2
+        // Inside the square nothing is drawn.
+        for y in [center, center + q / 2, center + 3] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.black), "inside the square at \(y): \(pixel)")
+        }
+        // Between the square's bottom edge and the top of the first dot drawn, nothing either.
+        for offset in clear {
+            let pixel = image.pixel(at: CGPoint(x: x, y: center + offset))
+            #expect(pixel.isClose(to: Self.black), "below the square at \(offset): \(pixel)")
+        }
+        let first = image.pixel(at: CGPoint(x: x, y: center + firstDot))
+        #expect(first.isClose(to: Self.ghostBlue(1)), "first dot at \(firstDot): \(first)")
+        // Across the joint, in the middle of the gap, the dots run on in step: the connector's last one, then HEAD's
+        // row's first.
+        let joint = rowHeight + spacing / 2
+        for y in [joint - q / 2, joint + q / 2] {
+            let pixel = image.pixel(at: CGPoint(x: x, y: y))
+            #expect(pixel.isClose(to: Self.ghostBlue(1)), "dot at \(y): \(pixel)")
+        }
+        let between = image.pixel(at: CGPoint(x: x, y: joint))
+        #expect(between.isClose(to: Self.black), "joint: \(between)")
     }
 
     // MARK: - Selection and hover

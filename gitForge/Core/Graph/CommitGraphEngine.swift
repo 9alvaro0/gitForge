@@ -9,7 +9,8 @@ nonisolated enum CommitGraphEngine {
     /// A step lives on a boundary `b`, between rows `b` and `b + 1`; the one
     /// below the last row runs to the bottom edge. Each boundary's list goes to
     /// `rows[b].stepsBelow` and `rows[b + 1].stepsAbove` alike, sorted by
-    /// `(from, to)`.
+    /// `(from, to)`. The connector from the Uncommitted changes row (§3.5) also
+    /// crosses the top edge, so it is the first row's `stepsAbove`.
     static func layout(_ input: GraphInput) -> GraphLayout {
         let count = input.commits.count
         guard count > 0 else { return .empty }
@@ -22,8 +23,11 @@ nonisolated enum CommitGraphEngine {
         let coloring = GraphColoring.assign(input, lines: lines, columns: columns)
         let roleOfRow = lines.colorOwnerOfRow.map(coloring.role)
 
-        var emitter = StepEmitter(lines: lines, connections: connections, columns: columns,
-                                  ghostRows: ghostRows, roleOfRow: roleOfRow)
+        // The connector runs down into HEAD's row, or to the bottom edge while HEAD's commit is not loaded.
+        let connector: GraphStep? = input.drawsUncommittedConnector ? .uncommitted : nil
+        let lastConnectorBoundary: Int? = connector == nil ? nil : (input.headSha.flatMap { rowOf[$0] } ?? count) - 1
+        var emitter = StepEmitter(lines: lines, connections: connections, columns: columns, ghostRows: ghostRows,
+                                  roleOfRow: roleOfRow, lastConnectorBoundary: lastConnectorBoundary)
         let boundaries = emitter.emit()
         let rightmost = boundaries.map { steps in steps.reduce(0) { max($0, $1.from, $1.to) } }
 
@@ -32,6 +36,7 @@ nonisolated enum CommitGraphEngine {
             if let row = rowOf[sha] { stashRows[row] = true }
         }
 
+        let topEdge = connector.map { [$0] } ?? []
         var rows: [GraphRow] = []
         rows.reserveCapacity(count)
         for (row, commit) in input.commits.enumerated() {
@@ -39,24 +44,27 @@ nonisolated enum CommitGraphEngine {
             let node = GraphNode(column: columns.columnOfLine[lines.lineOfRow[row]], kind: kind,
                                  color: roleOfRow[row], isGhost: ghostRows[row])
             let rightmostAbove = row > 0 ? rightmost[row - 1] : 0
-            rows.append(GraphRow(node: node, stepsAbove: row > 0 ? boundaries[row - 1] : [],
+            rows.append(GraphRow(node: node, stepsAbove: row > 0 ? boundaries[row - 1] : topEdge,
                                  stepsBelow: boundaries[row],
                                  width: 1 + max(node.column, rightmostAbove, rightmost[row])))
         }
-        return GraphLayout(rows: rows, columnCount: columns.count)
+        return GraphLayout(rows: rows, columnCount: columns.count, uncommitted: connector)
     }
 }
 
 // MARK: - Steps
 
-/// Writes the steps of every line, join and track on the boundaries they cross.
+/// Writes the steps of every line, join and track on the boundaries they cross,
+/// and the connector from the Uncommitted changes row.
 ///
 /// - **Colour** is the role of the commit that owns the segment: the commit
 ///   above it on a line, the parent for a join or a track (`.neutral` when the
-///   track is sticky, so loading its parent never recolours it).
-/// - **Stroke** is `.stash` on a stash's line; otherwise `.ghost` when the
-///   child commit of the edge is a ghost (the merge, for joins, tracks and the
-///   stretch a join adds above a line's tip); otherwise `.solid`.
+///   track is sticky, so loading its parent never recolours it). The connector
+///   is always `.head`, whoever owns HEAD's commit (§3.5).
+/// - **Stroke** is `.uncommitted` for the connector and `.stash` on a stash's
+///   line; otherwise `.ghost` when the child commit of the edge is a ghost (the
+///   merge, for joins, tracks and the stretch a join adds above a line's tip);
+///   otherwise `.solid`.
 private nonisolated struct StepEmitter {
     let lines: GraphLines
     let connections: GraphConnections
@@ -64,16 +72,21 @@ private nonisolated struct StepEmitter {
     let ghostRows: [Bool]
     /// Colour role of each row's colour owner, looked up once per row.
     let roleOfRow: [GraphColorRole]
+    /// The last boundary the connector crosses: the one above HEAD's row (-1 when
+    /// HEAD is the first row), or the bottom edge while HEAD's commit is not loaded.
+    /// Nil without the connector.
+    let lastConnectorBoundary: Int?
     /// Steps of boundary `b`, between rows `b` and `b + 1`. The last one is the bottom edge.
     private var boundaries: [[GraphStep]]
 
     init(lines: GraphLines, connections: GraphConnections, columns: GraphColumns,
-         ghostRows: [Bool], roleOfRow: [GraphColorRole]) {
+         ghostRows: [Bool], roleOfRow: [GraphColorRole], lastConnectorBoundary: Int?) {
         self.lines = lines
         self.connections = connections
         self.columns = columns
         self.ghostRows = ghostRows
         self.roleOfRow = roleOfRow
+        self.lastConnectorBoundary = lastConnectorBoundary
         boundaries = Array(repeating: [], count: ghostRows.count)
     }
 
@@ -85,8 +98,10 @@ private nonisolated struct StepEmitter {
     /// boundary it crosses. They are visited by the column their steps leave
     /// from, left to right, so every boundary fills in ascending `from`. Only
     /// the steps leaving a node (its line, joins and tracks) can come out of
-    /// order, so the final sort has next to nothing to move.
+    /// order, so the final sort has next to nothing to move. The connector goes
+    /// first: it is the only step in column 0 on the boundaries it crosses.
     mutating func emit() -> [[GraphStep]] {
+        emitConnector()
         let columnCount = columns.count
         var linesFrom = Array(repeating: [Int](), count: columnCount)
         for index in lines.lines.indices {
@@ -113,6 +128,17 @@ private nonisolated struct StepEmitter {
             boundaries[index].sort { $0.from < $1.from || ($0.from == $1.from && $0.to < $1.to) }
         }
         return boundaries
+    }
+
+    // MARK: Connector
+
+    /// The connector from the Uncommitted changes row (§3.5): straight down
+    /// column 0 from the top edge, on every boundary above HEAD's row.
+    private mutating func emitConnector() {
+        guard let lastConnectorBoundary else { return }
+        for boundary in 0..<(lastConnectorBoundary + 1) {
+            boundaries[boundary].append(.uncommitted)
+        }
     }
 
     // MARK: Lines
@@ -163,11 +189,11 @@ private nonisolated struct StepEmitter {
     /// The S from the merge into the track's column.
     ///
     /// A track whose parent is the very next row has no row to run down, since
-    /// both of its S curves would fall on the same boundary. Only a sticky track
-    /// can be that short: the merge ends one page and the parent starts the
-    /// next. It becomes a single S from the merge into the parent, and only the
-    /// merge row's `stepsBelow` changes when that page loads, as with a line
-    /// that ran past the end and now forks.
+    /// both of its S curves would fall on the same boundary. It becomes a single
+    /// S from the merge into the parent. A sticky track is that short when the
+    /// merge ends one page and the parent starts the next: only the merge row's
+    /// `stepsBelow` changes when that page loads, as with a line that ran past
+    /// the end and now forks.
     private mutating func emitTrackStart(_ index: Int) {
         let track = connections.tracks[index]
         let target = directParentRow(track).map(nodeColumn) ?? columns.columnOfTrack[index]
@@ -192,12 +218,13 @@ private nonisolated struct StepEmitter {
         add(at: parentRow - 1, from: column, to: nodeColumn(parentRow), color: color, stroke: stroke)
     }
 
-    /// The parent's row when it sits right below the merge, which only a sticky
-    /// track can do: otherwise that parent is either on the merge's own line,
-    /// so it is the first parent and adds no connection, or on another line with
-    /// nothing in between, which makes a join.
+    /// The parent's row when it sits right below the merge. Only two tracks can
+    /// be that short: a sticky one, and one into HEAD's tip while the layout
+    /// draws the connector (§3.5). Any other such parent is either on the
+    /// merge's own line, so it is the first parent and adds no connection, or
+    /// on another line with nothing in between, which makes a join.
     private func directParentRow(_ track: GraphTrack) -> Int? {
-        guard track.sticky, let parentRow = track.parentRow, parentRow == track.mergeRow + 1 else { return nil }
+        guard let parentRow = track.parentRow, parentRow == track.mergeRow + 1 else { return nil }
         return parentRow
     }
 

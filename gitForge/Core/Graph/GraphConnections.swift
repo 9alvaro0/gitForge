@@ -32,12 +32,16 @@ nonisolated struct GraphConnections: Sendable {
     ///   commits lies strictly between the two. If the parent is that line's
     ///   tip, the line is lengthened up to the merge.
     /// - **Track** otherwise: merging an ancestor of its own line, or skipping
-    ///   over commits of the parent's line.
+    ///   over commits of the parent's line. Also a merge of HEAD's tip from above
+    ///   while the layout draws the connector (§3.5): lengthening HEAD's line would
+    ///   cover the connector in column 0, so the merge enters the tip from the side.
     ///
     /// A stash's parents (index, untracked files) are not merges. A parent that
     /// repeats an earlier one of the same commit adds no connection.
     static func build(_ input: GraphInput, rowOf: [String: Int], lines: inout GraphLines) -> GraphConnections {
         var connections = GraphConnections(joins: [], tracks: [])
+        let headOwner = input.headBranch.map(GraphOwner.branch) ?? .head
+        let headLine = input.drawsUncommittedConnector ? lines.lines.firstIndex { $0.owner == headOwner } : nil
         for (mergeRow, commit) in input.commits.enumerated() {
             guard commit.parentShas.count > 1, !input.stashShas.contains(commit.sha) else { continue }
             let fromLine = lines.lineOfRow[mergeRow]
@@ -50,10 +54,11 @@ nonisolated struct GraphConnections: Sendable {
                     continue
                 }
                 let toLine = lines.lineOfRow[parentRow]
+                let entersHeadTip = toLine == headLine && lines.lines[toLine].rows.first == parentRow
                 if parentRow >= pageEnd {
                     connections.tracks.append(GraphTrack(mergeRow: mergeRow, parentRow: parentRow, fromLine: fromLine,
                                                          toLine: toLine, sticky: true))
-                } else if toLine != fromLine,
+                } else if toLine != fromLine, !entersHeadTip,
                           !lines.lines[toLine].rows.containsValue(strictlyBetween: mergeRow, and: parentRow) {
                     connections.joins.append(GraphJoin(mergeRow: mergeRow, parentRow: parentRow,
                                                        fromLine: fromLine, toLine: toLine))

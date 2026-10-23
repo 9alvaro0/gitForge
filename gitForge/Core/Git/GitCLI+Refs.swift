@@ -39,14 +39,29 @@ extension GitCLI {
         return heads
     }
 
-    func currentBranchName() async -> String? {
+    /// The branch HEAD is on (unborn included), or `.detached`. Throws when
+    /// the read itself fails, so a caller can tell "no branch" from "couldn't
+    /// tell".
+    func headBranch() async throws -> HeadBranch {
+        let args = ["symbolic-ref", "--quiet", "--short", "HEAD"]
+        let result: GitResult
         do {
-            let result = try await run(["symbolic-ref", "--short", "HEAD"])
-            let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
-        } catch {
-            return nil
+            result = try await run(args)
+        } catch GitError.commandFailed(_, 1, _) {
+            // With `--quiet`, exit 1 means "HEAD is not a symbolic ref";
+            // real failures exit 128.
+            return .detached
         }
+        let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GitError.commandFailed(args: args, exitCode: result.exitCode, stderr: result.stderr)
+        }
+        return .branch(trimmed)
+    }
+
+    /// `nil` when detached or when the read fails.
+    func currentBranchName() async -> String? {
+        try? await headBranch().name
     }
 
     /// The commit HEAD points at, branch or detached; `nil` in an empty repo.
@@ -96,6 +111,18 @@ extension GitCLI {
             }
             return nil
         }
+    }
+}
+
+/// What `.git/HEAD` points at.
+nonisolated enum HeadBranch: Sendable, Equatable {
+    case branch(String)
+    case detached
+
+    /// The branch name; `nil` when detached.
+    var name: String? {
+        if case .branch(let name) = self { return name }
+        return nil
     }
 }
 

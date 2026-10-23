@@ -45,8 +45,9 @@ enum GraphInvariants {
             }
         }
 
-        // 4. Continuity: what passes through a row without touching its node goes on below.
-        for (index, row) in rows.enumerated().dropFirst() {
+        // 4. Continuity: what passes through a row without touching its node goes on below. The first
+        //    row too: the connector from the Uncommitted changes row arrives there from above (§3.5).
+        for (index, row) in rows.enumerated() {
             let column = row.node.column
             let arriving = Set(row.stepsAbove.map(\.to)).subtracting([column])
             let leaving = Set(row.stepsBelow.map(\.from)).subtracting([column])
@@ -56,15 +57,20 @@ enum GraphInvariants {
             }
         }
 
-        // 5. A node is reached from above exactly when a loaded child has it as a parent.
-        //    A stash's index and untracked parents are not edges of the graph.
+        // 5. A node is reached from above exactly when a loaded child has it as a parent, or when it is
+        //    HEAD's commit and the connector runs into it (§3.5). A stash's index and untracked parents
+        //    are not edges of the graph.
         let rowOf = input.rowIndex()
+        let headRow = input.headSha.flatMap { rowOf[$0] }
         var hasChild = Array(repeating: false, count: commits.count)
         for commit in commits {
             let parents = input.stashShas.contains(commit.sha) ? Array(commit.parentShas.prefix(1)) : commit.parentShas
             for parent in parents {
                 if let parentRow = rowOf[parent] { hasChild[parentRow] = true }
             }
+        }
+        if input.drawsUncommittedConnector, let headRow {
+            hasChild[headRow] = true
         }
         for (index, row) in rows.enumerated() {
             let reached = row.stepsAbove.contains { $0.to == row.node.column }
@@ -94,6 +100,59 @@ enum GraphInvariants {
             if row.width != rightmost + 1 {
                 violations.append("Row \(index): width \(row.width), but its rightmost column is \(rightmost)")
             }
+        }
+
+        violations += connectorViolations(layout, input, headRow: headRow)
+        return violations
+    }
+
+    /// 9. The connector from the Uncommitted changes row (§3.5). With uncommitted changes, a HEAD
+    /// and rows, it runs down column 0 from above the first row to HEAD's commit, on every boundary
+    /// above HEAD's row (all of them while that commit is not loaded) and on no other. There
+    /// nothing else leaves column 0 or reaches it, except the steps into HEAD's node, which sits in
+    /// column 0. Otherwise there is no connector at all.
+    private static func connectorViolations(_ layout: GraphLayout, _ input: GraphInput, headRow: Int?) -> [String] {
+        let rows = layout.rows
+        var violations: [String] = []
+        guard input.drawsUncommittedConnector else {
+            if layout.uncommitted != nil {
+                violations.append("No connector to draw, but the layout has \(String(describing: layout.uncommitted))")
+            }
+            if let first = rows.first, !first.stepsAbove.isEmpty {
+                violations.append("No connector to draw, but row 0 has steps above: \(first.stepsAbove)")
+            }
+            for (boundary, row) in rows.enumerated() where row.stepsBelow.contains(where: { $0.stroke == .uncommitted }) {
+                violations.append("Boundary \(boundary) has a connector step with no connector to draw: \(row.stepsBelow)")
+            }
+            return violations
+        }
+
+        if layout.uncommitted != .uncommitted {
+            violations.append("The layout's connector is \(String(describing: layout.uncommitted))")
+        }
+        if rows[0].stepsAbove != [.uncommitted] {
+            violations.append("Row 0 has \(rows[0].stepsAbove) above, not the connector alone")
+        }
+        let lastConnectorBoundary = (headRow ?? rows.count) - 1
+        for (boundary, row) in rows.enumerated() {
+            let steps = row.stepsBelow
+            let connectors = steps.filter { $0.stroke == .uncommitted }
+            guard boundary <= lastConnectorBoundary else {
+                if !connectors.isEmpty {
+                    violations.append("Boundary \(boundary), at or below HEAD's row, has the connector: \(steps)")
+                }
+                continue
+            }
+            if connectors != [.uncommitted] {
+                violations.append("Boundary \(boundary), on the connector's way, has \(connectors) as connector")
+            }
+            let intoHead = boundary + 1 == headRow
+            for step in steps where step.stroke != .uncommitted && (step.from == 0 || (step.to == 0 && !intoHead)) {
+                violations.append("Boundary \(boundary): \(step) uses column 0 beside the connector")
+            }
+        }
+        if let headRow, rows[headRow].node.column != 0 {
+            violations.append("HEAD's commit (row \(headRow)) is in column \(rows[headRow].node.column), not 0")
         }
         return violations
     }

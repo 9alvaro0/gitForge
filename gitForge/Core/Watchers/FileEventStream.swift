@@ -131,7 +131,10 @@ nonisolated final class FileEventStream: @unchecked Sendable {
 ///   bisect). `index`, `objects/`, `logs/`, `FETCH_HEAD` and lock files are
 ///   ignored: our own read-only `git status` rewrites the index and every
 ///   fetch rewrites FETCH_HEAD, so watching those would feed back into a
-///   refresh loop.
+///   refresh loop. The one reflog that counts is `logs/refs/stash`: the stash
+///   list is that reflog, and `git stash drop` of a stash that isn't the last
+///   one rewrites it and nothing else. No read of ours writes it, so it opens
+///   no loop.
 nonisolated struct RepositoryEventFilter: Sendable {
     private let worktree: String
     private let gitDirectories: [String]
@@ -140,6 +143,8 @@ nonisolated struct RepositoryEventFilter: Sendable {
         "head", "packed-refs", "merge_head", "cherry_pick_head", "revert_head", "bisect_log",
     ]
     private static let gitStatePrefixes = ["refs/", "rebase-merge", "rebase-apply"]
+    /// The stash list: dropping a stash that isn't the last one only rewrites this reflog.
+    private static let stashReflog = "logs/refs/stash"
 
     init(worktree: String, gitDirectories: [String]) {
         self.worktree = Self.normalized(worktree)
@@ -163,7 +168,7 @@ nonisolated struct RepositoryEventFilter: Sendable {
 
     private static func isRelevantGitPath(_ relative: String) -> Bool {
         if relative.hasSuffix(".lock") { return false }
-        if gitStateFiles.contains(relative) { return true }
+        if gitStateFiles.contains(relative) || relative == stashReflog { return true }
         return gitStatePrefixes.contains { relative.hasPrefix($0) }
     }
 

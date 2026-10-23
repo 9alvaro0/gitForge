@@ -23,7 +23,7 @@ struct RepositoryEventFilterTests {
     @Test("Published git state is relevant, nested refs included")
     func gitState() {
         for path in ["HEAD", "packed-refs", "refs/heads/main", "refs/heads/feature/login",
-                     "refs/remotes/origin/feature/x", "refs/tags/v1.0", "refs/stash",
+                     "refs/remotes/origin/feature/x", "refs/tags/v1.0", "refs/stash", "logs/refs/stash",
                      "MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_LOG",
                      "rebase-merge", "rebase-merge/done", "rebase-apply/next"] {
             #expect(filter.isRelevant("/Users/me/repo/.git/" + path), "\(path)")
@@ -33,7 +33,7 @@ struct RepositoryEventFilterTests {
     @Test("Git internals our own reads touch are ignored (no refresh loop)")
     func gitNoise() {
         for path in ["index", "index.lock", "HEAD.lock", "refs/heads/main.lock",
-                     "objects/ab/cdef", "logs/HEAD", "FETCH_HEAD", "ORIG_HEAD",
+                     "objects/ab/cdef", "logs/HEAD", "logs/refs/heads/main", "FETCH_HEAD", "ORIG_HEAD",
                      "COMMIT_EDITMSG", "config", "modules/sub/HEAD"] {
             #expect(!filter.isRelevant("/Users/me/repo/.git/" + path), "\(path)")
         }

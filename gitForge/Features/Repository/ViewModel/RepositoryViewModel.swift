@@ -167,6 +167,11 @@ final class RepositoryViewModel {
         self.history = HistoryStore(cli: cli, tasks: tasks, repositoryURL: repository.url)
         self.workingCopy = WorkingCopyStore(cli: cli, repositoryURL: repository.url, tasks: tasks)
         history.refsSource = self
+        // The graph reads whether the tree is dirty (the connector to HEAD, §3.5). A log
+        // still loading picks the change up when it is published (gen-token contract).
+        workingCopy.onCleanChange = { [weak self] in
+            self?.tasks.track { [weak self] in await self?.history.recomputeGraph() }
+        }
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -235,8 +240,9 @@ final class RepositoryViewModel {
     }
 
     /// Watcher-driven refresh. Skips the log reload unless HEAD or a local
-    /// branch tip actually moved, or a remote branch in the log's scope did
-    /// (a fetch, ours or from the terminal) — letting the watcher reload it on
+    /// branch tip actually moved, or the log's scope did: a remote branch in it
+    /// (a fetch, ours or from the terminal) or the stashes (one pushed or
+    /// dropped from the terminal) — letting the watcher reload it on
     /// every tick was the source of feedback loops with our own write paths.
     /// Every local tip counts, not just HEAD's: the graph walks all local
     /// branches, so a commit made in another worktree or a `git branch -f`
@@ -260,7 +266,8 @@ final class RepositoryViewModel {
         if currentBranchName != previousBranch || localBranchTips != previousTips {
             await history.reloadLog()
         } else {
-            // Only remote branches moved: the reload a fetch asks for, which keeps the pages loaded.
+            // Only remote branches or stashes moved: the reload a fetch asks for, which keeps the
+            // pages loaded.
             await reloadLogIfScopeMoved()
         }
     }
@@ -299,4 +306,6 @@ final class RepositoryViewModel {
     }
 }
 
-extension RepositoryViewModel: HistoryRefsSource {}
+extension RepositoryViewModel: HistoryRefsSource {
+    var hasUncommittedChanges: Bool { !workingCopy.status.isClean }
+}

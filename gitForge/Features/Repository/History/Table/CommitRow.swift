@@ -225,9 +225,10 @@ struct CommitRow: View, Equatable {
     }
 }
 
-/// Clips the sides only. The graph's lines run past the row's top and bottom
-/// into the gaps between rows, where the next row's lines pick them up.
-private nonisolated struct SideClip: Shape {
+/// Clips the sides only, for the graph cells of `CommitRow` and `UncommittedRow`.
+/// The graph's lines run past the row's top and bottom into the gaps between
+/// rows, where the next row's lines pick them up.
+nonisolated struct SideClip: Shape {
     func path(in rect: CGRect) -> Path {
         Path(rect.insetBy(dx: 0, dy: -rect.height))
     }

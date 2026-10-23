@@ -46,7 +46,7 @@ Que el grafo del historial sea el mejor de cualquier cliente git: muy visual, f�
 - Ramas remotas en el grafo, interruptor en la barra de filtros y contadores ↑N ↓N en los chips.
 - Paleta del grafo ampliada.
 - Arreglos de paso: el halo de selección recortado en densidad compacta, y el `abs()` de `GraphLayoutEngine.branchId(for:)`, que puede cerrar la app con `Int.min` (desaparece con el hash).
-- Animación al cambiar de rama, en la última fase y prescindible (§5.8).
+- Animación al cambiar de rama, en la última fase y prescindible (§5.8). **(Decidido en G5)** Se descartó tras medirla.
 
 ### No-objetivos
 
@@ -110,7 +110,7 @@ Para cada padre extra P de un merge M:
 
 ### 3.4 Columnas
 
-1. Columna 0 para la línea de HEAD, reservada desde la fila 0 aunque su punta esté más abajo.
+1. Columna 0 para la línea de HEAD, reservada desde la fila 0 aunque su punta esté más abajo. **(Decidido en G4)** Sin cambios sin commitear, la reserva sigue como la dejó G1: solo si la punta de HEAD está en la primera página; si no, su línea entra como cualquier otra (punto 3). Con cambios sin commitear (§3.5), la columna 0 se reserva siempre y antes que cualquier otra línea, desde la fila 0 hasta el final de la línea de HEAD, esté su punta en la página que esté. Mientras el commit de HEAD no está cargado, llega hasta el borde inferior. Así, por encima del commit de HEAD, la columna 0 es solo del conector, y cargar más páginas no mueve nada (§3.9).
 2. Columnas siguientes para la línea de main y después la de develop (o master y dev, o el tronco remoto que los sustituya), si existen como líneas propias, reservadas desde la fila 0. **(Decisión mía)** Solo se reservan si su punta está en la primera página. Si aparece más tarde, entra como cualquier otra línea (punto 3), para no mover lo ya dibujado.
 3. El resto (líneas y pistas de merge), por fila de inicio. Cada una toma la columna libre más a la izquierda en todo su intervalo de filas. Las pistas prefieren una columna entre la de M y la de P, y si no hay, la más cercana a la de P.
 4. **Libre** significa que ninguna fila del intervalo está ocupada, incluidos los extremos. Esto elimina el carril que "se convierte" en otro.
@@ -120,7 +120,14 @@ Si estás en main, la columna 0 es main y el grafo se ve como hoy en un flujo de
 
 ### 3.5 Cambios sin commitear
 
-El cuadrado discontinuo de `UncommittedRow` ya cae en la columna 0, que ahora es siempre la de tu rama. Se une al commit de HEAD con una línea discontinua en el color de HEAD, que baja por la columna 0 atravesando las filas que haya por encima de HEAD. Por la regla 3.4.1 esa columna está libre ahí.
+El cuadrado discontinuo de `UncommittedRow` ya cae en la columna 0, que ahora es siempre la de tu rama. Se une al commit de HEAD con una línea punteada en el color de HEAD, que baja por la columna 0 atravesando las filas que haya por encima de HEAD. Por la regla 3.4.1 esa columna está libre ahí.
+
+**(Decidido en G4)** Concretando lo anterior:
+- El conector existe cuando hay cambios sin commitear (ficheros sin seguimiento incluidos), hay HEAD y el log tiene filas. Con HEAD sin nacer (repo vacío), la fila "Uncommitted changes" solo enseña su cuadrado.
+- Va siempre en el acento, el color de HEAD, aunque el commit de HEAD lleve el color de otra rama por §3.2. También con HEAD suelto o sobre el commit de un tronco.
+- La fila 0 es la excepción: es la única que recibe un tramo desde fuera del log, porque el conector empieza encima de ella, en la fila "Uncommitted changes". Si HEAD está en la fila 0, el conector es solo ese tramo. Si el commit de HEAD aún no está cargado, el conector baja hasta el borde inferior y sigue al cargar más.
+- Un merge por encima de la punta de HEAD que la fusiona (una feature ya mergeada en main mientras sigues en ella con cambios) no alarga la línea de HEAD hasta su fila, como haría la unión directa de §3.3, porque esa línea sólida taparía el conector. Entra en la punta por un lado, con pista propia. Si el merge está justo encima de la punta, es una sola S hacia ella, sin columna propia.
+- Es una punteada densa y opaca: puntos redondos del ancho del trazo, uno cada medio periodo del discontinuo de las rectas (§4.3), así que cada 3,625 pt en regular y cada 2,875 pt en compacto. El primero de cada mitad va a un cuarto de periodo de su inicio: ningún punto toca una unión ni el centro de una fila, y el patrón sigue sin saltos de una fila a la siguiente. No lleva la translucidez de los fantasmas. Cuando HEAD va por detrás, el conector y la ramita fantasma van juntos y en el mismo color, y con un discontinuo opaco de 3–3 como el de los fantasmas solo los distinguiría la opacidad. También se descartó una punteada espaciada, con un punto cada periodo.
 
 Si además tu rama va por detrás de su remota, lo tuyo sigue recto en la columna 0 (cambios sin commitear, tu commit y tu historia), y lo que traería el pull sale como ramita fantasma a un lado, igual que en el caso de ramas separadas (§4.1). Sin cambios pendientes, esos commits fantasma vuelven a ir encima de tu commit en la columna 0.
 
@@ -232,7 +239,9 @@ En la línea de HEAD, cada tramo entre dos commits lleva el color del commit de 
 
 ### 5.5 Fila de cambios sin commitear
 
-`UncommittedRow` dibuja, bajo su cuadrado, el arranque de la línea discontinua de §3.5. Las filas entre ella y HEAD dibujan su tramo.
+`UncommittedRow` dibuja, bajo su cuadrado, el arranque de la línea punteada de §3.5. Las filas entre ella y HEAD dibujan su tramo.
+
+**(Decidido en G4)** El arranque es la mitad de salida del conector, con la misma punteada opaca y el mismo periodo que las filas de debajo, así que su último punto y el primero de la fila siguiente quedan a la misma distancia que dos puntos cualesquiera. Lo pinta `UncommittedConnectorView` en un lienzo como el de una fila del grafo (un paso entre filas más el margen de cada lado, centrado en la fila), con el interior del cuadrado sin trazar: dentro asoma el fondo de la fila. Bajo el cuadrado solo se dibujan puntos enteros, los que tienen el centro al menos medio lado del cuadrado más un cuarto del ancho del trazo por debajo del centro de la fila, así que en regular el primero queda a 5,4375 pt y en compacto a 7,1875 pt, porque el de 4,3125 pt asomaría como un saliente bajo el borde inferior del cuadrado. El cuadrado no cambia: 9 pt, color `mod` y discontinuo 2,5–2.
 
 ### 5.6 Ancho
 
@@ -245,6 +254,14 @@ Todo lo anterior en los dos temas y las dos densidades. Con alto contraste, los 
 ### 5.8 Animación al cambiar de rama (prescindible)
 
 Al cambiar HEAD, las líneas se deslizan a su nueva columna en unos 0,3 s en lugar de saltar, emparejando cada línea por su nombre (o por su punta si no tiene). Sin animación con "Reducir movimiento". Va en la última fase y se descarta si penaliza el scroll.
+
+**(Decidido en G5)** Se descarta. Se midió un prototipo en Release, en un MacBook Pro M3 Pro a 120 Hz, con el repo sintético de 50.000 commits y una copia de gitForge. En él, cada fila en pantalla interpolaba su dibujo entre las columnas viejas y las nuevas durante 0,3 s, emparejando cada nodo por su commit y cada línea por el tramo que dibuja.
+- El scroll sin deslizamiento no cambia: es el mismo código.
+- El deslizamiento pierde fotogramas: 13 o 14 tardíos en los 0,45 s que siguen al cambio, frente a 2 sin animación. El scroll que coincide con él también empeora.
+- La causa: cada fila cuyo grafo cambia en un fotograma vuelve a pintar también su texto. Con unas 30 filas en pantalla son unos 15 ms más por fotograma. Ni una capa propia para el grafo, ni dibujarlo fuera del hilo principal, ni quitar el hueco de los cruces lo evitan.
+- La alternativa sería un único lienzo superpuesto al grafo visible mientras dura el deslizamiento. Exigiría un segundo camino de dibujo alineado al píxel con las filas, y no compensa para 0,3 s.
+
+Detalle en [`plans/G5-registro.md`](plans/G5-registro.md).
 
 ## 6. Integración
 
@@ -295,7 +312,7 @@ Ajustadas al escribir los planes (`plans/`): el motor sale en pasos de fila a fi
 2. **G2 · Aspecto:** paleta ampliada, hueco en los cruces, estilo fantasma y halo en densidad compacta.
 3. **G3 · Remotas:** alcance, tronco remoto, interruptor, chips con ↑N ↓N.
 4. **G4 · Cambios sin commitear y stashes:** el conector, y la excepción de HEAD por detrás con cambios.
-5. **G5 · Animación** al cambiar de rama (prescindible).
+5. **G5 · Animación** al cambiar de rama (prescindible). **(Decidido en G5)** Descartada (§5.8).
 
 ## 10. Para quien construya
 

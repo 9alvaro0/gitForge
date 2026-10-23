@@ -16,12 +16,21 @@ nonisolated struct GraphInput: Sendable {
     /// Remote branches standing in for a local trunk that doesn't exist (§3.1), by name
     /// ("origin/main"), with the rank of the trunk they replace: 0 for main, 1 for develop.
     var remoteTrunks: [String: Int] = [:]
+    /// The working tree has uncommitted changes (§3.5): a connector runs from the
+    /// Uncommitted changes row down column 0 to HEAD's commit, and HEAD's branch never
+    /// continues its upstream, which draws what a pull would bring beside it instead.
+    var hasUncommittedChanges = false
 }
 
 nonisolated extension GraphInput {
     /// Local branch with `isHead`; nil when detached.
     var headBranch: String? {
         refs.first { $0.isLocalBranch && $0.isHead }?.name
+    }
+
+    /// Uncommitted changes, a HEAD and at least one row: the layout runs the connector.
+    var drawsUncommittedConnector: Bool {
+        hasUncommittedChanges && headSha != nil && !commits.isEmpty
     }
 
     /// Priority rank of a branch owner: a local branch by its name, a remote trunk by the

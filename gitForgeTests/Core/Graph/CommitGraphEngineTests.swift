@@ -31,6 +31,7 @@ struct CommitGraphEngineTests {
         #expect(layout.rows.map(\.stepsBelow) == [[straight], [straight], []])
         #expect(layout.rows[0].stepsAbove.isEmpty)
         #expect(layout.columnCount == 1)
+        #expect(layout.uncommitted == nil)
     }
 
     @Test("Gitflow on a feature: reference steps")
@@ -302,5 +303,163 @@ struct CommitGraphEngineTests {
         #expect(loaded.rows[0].node.color == .pool(0))
         let unloaded = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.commits("m base\nbase"), headSha: "m", refs: refs))
         #expect(unloaded.columnCount == 1)
+    }
+
+    // MARK: - Uncommitted changes
+
+    @Test("Uncommitted changes: a connector in HEAD's colour runs down column 0 from above the first row into HEAD's commit")
+    func uncommittedConnector() {
+        let input = GraphInput(commits: GraphFixture.commits("o base\nf base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("feature", "f", head: true), GraphFixture.local("other", "o")],
+            hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.uncommitted == .uncommitted)
+        #expect(layout.rows[0].stepsAbove == [.uncommitted])
+        #expect(layout.rows[0].stepsBelow == [.uncommitted, GraphStep(from: 1, to: 1, color: .pool(0), stroke: .solid)])
+        #expect(layout.rows[0].node.column == 1)
+        #expect(layout.rows[1].node.column == 0 && !layout.rows[1].stepsBelow.contains(.uncommitted))
+    }
+
+    @Test("HEAD on the first row: the connector is only above it")
+    func connectorOnFirstRow() {
+        let input = GraphInput(commits: GraphFixture.commits("c b\nb a\na"), headSha: "c",
+                               refs: [GraphFixture.local("main", "c", head: true)], hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.rows[0].stepsAbove == [.uncommitted])
+        #expect(layout.rows[0].stepsBelow == [GraphStep(from: 0, to: 0, color: .head, stroke: .solid)])
+    }
+
+    @Test("No connector without uncommitted changes, without a HEAD or without rows")
+    func noConnector() {
+        let clean = CommitGraphEngine.layout(GraphInput(commits: GraphFixture.commits("c b\nb"), headSha: "c",
+                                                        refs: [GraphFixture.local("main", "c", head: true)]))
+        #expect(clean.uncommitted == nil && clean.rows[0].stepsAbove.isEmpty)
+        let unborn = CommitGraphEngine.layout(GraphInput(commits: [], headSha: nil, hasUncommittedChanges: true))
+        #expect(unborn == .empty)
+    }
+
+    @Test("No connector when the rows are loaded but there is no HEAD commit, as on an orphan branch with staged files")
+    func noConnectorWithoutHeadCommit() {
+        let input = GraphInput(commits: GraphFixture.commits("c b\nb a\na"), headSha: nil,
+                               refs: [GraphFixture.local("main", "c")], hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.uncommitted == nil)
+        #expect(layout.rows[0].stepsAbove.isEmpty)
+        #expect(layout.rows.allSatisfy { !$0.stepsBelow.contains(.uncommitted) })
+    }
+
+    @Test("HEAD's commit not loaded yet: the connector runs to the bottom edge and keeps column 0 to itself")
+    func connectorPastTheEnd() {
+        let input = GraphInput(commits: GraphFixture.commits("o2 o1\no1 o0"), headSha: "h",
+            refs: [GraphFixture.local("other", "o2"), GraphFixture.local("feature", "h", head: true)],
+            hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.rows.allSatisfy { $0.node.column == 1 })
+        #expect(layout.rows[1].stepsBelow == [.uncommitted, GraphStep(from: 1, to: 1, color: .pool(0), stroke: .solid)])
+    }
+
+    @Test("A detached HEAD with uncommitted changes gets the connector past the newer commits of its branch")
+    func connectorDetached() {
+        let input = GraphInput(commits: GraphFixture.commits("c b\nb a\na"), headSha: "b",
+                               refs: [GraphFixture.local("main", "c")], hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.rows[0].node.column == 1 && layout.rows[1].node.column == 0)
+        #expect(layout.rows[0].stepsBelow.first == .uncommitted)
+    }
+
+    @Test("A stash on HEAD's commit sits beside the connector, its dashed step into HEAD's node")
+    func stashBesideConnector() {
+        let input = GraphInput(commits: GraphFixture.commits("s a\na b\nb"), headSha: "a",
+            refs: [GraphFixture.local("main", "a", head: true)], stashShas: ["s"], hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        let rows = layout.rows
+        #expect(rows[0].node == GraphNode(column: 1, kind: .stash, color: .stash, isGhost: false))
+        #expect(rows[0].stepsBelow == [.uncommitted, GraphStep(from: 1, to: 0, color: .stash, stroke: .stash)])
+    }
+
+    // Rows: 0 m (main, merges a and f), 1 f (feature, HEAD), 2 a, 3 base.
+    @Test("With uncommitted changes, a merge right above HEAD's tip enters it with one S and the connector keeps column 0")
+    func mergeAboveHeadTip() {
+        let input = GraphInput(commits: GraphFixture.commits("m a f\nf base\na base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("main", "m"), GraphFixture.local("feature", "f", head: true)],
+            hasUncommittedChanges: true)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        #expect(layout.rows[0].stepsBelow == [.uncommitted, GraphStep(from: 1, to: 0, color: .head, stroke: .solid),
+                                              GraphStep(from: 1, to: 1, color: .main, stroke: .solid)])
+        #expect(layout.columnCount == 2)
+    }
+
+    // Rows: 0 m (main, merges a and f), 1 x, 2 f (feature, HEAD), 3 a, 4 base.
+    @Test("A merge two rows above HEAD's tip raises HEAD's line when the tree is clean; with uncommitted changes it reaches the tip by a track of its own, from the side")
+    func mergeTwoRowsAboveHeadTip() {
+        func input(uncommitted: Bool) -> GraphInput {
+            GraphInput(commits: GraphFixture.commits("m a f\nx base\nf base\na base\nbase"), headSha: "f",
+                       refs: [GraphFixture.local("main", "m"), GraphFixture.local("feature", "f", head: true)],
+                       hasUncommittedChanges: uncommitted)
+        }
+        func step(_ from: Int, _ to: Int, _ color: GraphColorRole) -> GraphStep {
+            GraphStep(from: from, to: to, color: color, stroke: .solid)
+        }
+        // Clean: the merge joins f's line, which runs up from f to below the merge in column 0.
+        let clean = input(uncommitted: false)
+        let raised = CommitGraphEngine.layout(clean)
+        GraphInvariants.check(raised, clean)
+        #expect(raised.rows[2].node.column == 0)
+        #expect(raised.rows[0].stepsBelow == [step(1, 0, .head), step(1, 1, .main)])
+        #expect(raised.rows[1].stepsBelow.contains(step(0, 0, .head)))
+
+        // Dirty: column 0 above f carries only the connector. The merge leaves column 1 for a track in column 2,
+        // which, its parent two rows below, has no straight stretch: it bends straight on into f's node from the side.
+        let dirty = input(uncommitted: true)
+        let layout = CommitGraphEngine.layout(dirty)
+        GraphInvariants.check(layout, dirty)
+        #expect(layout.rows[2].node.column == 0)
+        #expect(layout.rows[0].stepsAbove == [.uncommitted])
+        for boundary in 0...1 {
+            #expect(layout.rows[boundary].stepsBelow.filter { $0.from == 0 } == [.uncommitted], "boundary \(boundary)")
+        }
+        #expect(layout.rows[0].stepsBelow == [.uncommitted, step(1, 1, .main), step(1, 2, .head)])
+        #expect(layout.rows[1].stepsBelow.filter { $0.to == 0 } == [.uncommitted, step(2, 0, .head)])
+        #expect(!layout.rows[1].stepsBelow.contains { $0.from == 2 && $0.to == 2 })
+    }
+
+    // Rows: 0 u2, 1 u1, 2 l (main, HEAD), 3 base. §8: HEAD behind, with and without uncommitted changes.
+    @Test("HEAD behind its upstream: what a pull brings is above it in column 0 when clean, a twig beside the connector when not",
+          arguments: [false, true])
+    func headBehind(uncommitted: Bool) {
+        let input = GraphInput(commits: GraphFixture.commits("u2 u1\nu1 l\nl base\nbase"), headSha: "l",
+            refs: [GraphFixture.local("main", "l", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")],
+            hasUncommittedChanges: uncommitted)
+        let layout = CommitGraphEngine.layout(input)
+        GraphInvariants.check(layout, input)
+        let ghostColumn = uncommitted ? 1 : 0
+        #expect(layout.rows[0].node == GraphNode(column: ghostColumn, kind: .commit, color: .head, isGhost: true))
+        #expect(layout.rows[2].node == GraphNode(column: 0, kind: .commit, color: .head, isGhost: false))
+        #expect(layout.rows[1].stepsBelow == (uncommitted
+            ? [.uncommitted, GraphStep(from: 1, to: 0, color: .head, stroke: .ghost)]
+            : [GraphStep(from: 0, to: 0, color: .head, stroke: .ghost)]))
+    }
+
+    // Rows: 0 u3, 1 o, 2 u2 | 3 u1, 4 l (main, HEAD), 5 base.
+    @Test("HEAD behind by more than a page with uncommitted changes: page 1 stays as it was when HEAD's tip loads")
+    func headBehindAcrossPages() {
+        let commits = GraphFixture.commits("u3 u2\no base\nu2 u1\nu1 l\nl base\nbase")
+        let refs = [GraphFixture.local("main", "l", head: true, upstream: "origin/main", ahead: 0, behind: 3),
+                    GraphFixture.remote("origin/main", "u3"), GraphFixture.local("other", "o")]
+        let first = CommitGraphEngine.layout(GraphInput(commits: Array(commits.prefix(3)), pageEnds: [3], headSha: "l",
+                                                        refs: refs, hasUncommittedChanges: true)).rows
+        let full = CommitGraphEngine.layout(GraphInput(commits: commits, pageEnds: [3, 6], headSha: "l",
+                                                       refs: refs, hasUncommittedChanges: true)).rows
+        #expect(Array(full.prefix(2)) == Array(first.prefix(2)))
+        #expect(full[2].node == first[2].node && full[2].stepsAbove == first[2].stepsAbove)
+        #expect(first[0].node.column == 1 && full[4].node.column == 0)
     }
 }

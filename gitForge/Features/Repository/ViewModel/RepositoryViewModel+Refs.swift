@@ -11,7 +11,7 @@ extension RepositoryViewModel {
         let gen = refsGen
         async let refsTask: [GitRef]? = try? cli.refs()
         async let remoteHeadsTask: [String: String]? = try? cli.remoteHeads()
-        async let currentTask: String? = cli.currentBranchName()
+        async let currentTask: HeadBranch? = try? cli.headBranch()
         async let stashTask: [Stash]? = try? cli.stashes()
         async let unmergedTask: [String]? = try? cli.unmergedLocalBranches()
         async let headTask: String? = cli.headSha()
@@ -39,8 +39,9 @@ extension RepositoryViewModel {
             graphInputChanged = true
             self.remoteHeads = remoteHeads
         }
+        // A detached HEAD clears the name; only a failed read keeps it.
         if let current = currentResult {
-            self.currentBranchName = current
+            self.currentBranchName = current.name
         }
         if let stashes = stashResult {
             self.stashes = stashes
@@ -48,7 +49,7 @@ extension RepositoryViewModel {
         if let unmerged = unmergedResult {
             self.unmergedLocalBranchRefs = unmerged
         }
-        // Unlike the branch name, nil here is meaningful (empty repo), so it's
+        // nil here means an empty repo (a failed read looks the same), so it's
         // always written.
         if headResult != self.headSha {
             graphInputChanged = true
@@ -69,12 +70,13 @@ extension RepositoryViewModel {
         await loadAheadBehind()
     }
 
-    /// Reloads the log when the refs now ask for remote branches it wasn't
-    /// fetched with (`HistoryStore.isScopeStale`): after a fetch, a push, a
-    /// refresh or a branch change moved one, or when a repo opens. The refs
-    /// must be read first. The user didn't ask for it, often a background
-    /// fetch did, so it keeps the pages already loaded and the selection on
-    /// them (`reloadLog(keepingDepth:)`).
+    /// Reloads the log when the refs now ask for remote branches or stashes it
+    /// wasn't fetched with (`HistoryStore.isScopeStale`): after a fetch, a push,
+    /// a refresh or a branch change moved a remote branch, a stash was made or
+    /// dropped from the terminal, or when a repo opens. The refs must be read
+    /// first. The user didn't ask for it, often a background fetch did, so it
+    /// keeps the pages already loaded and the selection on them
+    /// (`reloadLog(keepingDepth:)`).
     func reloadLogIfScopeMoved() async {
         guard history.isScopeStale else { return }
         await history.reloadLog(keepingDepth: true)
