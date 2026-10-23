@@ -232,7 +232,7 @@ struct AppStateReviewsTests {
         try repo.commit("first", files: ["a.txt": "a\n"])
         app.ui.workspaceSection = .reviews
 
-        await app.openPullRequest(number: 482, inRepositoryAt: repo.url)
+        await app.openPullRequest(number: 482, state: .open, inRepositoryAt: repo.url)
         defer { app.catalog.close() }
 
         #expect(app.catalog.activeRepository?.url.resolvingSymlinksInPath().path
@@ -265,7 +265,7 @@ struct AppStateReviewsTests {
         pulls.selected = pulls.items[0]
         app.ui.workspaceSection = .reviews
 
-        await app.openPullRequest(number: 482, inRepositoryAt: repo.url)
+        await app.openPullRequest(number: 482, state: .open, inRepositoryAt: repo.url)
 
         #expect(app.catalog.activeViewModel?.pullRequests === pulls)
         #expect(app.ui.workspaceSection == .pulls)
@@ -274,12 +274,41 @@ struct AppStateReviewsTests {
         #expect(pulls.pendingSelectionNumber == nil)
     }
 
+    @Test("Open in repository of a merged or closed pull request goes to Closed and opens it there",
+          arguments: [PullRequest.State.merged, .closed])
+    func openClosedInRepository(state: PullRequest.State) async throws {
+        let app = AppState.isolated()
+        let repo = try GitTestRepo()
+        defer { repo.remove() }
+        try repo.commit("first", files: ["a.txt": "a\n"])
+        try await app.openRepository(at: repo.url)
+        defer { app.catalog.close() }
+        let pulls = try #require(app.catalog.activeViewModel?.pullRequests)
+        // An Other of the inbox (R2 Ruling 9): its list on Open, the pull request among the closed ones.
+        pulls.items = [PullRequest(id: "470", number: 470, title: "MR 470", state: .open, authorLogin: "lucia",
+                                   authorAvatarURL: nil, sourceBranch: "f/470", targetBranch: "main", webURL: nil,
+                                   createdAt: nil, updatedAt: nil)]
+        pulls.closedItems = [PullRequest(id: "466", number: 466, title: "MR 466", state: state, authorLogin: "marta",
+                                         authorAvatarURL: nil, sourceBranch: "f/466", targetBranch: "main",
+                                         webURL: nil, createdAt: nil, updatedAt: nil)]
+        pulls.closedLoaded = true
+        #expect(pulls.scope == .open)
+        app.ui.workspaceSection = .reviews
+
+        await app.openPullRequest(number: 466, state: state, inRepositoryAt: repo.url)
+
+        #expect(app.ui.workspaceSection == .pulls)
+        #expect(pulls.scope == .closed)
+        #expect(pulls.selected?.number == 466)
+        #expect(pulls.pendingSelectionNumber == nil)
+    }
+
     @Test("A clone that can't be opened says why and stays in Reviews")
     func openInMissingRepository() async {
         let app = AppState.isolated()
         app.ui.workspaceSection = .reviews
 
-        await app.openPullRequest(number: 1, inRepositoryAt: URL(fileURLWithPath: "/nonexistent/gitforge-tests/ledger"))
+        await app.openPullRequest(number: 1, state: .open, inRepositoryAt: URL(fileURLWithPath: "/nonexistent/gitforge-tests/ledger"))
 
         #expect(app.ui.workspaceSection == .reviews)
         #expect(app.ui.presentedError != nil)
