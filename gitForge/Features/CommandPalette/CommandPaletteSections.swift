@@ -66,6 +66,17 @@ enum CommandPaletteSections {
         return min(max(fallback, 0), rows.count - 1)
     }
 
+    /// One change of the rows under the selection, the query and the scope
+    /// unchanged: its place now (`selection(keeping:in:fallback:)`) and what
+    /// it keeps for the next change, that place and the row now at it. A row
+    /// that's gone hands the selection to the one in its place, which a later
+    /// change then follows. With no rows, `item` is kept for when they're back.
+    static func follow(_ item: CommandPaletteItem?, at index: Int,
+                       in rows: [Row]) -> (index: Int, item: CommandPaletteItem?) {
+        let now = selection(keeping: item, in: rows, fallback: index)
+        return (now, rows[safe: now]?.item ?? item)
+    }
+
     /// Matching items, best score first; ties keep their input order.
     private static func ranked(_ items: [CommandPaletteItem], query: String, limit: Int) -> [Row] {
         var scored: [(offset: Int, row: Row, score: Int)] = []

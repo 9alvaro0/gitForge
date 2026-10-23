@@ -19,8 +19,8 @@ struct CommandPaletteView: View {
     @State private var query: String = ""
     @State private var scope: CommandPaletteScope = .all
     @State private var selectedIndex: Int = 0
-    /// The row the keys or the pointer last selected: a host search that
-    /// lands adds and takes away rows, and the selection stays on this one.
+    /// The selected row: a host search that lands adds and takes away rows,
+    /// and the selection stays on this one (`CommandPaletteSections.follow`).
     @State private var selectedItem: CommandPaletteItem?
     @State private var pointer = PointerIntent()
     @FocusState private var inputFocused: Bool
@@ -41,6 +41,9 @@ struct CommandPaletteView: View {
         // The selected row's place now: rows a search landed since may have
         // moved it, or taken it away.
         let active = CommandPaletteSections.selection(keeping: selectedItem, in: rows, fallback: selectedIndex)
+        // What a change of the rows is compared by: a rebuilt row is a new
+        // item, with the same label.
+        let labels = rows.map(\.item.label)
         ZStack(alignment: .top) {
             theme.colors.bgWindow.opacity(0.46)
                 .ignoresSafeArea()
@@ -78,6 +81,12 @@ struct CommandPaletteView: View {
         .onKeyPress(keys: [.return], phases: .down) { press in
             if let row = rows[safe: active] { onPick(row.item, press.modifiers.contains(.command)) }
             return .handled
+        }
+        // Rows that change under the selection (a search landing) carry it
+        // along: the next change starts from the place and the row it's on
+        // now, not from where the keys last left it.
+        .onChange(of: labels) { _, _ in
+            (selectedIndex, selectedItem) = CommandPaletteSections.follow(selectedItem, at: selectedIndex, in: rows)
         }
         .onKeyPress(.upArrow) { select(max(0, active - 1), in: rows); return .handled }
         .onKeyPress(.downArrow) { select(min(max(rows.count - 1, 0), active + 1), in: rows); return .handled }

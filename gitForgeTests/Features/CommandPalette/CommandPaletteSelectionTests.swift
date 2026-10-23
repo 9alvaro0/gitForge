@@ -11,10 +11,13 @@ struct CommandPaletteSelectionTests {
     private static let first = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
     private static let second = HostingInstance(kind: .github, host: "ghe.example.test")
 
-    /// The Search all rows of "retry" on both instances, `first` in `phase`.
-    private static func rows(first phase: HostSearchState.Phase?) -> [CommandPaletteSections.Row] {
-        let searches = phase.map { [first.id: HostSearchState(query: "retry", phase: $0)] } ?? [:]
-        let trailing = CommandPaletteBuilder.searchItems(for: "retry", instances: [first, second],
+    /// The Search all rows of "retry" on both instances, each in its phase.
+    private static func rows(first: HostSearchState.Phase?,
+                             second: HostSearchState.Phase? = nil) -> [CommandPaletteSections.Row] {
+        var searches: [UUID: HostSearchState] = [:]
+        searches[Self.first.id] = first.map { HostSearchState(query: "retry", phase: $0) }
+        searches[Self.second.id] = second.map { HostSearchState(query: "retry", phase: $0) }
+        let trailing = CommandPaletteBuilder.searchItems(for: "retry", instances: [Self.first, Self.second],
                                                          searches: searches, followed: [])
         return CommandPaletteSections.build(items: [], query: "retry", trailing: trailing).flatMap(\.rows)
     }
@@ -53,6 +56,52 @@ struct CommandPaletteSelectionTests {
         #expect(CommandPaletteSections.selection(keeping: searching, in: nothing, fallback: 5) == nothing.count - 1)
         #expect(CommandPaletteSections.selection(keeping: nil, in: nothing, fallback: 1) == 1)
         #expect(CommandPaletteSections.selection(keeping: nil, in: nothing, fallback: -2) == 0)
+    }
+
+    @Test("Step by step, as the palette follows its rows: results land before the selected row, then that row starts searching")
+    func followResultsThenSearch() throws {
+        let start = Self.rows(first: .searching)
+        var selection = (index: 1, item: Optional(start[1].item))
+
+        let landed = Self.rows(first: .found(try Self.results()))
+        selection = CommandPaletteSections.follow(selection.item, at: selection.index, in: landed)
+        #expect(selection.index == 3)
+        #expect(selection.item?.label == "Search all of ghe.example.test")
+
+        let searching = Self.rows(first: .found(try Self.results()), second: .searching)
+        selection = CommandPaletteSections.follow(selection.item, at: selection.index, in: searching)
+        #expect(selection.index == 3)
+        #expect(selection.item?.label == "Searching ghe.example.test…")
+        #expect(searching[selection.index].item.label == "Searching ghe.example.test…")
+    }
+
+    @Test("Step by step: the selected row starts searching, then results land before it")
+    func followSearchThenResults() throws {
+        let start = Self.rows(first: .searching)
+        var selection = (index: 1, item: Optional(start[1].item))
+
+        let searching = Self.rows(first: .searching, second: .searching)
+        selection = CommandPaletteSections.follow(selection.item, at: selection.index, in: searching)
+        #expect(selection.index == 1)
+        #expect(selection.item?.label == "Searching ghe.example.test…")
+
+        let landed = Self.rows(first: .found(try Self.results()), second: .searching)
+        selection = CommandPaletteSections.follow(selection.item, at: selection.index, in: landed)
+        #expect(selection.index == 3)
+        #expect(landed[selection.index].item.label == "Searching ghe.example.test…")
+    }
+
+    @Test("Rows that empty keep the selected row for when they come back")
+    func followThroughNoRows() {
+        let start = Self.rows(first: nil)
+        let picked = start[1].item
+
+        let gone = CommandPaletteSections.follow(picked, at: 1, in: [])
+        #expect(gone.index == 0)
+        #expect(gone.item?.label == picked.label)
+
+        let back = CommandPaletteSections.follow(gone.item, at: gone.index, in: Self.rows(first: nil))
+        #expect(back.index == 1)
     }
 
     @Test("No rows, no selection to keep: the first place")
