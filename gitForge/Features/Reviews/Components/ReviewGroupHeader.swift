@@ -32,13 +32,23 @@ struct ReviewGroupHeader: View {
         }
         .reviewSectionHeader()
         .help(Text(verbatim: "\(repo.host.host)/\(repo.host.slug)"))
-        .contextMenu {
-            if let onHide {
-                Button(String(localized: "Hide from Reviews"), action: onHide)
-            }
-        }
+        .modifier(HideMenu(onHide: onHide))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    /// "Hide from Reviews" as the context menu, only with `onHide`: without
+    /// it there's no menu at all, rather than an empty one.
+    private struct HideMenu: ViewModifier {
+        let onHide: (() -> Void)?
+
+        func body(content: Content) -> some View {
+            if let onHide {
+                content.contextMenu { Button(String(localized: "Hide from Reviews"), action: onHide) }
+            } else {
+                content
+            }
+        }
     }
 }
 

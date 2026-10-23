@@ -195,8 +195,11 @@ struct ReviewsSettingsSection: View {
 
     private func editor(_ pattern: FollowPattern, isProposal: Bool) -> some View {
         PatternEditorRow(store: store, original: pattern, isProposal: isProposal,
-                         draft: edit?.draft ?? pattern.text, submitted: edit?.submitted ?? false) { edit = nil }
-            .overlay(alignment: .top) { rowSeparator }
+                         draft: edit?.draft ?? pattern.text, submitted: edit?.submitted ?? false) {
+            // A save that lands after another row was opened leaves that one open.
+            if edit?.patternId == pattern.id { edit = nil }
+        }
+        .overlay(alignment: .top) { rowSeparator }
     }
 
     /// "gitlab.example.test · 4 repositories".
@@ -313,10 +316,9 @@ private extension View {
     }
 }
 
-/// "With them you'd follow N repositories, over the limit of 100." (R3
-/// Ruling 6), under a pattern that can't be followed as it is.
-private struct PatternLimitMessage: View {
-    let total: Int
+/// A caption after the warning sign: what can't be done as it is.
+private struct WarnCaption: View {
+    let text: Text
 
     @Environment(\.appTheme) private var theme
 
@@ -326,8 +328,7 @@ private struct PatternLimitMessage: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(theme.colors.warn)
                 .accessibilityHidden(true)
-            // `FollowedRepos.limit`, spelled out for the translations.
-            Text("With them you'd follow \(total) repositories, over the limit of 100.")
+            text
                 .textRole(.caption)
                 .foregroundStyle(theme.colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -335,11 +336,24 @@ private struct PatternLimitMessage: View {
     }
 }
 
+/// "With them you'd follow N repositories, over the limit of 100." (R3
+/// Ruling 6), under a pattern that can't be followed as it is.
+private struct PatternLimitMessage: View {
+    let total: Int
+
+    var body: some View {
+        // `FollowedRepos.limit`, spelled out for the translations.
+        WarnCaption(text: Text("With them you'd follow \(total) repositories, over the limit of 100."))
+    }
+}
+
 /// A pattern's row while it's edited (R3 Rulings 1, 6, K and M): the text
 /// in a field with Save and Cancel; under it, how many repos the pattern
 /// would follow, or why it can't be saved.
 ///
-/// - An invalid text shows Ruling 1's rule, as an error once Save is pressed.
+/// - An invalid text shows Ruling 1's rule, as an error once Save is pressed:
+///   with the warning sign, read as "Invalid pattern" and announced to
+///   VoiceOver, not only in red.
 /// - A pattern that takes the inbox over the limit says so while it's typed
 ///   (`exceedsLimit` on `patternCount`), and Save is still allowed to try: an
 ///   `.overLimit` answer says the same.
@@ -402,9 +416,14 @@ private struct PatternEditorRow: View {
                         host: candidate.host,
                         count: ReviewsSettingsModel.repoCount(of: candidate, in: store.repos) + count.adds))
                         .foregroundStyle(theme.colors.textTertiary)
+                } else if showsError {
+                    WarnCaption(text: Text(Self.rule))
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text("Invalid pattern"))
+                        .accessibilityValue(Text(Self.rule))
                 } else {
-                    Text("Segments separated by /, with * for any one segment and at least one fixed segment.")
-                        .foregroundStyle(showsError ? theme.colors.del : theme.colors.textTertiary)
+                    Text(Self.rule)
+                        .foregroundStyle(theme.colors.textTertiary)
                 }
             }
             .textRole(.caption)
@@ -421,6 +440,10 @@ private struct PatternEditorRow: View {
         .onAppear { focused = true }
     }
 
+    /// Ruling 1's rule, under the field.
+    private static let rule: LocalizedStringKey =
+        "Segments separated by /, with * for any one segment and at least one fixed segment."
+
     /// What the edit takes the place of: the accepted pattern itself; the
     /// proposal isn't among the patterns yet.
     private var replaced: FollowPattern? { isProposal ? nil : original }
@@ -429,6 +452,8 @@ private struct PatternEditorRow: View {
         guard !saving else { return }
         guard let candidate = FollowPattern(host: original.host, text: draft) else {
             submitted = true
+            // The focus stays in the field: VoiceOver says why nothing was saved.
+            AccessibilityNotification.Announcement(String(localized: "Invalid pattern")).post()
             return
         }
         saving = true

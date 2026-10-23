@@ -8509,6 +8509,22 @@
         }
       }
     },
+    "Invalid pattern" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patrón no válido"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Padrão inválido"
+          }
+        }
+      }
+    },
     "It changed on the host since it loaded." : {
       "localizations" : {
         "es" : {
