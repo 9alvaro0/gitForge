@@ -17,6 +17,12 @@ nonisolated enum G5BenchEnv {
     static var label: String { env["GF_BENCH_LABEL"] ?? "unnamed" }
     static var runs: Int { Int(env["GF_BENCH_RUNS"] ?? "") ?? 3 }
     static var speed: Double { Double(env["GF_BENCH_SPEED"] ?? "") ?? 4000 }
+    /// Prototype only: no crossing-gap layer while a row slides.
+    static var slideWithoutLayer: Bool { env["GF_G5_NOLAYER"] == "1" }
+    /// Prototype only: sliding canvases render asynchronously.
+    static var slideAsync: Bool { env["GF_G5_ASYNC"] == "1" }
+    /// Scroll with synthetic wheel events instead of moving the clip view.
+    static var wheel: Bool { env["GF_BENCH_WHEEL"] != "0" }
 }
 
 nonisolated final class G5BenchCounters: Sendable {
@@ -203,6 +209,21 @@ final class G5BenchRunner {
         return found.max { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }
     }
 
+    /// One pixel-precise wheel event of `dy` points (positive scrolls down), as a trackpad sends.
+    private func wheel(_ scrollView: NSScrollView, by dy: CGFloat, phase: CGScrollPhase? = nil) {
+        guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
+                                  wheel1: Int32(-dy.rounded()), wheel2: 0, wheel3: 0) else { return }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        if let phase { event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue)) }
+        if let window = scrollView.window {
+            let point = scrollView.convert(NSPoint(x: scrollView.bounds.midX, y: scrollView.bounds.midY), to: nil)
+            let screen = window.convertPoint(toScreen: point)
+            let height = NSScreen.screens.first?.frame.height ?? 0
+            event.location = CGPoint(x: screen.x, y: height - screen.y)
+        }
+        if let ns = NSEvent(cgEvent: event) { scrollView.scrollWheel(with: ns) }
+    }
+
     private func scroll(_ scrollView: NSScrollView, toY y: CGFloat) {
         let clip = scrollView.contentView
         let maxY = max(0, (scrollView.documentView?.frame.height ?? 0) - clip.bounds.height)
@@ -230,11 +251,20 @@ final class G5BenchRunner {
                 let startY = scrollView.contentView.bounds.origin.y
                 let before = G5BenchCounters.shared.snapshot()
                 var t0: CFTimeInterval?
+                var last: CFTimeInterval?
                 recorder.onTick = { [weak self] link in
                     guard let self else { return }
                     let start = t0 ?? link.timestamp
                     t0 = start
-                    self.scroll(scrollView, toY: startY + direction * speed * (link.timestamp - start))
+                    if G5BenchEnv.wheel {
+                        let previous = last ?? link.timestamp
+                        last = link.timestamp
+                        let phase: CGScrollPhase = previous == link.timestamp ? .began : .changed
+                        self.wheel(scrollView, by: direction * speed * max(link.timestamp - previous, 1.0 / 120),
+                                   phase: phase)
+                    } else {
+                        self.scroll(scrollView, toY: startY + direction * speed * (link.timestamp - start))
+                    }
                 }
                 recorder.start(on: window.contentView!)
                 try? await Task.sleep(for: .seconds(duration))
@@ -274,8 +304,13 @@ final class G5BenchRunner {
                 let applies = G5BenchCounters.shared.applies.load(ordering: .relaxed)
                 guard applies > appliesBefore else { return }
                 let start = scrollStart ?? link.timestamp
-                scrollStart = start
-                self.scroll(scrollView, toY: startY + 3000 * (link.timestamp - start))
+                if G5BenchEnv.wheel {
+                    self.wheel(scrollView, by: 3000.0 / 120, phase: scrollStart == nil ? .began : .changed)
+                    scrollStart = start
+                } else {
+                    scrollStart = start
+                    self.scroll(scrollView, toY: startY + 3000 * (link.timestamp - start))
+                }
             }
             recorder.start(on: window.contentView!)
             try? await Task.sleep(for: .milliseconds(100))
