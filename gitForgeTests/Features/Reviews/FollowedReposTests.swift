@@ -352,7 +352,7 @@ struct FollowedReposTests {
     static let expired = HostingAccount(instanceId: gitlab.id, login: "ana", method: .oauth,
                                         status: .needsAttention(.expired))
 
-    @Test("A clone the members leave out stays with the account it waits for, and activity doesn't change it")
+    @Test("A clone the members leave out stays with the account it waits for")
     func waitingAccountKeepsClone() {
         let set = FollowedRepos.merge(local: [Self.local("oss/big", opened: 1, waiting: Self.expired.id)],
                                       activity: [], accounts: [Self.marta, Self.expired], instances: [Self.gitlab],
