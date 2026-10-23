@@ -435,6 +435,70 @@ struct ReviewsStoreFollowTests {
         #expect(Self.reads(other).contains("apps/extra-0/android/extra-0-app"))
     }
 
+    @Test("A proposal edited and saved is answered: it doesn't come back when a refresh finds more for it to add")
+    func editedProposalAnswered() async throws {
+        let harness = Self.proposalHarness()
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let proposal = try #require(store.proposal)
+
+        let edited = Self.pattern("apps/extra-0/android/*")
+        let outcome = await store.acceptProposal(proposal.pattern, as: edited)
+        #expect(outcome == .done)
+        #expect(store.config.patterns == [edited])
+        #expect(store.config.answeredProposals == [proposal.pattern.id])
+        #expect(Self.saved(harness) == store.config)
+        #expect(Self.repo(store, "apps/extra-0/android/extra-0-app")?.sources == [.pattern])
+        #expect(store.proposal == nil)
+
+        // The account now belongs to another Android app, which only the proposal would add.
+        harness.browser.state { $0.members.append(ReviewsHarness.member("maps", "apps/maps/android/maps-app")) }
+        harness.now = harness.now.addingTimeInterval(25 * 3600)
+        await store.refresh(force: true)
+        #expect(Self.listings(harness) == 2)
+        #expect(store.patternCount(proposal.pattern, replacing: nil).adds == 1)
+        #expect(store.proposal == nil)
+    }
+
+    @Test("An edited proposal that would pass the limit isn't saved nor answered")
+    func editedProposalOverLimit() async throws {
+        let harness = Self.proposalHarness(extra: 98)
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let proposal = try #require(store.proposal)
+
+        let outcome = await store.acceptProposal(proposal.pattern, as: Self.pattern("*/*/android/*"))
+        #expect(outcome == .overLimit(total: 101))
+        #expect(store.config == ReviewsConfig())
+        #expect(Self.saved(harness) == ReviewsConfig())
+        #expect(store.proposal == proposal)
+    }
+
+    @Test("Answering a pattern that's no longer the proposal records it, and it isn't proposed again")
+    func answerAnotherProposal() async throws {
+        let harness = Self.proposalHarness()
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let proposal = try #require(store.proposal)
+        // A pattern that takes in what the proposal would add: it's proposed no more.
+        let narrow = Self.pattern("apps/extra-0/android/*")
+        #expect(await store.savePattern(narrow, replacing: nil) == .done)
+        #expect(store.proposal == nil)
+
+        store.answerProposal(proposal.pattern)
+        #expect(store.config.answeredProposals == [proposal.pattern.id])
+        #expect(Self.saved(harness).answeredProposals == [proposal.pattern.id])
+
+        // Without that pattern there's something to add again, but the answered proposal stays away.
+        await store.removePattern(narrow)
+        #expect(store.patternCount(proposal.pattern, replacing: nil).adds == 1)
+        #expect(store.proposal == nil)
+
+        // Answering it again changes nothing.
+        store.answerProposal(proposal.pattern)
+        #expect(store.config.answeredProposals == [proposal.pattern.id])
+    }
+
     @Test("A proposal that would pass the limit can't be accepted, and nothing changes")
     func proposalOverLimit() async throws {
         let harness = Self.proposalHarness(extra: 98)

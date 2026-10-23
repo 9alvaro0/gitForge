@@ -122,16 +122,33 @@ extension ReviewsStore {
     /// to do.
     func acceptProposal() async -> FollowOutcome {
         guard let pattern = proposal?.pattern else { return .done }
-        return await changeChecked { config in
+        return await acceptProposal(pattern, as: pattern)
+    }
+
+    /// Accepts the proposed pattern `proposed` as `pattern`, the same or
+    /// edited first (Rulings K and V): `pattern` joins the patterns and
+    /// `proposed` is answered, whether or not it's still the proposal, so it
+    /// doesn't come back. Unless that takes the inbox over the limit and
+    /// above what it follows now: then neither happens.
+    func acceptProposal(_ proposed: FollowPattern, as pattern: FollowPattern) async -> FollowOutcome {
+        await changeChecked { config in
             config = Self.saving(pattern, replacing: nil, in: config)
-            if !config.answeredProposals.contains(pattern.id) { config.answeredProposals.append(pattern.id) }
+            if !config.answeredProposals.contains(proposed.id) { config.answeredProposals.append(proposed.id) }
         }
     }
 
     /// "Not now" on the proposal (Ruling 3): it doesn't come back, and the
     /// next candidate may take its place.
     func dismissProposal() {
-        guard let pattern = proposal?.pattern, !config.answeredProposals.contains(pattern.id) else { return }
+        guard let pattern = proposal?.pattern else { return }
+        answerProposal(pattern)
+    }
+
+    /// Answers the proposed pattern `pattern` (Ruling V), whether or not it's
+    /// still the proposal: it isn't proposed again. The settings are saved
+    /// and the proposal worked out again.
+    func answerProposal(_ pattern: FollowPattern) {
+        guard !config.answeredProposals.contains(pattern.id) else { return }
         var next = config
         next.answeredProposals.append(pattern.id)
         storeConfig(next)

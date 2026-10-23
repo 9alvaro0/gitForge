@@ -343,9 +343,9 @@ private struct PatternLimitMessage: View {
 /// - A pattern that takes the inbox over the limit says so while it's typed
 ///   (`exceedsLimit` on `patternCount`), and Save is still allowed to try: an
 ///   `.overLimit` answer says the same.
-/// - An accepted pattern is saved in its own place. The proposal is saved as
-///   a new pattern and then answered, so it doesn't come back (Ruling K);
-///   saved unchanged, it's simply accepted.
+/// - An accepted pattern is saved in its own place. The proposal, edited or
+///   not, is saved as a new pattern and answered in one go, so it doesn't
+///   come back (Rulings K and V): the store decides that, not the row.
 private struct PatternEditorRow: View {
     let store: ReviewsStore
     let original: FollowPattern
@@ -433,17 +433,9 @@ private struct PatternEditorRow: View {
         }
         saving = true
         Task {
-            let outcome: FollowOutcome
-            if isProposal, candidate == original {
-                outcome = await store.acceptProposal()
-            } else {
-                outcome = await store.savePattern(candidate, replacing: replaced)
-                // Answer the proposal only while it's still the one edited: the
-                // save works it out again, and another may have taken its place.
-                if outcome == .done, isProposal, store.proposal?.pattern.id == original.id {
-                    store.dismissProposal()
-                }
-            }
+            let outcome = isProposal
+                ? await store.acceptProposal(original, as: candidate)
+                : await store.savePattern(candidate, replacing: original)
             saving = false
             switch outcome {
             case .done: onClose()
