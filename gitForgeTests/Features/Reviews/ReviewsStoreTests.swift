@@ -978,7 +978,7 @@ struct ReviewsStoreTests {
         #expect(Self.lookups(harness) == 1)
     }
 
-    @Test("A lookup that fails isn't kept: the clone stays out, and the next refresh asks again",
+    @Test("A lookup that fails isn't kept: the clone stays out, and it's asked again an hour later, not before",
           arguments: [PullRequestFetchError.network("The Internet connection appears to be offline."),
                       .server(503, "Service Unavailable"), .forbidden])
     func renameErrorRetried(error: PullRequestFetchError) async {
@@ -991,13 +991,101 @@ struct ReviewsStoreTests {
         #expect(Self.lookups(harness) == 1)
         #expect(Self.savedLookups(harness)?[ReviewsHarness.key("team/old-name")] == nil)
 
+        // Within the hour a refresh doesn't ask again.
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 1)
+        // The Refresh button does, and it fails again.
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true, rereadLists: true)
+        #expect(Self.lookups(harness) == 2)
+        harness.now = harness.now.addingTimeInterval(59 * 60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 2)
+        #expect(store.repos.isEmpty)
+
+        // An hour after the last failure, a refresh asks again.
         harness.search.state {
             $0.pathFailures = [:]
             $0.paths["team/old-name"] = "team/new-name"
         }
         harness.now = harness.now.addingTimeInterval(60)
         await store.refresh(force: true)
-        #expect(Self.lookups(harness) == 2)
+        #expect(Self.lookups(harness) == 3)
+        #expect(store.repos.map(\.host.slug) == ["team/new-name"])
+    }
+
+    @Test("Clones whose lookups keep failing don't hold up the others: the next refresh asks those")
+    func failingLookupsDontStarveTheRest() async {
+        let harness = Self.renamedClone()
+        harness.locals = (0..<25).map { ReviewsHarness.local("oss/clone-\($0)") }
+        harness.search.state {
+            for index in 0..<20 { $0.pathFailures["oss/clone-\(index)"] = .server(503, "Service Unavailable") }
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 20)
+        #expect(Self.savedLookups(harness) == nil)
+
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 25)
+        #expect(Set(Self.savedLookups(harness)?.keys.map { $0 } ?? [])
+                == Set((20..<25).map { ReviewsHarness.key("oss/clone-\($0)") }))
+    }
+
+    @Test("Within the cap, clones never asked about go first, then those asked about longest ago")
+    func lookupOrder() async {
+        let harness = Self.renamedClone()
+        harness.locals = (0..<25).map { ReviewsHarness.local("oss/clone-\($0)") }
+        let store = harness.makeStore()
+        let first = harness.now
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 20)
+
+        // A day later the 20 lookups are due again, and the 5 clones never asked about go first.
+        let second = first.addingTimeInterval(25 * 3600)
+        harness.now = second
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 40)
+        let afterSecond = Self.savedLookups(harness) ?? [:]
+        #expect(afterSecond.count == 25)
+        #expect((20..<25).allSatisfy { afterSecond[ReviewsHarness.key("oss/clone-\($0)")]?.fetchedAt == second })
+        #expect((0..<15).allSatisfy { afterSecond[ReviewsHarness.key("oss/clone-\($0)")]?.fetchedAt == second })
+        #expect((15..<20).allSatisfy { afterSecond[ReviewsHarness.key("oss/clone-\($0)")]?.fetchedAt == first })
+
+        // The Refresh button asks about all of them, the oldest first, whatever order the clones come in.
+        harness.locals.reverse()
+        let third = second.addingTimeInterval(60)
+        harness.now = third
+        await store.refresh(force: true, rereadLists: true)
+        #expect(Self.lookups(harness) == 60)
+        let afterThird = Self.savedLookups(harness) ?? [:]
+        #expect((15..<20).allSatisfy { afterThird[ReviewsHarness.key("oss/clone-\($0)")]?.fetchedAt == third })
+        #expect(afterThird.values.count { $0.fetchedAt == third } == 20)
+    }
+
+    @Test("A clone whose account has no token this round doesn't take a lookup from another")
+    func lookupWithoutTokenTakesNoSlot() async throws {
+        let harness = Self.renamedClone()
+        let ana = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "ana", method: .oauth, status: .ok)
+        harness.accounts.append(ana)
+        harness.tokenFor[ana.id] = .token("t-ana")
+        harness.browser.state { $0.membersByToken["t-ana"] = [ReviewsHarness.member("a0", "ana/tools")] }
+        harness.locals = []
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(harness.browser.state { $0.listings } == 2)
+
+        // Ana's token can't be had now; her lists of the day still count. Her
+        // clones are asked about with her account, so not this round.
+        harness.tokenFor[ana.id] = .failed("The Internet connection appears to be offline.")
+        harness.locals = (0..<ReviewsStore.renameLookups).map { ReviewsHarness.local("ana/repo-\($0)") }
+            + [ReviewsHarness.local("team/old-name")]
+        harness.search.state { $0.paths["team/old-name"] = "team/new-name" }
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 1)
         #expect(store.repos.map(\.host.slug) == ["team/new-name"])
     }
 

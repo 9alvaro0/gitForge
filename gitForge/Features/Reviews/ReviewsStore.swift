@@ -67,6 +67,9 @@ final class ReviewsStore {
     static let membershipPages = 10
     /// Most clones asked about in one refresh, to follow a rename (R3 Ruling 10).
     static let renameLookups = 20
+    /// How long a clone whose lookup failed waits before it's asked about
+    /// again, but for the Refresh button (R3 Ruling X).
+    static let failedLookupBackoff: TimeInterval = 3600
 
     /// The repos followed, most recent activity first.
     private(set) var repos: [ReviewRepo] = []
@@ -142,6 +145,10 @@ final class ReviewsStore {
     /// `FollowedRepos.key` (R3 Ruling 10): only those of the last round's
     /// clones, kept in the snapshot.
     @ObservationIgnored private var lookups: [String: RepoLookup] = [:]
+    /// When the last lookup of each of those clones failed, by key, if it did
+    /// since its last answer (R3 Ruling X). Only for the session: a launch
+    /// asks again.
+    @ObservationIgnored private var failedLookups: [String: Date] = [:]
     @ObservationIgnored private var detailStores: [String: PullRequestStore] = [:]
     /// When the last refresh started, for the throttle.
     @ObservationIgnored private var lastRoundAt: Date?
@@ -555,6 +562,7 @@ final class ReviewsStore {
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
         lastRound = nil
+        failedLookups = [:]
         if proposal != nil { proposal = nil }
         latestSearch = [:]
         if !hostSearches.isEmpty { hostSearches = [:] }
@@ -675,18 +683,29 @@ final class ReviewsStore {
     }
 
     /// The clones as `merge` takes them, a renamed one under its current path
-    /// (R3 Ruling 10). Asks about the due ones (`renameTargets`) and keeps the
-    /// answers in `lookups`, which holds only the lookups of these clones.
+    /// (R3 Ruling 10). Asks about the due ones (`renameTargets`) with the
+    /// accounts that gave a token, keeps the answers in `lookups` and notes
+    /// the failures in `failedLookups` (Ruling X); both hold only these
+    /// clones. Failures of a cancelled round aren't noted: they're the
+    /// cancel's.
     private func followRenames(of local: [LocalRemote],
                                accounts: [(account: HostingAccount, instance: HostingInstance)],
                                memberKeys: [UUID: Set<String>], vouched: Set<String>, tokens: TokenBook,
                                now: Date, rereadLists: Bool) async -> [LocalRemote] {
         let keys = Set(local.map { FollowedRepos.key($0.host) })
         lookups = lookups.filter { keys.contains($0.key) }
+        failedLookups = failedLookups.filter { keys.contains($0.key) }
+        let asking = Set(accounts.map(\.account.id).filter { tokens.current($0) != nil })
         let targets = Self.renameTargets(local, accounts: accounts, memberKeys: memberKeys, vouched: vouched,
-                                         lookups: lookups, now: now, rereadLists: rereadLists)
-        for (key, path) in await Self.lookUpPaths(targets, tokens: tokens, makeSearch: environment.makeSearch) {
+                                         lookups: lookups, failures: failedLookups, asking: asking, now: now,
+                                         rereadLists: rereadLists)
+        let answers = await Self.lookUpPaths(targets, tokens: tokens, makeSearch: environment.makeSearch)
+        for (key, path) in answers.found {
             lookups[key] = RepoLookup(fetchedAt: now, currentPath: path)
+            failedLookups[key] = nil
+        }
+        if !Task.isCancelled {
+            for key in answers.failed { failedLookups[key] = now }
         }
         return Self.renamed(local, instances: accounts.map(\.instance), memberKeys: memberKeys, vouched: vouched,
                             lookups: lookups)
