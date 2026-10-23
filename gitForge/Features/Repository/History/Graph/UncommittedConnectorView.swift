@@ -4,6 +4,16 @@ import SwiftUI
 /// leaving half, painted by `GraphRowPainter` as a graph row would, over the same canvas
 /// (one row pitch plus the bleed, centred on the row), with the square's area left clear so
 /// its inside shows the row's background. The square itself stays the row's.
+///
+/// Only whole dots show under the square. The half's dots sit every `q` (half the dash
+/// period of the canvas's own geometry) from `q/2` below the row's centre; drawn are those
+/// whose centre is at least half the square's side plus a quarter of the stroke below the
+/// centre, so none peeks out past the square's bottom edge as a nub. The view clears a rect
+/// as wide as the square, from its top down to `max(squareSide/2, k0 · q)` below the centre,
+/// `k0` being the first dot drawn: the middle of the gap before it, and never above the
+/// square's bottom edge. At the table's pitches that keeps the regular density's dot at
+/// 5.4375 pt (it touches the square by 0.06 pt, under a pixel) and hides the compact one's
+/// at 4.3125 pt, whose first dot drawn is then the one at 7.1875 pt.
 struct UncommittedConnectorView: View {
     let step: GraphStep
     let maxLanes: Int
@@ -21,15 +31,28 @@ struct UncommittedConnectorView: View {
         let row = GraphRow(node: GraphNode(column: step.from, kind: .commit, color: step.color, isGhost: false),
                            stepsAbove: [], stepsBelow: [step], width: maxLanes)
         Canvas { context, size in
-            let square = CGRect(x: style.laneCenter(0) - squareSide / 2, y: size.height / 2 - squareSide / 2,
-                                width: squareSide, height: squareSide)
-            context.clip(to: Path(square), options: .inverse)
+            let center = size.height / 2
+            let clearBottom = Self.clearedDepth(squareSide: squareSide, edgeWidth: style.metrics.edgeWidth,
+                                                dotSpacing: GraphRowGeometry(style: style, size: size,
+                                                                             rowSpacing: rowSpacing).dashPeriod / 2)
+            let cleared = CGRect(x: style.laneCenter(0) - squareSide / 2, y: center - squareSide / 2,
+                                 width: squareSide, height: squareSide / 2 + clearBottom)
+            context.clip(to: Path(cleared), options: .inverse)
             GraphRowPainter(style: style, size: size, rowSpacing: rowSpacing).drawSteps(of: row, in: &context)
         }
         // Framed like `GraphColumnView`: the layout keeps the row's height,
         // the canvas overhangs half the gap and the bleed on each side.
         .padding(.vertical, -(rowSpacing / 2 + GraphRowGeometry.bleed(for: style.metrics)))
         .frame(width: style.gutterWidth(lanes: maxLanes), alignment: .leading)
+    }
+
+    /// How far below the row's centre the cleared rect reaches, for dots `dotSpacing` (`q`)
+    /// apart from `q/2` below it: `max(squareSide/2, k0 · q)`, where `k0` is the smallest
+    /// `k` with `q/2 + k · q ≥ squareSide/2 + edgeWidth/4`, the first dot drawn.
+    nonisolated static func clearedDepth(squareSide: CGFloat, edgeWidth: CGFloat, dotSpacing q: CGFloat) -> CGFloat {
+        guard q > 0 else { return squareSide / 2 }
+        let firstDrawn = max(0, ((squareSide / 2 + edgeWidth / 4 - q / 2) / q).rounded(.up))
+        return max(squareSide / 2, firstDrawn * q)
     }
 }
 
