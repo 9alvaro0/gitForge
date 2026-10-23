@@ -28,8 +28,10 @@ struct ReviewsView: View {
         // Throttled: coming back within `reloadThrottle` reads nothing.
         .task { await store.refresh() }
         // Opens the selection's detail: picked in the list, or still
-        // selected when the inbox shows again.
-        .task(id: store.selectedItem?.id) {
+        // selected when the inbox shows again. Keyed on the account too: a
+        // refresh that reads the repo with another account replaces its
+        // detail store (R2 Ruling 9), which has to open the pull request again.
+        .task(id: store.selectedItem.map { "\($0.id)|\($0.repo.accountId)" }) {
             if let item = store.selectedItem { await store.open(item) }
         }
         .onChange(of: store.selectedItem?.id) { _, id in

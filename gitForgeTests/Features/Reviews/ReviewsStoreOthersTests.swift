@@ -376,6 +376,85 @@ struct ReviewsStoreOthersTests {
         #expect(store.detailStore(for: Self.lib) === detail)
     }
 
+    @Test("An Other whose repo comes to be followed with the account that read it keeps its detail store")
+    func otherFollowedWithSameAccount() async throws {
+        let harness = ReviewsHarness()
+        harness.browser.state { $0.members = [ReviewsHarness.member("3", "oss/lib")] }
+        harness.provider.state { $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "octo", updated: 300)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.repos.isEmpty)
+        let id = Self.id(Self.lib, 5)
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        let detail = try #require(store.detailStore(for: Self.lib))
+
+        // The user's activity there: oss/lib is followed, with the same account.
+        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("3"), at: ReviewsHarness.date(1_789_000_000))] }
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.id) == [Self.lib])
+        #expect(store.others.first?.repo == store.repos.first)
+        #expect(store.selectedID == id)
+        #expect(store.selectedItem?.repo.accountId == harness.account.id)
+        #expect(store.selectedItem?.repo.sources.isEmpty == false)
+        #expect(store.detailStore(for: Self.lib) === detail)
+    }
+
+    @Test("An Other whose repo comes to be followed with another account takes that account and a new detail store")
+    func otherFollowedWithAnotherAccount() async throws {
+        let harness = ReviewsHarness()
+        let ana = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "ana", method: .oauth, status: .ok)
+        harness.accounts.append(ana)
+        harness.tokenFor = [harness.account.id: .token("t-marta"), ana.id: .token("t-ana")]
+        // Only ana belongs to oss/lib.
+        harness.browser.state { $0.membersByToken["t-ana"] = [ReviewsHarness.member("3", "oss/lib")] }
+        harness.provider.state { $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "octo", updated: 300)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.repos.isEmpty)
+        let id = Self.id(Self.lib, 5)
+        // marta, first in store order, reads the link.
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        #expect(store.others.first?.repo.accountId == harness.account.id)
+        let detail = try #require(store.detailStore(for: Self.lib))
+
+        // ana's activity there: oss/lib is followed, read with ana.
+        harness.activity.state { $0.hits = [ActivityHit(ref: .projectId("3"), at: ReviewsHarness.date(1_789_000_000))] }
+        await store.refresh(force: true)
+
+        #expect(store.repos.map(\.accountId) == [ana.id])
+        #expect(store.others.first?.repo.accountId == ana.id)
+        #expect(store.selectedID == id)
+        #expect(store.selectedItem?.repo.accountId == ana.id)
+        let replaced = try #require(store.detailStore(for: Self.lib))
+        #expect(replaced !== detail)
+    }
+
+    @Test("An Other of a repo that stops being followed stays, loose, with the clone the refresh saw and its detail store")
+    func otherOfRepoNoLongerFollowed() async throws {
+        let (store, harness) = await Self.newPull(by: "octo")
+        let id = Self.id(Self.app, 9)
+        #expect(store.others.first?.repo.sources.isEmpty == false)
+        let detail = try #require(store.detailStore(for: Self.app))
+
+        // The account no longer belongs to team/app, once its membership is read
+        // again: the clone isn't followed any more.
+        harness.clonesAreMembers = false
+        harness.now = harness.now.addingTimeInterval(ReviewsStore.membershipTTL + 1)
+        await store.refresh(force: true)
+
+        #expect(!store.repos.contains { $0.id == Self.app })
+        let other = try #require(store.others.first)
+        #expect(other.id == id)
+        #expect(other.repo.sources.isEmpty)
+        #expect(other.repo.lastActivity == nil)
+        #expect(other.repo.localURL == URL(fileURLWithPath: "/r/team/app"))
+        #expect(other.repo.accountId == harness.account.id)
+        #expect(store.selectedID == id)
+        #expect(store.selectedItem?.id == id)
+        #expect(store.detailStore(for: Self.app) === detail)
+    }
+
     @Test("Someone else's new pull request of a followed repo is an Other until a refresh lists it in Team")
     func newPullOfFollowedRepo() async {
         let (store, _) = await Self.newPull(by: "octo")
