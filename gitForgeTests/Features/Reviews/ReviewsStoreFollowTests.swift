@@ -320,6 +320,46 @@ struct ReviewsStoreFollowTests {
         #expect(!Self.reads(harness).contains("team/extra"))
     }
 
+    @Test("Over the limit, a change that keeps or lowers the total goes through; one that raises it doesn't")
+    func overLimitNarrowing() async {
+        let harness = ReviewsHarness()
+        let busy = (0..<101).map { "org/repo-\($0)" }
+        let android = ["a", "b", "c"].map { "apps/\($0)/android/app" }
+        harness.browser.state {
+            $0.members = (busy + android).enumerated().map { ReviewsHarness.member("m\($0.offset)", $0.element) }
+        }
+        // Activity alone gives 101 repos; the pattern adds three more.
+        harness.activity.state {
+            $0.hits = busy.indices.map {
+                ActivityHit(ref: .projectId("m\($0)"), at: ReviewsHarness.date(1_789_000_000))
+            }
+        }
+        let wide = Self.pattern("apps/*/android/*")
+        Self.save(ReviewsConfig(patterns: [wide]), in: harness)
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.repos.count + store.droppedByLimit == 104)
+
+        let narrow = Self.pattern("apps/a/android/*")
+        let narrowing = await store.savePattern(narrow, replacing: wide)
+        #expect(narrowing == .done)
+        #expect(store.config.patterns == [narrow])
+        #expect(Self.saved(harness).patterns == [narrow])
+        #expect(store.repos.count + store.droppedByLimit == 102)
+
+        // Following by hand a repo the activity follows already keeps the total.
+        let followed = await store.follow(Self.found("org/repo-0"))
+        #expect(followed == .done)
+        #expect(store.config.manual == [ReviewsHarness.host("org/repo-0")])
+        #expect(store.repos.count + store.droppedByLimit == 102)
+
+        let widening = await store.savePattern(wide, replacing: narrow)
+        #expect(widening == .overLimit(total: 104))
+        #expect(store.config.patterns == [narrow])
+        #expect(Self.saved(harness).patterns == [narrow])
+        #expect(store.repos.count + store.droppedByLimit == 102)
+    }
+
     // MARK: Proposal
 
     /// Activity in three Android apps under `apps/`, and `extra` more Android

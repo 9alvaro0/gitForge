@@ -53,7 +53,8 @@ extension ReviewsStore {
     // MARK: Changing
 
     /// Follows `repo` by hand and shows it again if it was hidden (Ruling 5),
-    /// unless the inbox would then pass the limit (Ruling 6).
+    /// unless that takes the inbox over the limit and above what it follows
+    /// now (Ruling 6).
     func follow(_ repo: FoundRepo) async -> FollowOutcome {
         let key = FollowedRepos.key(repo.host)
         return await changeChecked { config in
@@ -91,8 +92,9 @@ extension ReviewsStore {
         await applyConfig(next)
     }
 
-    /// Accepts `pattern`, in place of `old` when editing one, unless the
-    /// inbox would then pass the limit (Ruling 6).
+    /// Accepts `pattern`, in place of `old` when editing one, unless that
+    /// takes the inbox over the limit and above what it follows now
+    /// (Ruling 6): narrowing a pattern goes through even over the limit.
     func savePattern(_ pattern: FollowPattern, replacing old: FollowPattern?) async -> FollowOutcome {
         await changeChecked { config in config = Self.saving(pattern, replacing: old, in: config) }
     }
@@ -105,8 +107,9 @@ extension ReviewsStore {
     }
 
     /// "Follow" on the proposal (Ruling 3): accepts its pattern and answers
-    /// it, unless the inbox would then pass the limit, which changes nothing.
-    /// Without a proposal there's nothing to do.
+    /// it, unless that takes the inbox over the limit and above what it
+    /// follows now, which changes nothing. Without a proposal there's nothing
+    /// to do.
     func acceptProposal() async -> FollowOutcome {
         guard let pattern = proposal?.pattern else { return .done }
         return await changeChecked { config in
@@ -213,17 +216,23 @@ extension ReviewsStore {
     }
 
     /// Applies `edit` to the settings unless the inbox would then follow more
-    /// than `FollowedRepos.limit` repos (Ruling 6), which changes nothing. An
-    /// edit that changes nothing is done at once. Before the first refresh
-    /// one runs first, so there's a round to count on; if there's still none
-    /// (no account, or a refresh already running), the settings are applied
-    /// unchecked, and that refresh merges with them.
+    /// than `FollowedRepos.limit` repos and more than it follows now (Ruling
+    /// 6, Ruling L), which changes nothing. Both totals are merges on the last
+    /// round, with the edited settings and with the current ones. So an inbox
+    /// already over the limit can still narrow a pattern, or follow by hand a
+    /// repo it follows already: the total stays or drops. An edit that changes
+    /// nothing is done at once. Before the first refresh one runs first, so
+    /// there's a round to count on; if there's still none (no account, or a
+    /// refresh already running), the settings are applied unchecked, and that
+    /// refresh merges with them.
     private func changeChecked(_ edit: (inout ReviewsConfig) -> Void) async -> FollowOutcome {
         if lastRound == nil { await refresh(force: true) }
         var next = config
         edit(&next)
         guard next != config else { return .done }
-        if let total = total(with: next), total > FollowedRepos.limit { return .overLimit(total: total) }
+        if let after = total(with: next), after > FollowedRepos.limit, let now = total(with: config), after > now {
+            return .overLimit(total: after)
+        }
         await applyConfig(next)
         return .done
     }
