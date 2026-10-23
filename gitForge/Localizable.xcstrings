@@ -3675,6 +3675,22 @@
         }
       }
     },
+    "Close %@ %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar %@ %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar %@ %@"
+          }
+        }
+      }
+    },
     "Close Repository" : {
       "localizations" : {
         "es" : {

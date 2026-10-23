@@ -30,7 +30,9 @@ struct ReviewOtherRow: View {
         .help(Text(verbatim: "\(item.repo.host.host)/\(item.repo.host.slug)"))
         // Level with the reference line: no CI badge in Reviews.
         .overlay(alignment: .topTrailing) {
-            IconButton(symbol: "xmark", size: 10, accessibilityLabel: String(localized: "Close"), action: onClose)
+            IconButton(symbol: "xmark", size: 10,
+                       accessibilityLabel: String(localized: "Close \(item.repo.host.repo) \(reference)"),
+                       action: onClose)
                 .help(String(localized: "Close"))
                 .padding(.top, Self.closeInset)
                 .padding(.trailing, Self.closeInset)
