@@ -107,11 +107,12 @@ struct ShellView: View {
         }
         // A pull refused over local changes asks instead of failing.
         .pullDiscardPrompt()
-        // A pasted link that waited for an account opens once the sheet to
-        // connect one closes (R3 Ruling 14).
+        // Once the sheet to connect an account closes, ⌘K searches the hosts
+        // that asked for one again and a pasted link that waited for one
+        // opens (R3 Ruling 14).
         .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
             guard closed else { return }
-            Task { await PaletteActionRouter(appState: appState).retryPendingLink() }
+            Task { await PaletteActionRouter(appState: appState).connectSheetClosed() }
         }
         // Same idea for success: commit, fetch, pull and push confirm what
         // landed, wherever they were started from.

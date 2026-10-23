@@ -216,6 +216,24 @@ struct ReviewsStoreSearchTests {
         #expect(Self.searches(harness).isEmpty)
     }
 
+    @Test("Once the sheet to connect an account closes, the searches that asked for one go; the others stay")
+    func forgetConnectSearches() async {
+        let harness = ReviewsHarness()
+        harness.account.status = .needsAttention(.expired)
+        Self.addAccount(to: harness, on: .gitHubDotCom, login: "marta", token: "t-gh")
+        let store = harness.makeStore()
+        await store.searchHost(Self.own, query: "lib")
+        await store.searchHost(HostingInstance.gitHubDotCom.id, query: "lib")
+        let nothing = HostSearchState(query: "lib", phase: .found(HostSearchResults()))
+        #expect(store.hostSearches[Self.own] == HostSearchState(query: "lib", phase: .connectAccount))
+        #expect(store.hostSearches[HostingInstance.gitHubDotCom.id] == nothing)
+
+        store.forgetConnectSearches()
+
+        #expect(store.hostSearches[Self.own] == nil)
+        #expect(store.hostSearches[HostingInstance.gitHubDotCom.id] == nothing)
+    }
+
     @Test("A search whose token is rejected renews it once; rejected again, it asks to connect the account")
     func searchRejected() async {
         let harness = ReviewsHarness()

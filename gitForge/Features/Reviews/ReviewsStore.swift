@@ -1033,6 +1033,14 @@ final class ReviewsStore {
 
     // MARK: Search all and found repos
 
+    /// Drops the searches that ended asking for an account, once the sheet to
+    /// connect one closes: ⌘K offers to search those hosts again instead of
+    /// the connect sheet. The other searches stay.
+    func forgetConnectSearches() {
+        let kept = hostSearches.filter { $0.value.phase != .connectAccount }
+        if kept.count != hostSearches.count { hostSearches = kept }
+    }
+
     /// Searches the whole of instance `instanceId` for `query`, trimmed (R3
     /// Ruling 12). Under `searchMinimum` characters, or on an instance with
     /// no account in the inbox, nothing is asked. `hostSearches` says it's

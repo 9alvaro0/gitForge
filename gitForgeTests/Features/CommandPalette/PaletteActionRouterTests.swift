@@ -194,12 +194,12 @@ struct PaletteActionRouterTests {
         #expect(app.ui.activeToast == nil)
     }
 
-    @Test("Retrying with no pending link changes nothing")
+    @Test("Closing the connect sheet with no pending link changes nothing")
     func retryWithoutPendingLink() async {
         let app = AppState.isolated()
         app.ui.workspaceSection = .history
 
-        await PaletteActionRouter(appState: app).retryPendingLink()
+        await PaletteActionRouter(appState: app).connectSheetClosed()
 
         #expect(app.ui.workspaceSection == .history)
         #expect(app.ui.connectAccountRequest == nil)
@@ -217,11 +217,29 @@ struct PaletteActionRouterTests {
         app.ui.connectAccountRequest = nil
         app.ui.workspaceSection = .history
 
-        await router.retryPendingLink()
+        await router.connectSheetClosed()
 
         #expect(app.ui.workspaceSection == .history)
         #expect(app.ui.connectAccountRequest == nil)
         #expect(app.reviews.pendingLink == nil)
+    }
+
+    @Test("Closing the connect sheet turns a search that asked for an account back into the row that searches")
+    func connectSheetClosedForgetsConnectSearches() async throws {
+        let app = AppState.isolated()
+        let instance = HostingInstance.gitLabDotCom
+        let expired = HostingAccount(instanceId: instance.id, login: "marta", method: .personalToken,
+                                     status: .needsAttention(.expired))
+        try app.accounts.addAccount(expired, secret: AccountSecret(accessToken: "test-pat-value"))
+        await app.reviews.searchHost(instance.id, query: "retry")
+        #expect(app.reviews.hostSearches[instance.id]?.phase == .connectAccount)
+
+        await PaletteActionRouter(appState: app).connectSheetClosed()
+
+        #expect(app.reviews.hostSearches[instance.id] == nil)
+        let rows = CommandPaletteBuilder.searchItems(for: "retry", instances: app.reviews.searchInstances,
+                                                     searches: app.reviews.hostSearches, followed: [])
+        #expect(rows.map(\.label) == ["Search all of gitlab.com"])
     }
 
     @Test("Adding an instance and opening a link may show a sheet, so ⌘↵ still closes the palette for them")

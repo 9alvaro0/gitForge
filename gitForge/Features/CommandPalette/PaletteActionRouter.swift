@@ -100,11 +100,13 @@ struct PaletteActionRouter {
         }
     }
 
-    /// Opens again the link that waited for an account, once the sheet to
-    /// connect one closes (R3 Ruling 14): Reviews and its outcome when the
-    /// inbox tried it; nothing when there was none or its instance still has
-    /// no account that signs.
-    func retryPendingLink() async {
+    /// The sheet to connect an account closed, whatever opened it: the host
+    /// searches that asked for an account go back to the row that searches,
+    /// and the link that waited for one is opened again (R3 Ruling 14):
+    /// Reviews and its outcome when the inbox tried it; nothing when there
+    /// was none or its instance still has no account that signs.
+    func connectSheetClosed() async {
+        appState.reviews.forgetConnectSearches()
         guard let outcome = await appState.reviews.retryPendingLink() else { return }
         appState.ui.workspaceSection = .reviews
         present(outcome)
