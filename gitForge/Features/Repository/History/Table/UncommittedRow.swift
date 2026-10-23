@@ -42,6 +42,9 @@ struct UncommittedRow: View {
                     .padding(.leading, theme.density.metrics.graph.firstLaneX - Self.squareSide / 2)
             }
             .frame(width: layout.graph, alignment: .leading)
+            // Like `CommitRow`'s gutter: the connector's canvas, as wide as the whole graph,
+            // clips at a capped column's sides and runs on past the top and bottom.
+            .clipShape(SideClip())
             Color.clear.frame(width: HistoryTableLayout.gap)
             Text("Uncommitted changes")
                 .textRole(.body)
