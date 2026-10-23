@@ -135,7 +135,7 @@ struct GraphColumnView: View {
         let isHovered = isHovered
         let overlapsJoints = !isDimmed
         let rowSpacing = rowSpacing
-        return Canvas { context, size in
+        return Canvas(rendersAsynchronously: lanes != nil && G5BenchEnv.slideAsync) { context, size in
             let benchStart = CACurrentMediaTime()
             defer { G5BenchCounters.shared.canvas(started: benchStart, moving: lanes != nil) }
             let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints,
@@ -190,7 +190,8 @@ nonisolated struct GraphRowPainter {
         // 12 pt or more apart, and cross nothing; without a gap there is no
         // band. Either way there is nothing to erase, and the row draws
         // straight into the context, with no layer.
-        guard style.metrics.crossingGap > 0, lanes != nil || Self.hasCurve(row) else {
+        guard style.metrics.crossingGap > 0, !(lanes != nil && G5BenchEnv.slideWithoutLayer),
+              lanes != nil || Self.hasCurve(row) else {
             strokeSteps(of: row, geometry: geometry, eraser: nil, in: &context)
             return
         }
