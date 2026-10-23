@@ -46,7 +46,7 @@ Que el grafo del historial sea el mejor de cualquier cliente git: muy visual, f�
 - Ramas remotas en el grafo, interruptor en la barra de filtros y contadores ↑N ↓N en los chips.
 - Paleta del grafo ampliada.
 - Arreglos de paso: el halo de selección recortado en densidad compacta, y el `abs()` de `GraphLayoutEngine.branchId(for:)`, que puede cerrar la app con `Int.min` (desaparece con el hash).
-- Animación al cambiar de rama, en la última fase y prescindible (§5.8).
+- Animación al cambiar de rama, en la última fase y prescindible (§5.8). **(Decidido en G5)** Se descartó tras medirla.
 
 ### No-objetivos
 
@@ -255,6 +255,14 @@ Todo lo anterior en los dos temas y las dos densidades. Con alto contraste, los 
 
 Al cambiar HEAD, las líneas se deslizan a su nueva columna en unos 0,3 s en lugar de saltar, emparejando cada línea por su nombre (o por su punta si no tiene). Sin animación con "Reducir movimiento". Va en la última fase y se descarta si penaliza el scroll.
 
+**(Decidido en G5)** Se descarta. Se midió un prototipo en Release, en un MacBook Pro M3 Pro a 120 Hz, con el repo sintético de 50.000 commits y una copia de gitForge. En él, cada fila en pantalla interpolaba su dibujo entre las columnas viejas y las nuevas durante 0,3 s, emparejando cada nodo por su commit y cada línea por el tramo que dibuja.
+- El scroll sin deslizamiento no cambia: es el mismo código.
+- El deslizamiento pierde fotogramas: 13 o 14 tardíos en los 0,45 s que siguen al cambio, frente a 2 sin animación. El scroll que coincide con él también empeora.
+- La causa: cada fila cuyo grafo cambia en un fotograma vuelve a pintar también su texto. Con unas 30 filas en pantalla son unos 15 ms más por fotograma. Ni una capa propia para el grafo, ni dibujarlo fuera del hilo principal, ni quitar el hueco de los cruces lo evitan.
+- La alternativa sería un único lienzo superpuesto al grafo visible mientras dura el deslizamiento. Exigiría un segundo camino de dibujo alineado al píxel con las filas, y no compensa para 0,3 s.
+
+Detalle en [`plans/G5-registro.md`](plans/G5-registro.md).
+
 ## 6. Integración
 
 | Pieza | Cambio |
@@ -304,7 +312,7 @@ Ajustadas al escribir los planes (`plans/`): el motor sale en pasos de fila a fi
 2. **G2 · Aspecto:** paleta ampliada, hueco en los cruces, estilo fantasma y halo en densidad compacta.
 3. **G3 · Remotas:** alcance, tronco remoto, interruptor, chips con ↑N ↓N.
 4. **G4 · Cambios sin commitear y stashes:** el conector, y la excepción de HEAD por detrás con cambios.
-5. **G5 · Animación** al cambiar de rama (prescindible).
+5. **G5 · Animación** al cambiar de rama (prescindible). **(Decidido en G5)** Descartada (§5.8).
 
 ## 10. Para quien construya
 
