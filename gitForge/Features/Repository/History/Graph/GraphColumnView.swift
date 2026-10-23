@@ -117,13 +117,23 @@ struct GraphColumnView: View {
 
     var body: some View {
         if let motion, let motionStart {
-            TimelineView(.animation) { timeline in
-                let elapsed = timeline.date.timeIntervalSince(motionStart) / GraphMotionState.duration
-                let progress = UnitCurve.easeInOut.value(at: min(max(elapsed, 0), 1))
-                canvas(lanes: GraphRowLanes(style: style, motion: motion, progress: progress))
+            if G5BenchEnv.isolation.isEmpty {
+                sliding(motion: motion, start: motionStart)
+            } else {
+                sliding(motion: motion, start: motionStart).drawingGroup()
             }
+        } else if G5BenchEnv.isolation == "always" {
+            canvas(lanes: nil).drawingGroup()
         } else {
             canvas(lanes: nil)
+        }
+    }
+
+    private func sliding(motion: GraphRowMotion, start: Date) -> some View {
+        TimelineView(.animation) { timeline in
+            let elapsed = timeline.date.timeIntervalSince(start) / GraphMotionState.duration
+            let progress = UnitCurve.easeInOut.value(at: min(max(elapsed, 0), 1))
+            canvas(lanes: GraphRowLanes(style: style, motion: motion, progress: progress))
         }
     }
 

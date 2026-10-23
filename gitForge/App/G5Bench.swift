@@ -21,6 +21,8 @@ nonisolated enum G5BenchEnv {
     static var slideWithoutLayer: Bool { env["GF_G5_NOLAYER"] == "1" }
     /// Prototype only: sliding canvases render asynchronously.
     static var slideAsync: Bool { env["GF_G5_ASYNC"] == "1" }
+    /// Prototype only: the graph cell draws in its own layer while it slides (`group`) or always (`always`).
+    static var isolation: String { env["GF_G5_GROUP"] ?? "" }
     /// Scroll with synthetic wheel events instead of moving the clip view.
     static var wheel: Bool { env["GF_BENCH_WHEEL"] != "0" }
 }
