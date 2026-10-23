@@ -226,6 +226,46 @@ struct ReviewsStorePaletteTests {
         #expect(store.selectedItem?.id == draft)
     }
 
+    @Test("A selection made or kept from outside the list asks it to scroll to the row, the same row again too; a click doesn't")
+    func revealRequests() async throws {
+        let (store, _) = await Self.loaded()
+        #expect(store.revealRequest == nil)
+
+        let own = Self.id(Self.api, 2)
+        store.reveal(own)
+        let first = try #require(store.revealRequest)
+        #expect(first.id == own)
+
+        store.reveal(own)
+        #expect(store.revealRequest?.id == own)
+        #expect(store.revealRequest != first)
+
+        // A click: the row is in view already.
+        let beforeClick = store.revealRequest
+        store.selectedID = Self.id(Self.app, 4)
+        #expect(store.revealRequest == beforeClick)
+
+        // Narrowing to its repo keeps the selection, and brings it into view.
+        store.showRepo(Self.app)
+        let narrowed = try #require(store.revealRequest)
+        #expect(narrowed.id == Self.id(Self.app, 4))
+        #expect(narrowed != beforeClick)
+
+        // So does showing every repo again, in the half that shows it.
+        store.showAllRepos()
+        #expect(store.filter == .mine)
+        #expect(store.revealRequest?.id == Self.id(Self.app, 4))
+        #expect(store.revealRequest != narrowed)
+
+        // Nothing selected, or nothing found: nothing to bring into view.
+        store.selectedID = nil
+        let idle = store.revealRequest
+        store.showRepo(Self.api)
+        store.showAllRepos()
+        #expect(store.reveal(Self.id(Self.api, 99)) == false)
+        #expect(store.revealRequest == idle)
+    }
+
     @Test("Revealing a row that isn't there says no and changes nothing")
     func revealUnknown() async {
         let (store, _) = await Self.loaded()

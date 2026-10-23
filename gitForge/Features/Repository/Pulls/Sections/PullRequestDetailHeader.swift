@@ -122,9 +122,11 @@ struct PullRequestDetailHeader: View {
     }
 
     /// "author wants to merge N commits into target from source", wrapping
-    /// onto a second line rather than cutting the branch names.
+    /// onto another line rather than cutting the branch names. A name wider
+    /// than the whole column is cut in the middle, on one line, instead of
+    /// running past the column's edge.
     private var mergeLine: some View {
-        FlowLayout(spacing: Spacing.s6) {
+        FlowLayout(spacing: Spacing.s6, fitsWideItems: true) {
             if let author = pullRequest.authorLogin {
                 Avatar(name: author, size: 18, colorSeed: author)
                 Text(author)
@@ -158,6 +160,7 @@ struct PullRequestDetailHeader: View {
         }
     }
 
+    /// The whole name in its tooltip, for when it's cut.
     private func branchChip(_ name: String) -> some View {
         Text(name)
             .font(AppFont.font(.monoSmall, weight: .semibold, monoFamily: theme.monoFont))
@@ -168,6 +171,7 @@ struct PullRequestDetailHeader: View {
             .frame(height: 18)
             .background(RoundedRectangle(cornerRadius: Radius.chip).fill(theme.colors.fillControl))
             .overlay(RoundedRectangle(cornerRadius: Radius.chip).strokeBorder(theme.colors.strokeControl, lineWidth: 1))
+            .help(name)
     }
 
     private var reviewersView: some View {

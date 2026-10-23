@@ -50,4 +50,41 @@ struct FuzzyMatcherTests {
         #expect(FuzzyMatcher.match("🚀d", in: "🚀 Deploy")?.indices == [0, 2])
         #expect(FuzzyMatcher.match("x", in: "👩‍👩‍👧 family") == nil)
     }
+
+    // MARK: Contiguous runs
+
+    @Test("A contiguous run matches; letters apart don't")
+    func substring() {
+        #expect(FuzzyMatcher.substringMatch("carousel", in: "acme/apps/carousel")?.indices == Array(10...17))
+        #expect(FuzzyMatcher.substringMatch("cl", in: "Cache LaneLayout") == nil)
+    }
+
+    @Test("A run at a word start wins over an earlier one inside a word; otherwise the first one wins")
+    func substringBestOccurrence() {
+        #expect(FuzzyMatcher.substringMatch("ca", in: "aca ca")?.indices == [4, 5])
+        #expect(FuzzyMatcher.substringMatch("el", in: "carousel model")?.indices == [6, 7])
+    }
+
+    @Test("Scored as match scores: a point a letter, the word-start bonus for the first, the consecutive bonus for the rest, less half the length")
+    func substringScore() {
+        // 2 letters + 8 (word start) + 5 (one consecutive) - 6 / 2
+        #expect(FuzzyMatcher.substringMatch("ca", in: "aca ca")?.score == 12)
+        // 2 letters + 5 (one consecutive) - 14 / 2
+        #expect(FuzzyMatcher.substringMatch("el", in: "carousel model")?.score == 0)
+        #expect(FuzzyMatcher.substringMatch("push", in: "push now") == FuzzyMatcher.match("push", in: "push now"))
+    }
+
+    @Test("Runs ignore case and accents and count characters as match does")
+    func substringFolding() {
+        #expect(FuzzyMatcher.substringMatch("ACT2", in: "feature/act2-upload")?.indices == Array(8...11))
+        #expect(FuzzyMatcher.substringMatch("matriculas", in: "las matrículas")?.indices == Array(4...13))
+        #expect(FuzzyMatcher.substringMatch("dep", in: "🚀 Deploy main")?.indices == [2, 3, 4])
+    }
+
+    @Test("An empty word matches with no letters; one that is absent or longer than the text matches nothing")
+    func substringEdges() {
+        #expect(FuzzyMatcher.substringMatch("", in: "Fetch") == FuzzyMatch(score: 0, indices: []))
+        #expect(FuzzyMatcher.substringMatch("fetching", in: "Fetch") == nil)
+        #expect(FuzzyMatcher.substringMatch("x", in: "Fetch") == nil)
+    }
 }
