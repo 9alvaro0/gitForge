@@ -144,6 +144,10 @@ final class G5BenchRunner {
 
     func run() async {
         guard let path = G5BenchEnv.repo else { return }
+        // No App Nap or timer coalescing while measuring.
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical],
+                                                             reason: "G5 bench")
+        defer { ProcessInfo.processInfo.endActivity(activity) }
         do {
             try await appState.openRepository(at: URL(fileURLWithPath: path))
         } catch {
