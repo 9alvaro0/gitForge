@@ -159,7 +159,11 @@ final class G5BenchRunner {
             let frame = screen.visibleFrame.insetBy(dx: 6, dy: 6)
             window.setFrame(frame, display: true)
         }
-        NSApp.activate(ignoringOtherApps: true)
+        // Launched from a shell the app can't take focus; a floating window stays on screen,
+        // unoccluded, so it keeps rendering and its display link keeps firing.
+        window.level = .floating
+        window.orderFrontRegardless()
+        NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         try? await Task.sleep(for: .seconds(1))
         let scenario = G5BenchEnv.scenario
