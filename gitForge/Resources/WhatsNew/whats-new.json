@@ -1,3 +1,141 @@
 {
-  "releases": []
+  "releases": [
+    {
+      "version": "1.4.0",
+      "highlights": [
+        {
+          "symbol": "tray.full",
+          "title": {
+            "en": "Reviews without cloning",
+            "es": "Revisiones sin clonar",
+            "pt-PT": "Revisões sem clonar"
+          },
+          "body": {
+            "en": "The new Reviews section lists your team's open pull and merge requests and opens them without cloning the repository.",
+            "es": "La nueva sección Revisiones reúne las pull requests y merge requests abiertas de tu equipo y las abre sin clonar el repositorio.",
+            "pt-PT": "A nova secção Revisões reúne os pull requests e merge requests abertos da sua equipa e abre-os sem clonar o repositório."
+          }
+        },
+        {
+          "symbol": "checkmark.bubble",
+          "title": {
+            "en": "Review pull requests in gitForge",
+            "es": "Revisa pull requests en gitForge",
+            "pt-PT": "Reveja pull requests no gitForge"
+          },
+          "body": {
+            "en": "Approve, request changes, comment on any line in the Files tab and merge, without opening GitHub or GitLab.",
+            "es": "Aprueba, pide cambios, comenta cualquier línea en la pestaña Archivos y fusiona, sin abrir GitHub ni GitLab.",
+            "pt-PT": "Aprove, peça alterações, comente qualquer linha no separador Ficheiros e integre, sem abrir o GitHub nem o GitLab."
+          }
+        },
+        {
+          "symbol": "magnifyingglass",
+          "title": {
+            "en": "Pull requests in ⌘K",
+            "es": "Pull requests en ⌘K",
+            "pt-PT": "Pull requests em ⌘K"
+          },
+          "body": {
+            "en": "Find your team's pull requests from the command palette, open one by pasting its link, or search everything on a server.",
+            "es": "Encuentra las pull requests de tu equipo desde la paleta de comandos, abre una pegando su enlace o busca en todo un servidor.",
+            "pt-PT": "Encontre os pull requests da sua equipa na paleta de comandos, abra um colando a ligação ou pesquise em todo um servidor."
+          }
+        },
+        {
+          "symbol": "eye",
+          "title": {
+            "en": "Choose what Reviews follows",
+            "es": "Elige qué sigue Revisiones",
+            "pt-PT": "Escolha o que Revisões segue"
+          },
+          "body": {
+            "en": "Follow repositories by path pattern or by hand, hide the ones you don't want, and manage them in Settings › Reviews.",
+            "es": "Sigue repos por patrón de ruta o a mano, oculta los que no quieras y gestiónalos en Ajustes › Revisiones.",
+            "pt-PT": "Siga repositórios por padrão de caminho ou manualmente, oculte os que não quiser e faça a gestão em Definições › Revisões."
+          }
+        },
+        {
+          "symbol": "point.3.connected.trianglepath.dotted",
+          "title": {
+            "en": "A clearer history graph",
+            "es": "Un grafo del historial más claro",
+            "pt-PT": "Um grafo do histórico mais claro"
+          },
+          "body": {
+            "en": "History draws your branch as a straight line, keeps rows in place as more history loads and joins Uncommitted changes to your commit.",
+            "es": "Historial dibuja tu rama en línea recta, mantiene las filas en su sitio al cargar más historia y une Cambios sin confirmar a tu commit.",
+            "pt-PT": "O Histórico desenha o seu ramo em linha reta, mantém as linhas no lugar ao carregar mais histórico e liga Alterações sem commit ao seu commit."
+          }
+        },
+        {
+          "symbol": "arrow.triangle.branch",
+          "title": {
+            "en": "See what a pull would bring",
+            "es": "Mira qué traería un pull",
+            "pt-PT": "Veja o que um pull traria"
+          },
+          "body": {
+            "en": "Commits that are only on the server show as dashed ghosts in History, each branch shows how far ahead or behind its remote it is, and the Remote branches toggle adds the rest.",
+            "es": "Los commits que solo están en el servidor aparecen como fantasmas discontinuos en Historial, cada rama indica cuánto va por delante o por detrás de su remota y el interruptor Ramas remotas añade el resto.",
+            "pt-PT": "Os commits que só existem no servidor aparecem como fantasmas tracejados no Histórico, cada ramo indica quanto está à frente ou atrás do remoto e a opção Ramos remotos acrescenta os restantes."
+          }
+        }
+      ],
+      "fixes": [
+        {
+          "en": "Creating a branch with checkout, including Check out branch on a pull request, no longer fails.",
+          "es": "Crear una rama haciendo checkout, también con Hacer checkout de la rama en una pull request, ya no falla.",
+          "pt-PT": "Criar um ramo com checkout, incluindo Fazer checkout do ramo num pull request, já não falha."
+        },
+        {
+          "en": "After checking out a commit, gitForge no longer keeps showing the previous branch as current.",
+          "es": "Tras hacer checkout de un commit, gitForge ya no sigue mostrando la rama anterior como actual.",
+          "pt-PT": "Depois de fazer checkout de um commit, o gitForge já não continua a mostrar o ramo anterior como atual."
+        },
+        {
+          "en": "Long branch names in a pull request's header are truncated in the middle instead of running past it.",
+          "es": "Los nombres de rama largos en la cabecera de una pull request se recortan por el medio en vez de salirse.",
+          "pt-PT": "Os nomes de ramo longos no cabeçalho de um pull request são truncados ao meio em vez de saírem dos limites."
+        },
+        {
+          "en": "GitLab merge requests show as !N, and large numbers no longer get a thousands separator.",
+          "es": "Las merge requests de GitLab se muestran como !N y los números grandes ya no llevan separador de miles.",
+          "pt-PT": "Os merge requests do GitLab aparecem como !N e os números grandes já não têm separador de milhares."
+        },
+        {
+          "en": "History rows no longer draw a stale graph after a reload.",
+          "es": "Las filas de Historial ya no dibujan un grafo desfasado tras recargar.",
+          "pt-PT": "As linhas do Histórico já não desenham um grafo desatualizado após recarregar."
+        },
+        {
+          "en": "Lines in the history graph no longer show a notch on every row on non-Retina displays.",
+          "es": "Las líneas del grafo del historial ya no muestran una muesca en cada fila en pantallas no Retina.",
+          "pt-PT": "As linhas do grafo do histórico já não mostram um entalhe em cada linha em ecrãs não Retina."
+        }
+      ],
+      "improvements": [
+        {
+          "en": "When local changes block a pull, gitForge offers to discard only the files in the way and pull again.",
+          "es": "Cuando tus cambios locales bloquean un pull, gitForge ofrece descartar solo los archivos que estorban y volver a hacer pull.",
+          "pt-PT": "Quando alterações locais bloqueiam um pull, o gitForge propõe descartar apenas os ficheiros que impedem e fazer pull de novo."
+        },
+        {
+          "en": "Stashes made or dropped from the terminal show up in History without refreshing.",
+          "es": "Los stashes creados o eliminados desde la terminal aparecen en Historial sin refrescar.",
+          "pt-PT": "Os stashes criados ou removidos no terminal aparecem no Histórico sem atualizar."
+        },
+        {
+          "en": "A fetch keeps your selection and scroll position in History.",
+          "es": "Un fetch mantiene tu selección y tu posición en Historial.",
+          "pt-PT": "Um fetch mantém a seleção e a posição no Histórico."
+        },
+        {
+          "en": "gitForge shows what's new the first time it opens after an update, and Help › What's New in gitForge shows it again.",
+          "es": "gitForge muestra las novedades la primera vez que se abre tras una actualización, y Ayuda › Novedades de gitForge las vuelve a mostrar.",
+          "pt-PT": "O gitForge mostra as novidades na primeira vez que abre após uma atualização, e Ajuda › Novidades do gitForge volta a mostrá-las."
+        }
+      ]
+    }
+  ]
 }
