@@ -31,6 +31,44 @@ Suite completa tras los arreglos: 2046 pasan, 0 fallan, 1 fallo esperado (11 pru
 
 Menores que se quedan: los de la lista de "Menores diferidos" de abajo, más tres que salieron de la revisión acotada (el comentario desfasado, los enlaces solapados y la PR mergeada más allá de las 50 últimas).
 
+## Prueba real (2026-10-23)
+
+Alvaro probó la fase en la app con sus cuentas reales: un GitLab propio y github.com.
+
+Funcionó:
+
+- En ⌘K, sin repo abierto, una MR se encuentra por una palabra del título, por la rama, por el autor y por `!N`.
+- Un repo "Not cloned" de ⌘K abre Revisiones filtrada por él, con "Clone repository…".
+- Con la bandeja filtrada y una PR tuya elegida, la × del filtro deja el detalle y pasa el selector a Mine (F1).
+- El enlace pegado de una MR de GitLab de un repo que no sigue se abre en Otras y se cierra con su ×.
+- El enlace de una PR de github.com se abre.
+- El enlace de una instancia sin declarar ofrece añadirla.
+- "Open in repository" sobre una MR mergeada abre la lista Closed del repo con ella elegida (F4).
+- Los separadores de ⌘K se ven bien en oscuro: lo de las capturas era cosa de la captura.
+- En español, la barra del repo filtrado con "Clonar repositorio…" cabe a unos 320 pt.
+
+No se pudo probar "Abrir en el repositorio" en la barra filtrada: desde ⌘K solo se filtran repos sin clonar, así que la barra siempre ofrece clonar.
+
+Salieron tres fallos. Se arreglaron en la rama `fix/reviews-r2-real-test`, con un commit cada uno:
+
+1. **⌘K listaba PRs que no tenían nada que ver.** Escribiendo `fix`, salían primero PRs con la f, la i y la x sueltas por el título. Con el nombre de un repo (un trozo de su ruta), salían PRs de otros repos por encima de las suyas. Con `!N`, la MR buena salía primera, pero también una PR de github.com cuya rama de dependabot tenía esas cifras sueltas en un hash.
+   - **Causa:** cada palabra se buscaba con `FuzzyMatcher.match`, que acepta letras sueltas en orden. Además coge la primera letra que encuentra, así que puntúa mal una palabra que sí está entera en la ruta del repo si sus letras salen antes en esa ruta.
+   - **Ahora:** en las PRs (los elementos con keywords), cada palabra tiene que estar entera y seguida en el título o en una keyword (ruta del repo, rama, autor), sin mirar mayúsculas ni acentos. Puntúa su mejor aparición con las mismas piezas que `FuzzyMatcher`: 1 por letra, 8 si empieza palabra, 5 por cada letra seguida y menos la mitad del largo del campo. Así gana una palabra que empieza palabra en un campo corto. El número exacto sigue primero. Acciones, ramas, commits, ficheros y repos siguen con la búsqueda de siempre. La función nueva es `FuzzyMatcher.substringMatch`.
+   - **Tests:** de 6 nuevos en `PaletteSearchTests` y `CommandPaletteSectionsTests`, 4 fallaban antes del arreglo; los otros 2 ya pasaban y se quedan de guarda. Otros 5 en `FuzzyMatcherTests` para la función nueva. Ningún test anterior dependía de las letras sueltas.
+2. **Una PR elegida desde fuera de la lista quedaba fuera de la vista.** Con la bandeja en Mine, el enlace de una MR de otra persona la elegía. Su fila iba a Otras, que se ven en Team y en Mine, pero quedaba abajo del todo, sin verse. Al quitar el filtro con una PR tuya elegida, el selector pasaba a Mine, pero la lista no bajaba hasta ella.
+   - **Ahora:** cuando la bandeja elige una PR desde fuera (un enlace que llega, una PR elegida en ⌘K, la × del filtro, o filtrar por el repo de la elegida), la lista se mueve lo justo para que se vea la fila, y nada si ya se ve. Una PR de un repo seguido pasa antes a la mitad que la enseña, como dice la Ruling 8. Una Otra deja Team/Mine como está, porque se ve en las dos. Un clic en una fila no cambia la mitad ni mueve la lista.
+   - **Las cabeceras fijadas:** al subir hasta una fila moviéndose solo lo justo, la fila quedaría debajo de la cabecera fijada de su repo. Por eso, tras traerla a la vista, la lista hace lo mismo con lo que tiene justo encima: la fila anterior de su grupo o, si es la primera, la cabecera del grupo. Al bajar, o con la fila ya a la vista, eso ya se ve y no se mueve nada.
+   - **Dónde:** la petición está en el store (`revealRequest`) y el desplazamiento en la vista (`ScrollViewReader` en `ReviewsList`).
+   - **Tests:** 5 nuevos, sin cambiar ninguno de antes. En `ReviewsStoreOthersTests`: el enlace de una PR de un repo seguido pasa a la mitad que la enseña, de Mine a Team y de Team a Mine; el de una Otra deja la mitad como está y pide verla; el de una Otra ya abierta la vuelve a pedir; y un clic en una Otra no cambia la mitad ni pide nada. En `ReviewsStorePaletteTests`: lo que piden `reveal`, `showRepo` y `showAllRepos`, y que un clic no pide nada. Antes del arreglo no pasaban, salvo el del clic, que se queda de guarda.
+   - **Capturas fuera de pantalla:** un enlace que llega con Mine puesto, la × del filtro, una PR elegida en ⌘K desde Mine, la lista que aparece con algo ya elegido, un clic, una fila ya a la vista, y subir desde abajo del todo hasta la primera y la segunda fila de un grupo.
+3. **Una rama muy larga se salía de la cabecera del detalle.** En "wants to merge … into … from …", el chip de la rama pasaba del borde derecho de la columna.
+   - **Causa:** `FlowLayout` coloca cada elemento con su ancho ideal, así que el chip nunca se cortaba.
+   - **Ahora:** con `fitsWideItems`, que solo usa esa línea, un elemento más ancho que la línea recibe el ancho de la línea. El chip se corta por el medio, en una línea, y el nombre entero sale en su tooltip. Además, `FlowLayout` ya no cuenta en su ancho el espacio detrás del último elemento de una línea. La pantalla Pull requests del repo usa la misma cabecera y también queda arreglada.
+   - **Tests:** antes del arreglo, la cabecera medía 637 pt en columnas de 520 y de 320 pt. Hay 3 tests nuevos de `FlowLayout`.
+   - **Capturas:** a 520 y 320 pt, en claro y oscuro, con la rama larga de origen o de destino y con una rama corta.
+
+Suite completa tras los arreglos: 2179 pasan, 0 fallan y 1 fallo esperado. El build no da ningún aviso de nuestros ficheros.
+
 ## Desviaciones del spec
 
 - **Nombre del autor (Ruling 12):** el spec (§4.4) pide buscar por login y nombre. GitLab da el nombre en la lista de MRs y se guarda en `PullRequest.authorName`. La lista de PRs de GitHub no lo trae, y pedirlo usuario a usuario gastaría cuota: en GitHub se busca solo por login.
@@ -44,21 +82,21 @@ Menores que se quedan: los de la lista de "Menores diferidos" de abajo, más tre
 - **Las Otras de un mismo repo comparten cuenta (tarea 5):** un repo que no sigues tiene un solo `ReviewRepo` por clave. Si se lee otro enlace de ese repo con otra cuenta, las Otras anteriores pasan a esa cuenta y pierden su store de detalle, porque un store lee con una sola cuenta.
 - **"Open in repository" de una PR mergeada o cerrada abre la lista Closed (F4):** la Ruling 13 de R1 ponía el ámbito del repo en Open. Ahora `AppState.openPullRequest` recibe el estado de la PR (sin valor por defecto) y elige Closed o Open.
 - **Enlace de GitLab más estricto (F6):** la Ruling 1 tomaba como repo todo lo que va antes de `merge_requests/N`. Ahora, si esa ruta aún lleva un segmento `-` (`/-/blob/main/merge_requests/5`), no es un enlace ni una sugerencia.
+- **Cada palabra se busca seguida en las PRs (prueba real, arreglo 1):** la Ruling 3 casaba cada palabra con `FuzzyMatcher`, que acepta letras sueltas. Con datos reales eso sacaba PRs que no tenían nada que ver. Ahora cada palabra tiene que estar seguida en el título o en una keyword. El spec deja la forma de buscar al constructor (§4.4).
 
 ## Pendiente para R3 y para Alvaro
 
 ### Prueba real con Alvaro (no la puede hacer el agente)
 
-Lo visual se miró con previews y capturas fuera de pantalla, con datos inventados, en claro y oscuro y a 320 y 380 pt. Ninguna tarea probó nada con cuentas reales. Falta:
+La prueba del 2026-10-23 cubrió casi toda la lista (ver "Prueba real" arriba). Los tres arreglos se comprobaron con tests y capturas fuera de pantalla, con datos inventados, pero no con las cuentas reales. Falta:
 
-1. En ⌘K, sin repo abierto: encontrar una MR de su GitLab self-managed por una palabra del título, por la ruta del repo, por la rama, por el autor y por `!N`.
-2. Pegar el enlace de una MR de un repo que no sigue: se abre en Otras, se revisa y se cierra con la ×.
-3. Pegar el enlace de una PR de github.com y el de una instancia sin declarar (se ofrece añadirla).
-4. Elegir en Repositories un repo "Not cloned": Revisiones sale filtrada, con "Clone repository…".
-5. Con la bandeja filtrada por un repo, elegir una PR tuya y pulsar la ×: el detalle se queda y el selector pasa a la mitad que la enseña, Mine si es tuya (F1).
-6. Pegar el enlace de una MR ya mergeada de un repo que está en gitForge y pulsar "Open in repository": abre la lista Closed del repo y selecciona la MR (F4).
-7. Mirar los separadores de ⌘K en oscuro: en las capturas salían blancos. Ese código no se tocó y puede ser un efecto de la captura, pero no se comprobó en la app real.
-8. Cambiar la app a español y a portugués y mirar la barra del repo filtrado a 320 pt. "Abrir en el repositorio" y "Abrir no repositório" son unos 25 pt más anchos que el texto en inglés y la ruta se queda con poco sitio. Nunca se capturó; solo se comprobó que las cadenas existen en los dos idiomas.
+1. Repetir con las cuentas reales lo que falló:
+   - en ⌘K, buscar `fix`, el nombre de un repo y `!N`;
+   - con la bandeja en Mine, pegar el enlace de una MR de otra persona;
+   - quitar el filtro de repo con una PR elegida que queda lejos en la lista;
+   - abrir una MR con una rama muy larga.
+2. Cambiar la app a portugués y mirar la barra del repo filtrado a 320 pt. En español ya cabe.
+3. "Abrir en el repositorio" en la barra filtrada, que desde ⌘K no se alcanza. Puede que se vea al clonar el repo desde la barra filtrada, si el refresco siguiente encuentra el clon con el filtro aún puesto. En ese caso, mirar que cabe a 320 pt en español y en portugués: "Abrir en el repositorio" y "Abrir no repositório" son unos 25 pt más anchos que el texto en inglés.
 
 ### Menores diferidos
 
@@ -78,6 +116,7 @@ Comportamiento a pulir:
 - Leer otra Otra del mismo repo con otra cuenta cambia la cuenta de las anteriores y tira su store de detalle.
 - `suggestion` ofrece añadir una instancia con formas que `parse` rechazaría en un host declarado (una ruta de repo de un solo segmento o vacía). Una ruta con `%2F` parte un segmento, y `/pull/7.diff` no se reconoce.
 - La fila de enlace fijada se crea con un `UUID` nuevo en cada pintado, y la vista la recrea. Nada depende de ello hoy.
+- Volver a elegir desde fuera una fila que ya se ve cerca de arriba mueve un poco la lista (hasta unos 20 pt): el segundo paso del desplazamiento (prueba real, arreglo 2) trae a la vista también lo que tiene encima.
 
 Textos y accesibilidad:
 - La clave vieja del placeholder de ⌘K ("Search actions, repositories, branches, commits, files…") queda sin uso en `Localizable.xcstrings`.
@@ -86,7 +125,7 @@ Textos y accesibilidad:
 
 Limpieza:
 - `ReviewsRepoFilterBar` repite la correspondencia de `ReviewRepoAction` y el manejo de error de `openPullRequest` que ya están en `ReviewsView` y en `AppState`.
-- En `PaletteSearch.swift`, una línea pasa de 120 columnas y `number(in:)` se vuelve a calcular por cada elemento.
+- En `PaletteSearch.swift`, `number(in:)` se vuelve a calcular por cada elemento. La línea de más de 120 columnas se fue con el arreglo 1 de la prueba real.
 - `isListed` y `visibleOthers` viven en la extensión de la paleta, lejos de `others`.
 
 ### Alcance de R3 (spec §6)

@@ -99,6 +99,14 @@ nonisolated struct PendingLink: Equatable, Sendable {
     let number: Int
 }
 
+/// A row the inbox's list scrolls into view (`ReviewsStore.revealRequest`).
+/// `serial` tells two requests for the same row apart: picking it again
+/// brings it back into view.
+nonisolated struct ReviewsRevealRequest: Equatable, Sendable {
+    let id: InboxPull.ID
+    let serial: UInt64
+}
+
 /// What opening a pull request's link came to (R2 Rulings 10 and 11).
 nonisolated enum LinkOpenOutcome: Equatable, Sendable {
     /// A row of the inbox, a followed one or an Other.

@@ -3,7 +3,8 @@ import SwiftUI
 /// Left column of Reviews: Team / Mine, when the inbox was last read and
 /// Refresh; the repo the inbox is narrowed to, if any; the notices that hold
 /// for the whole inbox; then the open pull requests grouped by repo (Rulings
-/// 8 and 9) and the Others opened from a link (R2 Ruling 9).
+/// 8 and 9) and the Others opened from a link (R2 Ruling 9). A row selected
+/// from outside the list scrolls into view (`ReviewsStore.revealRequest`).
 struct ReviewsList: View {
     let store: ReviewsStore
     let onSelect: (InboxPull) -> Void
@@ -127,46 +128,89 @@ struct ReviewsList: View {
                            title: String(localized: "No open pull requests in the repositories you follow."))
             }
         case .groups(let groups, let others):
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
-                    ForEach(groups) { group in
-                        Section {
-                            ForEach(group.pulls) { item in
-                                PullRequestRow(
-                                    pullRequest: item.pull,
-                                    hostLabel: nil,
-                                    reference: item.repo.host.provider.reference(item.pull.number),
-                                    ci: nil,
-                                    isSelected: store.selectedID == item.id,
-                                    onSelect: { onSelect(item) }
-                                )
-                            }
-                            if let error = group.error {
-                                errorRow(error)
-                            }
-                        } header: {
-                            ReviewGroupHeader(repo: group.repo)
-                        }
-                    }
-                    if !others.isEmpty {
-                        Section {
-                            ForEach(others) { item in
-                                ReviewOtherRow(
-                                    item: item,
-                                    isSelected: store.selectedID == item.id,
-                                    onSelect: { onSelect(item) },
-                                    onClose: { store.closeOther(item.id) }
-                                )
-                            }
-                        } header: {
-                            ReviewOthersHeader()
-                        }
-                    }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    rows(groups: groups, others: others)
                 }
-                .padding(.horizontal, Spacing.s8)
-                .padding(.bottom, Spacing.s8)
+                // A row selected from outside the list (⌘K, a link, the × of
+                // the repo filter) may be far down, or in the half just
+                // switched to. A click leaves the list where it is.
+                .onChange(of: store.revealRequest) { _, request in
+                    if let request { bringIntoView(request.id, groups: groups, others: others, proxy: proxy) }
+                }
+                // The list shows up with a selection made elsewhere (a ⌘K
+                // pick opens Reviews) or kept from before: that row in view,
+                // once the rows are laid out.
+                .onAppear {
+                    guard let id = store.selectedID else { return }
+                    Task { bringIntoView(id, groups: groups, others: others, proxy: proxy) }
+                }
             }
         }
+    }
+
+    /// Scrolls only as much as it takes to show row `id`, and not at all
+    /// when it's in view. Then, once laid out, the same for what sits just
+    /// above it (`ReviewsScrollAbove`): scrolled up to, the row alone would
+    /// end under its group's pinned heading; scrolled down to, or in view
+    /// already, what's above it is in view too and nothing moves. A newer
+    /// request by then cancels that second step: it has its own.
+    private func bringIntoView(_ id: InboxPull.ID, groups: [ReviewGroup], others: [InboxPull],
+                               proxy: ScrollViewProxy) {
+        proxy.scrollTo(id)
+        guard let above = ReviewsScrollAbove(id, groups: groups, others: others) else { return }
+        let request = store.revealRequest
+        Task {
+            guard store.revealRequest == request else { return }
+            switch above {
+            case .row(let row): proxy.scrollTo(row)
+            case .heading(let heading): proxy.scrollTo(heading)
+            }
+        }
+    }
+
+    private func rows(groups: [ReviewGroup], others: [InboxPull]) -> some View {
+        LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
+            ForEach(groups) { group in
+                Section {
+                    ForEach(group.pulls) { item in
+                        PullRequestRow(
+                            pullRequest: item.pull,
+                            hostLabel: nil,
+                            reference: item.repo.host.provider.reference(item.pull.number),
+                            ci: nil,
+                            isSelected: store.selectedID == item.id,
+                            onSelect: { onSelect(item) }
+                        )
+                        .id(item.id)
+                    }
+                    if let error = group.error {
+                        errorRow(error)
+                    }
+                } header: {
+                    ReviewGroupHeader(repo: group.repo)
+                        .id(ReviewsHeading.group(group.id))
+                }
+            }
+            if !others.isEmpty {
+                Section {
+                    ForEach(others) { item in
+                        ReviewOtherRow(
+                            item: item,
+                            isSelected: store.selectedID == item.id,
+                            onSelect: { onSelect(item) },
+                            onClose: { store.closeOther(item.id) }
+                        )
+                        .id(item.id)
+                    }
+                } header: {
+                    ReviewOthersHeader()
+                        .id(ReviewsHeading.others)
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.s8)
+        .padding(.bottom, Spacing.s8)
     }
 
     /// Why the repo's pull requests couldn't be read, in place of its rows.
@@ -183,6 +227,30 @@ struct ReviewsList: View {
         .padding(.horizontal, Spacing.s12)
         .padding(.vertical, Spacing.s6)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A heading of the inbox's list, as `ScrollViewProxy.scrollTo` finds it.
+private enum ReviewsHeading: Hashable {
+    case group(ReviewGroup.ID)
+    case others
+}
+
+/// What sits just above a row of the list: the row before it in its group,
+/// or, for a group's first row, the group's heading.
+private enum ReviewsScrollAbove {
+    case row(InboxPull.ID)
+    case heading(ReviewsHeading)
+
+    init?(_ id: InboxPull.ID, groups: [ReviewGroup], others: [InboxPull]) {
+        for group in groups {
+            if let index = group.pulls.firstIndex(where: { $0.id == id }) {
+                self = index > 0 ? .row(group.pulls[index - 1].id) : .heading(.group(group.id))
+                return
+            }
+        }
+        guard let index = others.firstIndex(where: { $0.id == id }) else { return nil }
+        self = index > 0 ? .row(others[index - 1].id) : .heading(.others)
     }
 }
 

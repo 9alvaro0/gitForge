@@ -1,8 +1,12 @@
 import SwiftUI
 
-/// Simple flow / wrap layout for chips and tag rows.
+/// Simple flow / wrap layout for chips and tag rows. Each item keeps its own
+/// width and goes to the next line when it doesn't fit. With
+/// `fitsWideItems`, an item wider than a whole line is offered the line's
+/// width instead, so one that can truncate (a long branch name) stays inside.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
+    var fitsWideItems = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? .infinity
@@ -12,35 +16,45 @@ struct FlowLayout: Layout {
         var totalWidth: CGFloat = 0
 
         for sub in subviews {
-            let s = sub.sizeThatFits(.unspecified)
+            let s = size(of: sub, lineWidth: maxWidth)
             if x + s.width > maxWidth, x > 0 {
                 y += rowHeight + spacing
                 x = 0
                 rowHeight = 0
             }
+            totalWidth = max(totalWidth, x + s.width)
             x += s.width + spacing
             rowHeight = max(rowHeight, s.height)
-            totalWidth = max(totalWidth, x)
         }
         return CGSize(width: totalWidth, height: y + rowHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        // The same arithmetic as `sizeThatFits`, from 0, moved to `bounds`
+        // only when placing.
         let maxWidth = bounds.width
-        var x: CGFloat = bounds.minX
-        var y: CGFloat = bounds.minY
+        var x: CGFloat = 0
+        var y: CGFloat = 0
         var rowHeight: CGFloat = 0
         for sub in subviews {
-            let s = sub.sizeThatFits(.unspecified)
-            if x + s.width > bounds.minX + maxWidth, x > bounds.minX {
+            let s = size(of: sub, lineWidth: maxWidth)
+            if x + s.width > maxWidth, x > 0 {
                 y += rowHeight + spacing
-                x = bounds.minX
+                x = 0
                 rowHeight = 0
             }
-            sub.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+            sub.place(at: CGPoint(x: bounds.minX + x, y: bounds.minY + y), proposal: ProposedViewSize(s))
             x += s.width + spacing
             rowHeight = max(rowHeight, s.height)
         }
+    }
+
+    /// The item's own size; with `fitsWideItems`, its size at the line's
+    /// width when it's wider than that.
+    private func size(of sub: LayoutSubview, lineWidth: CGFloat) -> CGSize {
+        let ideal = sub.sizeThatFits(.unspecified)
+        guard fitsWideItems, ideal.width > lineWidth else { return ideal }
+        return sub.sizeThatFits(ProposedViewSize(width: lineWidth, height: nil))
     }
 }
 

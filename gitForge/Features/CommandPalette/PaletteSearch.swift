@@ -1,7 +1,8 @@
 import Foundation
 
 /// ⌘K matching for an item that can be found by more than its label: a pull
-/// request is searched by title, repo path, branch, author and number.
+/// request is searched by title, repo path, branch, author and number, each
+/// word of the query as an unbroken run.
 nonisolated enum PaletteSearch {
     /// What an exact number scores: above any fuzzy match.
     static let exactNumberScore = 1_000_000
@@ -20,10 +21,14 @@ nonisolated enum PaletteSearch {
     ///
     /// - The item's own number, typed alone, is an exact hit with no letters
     ///   to highlight.
-    /// - Without keywords this is `FuzzyMatcher` on the label.
-    /// - With keywords the query splits into words; each one must match the
-    ///   label or a keyword, in any order. The score adds up the best match of
-    ///   every word and only the label's letters are highlighted.
+    /// - Without keywords this is `FuzzyMatcher.match` on the label.
+    /// - With keywords the query splits into words, and each one must appear
+    ///   unbroken (`FuzzyMatcher.substringMatch`) in the label or a keyword,
+    ///   in any order. Letters spread apart don't count: a pull request's
+    ///   title, branch and repo path hold the letters of almost any short
+    ///   word. The score adds up every word's best run, so a word at a word
+    ///   start in a short field ranks highest, and only the label's letters
+    ///   are highlighted.
     static func match(_ query: String, label: String, keywords: [String], number: Int?) -> FuzzyMatch? {
         if let number, number == Self.number(in: query) {
             return FuzzyMatch(score: exactNumberScore, indices: [])
@@ -33,9 +38,9 @@ nonisolated enum PaletteSearch {
         var score = 0
         var highlighted = Set<Int>()
         for word in query.split(whereSeparator: \.isWhitespace).map({ withoutReferenceSymbol(String($0)) }) {
-            let inLabel = FuzzyMatcher.match(word, in: label)
-            let scores = [inLabel].compactMap { $0?.score } + keywords.compactMap { FuzzyMatcher.match(word, in: $0)?.score }
-            guard let best = scores.max() else { return nil }
+            let inLabel = FuzzyMatcher.substringMatch(word, in: label)
+            let inKeywords = keywords.compactMap { FuzzyMatcher.substringMatch(word, in: $0)?.score }
+            guard let best = ([inLabel?.score].compactMap { $0 } + inKeywords).max() else { return nil }
             score += best
             highlighted.formUnion(inLabel?.indices ?? [])
         }
