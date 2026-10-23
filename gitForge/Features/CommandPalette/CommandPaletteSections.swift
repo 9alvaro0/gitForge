@@ -54,6 +54,18 @@ enum CommandPaletteSections {
         } + remoteSection
     }
 
+    /// The selected row's index once `rows` changed under it, the query and
+    /// the scope unchanged (a host search landing): the row of `item`, by
+    /// its action and label (a rebuilt row is a new item), if it's still
+    /// listed; else `fallback`, the index it had, within the rows.
+    static func selection(keeping item: CommandPaletteItem?, in rows: [Row], fallback: Int) -> Int {
+        guard !rows.isEmpty else { return 0 }
+        if let item, let index = rows.firstIndex(where: { $0.item.action == item.action && $0.item.label == item.label }) {
+            return index
+        }
+        return min(max(fallback, 0), rows.count - 1)
+    }
+
     /// Matching items, best score first; ties keep their input order.
     private static func ranked(_ items: [CommandPaletteItem], query: String, limit: Int) -> [Row] {
         var scored: [(offset: Int, row: Row, score: Int)] = []

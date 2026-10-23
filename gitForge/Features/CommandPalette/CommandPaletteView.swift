@@ -19,6 +19,9 @@ struct CommandPaletteView: View {
     @State private var query: String = ""
     @State private var scope: CommandPaletteScope = .all
     @State private var selectedIndex: Int = 0
+    /// The row the keys or the pointer last selected: a host search that
+    /// lands adds and takes away rows, and the selection stays on this one.
+    @State private var selectedItem: CommandPaletteItem?
     @State private var pointer = PointerIntent()
     @FocusState private var inputFocused: Bool
     @Environment(\.appTheme) private var theme
@@ -35,6 +38,9 @@ struct CommandPaletteView: View {
         let sections = self.sections
         // Rows in display order, for arrow-key navigation.
         let rows = sections.flatMap(\.rows)
+        // The selected row's place now: rows a search landed since may have
+        // moved it, or taken it away.
+        let active = CommandPaletteSections.selection(keeping: selectedItem, in: rows, fallback: selectedIndex)
         ZStack(alignment: .top) {
             theme.colors.bgWindow.opacity(0.46)
                 .ignoresSafeArea()
@@ -44,7 +50,7 @@ struct CommandPaletteView: View {
                 inputRow
                 scopeBar
                 Divider().overlay(theme.colors.separator)
-                results(sections, rows: rows)
+                results(sections, rows: rows, active: active)
                 Divider().overlay(theme.colors.separator)
                 footer
             }
@@ -57,7 +63,7 @@ struct CommandPaletteView: View {
         }
         .onAppear {
             inputFocused = true
-            selectedIndex = 0
+            resetSelection()
             pointer.reset(at: NSEvent.mouseLocation)
         }
         // With a list holding focus (a clicked History or Stashes row), the
@@ -70,11 +76,11 @@ struct CommandPaletteView: View {
         }
         .onKeyPress(.escape) { onClose(); return .handled }
         .onKeyPress(keys: [.return], phases: .down) { press in
-            if let row = rows[safe: selectedIndex] { onPick(row.item, press.modifiers.contains(.command)) }
+            if let row = rows[safe: active] { onPick(row.item, press.modifiers.contains(.command)) }
             return .handled
         }
-        .onKeyPress(.upArrow) { selectedIndex = max(0, selectedIndex - 1); return .handled }
-        .onKeyPress(.downArrow) { selectedIndex = min(max(rows.count - 1, 0), selectedIndex + 1); return .handled }
+        .onKeyPress(.upArrow) { select(max(0, active - 1), in: rows); return .handled }
+        .onKeyPress(.downArrow) { select(min(max(rows.count - 1, 0), active + 1), in: rows); return .handled }
     }
 
     private var inputRow: some View {
@@ -88,7 +94,7 @@ struct CommandPaletteView: View {
                 .textRole(.title, weight: .regular)
                 .foregroundStyle(theme.colors.textPrimary)
                 .focused($inputFocused)
-                .onChange(of: query) { _, _ in selectedIndex = 0 }
+                .onChange(of: query) { _, _ in resetSelection() }
                 // On the field itself: the field editor would otherwise
                 // take ⇥ to move focus out of the palette.
                 .onKeyPress(keys: [.tab, Self.backTab]) { press in
@@ -141,12 +147,24 @@ struct CommandPaletteView: View {
 
     private func setScope(_ newScope: CommandPaletteScope) {
         scope = newScope
-        selectedIndex = 0
+        resetSelection()
         inputFocused = true
     }
 
+    /// The first row, for a new query or scope.
+    private func resetSelection() {
+        selectedIndex = 0
+        selectedItem = nil
+    }
+
+    private func select(_ index: Int, in rows: [CommandPaletteSections.Row]) {
+        selectedIndex = index
+        selectedItem = rows[safe: index]?.item
+    }
+
     @ViewBuilder
-    private func results(_ sections: [CommandPaletteSections.Section], rows: [CommandPaletteSections.Row]) -> some View {
+    private func results(_ sections: [CommandPaletteSections.Section], rows: [CommandPaletteSections.Row],
+                         active: Int) -> some View {
         if rows.isEmpty {
             Text(query.isEmpty ? String(localized: "Nothing in \(scope.title)") : String(localized: "No matches for “\(query)”"))
                 .textRole(.body)
@@ -168,14 +186,14 @@ struct CommandPaletteView: View {
                             ForEach(section.rows) { row in
                                 let index = rows.firstIndex { $0.id == row.id } ?? 0
                                 Button { onPick(row.item, false) } label: {
-                                    PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == selectedIndex)
+                                    PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == active)
                                 }
                                 .buttonStyle(.plain)
                                 .id(row.id)
                                 // Only a pointer that moved selects: rows scrolling under a
                                 // still one (arrow keys) would pull the selection back.
                                 .onHover { inside in
-                                    if inside, pointer.moved(to: NSEvent.mouseLocation) { selectedIndex = index }
+                                    if inside, pointer.moved(to: NSEvent.mouseLocation) { select(index, in: rows) }
                                 }
                             }
                         }
@@ -185,7 +203,7 @@ struct CommandPaletteView: View {
                     .padding(.bottom, Spacing.s8)
                 }
                 .frame(height: min(Self.listHeight(sections), 420))
-                .onChange(of: selectedIndex) { _, index in
+                .onChange(of: active) { _, index in
                     if let id = rows[safe: index]?.id { proxy.scrollTo(id) }
                 }
             }
