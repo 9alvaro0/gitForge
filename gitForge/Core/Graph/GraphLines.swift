@@ -135,7 +135,10 @@ private nonisolated extension GraphLines {
     /// unless that upstream is a remote trunk, which has its own line. It does
     /// so whether its own tip is loaded or not, so the line is the same before
     /// and after the page holding that tip loads (§3.9). Any other branch starts
-    /// at its own tip, once loaded.
+    /// at its own tip, once loaded. The exception is HEAD's branch with uncommitted
+    /// changes (§3.5): its connector leaves column 0 free above HEAD's commit, so the
+    /// line starts at its own tip and its upstream claims what a pull would bring,
+    /// born from HEAD's commit, as for a diverged branch.
     static func branchStarts(_ input: GraphInput, rowOf: [String: Int]) -> [BranchStart] {
         var remoteRows: [String: Int] = [:]
         for ref in input.refs where ref.isRemoteBranch {
@@ -143,9 +146,11 @@ private nonisolated extension GraphLines {
                 remoteRows[ref.name] = row
             }
         }
+        let keptOnOwnTip = input.hasUncommittedChanges ? input.headBranch : nil
         return input.refs.compactMap { ref in
             guard ref.isLocalBranch else { return nil }
-            if let upstream = ref.upstream, input.remoteTrunks[upstream] == nil, let upstreamRow = remoteRows[upstream],
+            if ref.name != keptOnOwnTip,
+               let upstream = ref.upstream, input.remoteTrunks[upstream] == nil, let upstreamRow = remoteRows[upstream],
                (ref.ahead ?? 0) == 0, (ref.behind ?? 0) > 0 {
                 return BranchStart(name: ref.name, row: upstreamRow, continuedRemote: upstream)
             }

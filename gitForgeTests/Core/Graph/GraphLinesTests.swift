@@ -140,6 +140,45 @@ struct GraphLinesTests {
         #expect(result.lines[0].rows == [0, 1] && result.lines[0].continuesPastEnd)
     }
 
+    @Test("HEAD only behind its upstream with uncommitted changes: its line starts at its own tip, the upstream's ends on it")
+    func behindWithUncommittedChanges() {
+        let input = GraphInput(commits: GraphFixture.commits("u2 u1\nu1 l\nl base\nbase"), headSha: "l",
+            refs: [GraphFixture.local("main", "l", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")],
+            hasUncommittedChanges: true)
+        let result = lines(input)
+        #expect(result.lines[0] == GraphLine(owner: .branch("main"), rows: [2, 3], top: 2,
+                                             forkRow: nil, continuesPastEnd: false))
+        #expect(line(.remote("origin/main"), in: result) == GraphLine(owner: .remote("origin/main"), rows: [0, 1], top: 0,
+                                                                      forkRow: 2, continuesPastEnd: false))
+        #expect(result.colorOwnerOfRow == [.remote("origin/main"), .remote("origin/main"), .branch("main"), .branch("main")])
+    }
+
+    @Test("With uncommitted changes and its own tip not loaded, HEAD has no line yet; its upstream's runs past the end")
+    func behindWithUncommittedChangesTipNotLoaded() {
+        let input = GraphInput(commits: GraphFixture.commits("u2 u1\nu1 l"), headSha: "l",
+            refs: [GraphFixture.local("main", "l", head: true, upstream: "origin/main", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/main", "u2")],
+            hasUncommittedChanges: true)
+        let result = lines(input)
+        #expect(result.lines.map(\.owner) == [.remote("origin/main")])
+        #expect(result.lines[0].rows == [0, 1] && result.lines[0].continuesPastEnd)
+    }
+
+    @Test("Uncommitted changes only concern HEAD's branch: another branch behind its upstream still continues it")
+    func otherBranchStillContinues() {
+        let input = GraphInput(commits: GraphFixture.commits("u2 u1\nu1 d\nf d\nd base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("feature", "f", head: true),
+                   GraphFixture.local("develop", "d", upstream: "origin/develop", ahead: 0, behind: 2),
+                   GraphFixture.remote("origin/develop", "u2")],
+            hasUncommittedChanges: true)
+        let result = lines(input)
+        // HEAD's line claims d first (f → d → base); develop still starts at its upstream's tip and is born from d.
+        #expect(line(.branch("develop"), in: result)?.rows == [0, 1])
+        #expect(line(.branch("develop"), in: result)?.forkRow == 3)
+        #expect(line(.remote("origin/develop"), in: result) == nil)
+    }
+
     @Test("Diverged from its upstream: the remote gets its own line born at the merge base")
     func diverged() {
         let input = GraphInput(commits: GraphFixture.commits("r1 b\nl b\nb base\nbase"), headSha: "l",
