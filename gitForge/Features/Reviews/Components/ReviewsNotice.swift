@@ -83,8 +83,9 @@ struct ReviewsNotice: View {
 }
 
 /// A small button with no fill nor border until hovered, as `IconButton`
-/// does: the notice's way out, quieter than its action.
-private struct QuietButton: View {
+/// does: the way out of a notice or of the proposal in Settings › Reviews,
+/// quieter than its action.
+struct QuietButton: View {
     let title: String
     let action: () -> Void
 

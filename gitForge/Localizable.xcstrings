@@ -889,6 +889,64 @@
         }
       }
     },
+    "%lld repositories" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repository"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repositories"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repos"
+                }
+              }
+            }
+          }
+        },
+        "pt-PT" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repositório"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repositórios"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld repositories left out (limit of 100)." : {
       "localizations" : {
         "en" : {
@@ -1652,6 +1710,22 @@
         }
       }
     },
+    "Activity" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actividad"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atividade"
+          }
+        }
+      }
+    },
     "Add" : {
       "localizations" : {
         "es" : {
@@ -1776,6 +1850,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Adicionar perfil"
+          }
+        }
+      }
+    },
+    "Add repository" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir repo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar repositório"
+          }
+        }
+      }
+    },
+    "Add repository…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir repo…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar repositório…"
           }
         }
       }
@@ -4338,6 +4444,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ligar uma conta em %@…"
+          }
+        }
+      }
+    },
+    "Connect an account to follow repositories." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta una cuenta para seguir repos."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligue uma conta para seguir repositórios."
           }
         }
       }
@@ -7987,6 +8109,22 @@
         }
       }
     },
+    "Hidden" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultos"
+          }
+        }
+      }
+    },
     "Hide" : {
       "localizations" : {
         "es" : {
@@ -8223,6 +8361,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Identidade"
+          }
+        }
+      }
+    },
+    "In gitForge" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En gitForge"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No gitForge"
           }
         }
       }
@@ -8849,6 +9003,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gerir perfis…"
+          }
+        }
+      }
+    },
+    "Manual" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual"
           }
         }
       }
@@ -11448,6 +11618,38 @@
         }
       }
     },
+    "Pattern" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patrón"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Padrão"
+          }
+        }
+      }
+    },
+    "Patterns" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patrones"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Padrões"
+          }
+        }
+      }
+    },
     "Personal" : {
       "comment" : "Default name of the identity profile seeded from the global git config",
       "localizations" : {
@@ -11685,6 +11887,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Perfis"
+          }
+        }
+      }
+    },
+    "Proposed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Propuesto"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proposto"
           }
         }
       }
@@ -12839,6 +13057,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Repositórios"
+          }
+        }
+      }
+    },
+    "Repositories whose pull requests appear in Reviews." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repos cuyas pull requests salen en Revisiones."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repositórios cujos pull requests aparecem em Revisões."
+          }
+        }
+      }
+    },
+    "Repositories you follow" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repos que sigues"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repositórios que segue"
           }
         }
       }
@@ -14062,6 +14312,22 @@
         }
       }
     },
+    "Search your repositories" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en tus repos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar nos seus repositórios"
+          }
+        }
+      }
+    },
     "Searching %@…" : {
       "localizations" : {
         "es" : {
@@ -14090,6 +14356,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Segundos até um subprocesso git bloqueado ser terminado. Aumente o valor se ocorrerem tempos limite numa rede lenta ou em fetches muito grandes."
+          }
+        }
+      }
+    },
+    "Segments separated by /, with * for any one segment and at least one fixed segment." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segmentos separados por /, con * para un segmento cualquiera y al menos uno fijo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segmentos separados por /, com * para um segmento qualquer e pelo menos um fixo."
           }
         }
       }
@@ -14538,6 +14820,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostra um diálogo antes de fazer push com --force-with-lease."
+          }
+        }
+      }
+    },
+    "Show again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a mostrar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar de novo"
           }
         }
       }
@@ -15626,6 +15924,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Passo %1$lld de %2$lld"
+          }
+        }
+      }
+    },
+    "Stop following" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de seguir"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deixar de seguir"
           }
         }
       }
@@ -20215,6 +20529,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Concluído"
+          }
+        }
+      }
+    },
+    "origin still points to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "el origin aún apunta a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a origin ainda aponta para %@"
           }
         }
       }
