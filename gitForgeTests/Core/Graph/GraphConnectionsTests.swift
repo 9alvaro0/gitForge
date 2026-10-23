@@ -134,4 +134,23 @@ struct GraphConnectionsTests {
         #expect(c.tracks.isEmpty)
         #expect(lines.lines[side].top == 0)
     }
+
+    // Rows: 0 m (main, merges a and f), 1 f (feature, HEAD), 2 a, 3 base.
+    @Test("With uncommitted changes, merging HEAD's tip from above is a track; HEAD's line is not raised", arguments: [false, true])
+    func mergeIntoHeadTip(uncommitted: Bool) {
+        let (lines, c) = connect(GraphInput(commits: GraphFixture.commits("m a f\nf base\na base\nbase"), headSha: "f",
+            refs: [GraphFixture.local("main", "m"), GraphFixture.local("feature", "f", head: true)],
+            hasUncommittedChanges: uncommitted))
+        let main = lineIndex(.branch("main"), lines)
+        let head = lineIndex(.branch("feature"), lines)
+        if uncommitted {
+            #expect(c.joins.isEmpty)
+            #expect(c.tracks == [GraphTrack(mergeRow: 0, parentRow: 1, fromLine: main, toLine: head, sticky: false)])
+            #expect(lines.lines[head].top == 1)
+        } else {
+            #expect(c.joins == [GraphJoin(mergeRow: 0, parentRow: 1, fromLine: main, toLine: head)])
+            #expect(c.tracks.isEmpty)
+            #expect(lines.lines[head].top == 0)
+        }
+    }
 }

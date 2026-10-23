@@ -28,6 +28,11 @@ nonisolated extension GraphInput {
         refs.first { $0.isLocalBranch && $0.isHead }?.name
     }
 
+    /// Uncommitted changes, a HEAD and at least one row: the layout runs the connector.
+    var drawsUncommittedConnector: Bool {
+        hasUncommittedChanges && headSha != nil && !commits.isEmpty
+    }
+
     /// Priority rank of a branch owner: a local branch by its name, a remote trunk by the
     /// trunk it stands in for. Nil for any other owner.
     func rank(of owner: GraphOwner) -> Int? {

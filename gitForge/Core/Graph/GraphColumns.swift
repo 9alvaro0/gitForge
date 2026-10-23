@@ -19,19 +19,31 @@ nonisolated struct GraphColumns: Sendable {
     /// 1. **Reserved** lines, from row 0 down to where they end: HEAD, then the
     ///    trunks (rank 0) and develop (rank 1), a remote trunk standing in for a
     ///    missing local one included. Only when the line's first row is in the
-    ///    first page; a later one is placed like any other line.
+    ///    first page; a later one is placed like any other line. While the layout
+    ///    draws the connector (§3.5), column 0 is HEAD's whatever page its first
+    ///    row is on, and down to the bottom edge while HEAD has no line yet, so
+    ///    nothing but the connector runs in it above HEAD's commit.
     /// 2. **The rest**, by first row, a line before a track starting on the same
     ///    row. A line takes the leftmost free column. A track whose target line
     ///    already has a column goes to the free column nearest to the span between
     ///    its merge and its parent; any other track (the target has not started
     ///    yet, or the parent is on a later page or unloaded) goes to the nearest
-    ///    free column right of its merge.
+    ///    free column right of its merge. A track whose parent is on the very next
+    ///    row of its page is a single S into the parent's node: it takes no column
+    ///    and gets its parent's line's. A sticky one that short keeps the column it
+    ///    ran down while its parent was not loaded (§3.9).
     static func assign(_ input: GraphInput, lines: GraphLines, connections: GraphConnections) -> GraphColumns {
         var occupancy = ColumnOccupancy()
         var columnOfLine = Array(repeating: -1, count: lines.lines.count)
         var columnOfTrack = Array(repeating: -1, count: connections.tracks.count)
 
-        for index in reservedLines(input, lines.lines) {
+        let reserved = reservedLines(input, lines.lines)
+        if let head = reserved.head {
+            columnOfLine[head] = occupancy.occupy(leftmostFreeAfter: -1, from: 0, to: lines.lines[head].bottom)
+        } else if input.drawsUncommittedConnector {
+            _ = occupancy.occupy(leftmostFreeAfter: -1, from: 0, to: Int.max)
+        }
+        for index in reserved.trunks {
             columnOfLine[index] = occupancy.occupy(leftmostFreeAfter: -1, from: 0, to: lines.lines[index].bottom)
         }
 
@@ -42,8 +54,12 @@ nonisolated struct GraphColumns: Sendable {
                 // A track starts on a row of the line it leaves, and that line starts no later.
                 let mergeColumn = columnOfLine[track.fromLine]
                 if !track.sticky, let toLine = track.toLine, columnOfLine[toLine] >= 0 {
-                    columnOfTrack[item.index] = occupancy.occupy(nearestFrom: mergeColumn, to: columnOfLine[toLine],
-                                                                 start: item.start, end: end)
+                    if end == track.mergeRow + 1 {
+                        columnOfTrack[item.index] = columnOfLine[toLine]
+                    } else {
+                        columnOfTrack[item.index] = occupancy.occupy(nearestFrom: mergeColumn, to: columnOfLine[toLine],
+                                                                     start: item.start, end: end)
+                    }
                 } else {
                     columnOfTrack[item.index] = occupancy.occupy(leftmostFreeAfter: mergeColumn, from: item.start, to: end)
                 }
@@ -68,22 +84,25 @@ private nonisolated extension GraphColumns {
         var sortKey: (Int, Int, Int) { (start, isTrack ? 1 : 0, index) }
     }
 
-    /// Indices of the lines that claim their column up front, in claim order:
-    /// HEAD's line, then rank 0, then rank 1 (local or remote trunks), each rank by first row.
-    static func reservedLines(_ input: GraphInput, _ lines: [GraphLine]) -> [Int] {
+    /// The lines that claim their column up front: HEAD's, which claims first, and
+    /// the trunks in claim order, rank 0 then rank 1 (local or remote), each rank by
+    /// first row. HEAD's line is reserved wherever its first row is while the layout
+    /// draws the connector.
+    static func reservedLines(_ input: GraphInput, _ lines: [GraphLine]) -> (head: Int?, trunks: [Int]) {
         let firstPageEnd = input.firstPageEnd
         let headOwner = input.headBranch.map(GraphOwner.branch) ?? .head
-        var head: [Int] = []
+        let headAnywhere = input.drawsUncommittedConnector
+        var head: Int?
         var trunks: [(rank: Int, top: Int, index: Int)] = []
         for (index, line) in lines.enumerated() {
-            guard let firstRow = line.rows.first, firstRow < firstPageEnd else { continue }
+            guard let firstRow = line.rows.first else { continue }
             if line.owner == headOwner {
-                head.append(index)
-            } else if let rank = input.rank(of: line.owner), rank <= 1 {
+                if headAnywhere || firstRow < firstPageEnd { head = index }
+            } else if firstRow < firstPageEnd, let rank = input.rank(of: line.owner), rank <= 1 {
                 trunks.append((rank, line.top, index))
             }
         }
-        return head + trunks.sorted { ($0.rank, $0.top, $0.index) < ($1.rank, $1.top, $1.index) }.map(\.index)
+        return (head, trunks.sorted { ($0.rank, $0.top, $0.index) < ($1.rank, $1.top, $1.index) }.map(\.index))
     }
 
     /// Every line not yet placed and every track, in assignment order.

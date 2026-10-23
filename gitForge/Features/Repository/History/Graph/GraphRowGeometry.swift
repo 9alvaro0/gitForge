@@ -180,11 +180,12 @@ nonisolated struct GraphRowGeometry {
         return half / max(1, (half / 6).rounded())
     }
 
-    /// Whether a step is drawn dashed: a stash's side step and a ghost line.
+    /// Whether a step is drawn dashed: a stash's side step, a ghost line and the
+    /// connector from the Uncommitted changes row.
     static func isDashed(_ step: GraphStep) -> Bool {
         switch step.stroke {
         case .solid: false
-        case .ghost, .stash: true
+        case .ghost, .stash, .uncommitted: true
         }
     }
 
