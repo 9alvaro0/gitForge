@@ -23,6 +23,8 @@ nonisolated enum GraphStroke: Sendable, Hashable {
     case ghost
     /// The side step from a stash into its commit.
     case stash
+    /// The connector from the Uncommitted changes row down to HEAD's commit (§3.5).
+    case uncommitted
 }
 
 /// Centre of one row to the centre of the next: straight when `from == to`,
@@ -33,6 +35,11 @@ nonisolated struct GraphStep: Sendable, Hashable {
     let to: Int
     let color: GraphColorRole
     let stroke: GraphStroke
+}
+
+nonisolated extension GraphStep {
+    /// The connector's step, the same on every boundary it crosses: column 0, HEAD's colour.
+    static let uncommitted = GraphStep(from: 0, to: 0, color: .head, stroke: .uncommitted)
 }
 
 nonisolated struct GraphNode: Sendable, Hashable {
@@ -52,6 +59,7 @@ nonisolated struct GraphNode: Sendable, Hashable {
 nonisolated struct GraphRow: Sendable, Hashable {
     let node: GraphNode
     /// Drawn from the row's top edge to its centre: the previous row's `stepsBelow`.
+    /// On the first row, the connector arriving from the Uncommitted changes row, if any.
     let stepsAbove: [GraphStep]
     /// Drawn from the centre to the bottom edge, sorted by `(from, to)`.
     let stepsBelow: [GraphStep]
@@ -70,6 +78,10 @@ nonisolated struct GraphLayout: Sendable, Equatable {
     /// drawn line on some rows or even on all of them, so it can be wider than the
     /// widest row.
     let columnCount: Int
+    /// The connector's step when the layout draws it (`GraphInput.drawsUncommittedConnector`):
+    /// the Uncommitted changes row draws its leaving half (§5.5), and the first row's
+    /// `stepsAbove` holds it. Nil otherwise.
+    var uncommitted: GraphStep? = nil
 
     static let empty = GraphLayout(rows: [], columnCount: 1)
 }

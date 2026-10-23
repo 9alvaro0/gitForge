@@ -29,7 +29,13 @@ struct CommitGraphTable: View {
     /// Commit HEAD points at (detached or not); marks HEAD in the graph.
     var headSha: String? = nil
     let selectedSha: Commit.ID?
-    let workingCopyDirty: Bool
+    /// Pins the "Uncommitted changes" row on top (`HistoryStore.showsUncommittedRow`):
+    /// it comes with the graph laid out for the dirty tree, so it and its connector
+    /// appear and go together.
+    let showsUncommittedRow: Bool
+    /// The connector's half the "Uncommitted changes" row draws under its square
+    /// (`HistoryStore.uncommittedStep`); nil when there is no connector.
+    var uncommittedStep: GraphStep? = nil
     /// `true` when the pinned "Uncommitted changes" row is the active selection
     /// in the host. Lets the row render the same accent treatment as a selected
     /// commit row.
@@ -152,12 +158,15 @@ struct CommitGraphTable: View {
                 ScrollView([.vertical, .horizontal], showsIndicators: true) {
                     LazyVStack(spacing: HistoryTableLayout.rowSpacing, pinnedViews: [.sectionHeaders]) {
                         Section {
-                            if workingCopyDirty {
+                            if showsUncommittedRow {
                                 UncommittedRow(
                                     rowHeight: rowHeight,
                                     layout: layout,
                                     isSelected: uncommittedSelected,
-                                    onSelect: { onUncommittedSelect?() }
+                                    onSelect: { onUncommittedSelect?() },
+                                    connector: uncommittedStep,
+                                    graphStyle: style,
+                                    maxLanes: maxLanes
                                 )
                             }
                             // Rows are identified by sha (see `CommitRowList`);
@@ -242,7 +251,8 @@ struct CommitGraphTable: View {
         refChips: vm.history.refChips,
         currentBranch: vm.currentBranchName,
         selectedSha: vm.history.commits.first?.sha,
-        workingCopyDirty: !vm.workingCopy.status.isClean,
+        showsUncommittedRow: vm.history.showsUncommittedRow,
+        uncommittedStep: vm.history.uncommittedStep,
         columns: columns,
         onSelect: { _ in }
     )

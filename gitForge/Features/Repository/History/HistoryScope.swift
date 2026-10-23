@@ -45,10 +45,12 @@ nonisolated struct HistoryScope: Sendable, Equatable {
     }
 
     /// Whether a log loaded with this scope misses what `current` loads: a remote branch in
-    /// scope moved, came or went, or the toggle changed. Local branches don't count: their
-    /// moves already reload the log.
+    /// scope moved, came or went, the toggle changed, or a stash was made or dropped (the
+    /// stash set differs, whatever the order: a new or a deleted stash changes what the log
+    /// loads). Local branches don't count: their moves already reload the log.
     func isOutdated(by current: HistoryScope) -> Bool {
         remoteTips != current.remoteTips || includesAllRemotes != current.includesAllRemotes
+            || stashShas != current.stashShas
     }
 
     /// `refs` with each remote branch of the scope at the tip it had when the scope was made,

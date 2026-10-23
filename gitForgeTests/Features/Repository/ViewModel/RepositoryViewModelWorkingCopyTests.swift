@@ -144,3 +144,24 @@ struct WorkingCopyLineCountsTests {
         #expect(vm.workingCopy.unstagedLineCounts == ["b.txt": DiffStats(additions: 0, deletions: 1)])
     }
 }
+
+@Suite("RepositoryViewModel — uncommitted changes in the graph", .serialized)
+@MainActor
+struct RepositoryViewModelUncommittedGraphTests {
+
+    @Test("Editing a file and refreshing the status puts the connector in the graph")
+    func editShowsConnector() async throws {
+        let repo = try await GitTestRepo.make { try $0.commit("c0", files: ["f.txt": "0\n"]) }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        await vm.history.loadInitial()
+        #expect(!vm.history.showsUncommittedRow)
+        try repo.write("1\n", to: "f.txt")
+        await vm.workingCopy.refreshStatus()
+        await waitUntil { vm.history.showsUncommittedRow }
+        #expect(vm.history.showsUncommittedRow)
+        let first = try #require(vm.history.graphLayouts.first)
+        #expect(first.stepsAbove == [.uncommitted])
+    }
+}

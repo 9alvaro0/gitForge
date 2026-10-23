@@ -4,9 +4,9 @@ import Testing
 
 /// The commit graph engine on random histories: merges (octopus included),
 /// several roots, stashes, local branches with and without an upstream,
-/// remote-only refs, a remote trunk, detached HEAD, truncated logs and two
-/// pages. The seeds are fixed, so a failure always reproduces, and it reports
-/// the history in the `GraphFixture.commits` format.
+/// remote-only refs, a remote trunk, detached HEAD, uncommitted changes,
+/// truncated logs and two pages. The seeds are fixed, so a failure always
+/// reproduces, and it reports the history in the `GraphFixture.commits` format.
 @Suite("CommitGraphProperties")
 struct CommitGraphPropertyTests {
     private static let seeds: ClosedRange<UInt64> = 1...2_000
@@ -33,6 +33,16 @@ struct CommitGraphPropertyTests {
         Self.checkPaging(withRemoteTrunk: true)
     }
 
+    @Test("Random histories with uncommitted changes keep the layout invariants", arguments: [false, true])
+    func invariantsWithUncommittedChanges(withRemoteTrunk: Bool) {
+        Self.checkInvariants(withRemoteTrunk: withRemoteTrunk, uncommitted: true)
+    }
+
+    @Test("Random histories with uncommitted changes only add rows below when page 2 loads", arguments: [false, true])
+    func pagingWithUncommittedChanges(withRemoteTrunk: Bool) {
+        Self.checkPaging(withRemoteTrunk: withRemoteTrunk, uncommitted: true)
+    }
+
     /// Histories that once changed colours on page 1 when page 2 loaded: a stretch
     /// near the end of page 1 saw a page-2 neighbour whose owner already had a
     /// colour (seed 11407 through HEAD's line, seed 29410 through a remote that
@@ -46,10 +56,10 @@ struct CommitGraphPropertyTests {
         }
     }
 
-    private static func checkInvariants(withRemoteTrunk: Bool) {
+    private static func checkInvariants(withRemoteTrunk: Bool, uncommitted: Bool = false) {
         var failures = 0
         for seed in seeds {
-            let history = RandomHistory(seed: seed, withRemoteTrunk: withRemoteTrunk)
+            let history = RandomHistory(seed: seed, withRemoteTrunk: withRemoteTrunk, uncommitted: uncommitted)
             let violations = GraphInvariants.violations(CommitGraphEngine.layout(history.input), history.input)
             guard !violations.isEmpty else { continue }
             failures += 1
@@ -60,11 +70,11 @@ struct CommitGraphPropertyTests {
         #expect(failures == 0)
     }
 
-    private static func checkPaging(withRemoteTrunk: Bool) {
+    private static func checkPaging(withRemoteTrunk: Bool, uncommitted: Bool = false) {
         var checked = 0
         var failures = 0
         for seed in seeds {
-            let history = RandomHistory(seed: seed, withRemoteTrunk: withRemoteTrunk)
+            let history = RandomHistory(seed: seed, withRemoteTrunk: withRemoteTrunk, uncommitted: uncommitted)
             guard isPagingCase(history.input) else { continue }
             checked += 1
             if let change = pagingChange(history.input) {
@@ -109,12 +119,14 @@ struct CommitGraphPropertyTests {
 
 /// A seeded history of 3 to 14 commits, rows `c0` (newest) to `cN` (oldest).
 /// With `withRemoteTrunk`, an `origin/main` stands in for a missing local main.
+/// With `uncommitted`, the working tree has uncommitted changes. It takes no
+/// random draw, so each seed keeps the same history.
 private struct RandomHistory: CustomStringConvertible {
     let seed: UInt64
     let input: GraphInput
     let description: String
 
-    init(seed: UInt64, withRemoteTrunk: Bool = false) {
+    init(seed: UInt64, withRemoteTrunk: Bool = false, uncommitted: Bool = false) {
         self.seed = seed
         var random = SplitMix64(seed: seed)
         let total = random.int(in: 3...14)
@@ -214,7 +226,7 @@ private struct RandomHistory: CustomStringConvertible {
         let stashShas = Set(stashRows.map { "c\($0)" })
         input = GraphInput(commits: GraphFixture.commits(lines.joined(separator: "\n")), pageEnds: pageEnds,
                            headSha: headSha, refs: refs, stashShas: stashShas, paletteSize: 4,
-                           remoteTrunks: remoteTrunks)
+                           remoteTrunks: remoteTrunks, hasUncommittedChanges: uncommitted)
         let refText = refs.map { ref in
             let upstream = ref.upstream.map { " -> \($0) ahead \(ref.ahead ?? 0) behind \(ref.behind ?? 0)" } ?? ""
             return "\(ref.name)@\(ref.targetSha)\(ref.isHead ? " (HEAD)" : "")\(upstream)"
@@ -224,7 +236,7 @@ private struct RandomHistory: CustomStringConvertible {
             \(lines.joined(separator: "\n"))
             pageEnds \(pageEnds), headSha \(headSha), stashes \(stashShas.sorted())
             refs: \(refText.joined(separator: ", "))
-            remoteTrunks \(remoteTrunks)
+            remoteTrunks \(remoteTrunks), uncommitted \(uncommitted)
             """
     }
 }

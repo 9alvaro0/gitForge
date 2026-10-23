@@ -518,6 +518,72 @@ struct HistoryStoreGraphTests {
         #expect(vm.history.refChips == .empty)
     }
 
+    // MARK: Uncommitted changes
+
+    /// Puts a modified file at `path` in the working copy's status: the tree is dirty.
+    private static func dirty(_ vm: RepositoryViewModel, path: String = "f.txt") {
+        vm.workingCopy.status = WorkingCopyStatus(files: [
+            WorkingCopyFile(path: path, stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil),
+        ])
+    }
+
+    @Test("graphInput carries whether the working tree has uncommitted changes")
+    func uncommittedInInput() {
+        let vm = Self.makeVM()
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb"))
+        #expect(!vm.history.graphInput().hasUncommittedChanges)
+        Self.dirty(vm)
+        #expect(vm.history.graphInput().hasUncommittedChanges)
+    }
+
+    @Test("A working tree that turns dirty or clean lays the graph out again; the row and its connector come and go with it")
+    func uncommittedRowFollowsGraph() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "c", head: true)]
+        vm.headSha = "c"
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb"))
+        #expect(!vm.history.showsUncommittedRow && vm.history.uncommittedStep == nil)
+        Self.dirty(vm)
+        await waitUntil { vm.history.showsUncommittedRow }
+        #expect(vm.history.uncommittedStep == .uncommitted && vm.history.graphLayouts[0].stepsAbove == [.uncommitted])
+        vm.workingCopy.status = WorkingCopyStatus(files: [])
+        await waitUntil { !vm.history.showsUncommittedRow }
+        #expect(vm.history.uncommittedStep == nil && vm.history.graphLayouts[0].stepsAbove.isEmpty)
+    }
+
+    @Test("A status read that leaves the tree dirty doesn't lay the graph out again")
+    func dirtyToDirtyNoPass() async {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "c", head: true)]
+        vm.headSha = "c"
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb"))
+        let passes = CallCount()
+        vm.history.graphEngine = { input in
+            passes.add()
+            return CommitGraphEngine.layout(input)
+        }
+        Self.dirty(vm)
+        await waitUntil { vm.history.showsUncommittedRow }
+        #expect(passes.value == 1)
+        // Another file changes: still dirty, so nothing the graph reads moved.
+        Self.dirty(vm, path: "g.txt")
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(passes.value == 1)
+    }
+
+    @Test("purge hides the Uncommitted changes row")
+    func purgeHidesUncommittedRow() {
+        let vm = Self.makeVM()
+        vm.refs = [GraphFixture.local("main", "c", head: true)]
+        vm.headSha = "c"
+        vm.history.replaceLog(with: GraphFixture.commits("c b\nb"))
+        Self.dirty(vm)
+        vm.history.recomputeGraphSync()
+        #expect(vm.history.showsUncommittedRow && vm.history.uncommittedStep == .uncommitted)
+        vm.history.purge()
+        #expect(!vm.history.showsUncommittedRow && vm.history.uncommittedStep == nil)
+    }
+
     // MARK: Interleavings
 
     /// Lays graphs out like the real engine, but holds the passes listed in

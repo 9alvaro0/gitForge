@@ -84,6 +84,15 @@ struct GraphColumnsTests {
         #expect(r.column(of: .branch("feature")) == (pageEnds.isEmpty ? 0 : 1))
     }
 
+    @Test("With uncommitted changes HEAD keeps column 0 even when its tip is past the first page")
+    func headOutsideFirstPageWithUncommittedChanges() {
+        let r = columns(GraphInput(commits: GraphFixture.commits("x y\ny r\nh r\nr"), pageEnds: [2, 4], headSha: "h",
+                                   refs: [GraphFixture.local("other", "x"), GraphFixture.local("feature", "h", head: true)],
+                                   hasUncommittedChanges: true))
+        #expect(r.column(of: .branch("feature")) == 0)
+        #expect(r.column(of: .branch("other")) == 1)
+    }
+
     @Test("A trunk whose tip is past the first page is not reserved")
     func trunkOutsideFirstPage() {
         let r = columns(GraphInput(commits: GraphFixture.commits("f r\nx y\ny r\nm r\nr"), pageEnds: [3, 5], headSha: "f",
