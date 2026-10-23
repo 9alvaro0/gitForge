@@ -1,0 +1,25 @@
+<h2>What's new in 1.4.0</h2>
+<ul>
+<li><strong>Reviews without cloning.</strong> The new Reviews section lists your team&apos;s open pull and merge requests and opens them without cloning the repository.</li>
+<li><strong>Review pull requests in gitForge.</strong> Approve, request changes, comment on any line in the Files tab and merge, without opening GitHub or GitLab.</li>
+<li><strong>Pull requests in ⌘K.</strong> Find your team&apos;s pull requests from the command palette, open one by pasting its link, or search everything on a server.</li>
+<li><strong>Choose what Reviews follows.</strong> Follow repositories by path pattern or by hand, hide the ones you don&apos;t want, and manage them in Settings › Reviews.</li>
+<li><strong>A clearer history graph.</strong> History draws your branch as a straight line, keeps rows in place as more history loads and joins Uncommitted changes to your commit.</li>
+<li><strong>See what a pull would bring.</strong> Commits that are only on the server show as dashed ghosts in History, each branch shows how far ahead or behind its remote it is, and the Remote branches toggle adds the rest.</li>
+</ul>
+<h3>Fixes</h3>
+<ul>
+<li>Creating a branch with checkout, including Check out branch on a pull request, no longer fails.</li>
+<li>After checking out a commit, gitForge no longer keeps showing the previous branch as current.</li>
+<li>Long branch names in a pull request&apos;s header are truncated in the middle instead of running past it.</li>
+<li>GitLab merge requests show as !N, and large numbers no longer get a thousands separator.</li>
+<li>History rows no longer draw a stale graph after a reload.</li>
+<li>Lines in the history graph no longer show a notch on every row on non-Retina displays.</li>
+</ul>
+<h3>Improvements</h3>
+<ul>
+<li>When local changes block a pull, gitForge offers to discard only the files in the way and pull again.</li>
+<li>Stashes made or dropped from the terminal show up in History without refreshing.</li>
+<li>A fetch keeps your selection and scroll position in History.</li>
+<li>gitForge shows what&apos;s new the first time it opens after an update, and Help › What&apos;s New in gitForge shows it again.</li>
+</ul>
