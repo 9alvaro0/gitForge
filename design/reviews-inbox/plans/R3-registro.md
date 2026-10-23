@@ -2,6 +2,7 @@
 
 | Tarea | Rojo → verde | Notas |
 |---|---|---|
+| 1 | error de compilación (`FollowPattern`, `PatternInference`) → 37/37 con `FollowPatternTests` (18 tests, 37 casos con los parametrizados) | `FollowPattern` guarda los segmentos tal como se escriben (`text` los une) y su `id` va en minúsculas. La validación mira solo la forma del texto recortado: 2 segmentos o más, ninguno vacío, un `*` solo en su segmento, al menos un `*` y un literal. Un espacio dentro de un segmento no se rechaza (nunca casaría con una ruta real). `Codable` sintetizado: un patrón leído del disco no se revalida. `propose` quita de la base los repos repetidos por clave y la ordena por clave: de su primer repo salen los literales, con su capitalización. Cuatro mutantes (sin cobertura, sin el desempate por estrellas, texto invertido, estrella con un solo valor) hacen fallar un test cada uno; el de cobertura sobrevivió al principio porque el ganador también tenía menos estrellas, y se rehízo con un patrón de dos estrellas que cubre más. |
 
 ## Desviaciones del spec
 
