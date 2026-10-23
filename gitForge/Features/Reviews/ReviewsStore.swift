@@ -35,6 +35,9 @@ struct ReviewsEnvironment {
     /// searches of a whole host.
     var makeSearch: @MainActor (HostingInstance.Kind) -> any HostSearching
     var snapshots: ReviewsSnapshotStore
+    /// The user's patterns, repos followed by hand and hidden repos
+    /// (`reviews-settings.json`), read once when the store is made.
+    var config: ReviewsConfigStore
     var now: @MainActor () -> Date = { .now }
     /// The writes of the detail stores: reviews, threads, merge.
     var makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider = {
@@ -100,9 +103,24 @@ final class ReviewsStore {
     private(set) var others: [InboxPull] = []
     /// The link `openLink` is reading, while it does (R2 Ruling 11).
     private(set) var openingLink: PendingLink?
+    /// The user's patterns, repos followed by hand, hidden repos and
+    /// answered proposals (R3 Ruling 8), as `reviews-settings.json` keeps
+    /// them. Only `applyConfig` and `storeConfig` change it; the follow API
+    /// in `ReviewsStore+Follow.swift` goes through them.
+    private(set) var config: ReviewsConfig
+    /// The pattern the inbox offers until it's answered (R3 Ruling 3), worked
+    /// out again by every refresh and every change of `config`.
+    private(set) var proposal: PatternProposal?
 
     private let environment: ReviewsEnvironment
-    @ObservationIgnored private var memberships: [UUID: MembershipCache] = [:]
+    /// Each account's membership list, kept past `membershipTTL` when it
+    /// can't be read again. Written by the refresh, the snapshot and
+    /// `clearWithoutAccounts`; `ReviewsStore+Follow.swift` reads it.
+    @ObservationIgnored private(set) var memberships: [UUID: MembershipCache] = [:]
+    /// What the last refresh's `FollowedRepos.merge` took besides `config`
+    /// (R3 Ruling 7): a change of the settings merges again on it, without
+    /// the network. `nil` before the first refresh and without accounts.
+    @ObservationIgnored private(set) var lastRound: FollowRound?
     /// Where the clones the membership leaves out live now, by the clone's
     /// `FollowedRepos.key` (R3 Ruling 10): only those of the last round's
     /// clones, kept in the snapshot.
@@ -133,11 +151,16 @@ final class ReviewsStore {
 
     init(environment: ReviewsEnvironment) {
         self.environment = environment
+        self.config = environment.config.load()
     }
 
     // MARK: Reading
 
     var hasAccounts: Bool { !environment.accounts().isEmpty }
+
+    /// The accounts the inbox reads with, with their instance, in store
+    /// order (`ReviewsEnvironment.accounts`).
+    var inboxAccounts: [(account: HostingAccount, instance: HostingInstance)] { environment.accounts() }
 
     /// The accounts of `accountsNeedingAttention` that own at least one
     /// followed repo, with their instance, in store order, for the inbox's
@@ -383,8 +406,13 @@ final class ReviewsStore {
             return
         }
         let memberKeys = Self.memberKeys(accounts: accounts, lists: lists)
-        // What keeps a clone the membership leaves out, as in `merge`: the activity.
-        let vouched = Set(activity.map { FollowedRepos.key($0.host) })
+        // What keeps a clone the membership leaves out, as in `merge`: the
+        // activity and the repos the user chose. Such a clone isn't looked
+        // up, so it isn't followed under a new path too.
+        let vouched = FollowedRepos.vouchedKeys(activity: activity,
+                                                chosen: chosenCandidates(config, accounts: accounts),
+                                                accounts: Self.signingFirst(accounts.map { $0.account }),
+                                                instances: accounts.map { $0.instance })
         let local = await followRenames(of: clones, accounts: accounts, memberKeys: memberKeys, vouched: vouched,
                                         tokens: tokens, now: now, rereadLists: rereadLists)
         // Cancelled while looking up, a renamed clone may have missed its
@@ -396,9 +424,10 @@ final class ReviewsStore {
         // A renamed clone under both paths: a link may still have the old one.
         knownClones = Dictionary((local + clones).map { (FollowedRepos.key($0.host), $0.repository.url) },
                                  uniquingKeysWith: { first, _ in first })
-        adopt(FollowedRepos.merge(local: local, activity: activity,
-                                  accounts: Self.signingFirst(accounts.map { $0.account }),
-                                  instances: accounts.map { $0.instance }, memberKeys: memberKeys))
+        let round = FollowRound(local: local, activity: activity, accounts: accounts, memberKeys: memberKeys)
+        lastRound = round
+        adopt(followed(in: round, with: config))
+        updateProposal()
 
         let outcomes = await readPulls(of: repos, tokens: tokens)
         // Cancelled while reading: what landed stays, nothing else follows.
@@ -479,9 +508,12 @@ final class ReviewsStore {
 
     /// No account left: the inbox empties, the Others included, with what it
     /// knew of the accounts, and is saved empty. With nothing to clear,
-    /// nothing is written.
+    /// nothing is written. The user's settings stay; the round and the
+    /// proposal go.
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
+        lastRound = nil
+        if proposal != nil { proposal = nil }
         guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || !others.isEmpty
                 || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty || !lookups.isEmpty
                 || !accountsNeedingAttention.isEmpty else { return }
@@ -502,6 +534,47 @@ final class ReviewsStore {
         attention.subtract(tokens.answered)
         attention.formUnion(tokens.reconnect)
         if attention != accountsNeedingAttention { accountsNeedingAttention = attention }
+    }
+
+    // MARK: Follow settings
+
+    /// Takes `next` as the user's settings and applies them (R3 Ruling 7):
+    /// saves them, merges again on `lastRound` without the network, adopts
+    /// the result, reads the pull requests of the repos that have none yet
+    /// and saves the snapshot. Before the first refresh there's no round to
+    /// merge on: a forced refresh does it all. No limit is checked here; the
+    /// follow API in `ReviewsStore+Follow.swift` checks it first.
+    func applyConfig(_ next: ReviewsConfig) async {
+        config = next
+        environment.config.save(next)
+        guard let lastRound else {
+            await refresh(force: true)
+            return
+        }
+        adopt(followed(in: lastRound, with: next))
+        updateProposal()
+        let unread = repos.filter(isUnread)
+        if !unread.isEmpty {
+            let tokens = TokenBook(ask: environment.token)
+            for repo in unread { await tokens.prepare(repo.accountId) }
+            _ = await readPulls(of: unread, tokens: tokens)
+            guard !Task.isCancelled else { return }
+            noteAttention(tokens, among: nil)
+        }
+        saveSnapshot()
+    }
+
+    /// Takes `next` as the user's settings when the change moves no repo
+    /// (an answered proposal): saves them and works out the proposal again.
+    func storeConfig(_ next: ReviewsConfig) {
+        config = next
+        environment.config.save(next)
+        updateProposal()
+    }
+
+    private func updateProposal() {
+        let next = nextProposal()
+        if next != proposal { proposal = next }
     }
 
     // MARK: Discovery

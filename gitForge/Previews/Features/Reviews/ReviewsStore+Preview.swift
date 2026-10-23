@@ -136,6 +136,7 @@ struct PreviewReviewsWorld {
             makeActivity: { kind in PreviewActivity(hits: kind == .gitlab ? gitLabHits : gitHubHits) },
             makeSearch: { _ in PreviewHostSearch() },
             snapshots: ReviewsSnapshotStore(directory: snapshots),
+            config: ReviewsConfigStore(directory: snapshots),
             makeReviewProvider: { _ in host })
     }
 

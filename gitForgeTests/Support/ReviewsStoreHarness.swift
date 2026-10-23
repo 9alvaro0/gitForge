@@ -216,7 +216,8 @@ final class ReviewsFakeSearch: HostSearching, Sendable {
 }
 
 /// Accounts on `gitlab.example.test`, their clones, the fakes, the clock
-/// and the snapshot folder; `makeStore` builds a store on them, as a launch.
+/// and the folder of the snapshot and the settings; `makeStore` builds a
+/// store on them, as a launch.
 @MainActor
 final class ReviewsHarness {
     static let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
@@ -279,6 +280,7 @@ final class ReviewsHarness {
             makeActivity: { [activity] _ in activity },
             makeSearch: { [self] _ in search },
             snapshots: ReviewsSnapshotStore(directory: directory),
+            config: ReviewsConfigStore(directory: directory),
             now: { [self] in now },
             makeReviewProvider: { [provider] _ in provider }))
     }

@@ -109,11 +109,11 @@ nonisolated enum FollowedRepos {
     /// - `memberKeys` holds, for each instance whose membership is known, the
     ///   `key`s of the repos its accounts belong to. On such an instance a
     ///   clone counts only if its key is among them, or if the activity or a
-    ///   chosen candidate reached it too: activity is matched against the same
-    ///   membership, so it is a member as a rule, but activity carried over from
-    ///   an earlier round isn't checked again. An instance with no entry is
-    ///   unknown, and its clones count. The default, none known, is every clone
-    ///   counting.
+    ///   chosen candidate reached it too (`vouchedKeys`): activity is matched
+    ///   against the same membership, so it is a member as a rule, but
+    ///   activity carried over from an earlier round isn't checked again. An
+    ///   instance with no entry is unknown, and its clones count. The default,
+    ///   none known, is every clone counting.
     /// - A clone the membership would leave out stays when it has a
     ///   `LocalRemote.waitingAccountId` that is one of the inbox's accounts on
     ///   its instance (R3 Ruling 11): it keeps that account, like an assigned
@@ -126,23 +126,15 @@ nonisolated enum FollowedRepos {
                       hidden: Set<String> = [], accounts: [HostingAccount], instances: [HostingInstance],
                       memberKeys: [UUID: Set<String>] = [:]) -> FollowedSet {
         var drafts: [String: Draft] = [:]
-        let activityKeys = Set(activity.compactMap { candidate in
-            usableAccount(candidate.accountId, for: candidate.host, in: accounts, instances: instances) == nil
-                ? nil : key(candidate.host)
-        })
-        let eligible = chosen.filter { candidate in
-            (candidate.source == .pattern || candidate.source == .manual)
-                && usableAccount(candidate.accountId, for: candidate.host, in: accounts, instances: instances) != nil
-        }
-        let chosenKeys = Set(eligible.map { key($0.host) })
+        let eligible = chosen.filter { isEligible($0, accounts: accounts, instances: instances) }
+        let vouched = vouchedKeys(activity: activity, chosen: chosen, accounts: accounts, instances: instances)
 
         for remote in local {
             guard let instance = instance(for: remote.host, in: instances) else { continue }
             let repoKey = key(remote.host)
             let usable = accounts.filter { $0.instanceId == instance.id }
             var assigned = remote.assignedAccountId.flatMap { id in usable.first { $0.id == id } }
-            if let members = memberKeys[instance.id], !members.contains(repoKey),
-               !activityKeys.contains(repoKey), !chosenKeys.contains(repoKey) {
+            if let members = memberKeys[instance.id], !members.contains(repoKey), !vouched.contains(repoKey) {
                 // The membership leaves it out: only the account it waits for keeps it.
                 let waiting = remote.waitingAccountId.flatMap { id in usable.first { $0.id == id } }
                 guard let waiting else { continue }
@@ -193,6 +185,21 @@ nonisolated enum FollowedRepos {
                 return left == right ? lhs.id < rhs.id : left > right
             }
         return FollowedSet(repos: Array(repos.prefix(limit)), dropped: max(0, repos.count - limit))
+    }
+
+    /// The `key`s that keep a clone whatever the membership says: those an
+    /// activity candidate or a chosen candidate reaches with one of
+    /// `accounts` on the repo's instance. `merge` uses it, and the refresh
+    /// too, to leave these clones out of the rename lookups (R3 Ruling 10):
+    /// a clone kept under its own path mustn't also be followed under the
+    /// new one.
+    static func vouchedKeys(activity: [ActivityCandidate], chosen: [ChosenCandidate], accounts: [HostingAccount],
+                            instances: [HostingInstance]) -> Set<String> {
+        let byActivity = activity.filter { candidate in
+            usableAccount(candidate.accountId, for: candidate.host, in: accounts, instances: instances) != nil
+        }.map { key($0.host) }
+        let byChoice = chosen.filter { isEligible($0, accounts: accounts, instances: instances) }.map { key($0.host) }
+        return Set(byActivity + byChoice)
     }
 
     /// A repo's HTTPS clone URL when no membership gives one (Ruling 12).
@@ -254,6 +261,14 @@ nonisolated enum FollowedRepos {
                                       instances: [HostingInstance]) -> HostingAccount? {
         guard let instance = instance(for: host, in: instances) else { return nil }
         return accounts.first { $0.id == accountId && $0.instanceId == instance.id }
+    }
+
+    /// A chosen candidate `merge` takes: a pattern's or a manual one, with an
+    /// account of the inbox on its instance.
+    private static func isEligible(_ candidate: ChosenCandidate, accounts: [HostingAccount],
+                                   instances: [HostingInstance]) -> Bool {
+        (candidate.source == .pattern || candidate.source == .manual)
+            && usableAccount(candidate.accountId, for: candidate.host, in: accounts, instances: instances) != nil
     }
 
     /// The declared instance a repo lives on.

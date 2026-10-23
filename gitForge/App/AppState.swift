@@ -38,7 +38,8 @@ final class AppState {
         accounts: AccountStore? = nil,
         network: NetworkMonitor? = nil,
         whatsNew: WhatsNewController? = nil,
-        reviewsSnapshots: ReviewsSnapshotStore? = nil
+        reviewsSnapshots: ReviewsSnapshotStore? = nil,
+        reviewsConfig: ReviewsConfigStore? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
@@ -82,7 +83,8 @@ final class AppState {
             makeBrowser: { RemoteRepoBrowserFactory.make(for: $0) },
             makeActivity: { ReviewActivitySourceFactory.make(for: $0) },
             makeSearch: { HostSearchFactory.make(for: $0) },
-            snapshots: reviewsSnapshots ?? ReviewsSnapshotStore()
+            snapshots: reviewsSnapshots ?? ReviewsSnapshotStore(),
+            config: reviewsConfig ?? ReviewsConfigStore()
         ))
         self.catalog.gitCredentials = gitCredentials
         self.catalog.pullRequestAuth = pullRequestAuth
