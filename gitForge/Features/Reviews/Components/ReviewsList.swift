@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Left column of Reviews: Team / Mine, when the inbox was last read and
 /// Refresh; the repo the inbox is narrowed to, if any; the notices that hold
-/// for the whole inbox; then the open pull requests grouped by repo (Rulings
-/// 8 and 9) and the Others opened from a link (R2 Ruling 9). A row selected
-/// from outside the list scrolls into view (`ReviewsStore.revealRequest`).
+/// for the whole inbox (the pattern gitForge proposes first); then the open
+/// pull requests grouped by repo (Rulings 8 and 9) and the Others opened from
+/// a link (R2 Ruling 9). A row selected from outside the list scrolls into
+/// view (`ReviewsStore.revealRequest`).
 struct ReviewsList: View {
     let store: ReviewsStore
     let onSelect: (InboxPull) -> Void
@@ -18,7 +19,8 @@ struct ReviewsList: View {
             if let repo = store.filteredRepo {
                 // A row of its own, the column's whole width: the path and
                 // its button would crowd the header (R2 Ruling 7).
-                ReviewsRepoFilterBar(repo: repo) { store.showAllRepos() }
+                ReviewsRepoFilterBar(repo: repo, onShowAll: { store.showAllRepos() },
+                                     onFollow: followable(repo).map { found in { follow(found) } })
                     .padding(.horizontal, Spacing.s12)
                     .padding(.bottom, Spacing.s8)
             }
@@ -79,8 +81,11 @@ struct ReviewsList: View {
     @ViewBuilder
     private var notices: some View {
         let reconnect = store.accountsToReconnect
-        if store.droppedByLimit > 0 || !reconnect.isEmpty {
+        if store.proposal != nil || store.droppedByLimit > 0 || !reconnect.isEmpty {
             VStack(spacing: Spacing.s6) {
+                if let proposal = store.proposal {
+                    proposalNotice(proposal)
+                }
                 ForEach(reconnect, id: \.account.id) { entry in
                     ReviewsNotice(
                         symbol: "exclamationmark.triangle.fill",
@@ -101,14 +106,81 @@ struct ReviewsList: View {
                         soft: theme.colors.infoSoft,
                         // `FollowedRepos.limit`, spelled out for the translations.
                         title: String(localized: "\(store.droppedByLimit) repositories left out (limit of 100)."),
-                        detail: nil,
-                        action: nil
+                        detail: String(localized: "Hide repositories or narrow your patterns in Settings."),
+                        action: (String(localized: "Open Settings"), { appState.ui.openSettings(at: .reviews) })
                     )
                 }
             }
             .padding(.horizontal, Spacing.s8)
             .padding(.bottom, Spacing.s8)
         }
+    }
+
+    /// The pattern gitForge proposes, until it's answered (R3 Ruling 3). One
+    /// that would take the inbox over the limit can't be followed: it points
+    /// to Settings, where repos are hidden and patterns narrowed (Rulings 6
+    /// and M).
+    private func proposalNotice(_ proposal: PatternProposal) -> some View {
+        let overLimit = store.exceedsLimit(proposal.total)
+        let detail: String
+        let action: (title: String, run: () -> Void)
+        if overLimit {
+            // `FollowedRepos.limit`, spelled out for the translations.
+            detail = String(localized: "With them you'd follow \(proposal.total) repositories, over the limit of 100.")
+            action = (String(localized: "Open Settings"), { appState.ui.openSettings(at: .reviews) })
+        } else {
+            detail = String(localized: "Follow the other \(proposal.adds) that fit too?")
+            action = (String(localized: "Follow"), { acceptProposal() })
+        }
+        // A word joiner after each `/` keeps the pattern on one line: wrapped
+        // at a slash, `apps/` and `*/android/*` read as two things.
+        let pattern = proposal.pattern.text.replacingOccurrences(of: "/", with: "/\u{2060}")
+        return ReviewsNotice(
+            symbol: "lightbulb.fill",
+            tint: theme.colors.accent,
+            soft: theme.colors.accentSoft,
+            title: String(localized: "Your repositories seem to follow \(pattern)."),
+            detail: detail,
+            action: action,
+            secondary: (String(localized: "Not now"), { store.dismissProposal() })
+        )
+    }
+
+    // MARK: Following
+
+    /// What "Follow this repository" follows: `repo` while it's one opened
+    /// from a search that isn't followed (R3 Ruling 13), on its instance;
+    /// `nil` otherwise, or once its instance is gone.
+    private func followable(_ repo: ReviewRepo) -> FoundRepo? {
+        guard store.browsedRepos.contains(where: { $0.id == repo.id }),
+              let instance = appState.accounts.instance(forHost: repo.host.host) else { return nil }
+        return FoundRepo(host: repo.host, instanceId: instance.id, cloneURL: repo.cloneURL)
+    }
+
+    private func follow(_ repo: FoundRepo) {
+        Task {
+            if case .overLimit = await store.follow(repo) { warnOverLimit() }
+        }
+    }
+
+    private func acceptProposal() {
+        Task {
+            if case .overLimit = await store.acceptProposal() { warnOverLimit() }
+        }
+    }
+
+    /// Nothing changed: following would pass `FollowedRepos.limit` (R3 Ruling 6).
+    private func warnOverLimit() {
+        appState.ui.activeToast = ToastMessage(
+            message: String(localized: "Following it would pass the limit of 100 repositories."), kind: .warn)
+    }
+
+    /// "Hide from Reviews" on the heading of a followed repo (R3 Ruling 15,
+    /// Ruling Q); `nil` on a repo opened from a search, which hiding wouldn't
+    /// change.
+    private func hideAction(_ repo: ReviewRepo, followed: Set<String>) -> (() -> Void)? {
+        guard followed.contains(repo.id) else { return nil }
+        return { Task { await store.hide(repo.host) } }
     }
 
     // MARK: List
@@ -122,7 +194,25 @@ struct ReviewsList: View {
             if let repo = store.filteredRepo {
                 EmptyState(symbol: "arrow.triangle.pull",
                            title: String(localized: "No open pull requests in \(repo.host.slug).")) {
-                    ReviewRepoActionButton(repo: repo)
+                    if let found = followable(repo) {
+                        // Side by side while they fit, else one above the
+                        // other, as wide as each other.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: Spacing.s8) {
+                                followButton(found)
+                                    .fixedSize()
+                                ReviewRepoActionButton(repo: repo)
+                                    .fixedSize()
+                            }
+                            VStack(spacing: Spacing.s8) {
+                                followButton(found, fullWidth: true)
+                                ReviewRepoActionButton(repo: repo, fullWidth: true)
+                            }
+                            .fixedSize(horizontal: true, vertical: false)
+                        }
+                    } else {
+                        ReviewRepoActionButton(repo: repo)
+                    }
                 }
             } else {
                 EmptyState(symbol: "arrow.triangle.pull",
@@ -150,6 +240,12 @@ struct ReviewsList: View {
         }
     }
 
+    /// The empty state's "Follow this repository", before the repo's clone
+    /// or open button as in the filter bar (R3 Ruling 13).
+    private func followButton(_ found: FoundRepo, fullWidth: Bool = false) -> some View {
+        GFButton(title: String(localized: "Follow this repository"), fullWidth: fullWidth) { follow(found) }
+    }
+
     /// Scrolls only as much as it takes to show row `id`, and not at all
     /// when it's in view. Then, once laid out, the same for what sits just
     /// above it (`ReviewsScrollAbove`): scrolled up to, the row alone would
@@ -171,7 +267,8 @@ struct ReviewsList: View {
     }
 
     private func rows(groups: [ReviewGroup], others: [InboxPull]) -> some View {
-        LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
+        let followed = store.followedKeys
+        return LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
             ForEach(groups) { group in
                 Section {
                     ForEach(group.pulls) { item in
@@ -189,7 +286,7 @@ struct ReviewsList: View {
                         errorRow(error)
                     }
                 } header: {
-                    ReviewGroupHeader(repo: group.repo)
+                    ReviewGroupHeader(repo: group.repo, onHide: hideAction(group.repo, followed: followed))
                         .id(ReviewsHeading.group(group.id))
                 }
             }

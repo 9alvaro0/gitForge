@@ -891,16 +891,58 @@
     },
     "%lld repositories left out (limit of 100)." : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repository left out (limit of 100)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repositories left out (limit of 100)."
+                }
+              }
+            }
+          }
+        },
         "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld repos fuera (límite de 100)."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repo fuera (límite de 100)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repos fuera (límite de 100)."
+                }
+              }
+            }
           }
         },
         "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld repositórios de fora (limite de 100)."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repositório de fora (limite de 100)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld repositórios de fora (limite de 100)."
+                }
+              }
+            }
           }
         }
       }
@@ -7327,6 +7369,96 @@
         }
       }
     },
+    "Follow" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir"
+          }
+        }
+      }
+    },
+    "Follow the other %lld that fit too?" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Follow the other one that fits too?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Follow the other %lld that fit too?"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "¿Seguir también el otro que encaja?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "¿Seguir también los otros %lld que encajan?"
+                }
+              }
+            }
+          }
+        },
+        "pt-PT" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Seguir também o outro que encaixa?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Seguir também os outros %lld que encaixam?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Follow this repository" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir este repo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir este repositório"
+          }
+        }
+      }
+    },
     "Followed" : {
       "localizations" : {
         "es" : {
@@ -7339,6 +7471,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seguido"
+          }
+        }
+      }
+    },
+    "Following it would pass the limit of 100 repositories." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguirlo pasaría del límite de 100 repos."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segui-lo passaria o limite de 100 repositórios."
           }
         }
       }
@@ -7883,6 +8031,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ocultar painel de diff"
+          }
+        }
+      }
+    },
+    "Hide from Reviews" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar de Revisiones"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar de Revisões"
+          }
+        }
+      }
+    },
+    "Hide repositories or narrow your patterns in Settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oculta repos o acota tus patrones en Ajustes."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oculte repositórios ou restrinja os seus padrões nas Definições."
           }
         }
       }
@@ -10303,6 +10483,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não clonado"
+          }
+        }
+      }
+    },
+    "Not now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agora não"
           }
         }
       }
@@ -17628,6 +17824,64 @@
         }
       }
     },
+    "With them you'd follow %lld repositories, over the limit of 100." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "With them you'd follow %lld repository, over the limit of 100."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "With them you'd follow %lld repositories, over the limit of 100."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Con ellos seguirías %lld repo, más del límite de 100."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Con ellos seguirías %lld repos, más del límite de 100."
+                }
+              }
+            }
+          }
+        },
+        "pt-PT" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Com eles seguiria %lld repositório, acima do limite de 100."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Com eles seguiria %lld repositórios, acima do limite de 100."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Working directory does not exist: %@" : {
       "localizations" : {
         "es" : {
@@ -17992,6 +18246,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "As alterações locais seriam substituídas%@. Faça commit, stash ou descarte-as primeiro."
+          }
+        }
+      }
+    },
+    "Your repositories seem to follow %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parece que tus repos siguen %@."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os seus repositórios parecem seguir %@."
           }
         }
       }

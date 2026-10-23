@@ -15,6 +15,12 @@ extension ReviewsStore {
         case overLimit
         /// `loaded` plus an account to connect again.
         case attention
+        /// `loaded` plus two more Android apps followed by activity and two
+        /// that aren't: gitForge proposes `apps/*/android/*`.
+        case proposal
+        /// `proposal` with so many more Android apps that following the
+        /// pattern would pass `FollowedRepos.limit`.
+        case proposalOverLimit
     }
 
     /// A store on `PreviewReviewsWorld`. Empty until it refreshes, which
@@ -50,6 +56,17 @@ extension ReviewsStore {
         await refreshForPreview()
         _ = await openLink(PreviewReviewsWorld.slowLink)
     }
+
+    /// Opens the repo at `path` on github.com as "Search all" finds it:
+    /// nobody follows it, so the inbox is narrowed to it and offers to follow
+    /// it (`PreviewReviewsWorld.ossLib` has open pull requests,
+    /// `PreviewReviewsWorld.ossCli` none).
+    func openPreviewFoundRepo(_ path: String) async {
+        await refreshForPreview()
+        let host = RemoteHost.make(fullName: path, on: PreviewReviewsWorld.gitHub)!
+        _ = await openFoundRepo(FoundRepo(host: host, instanceId: PreviewReviewsWorld.gitHub.id,
+                                          cloneURL: "https://github.com/\(path).git"))
+    }
 }
 
 /// The fake hosts behind `ReviewsStore.preview`: accounts on
@@ -80,6 +97,16 @@ struct PreviewReviewsWorld {
     static let releaseTools = "apps/platform/release-tools"
     /// On github.com, and nobody follows it: its pull requests open as Others.
     static let ossLib = "oss/lib"
+    /// On github.com, nobody follows it and it has no open pull request.
+    static let ossCli = "oss/cli"
+    /// Followed by activity in `proposal`, with the clone: three Android apps
+    /// of the same shape.
+    static let loyaltyApp = "apps/loyalty/android/loyalty-app"
+    static let courierApp = "apps/delivery/android/courier-app"
+    /// Of the same shape in `proposal`, and not followed.
+    static let siblingApps = ["apps/catalog/android/catalog-app", "apps/stores/android/store-finder"]
+    /// More Android apps in `proposalOverLimit`, not followed either.
+    static let siblingFillerCount = 100
     /// A merged pull request of a followed repo, then an open one of
     /// `ossLib`, as `ReviewsStore.openPreviewOthers` opens them.
     static let otherLinks = [
@@ -99,12 +126,18 @@ struct PreviewReviewsWorld {
         switch inbox {
         case .noAccounts: accounts = []
         case .empty: accounts = [(Self.marta, Self.gitLab)]
-        case .loaded, .overLimit: accounts = [(Self.marta, Self.gitLab), (Self.octo, Self.gitHub)]
+        case .loaded, .overLimit, .proposal, .proposalOverLimit:
+            accounts = [(Self.marta, Self.gitLab), (Self.octo, Self.gitHub)]
         case .attention:
             accounts = [(Self.marta, Self.gitLab), (Self.octo, Self.gitHub), (Self.martaOps, Self.gitLab)]
         }
         let populated = inbox != .empty && inbox != .noAccounts
         let fillers = inbox == .overLimit ? Self.fillerCount : 0
+        let siblings: Siblings = switch inbox {
+        case .proposal: .proposing
+        case .proposalOverLimit: .proposingOverLimit
+        default: .absent
+        }
 
         let local = populated
             ? [LocalRemote(host: RemoteHost.make(fullName: Self.paymentsApp, on: Self.gitLab)!,
@@ -112,8 +145,8 @@ struct PreviewReviewsWorld {
                                                   lastOpenedAt: now.addingTimeInterval(-3600)),
                            assignedAccountId: Self.marta.id)]
             : []
-        let gitLabMembers = populated ? Self.gitLabMembers(fillers: fillers) : []
-        let gitLabHits = populated ? Self.gitLabHits(now: now, fillers: fillers) : []
+        let gitLabMembers = populated ? Self.gitLabMembers(fillers: fillers, siblings: siblings) : []
+        let gitLabHits = populated ? Self.gitLabHits(now: now, fillers: fillers, siblings: siblings) : []
         let gitHubMembers = populated ? [Self.member("201", Self.designTokens, on: Self.gitHub)] : []
         let gitHubHits = populated ? [ActivityHit(ref: .path(Self.designTokens), at: now.addingTimeInterval(-1800))] : []
         let host = PreviewReviewsHost(lists: populated ? Self.lists(now: now) : [:],
@@ -142,6 +175,15 @@ struct PreviewReviewsWorld {
 
     // MARK: Data
 
+    /// The Android apps besides payments-app.
+    private enum Siblings {
+        case absent
+        /// `loyaltyApp` and `courierApp` followed by activity, and `siblingApps`.
+        case proposing
+        /// `proposing` plus `siblingFillerCount` more members.
+        case proposingOverLimit
+    }
+
     private static func link(_ url: String) -> PullRequestLink {
         PullRequestLink.parse(url, instances: [gitLab, gitHub])!
     }
@@ -152,19 +194,31 @@ struct PreviewReviewsWorld {
                           isPrivate: true, defaultBranch: "main")
     }
 
-    private static func gitLabMembers(fillers: Int) -> [RemoteRepoSummary] {
+    private static func gitLabMembers(fillers: Int, siblings: Siblings) -> [RemoteRepoSummary] {
         // The clone is listed too: a clone counts only when the account belongs to its repo.
-        [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
-         member("103", infraModules, on: gitLab), member("104", releaseTools, on: gitLab)]
+        var members = [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
+                       member("103", infraModules, on: gitLab), member("104", releaseTools, on: gitLab)]
             + (0..<fillers).map { member("9\($0)", "apps/archive/service-\($0)", on: gitLab) }
+        if siblings != .absent {
+            members += [member("105", loyaltyApp, on: gitLab), member("106", courierApp, on: gitLab)]
+                + siblingApps.enumerated().map { member("10\(7 + $0.offset)", $0.element, on: gitLab) }
+        }
+        if siblings == .proposingOverLimit {
+            members += (0..<siblingFillerCount).map {
+                member("8\($0)", "apps/brand-\($0)/android/brand-\($0)-app", on: gitLab)
+            }
+        }
+        return members
     }
 
     /// The fillers are older than the rest, so they're the ones left out.
-    private static func gitLabHits(now: Date, fillers: Int) -> [ActivityHit] {
+    private static func gitLabHits(now: Date, fillers: Int, siblings: Siblings) -> [ActivityHit] {
         [ActivityHit(ref: .projectId("102"), at: now.addingTimeInterval(-2 * 3600)),
          ActivityHit(ref: .projectId("103"), at: now.addingTimeInterval(-5 * 3600)),
          ActivityHit(ref: .projectId("104"), at: now.addingTimeInterval(-26 * 3600))]
             + (0..<fillers).map { ActivityHit(ref: .projectId("9\($0)"), at: now.addingTimeInterval(-Double(2 + $0) * 86_400)) }
+            + (siblings == .absent ? [] : [ActivityHit(ref: .projectId("105"), at: now.addingTimeInterval(-30 * 3600)),
+                                         ActivityHit(ref: .projectId("106"), at: now.addingTimeInterval(-50 * 3600))])
     }
 
     private static func pull(_ number: Int, _ title: String, by author: String, from branch: String,
@@ -178,16 +232,12 @@ struct PreviewReviewsWorld {
                            updatedAt: now.addingTimeInterval(-minutesAgo * 60), headSha: "a1b2c3d\(number)")
     }
 
-    /// Pull requests no open list has: of `ossLib`, and merged.
+    /// Pull requests no open list has: merged ones.
     private static func linked(now: Date) -> [String: [PullRequest]] {
         [
             paymentsApp: [
                 pull(466, "Keep the basket when the session expires", by: "jon", from: "fix/basket-session",
                      into: "develop", state: .merged, minutesAgo: 4300, on: paymentsApp, instance: gitLab, now: now),
-            ],
-            ossLib: [
-                pull(12, "Parse dates in the server's time zone", by: "octo", from: "fix/server-time-zone",
-                     minutesAgo: 70, on: ossLib, instance: gitHub, now: now),
             ],
         ]
     }
@@ -212,6 +262,14 @@ struct PreviewReviewsWorld {
                      minutesAgo: 50, on: designTokens, instance: gitHub, now: now),
                 pull(85, "Build the tokens with Node 22", by: "octo", from: "chore/node-22",
                      minutesAgo: 2900, on: designTokens, instance: gitHub, now: now),
+            ],
+            // Not followed: its pull requests come in from a link or when
+            // "Search all" opens the repo.
+            ossLib: [
+                pull(12, "Parse dates in the server's time zone", by: "octo", from: "fix/server-time-zone",
+                     minutesAgo: 70, on: ossLib, instance: gitHub, now: now),
+                pull(9, "Drop the deprecated date formatter", by: "ana", from: "chore/drop-old-formatter",
+                     minutesAgo: 3100, on: ossLib, instance: gitHub, now: now),
             ],
         ]
     }

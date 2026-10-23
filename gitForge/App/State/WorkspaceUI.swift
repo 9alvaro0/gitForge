@@ -78,6 +78,8 @@ struct AddInstanceRequest: Identifiable, Equatable {
 /// A Settings section other screens link to.
 enum SettingsAnchor: Hashable {
     case accounts
+    /// What Reviews follows (R3 Ruling 15).
+    case reviews
 }
 
 /// Opens "Clone a repository", optionally with a URL already in or on a

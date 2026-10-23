@@ -1,9 +1,13 @@
 import SwiftUI
 
 /// A repo's heading in the inbox: its path, and "Not cloned" when it isn't on
-/// this Mac. Pinned while its rows scroll under it.
+/// this Mac. Pinned while its rows scroll under it. A followed repo's has
+/// "Hide from Reviews" in its context menu (R3 Ruling 15).
 struct ReviewGroupHeader: View {
     let repo: ReviewRepo
+    /// Hides the repo from the inbox; `nil` offers nothing (a repo opened
+    /// from a search, which nobody follows).
+    var onHide: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -28,6 +32,11 @@ struct ReviewGroupHeader: View {
         }
         .reviewSectionHeader()
         .help(Text(verbatim: "\(repo.host.host)/\(repo.host.slug)"))
+        .contextMenu {
+            if let onHide {
+                Button(String(localized: "Hide from Reviews"), action: onHide)
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
@@ -78,7 +87,8 @@ private struct ReviewSectionHeaderChrome: ViewModifier {
             ReviewGroupHeader(repo: ReviewRepo(host: RemoteHost.make(fullName: path, on: instance)!,
                                                accountId: UUID(), sources: [.activity], lastActivity: nil,
                                                cloneURL: "https://gitlab.example.test/\(path).git",
-                                               localURL: path.hasSuffix("-app") ? URL(fileURLWithPath: "/tmp/payments-app") : nil))
+                                               localURL: path.hasSuffix("-app") ? URL(fileURLWithPath: "/tmp/payments-app") : nil),
+                              onHide: {})
         }
     }
     .frame(width: 320)
