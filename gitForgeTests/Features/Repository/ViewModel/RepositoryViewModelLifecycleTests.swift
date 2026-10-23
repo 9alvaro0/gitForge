@@ -28,6 +28,17 @@ struct RepositoryViewModelLifecycleTests {
         #expect(observed.wasCancelled == true)
     }
 
+    @Test("stopReactivity on a dirty working tree leaves no task behind: clearing the status lays no graph out again")
+    func dirtyStopLeavesNoTask() {
+        let vm = Self.makeVM()
+        vm.workingCopy.status = WorkingCopyStatus(files: [
+            WorkingCopyFile(path: "a.txt", stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil)
+        ])
+        vm.stopReactivity()
+        #expect(vm.workingCopy.status.isClean)
+        #expect(vm.tasks.isEmpty)
+    }
+
     @Test("stopReactivity drops the heavy in-memory caches")
     func purgesCaches() async {
         let vm = Self.makeVM()

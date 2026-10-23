@@ -17,7 +17,8 @@ final class WorkingCopyStore {
         }
     }
     /// Called when the working tree turns dirty or clean (`status.isClean` flips), not on
-    /// every status read. The view model lays the history graph out again.
+    /// every status read. The view model lays the history graph out again. Not called by
+    /// `purge()`.
     @ObservationIgnored var onCleanChange: (() -> Void)?
     /// `+N −M` per path for the Staged rows (index vs HEAD) and the Unstaged
     /// rows (worktree vs index). Untracked and binary files have none.
@@ -117,8 +118,13 @@ final class WorkingCopyStore {
         "gitForge.signOff.\(repositoryURL.standardizedFileURL.path(percentEncoded: false))"
     }
 
-    /// Drops the status and diff when the session stops.
+    /// Drops the status and diff when the session stops. Without calling `onCleanChange`:
+    /// the session's tasks are already cancelled, and a graph laid out again now would be
+    /// tracked after that (`HistoryStore.purge()` hides the Uncommitted changes row itself).
     func purge() {
+        let onCleanChange = onCleanChange
+        self.onCleanChange = nil
+        defer { self.onCleanChange = onCleanChange }
         status = WorkingCopyStatus(files: [])
         stagedLineCounts = [:]
         unstagedLineCounts = [:]
