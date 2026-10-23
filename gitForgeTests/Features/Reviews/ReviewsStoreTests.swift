@@ -836,6 +836,274 @@ struct ReviewsStoreTests {
         #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
     }
 
+    // MARK: Refresh button, renamed clones and accounts to reconnect (R3 Rulings 9 to 11)
+
+    private static func lookups(_ harness: ReviewsHarness) -> Int { harness.search.state { $0.lookups } }
+
+    private static func savedLookups(_ harness: ReviewsHarness) -> [String: RepoLookup]? {
+        ReviewsSnapshotStore(directory: harness.directory).load()?.lookups
+    }
+
+    @Test("The Refresh button reads the membership again within the day; a forced refresh doesn't")
+    func rereadLists() async {
+        let harness = ReviewsHarness.twoRepos()
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        await store.refresh(force: true)
+        #expect(harness.browser.state { $0.listings } == 1)
+
+        await store.refresh(force: true, rereadLists: true)
+        #expect(harness.browser.state { $0.listings } == 2)
+        #expect(store.repos.count == 2)
+    }
+
+    @Test("A membership the Refresh button can't read again falls back to the list of the day; an older one doesn't")
+    func rereadListsFailureKeepsTheCachedList() async {
+        let harness = Self.twoClones(members: ["team/app"])
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.repos.map(\.host.repo) == ["app"])
+
+        harness.browser.state { $0.failure = .network("The Internet connection appears to be offline.") }
+        await store.refresh(force: true, rereadLists: true)
+        #expect(harness.browser.state { $0.listings } == 2)
+        #expect(store.repos.map(\.host.repo) == ["app"])
+
+        // A day later the cached list is too old to stand in: the membership is unknown, as for any refresh.
+        harness.now = harness.now.addingTimeInterval(25 * 3600)
+        await store.refresh(force: true, rereadLists: true)
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+    }
+
+    /// A clone whose `origin` still has team/old-name, one open pull request on
+    /// team/new-name, and an account that belongs to team/new-name only.
+    private static func renamedClone() -> ReviewsHarness {
+        let harness = ReviewsHarness()
+        harness.clonesAreMembers = false
+        harness.locals = [ReviewsHarness.local("team/old-name")]
+        harness.browser.state { $0.members = [ReviewsHarness.member("m0", "team/new-name")] }
+        harness.provider.state { $0.lists["team/new-name"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)] }
+        return harness
+    }
+
+    @Test("A clone of a renamed repo is followed under its current path, and the lookup is kept for the day")
+    func renamedClone() async throws {
+        let harness = Self.renamedClone()
+        harness.search.state { $0.paths["team/old-name"] = "team/new-name" }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        let repo = try #require(store.repos.first)
+        #expect(store.repos.count == 1)
+        #expect(repo.host.slug == "team/new-name")
+        #expect(repo.id == ReviewsHarness.key("team/new-name"))
+        #expect(repo.sources == [.local])
+        #expect(repo.localURL == URL(fileURLWithPath: "/r/team/old-name"))
+        #expect(repo.outdatedOrigin?.slug == "team/old-name")
+        #expect(harness.provider.state { $0.reads } == ["team/new-name"])
+        #expect(store.badgeCount == 1)
+        #expect(Self.lookups(harness) == 1)
+        let saved = Self.savedLookups(harness)?[ReviewsHarness.key("team/old-name")]
+        #expect(saved == RepoLookup(fetchedAt: harness.now, currentPath: "team/new-name"))
+
+        // Another forced refresh, and a launch that loads the snapshot, don't ask again.
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 1)
+        #expect(store.repos.map(\.host.slug) == ["team/new-name"])
+        let relaunched = harness.makeStore()
+        relaunched.loadSnapshot()
+        harness.now = harness.now.addingTimeInterval(60)
+        await relaunched.refresh(force: true)
+        #expect(Self.lookups(harness) == 1)
+        #expect(relaunched.repos.first?.outdatedOrigin?.slug == "team/old-name")
+
+        // The Refresh button asks again.
+        await relaunched.refresh(force: true, rereadLists: true)
+        #expect(Self.lookups(harness) == 2)
+        #expect(relaunched.repos.map(\.host.slug) == ["team/new-name"])
+
+        // So does any refresh a day later.
+        harness.now = harness.now.addingTimeInterval(25 * 3600)
+        await relaunched.refresh(force: true)
+        #expect(Self.lookups(harness) == 3)
+    }
+
+    @Test("A link with the renamed repo's old path still opens with the clone")
+    func oldPathLinkKnowsTheClone() async {
+        let harness = Self.renamedClone()
+        harness.search.state { $0.paths["team/old-name"] = "team/new-name" }
+        // The host answers the old path too: it redirects.
+        harness.provider.state { $0.lists["team/old-name"] = [ReviewsHarness.pr(1, by: "octo", updated: 100)] }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        let link = PullRequestLink(host: ReviewsHarness.host("team/old-name"), number: 1,
+                                   instanceId: ReviewsHarness.instance.id)
+        _ = await store.openLink(link)
+
+        #expect(store.others.first?.repo.id == ReviewsHarness.key("team/old-name"))
+        #expect(store.others.first?.repo.localURL == URL(fileURLWithPath: "/r/team/old-name"))
+    }
+
+    @Test("A lookup the Refresh button can't make again keeps the path found before")
+    func rereadRenameFailureKeepsTheCachedPath() async {
+        let harness = Self.renamedClone()
+        harness.search.state { $0.paths["team/old-name"] = "team/new-name" }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        harness.search.state { $0.pathFailures["team/old-name"] = .server(503, "Service Unavailable") }
+        await store.refresh(force: true, rereadLists: true)
+        #expect(Self.lookups(harness) == 2)
+        #expect(store.repos.map(\.host.slug) == ["team/new-name"])
+        #expect(store.repos.first?.outdatedOrigin?.slug == "team/old-name")
+    }
+
+    @Test("A clone whose repo the host no longer has stays out, and the 404 is kept for the day")
+    func renameNotFoundCached() async {
+        let harness = Self.renamedClone()
+        harness.search.state { $0.paths["team/old-name"] = .some(nil) }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.isEmpty)
+        #expect(Self.lookups(harness) == 1)
+        let saved = Self.savedLookups(harness)?[ReviewsHarness.key("team/old-name")]
+        #expect(saved == RepoLookup(fetchedAt: harness.now, currentPath: nil))
+
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(store.repos.isEmpty)
+        #expect(Self.lookups(harness) == 1)
+    }
+
+    @Test("A lookup that fails isn't kept: the clone stays out, and the next refresh asks again",
+          arguments: [PullRequestFetchError.network("The Internet connection appears to be offline."),
+                      .server(503, "Service Unavailable"), .forbidden])
+    func renameErrorRetried(error: PullRequestFetchError) async {
+        let harness = Self.renamedClone()
+        harness.search.state { $0.pathFailures["team/old-name"] = error }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.isEmpty)
+        #expect(Self.lookups(harness) == 1)
+        #expect(Self.savedLookups(harness)?[ReviewsHarness.key("team/old-name")] == nil)
+
+        harness.search.state {
+            $0.pathFailures = [:]
+            $0.paths["team/old-name"] = "team/new-name"
+        }
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 2)
+        #expect(store.repos.map(\.host.slug) == ["team/new-name"])
+    }
+
+    @Test("A clone of a repo that kept its path, or moved where the account doesn't belong, stays out")
+    func renameSamePath() async {
+        let harness = Self.renamedClone()
+        harness.locals = [ReviewsHarness.local("oss/big"), ReviewsHarness.local("oss/moved")]
+        harness.search.state { $0.paths["oss/moved"] = "elsewhere/moved" }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(store.repos.isEmpty)
+        #expect(harness.provider.state { $0.reads }.isEmpty)
+        #expect(Self.lookups(harness) == 2)
+
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 2)
+    }
+
+    @Test("A clone waiting for its account that moved where the accounts don't belong keeps its own path")
+    func waitingCloneMovedAway() async {
+        let harness = Self.renamedClone()
+        let expired = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "ana", method: .oauth,
+                                     status: .needsAttention(.expired))
+        harness.accounts.append(expired)
+        var moved = ReviewsHarness.local("oss/moved")
+        moved.waitingAccountId = expired.id
+        harness.locals = [moved]
+        harness.search.state { $0.paths["oss/moved"] = "elsewhere/moved" }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+
+        #expect(Self.lookups(harness) == 1)
+        #expect(store.repos.map(\.host.slug) == ["oss/moved"])
+        #expect(store.repos.first?.accountId == expired.id)
+        #expect(store.repos.first?.outdatedOrigin == nil)
+    }
+
+    @Test("A clone the membership lists, or one on an instance whose membership is unknown, isn't looked up")
+    func noLookupWhenNotNeeded() async {
+        let members = ReviewsHarness.twoRepos()
+        await members.makeStore().refresh(force: true)
+        #expect(Self.lookups(members) == 0)
+
+        let unknown = Self.renamedClone()
+        unknown.browser.state { $0.failure = .network("The Internet connection appears to be offline.") }
+        let store = unknown.makeStore()
+        await store.refresh(force: true)
+        #expect(Self.lookups(unknown) == 0)
+        #expect(store.repos.map(\.host.slug) == ["team/old-name"])
+        #expect(store.repos.first?.outdatedOrigin == nil)
+    }
+
+    @Test("At most 20 clones are looked up in a refresh; the rest wait for the next one")
+    func renameLookupCap() async {
+        let harness = Self.renamedClone()
+        harness.locals = (0..<25).map { ReviewsHarness.local("oss/clone-\($0)") }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(ReviewsStore.renameLookups == 20)
+        #expect(Self.lookups(harness) == 20)
+
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 25)
+        #expect(Self.savedLookups(harness)?.count == 25)
+
+        // A clone that's gone takes its lookup with it.
+        harness.locals = Array(harness.locals.prefix(3))
+        harness.now = harness.now.addingTimeInterval(60)
+        await store.refresh(force: true)
+        #expect(Self.lookups(harness) == 25)
+        #expect(Self.savedLookups(harness)?.count == 3)
+    }
+
+    @Test("A clone waiting for an account to reconnect stays with it, its pull requests and its notice")
+    func waitingAccountClone() async throws {
+        let harness = Self.twoClones(members: ["oss/big"])
+        let signing = harness.account
+        let expired = HostingAccount(instanceId: ReviewsHarness.instance.id, login: "ana", method: .oauth,
+                                     status: .needsAttention(.expired))
+        harness.accounts.append(expired)
+        // As `localRemotesForReviews` gives it: read with the account that signs
+        // for now, but the user's account for it is the expired one.
+        var app = ReviewsHarness.local("team/app", account: signing.id)
+        app.waitingAccountId = expired.id
+        harness.locals = [app, ReviewsHarness.local("oss/big")]
+        let appRepo = ReviewRepo(host: app.host, accountId: expired.id, sources: [.local], lastActivity: nil,
+                                 cloneURL: FollowedRepos.cloneURL(for: app.host), localURL: app.repository.url)
+        ReviewsSnapshotStore(directory: harness.directory).save(ReviewsSnapshot(
+            version: ReviewsSnapshot.currentVersion, savedAt: harness.now.addingTimeInterval(-3600), repos: [appRepo],
+            pulls: [appRepo.id: [ReviewsHarness.pr(7, by: "octo", updated: 50)]], memberships: [:], logins: [:]))
+        let store = harness.makeStore()
+        store.loadSnapshot()
+        await store.refresh(force: true)
+
+        let kept = try #require(store.repos.first { $0.host.repo == "app" })
+        #expect(kept.accountId == expired.id)
+        #expect(store.repos.map(\.host.repo).sorted() == ["app", "big"])
+        // Its token asks to reconnect: it isn't read, and keeps the snapshot's pull requests.
+        #expect(harness.provider.state { $0.reads } == ["oss/big"])
+        #expect(store.pulls[kept.id]?.map(\.number) == [7])
+        #expect(store.accountsToReconnect.map(\.account.id) == [expired.id])
+    }
+
     // MARK: Selection
 
     @Test("A selection the filter still shows stays; one it hides, or that left, goes without another taking its place")

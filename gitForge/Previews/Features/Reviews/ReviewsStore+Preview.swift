@@ -134,6 +134,7 @@ struct PreviewReviewsWorld {
             makeProvider: { _ in host },
             makeBrowser: { kind in PreviewRepoBrowser(members: kind == .gitlab ? gitLabMembers : gitHubMembers) },
             makeActivity: { kind in PreviewActivity(hits: kind == .gitlab ? gitLabHits : gitHubHits) },
+            makeSearch: { _ in PreviewHostSearch() },
             snapshots: ReviewsSnapshotStore(directory: snapshots),
             makeReviewProvider: { _ in host })
     }
@@ -299,4 +300,13 @@ struct PreviewActivity: ReviewActivitySource {
     func recentActivity(apiBase: URL, login: String, since: Date, token: String) async throws -> [ActivityHit] {
         hits
     }
+}
+
+/// Finds nothing, and no repo has moved.
+nonisolated struct PreviewHostSearch: HostSearching {
+    func searchPulls(_ text: String, owners: [String]?, on instance: HostingInstance,
+                     token: String) async throws -> [FoundPull] { [] }
+    func searchRepos(_ text: String, owners: [String]?, on instance: HostingInstance,
+                     token: String) async throws -> [FoundRepo] { [] }
+    func currentPath(of host: RemoteHost, token: String) async throws -> String? { host.slug }
 }

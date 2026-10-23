@@ -151,6 +151,70 @@ final class ReviewsFakeActivity: ReviewActivitySource, Sendable {
     }
 }
 
+/// Scripted host search: where each repo lives now and what a lookup throws,
+/// by the path asked, fixed search results, searches held on a gate, and a log
+/// of what was asked.
+final class ReviewsFakeSearch: HostSearching, Sendable {
+    /// One call to `searchPulls` or `searchRepos`.
+    struct SearchCall: Equatable {
+        enum Kind: Equatable { case pulls, repos }
+        let kind: Kind
+        let text: String
+        let owners: [String]?
+    }
+
+    struct State {
+        /// The current path of each path asked (`owner/repo`); a `nil` value
+        /// is a 404, set with `.some(nil)`. A path not listed hasn't moved.
+        var paths: [String: String?] = [:]
+        /// What a lookup throws, by the path asked.
+        var pathFailures: [String: PullRequestFetchError] = [:]
+        /// Calls to `currentPath`.
+        var lookups = 0
+        var pulls: [FoundPull] = []
+        var repos: [FoundRepo] = []
+        /// Each search, in the order it was made.
+        var searches: [SearchCall] = []
+        /// What every search throws.
+        var failure: PullRequestFetchError?
+        /// Holds the searches for a text until its gate opens.
+        var gates: [String: AsyncGate] = [:]
+    }
+
+    let state = ReviewsLocked(State())
+
+    func searchPulls(_ text: String, owners: [String]?, on instance: HostingInstance,
+                     token: String) async throws -> [FoundPull] {
+        try await search(SearchCall(kind: .pulls, text: text, owners: owners)) { $0.pulls }
+    }
+
+    func searchRepos(_ text: String, owners: [String]?, on instance: HostingInstance,
+                     token: String) async throws -> [FoundRepo] {
+        try await search(SearchCall(kind: .repos, text: text, owners: owners)) { $0.repos }
+    }
+
+    func currentPath(of host: RemoteHost, token: String) async throws -> String? {
+        try state { state in
+            state.lookups += 1
+            if let failure = state.pathFailures[host.slug] { throw failure }
+            if let path = state.paths[host.slug] { return path }
+            return host.slug
+        }
+    }
+
+    private func search<Found>(_ call: SearchCall, results: (State) -> [Found]) async throws -> [Found] {
+        let gate = state { state in
+            state.searches.append(call)
+            return state.gates[call.text]
+        }
+        if let gate { await gate.wait() }
+        return try state { state in
+            if let failure = state.failure { throw failure }
+            return results(state)
+        }
+    }
+}
+
 /// Accounts on `gitlab.example.test`, their clones, the fakes, the clock
 /// and the snapshot folder; `makeStore` builds a store on them, as a launch.
 @MainActor
@@ -162,6 +226,7 @@ final class ReviewsHarness {
     let provider = ReviewsFakeProvider()
     let browser = ReviewsFakeBrowser()
     let activity = ReviewsFakeActivity()
+    var search = ReviewsFakeSearch()
     var locals: [LocalRemote] = [] { didSet { syncClones() } }
     /// Whether the membership also lists the clones. A clone counts only when
     /// an account belongs to its repo, so a test about something else keeps
@@ -212,6 +277,7 @@ final class ReviewsHarness {
             makeProvider: { [provider] _ in provider },
             makeBrowser: { [browser] _ in browser },
             makeActivity: { [activity] _ in activity },
+            makeSearch: { [self] _ in search },
             snapshots: ReviewsSnapshotStore(directory: directory),
             now: { [self] in now },
             makeReviewProvider: { [provider] _ in provider }))

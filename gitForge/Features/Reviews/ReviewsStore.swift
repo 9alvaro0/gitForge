@@ -17,18 +17,23 @@ struct ReviewsEnvironment {
     var accounts: @MainActor () -> [(account: HostingAccount, instance: HostingInstance)]
     /// The catalog's clones whose `origin` is on a declared instance, each
     /// with the account its own Pull requests screen reads it with, when one
-    /// stands out (`LocalRemote.assignedAccountId`); nobody is asked. Which of
-    /// them the inbox follows is not decided here: `FollowedRepos.merge` keeps
-    /// a clone only if an account of its instance belongs to the repo, when
-    /// the memberships tell. A refresh cancelled while this runs commits
-    /// nothing: `GitCLI` reads the remotes with `try?`, so a cancelled read
-    /// comes back empty.
+    /// stands out (`LocalRemote.assignedAccountId`), and the account to
+    /// reconnect it waits for, if any (`LocalRemote.waitingAccountId`);
+    /// nobody is asked. Which of them the inbox follows is not decided here:
+    /// `FollowedRepos.merge` keeps a clone only if an account of its instance
+    /// belongs to the repo, when the memberships tell, and the refresh first
+    /// looks for the ones that were renamed. A refresh cancelled while this
+    /// runs commits nothing: `GitCLI` reads the remotes with `try?`, so a
+    /// cancelled read comes back empty.
     var localRemotes: @MainActor () async -> [LocalRemote]
     /// An account's token; `rejected` is one that just got a 401.
     var token: @MainActor (_ accountId: UUID, _ rejected: String?) async -> PullRequestAuthResult
     var makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
     var makeBrowser: @MainActor (HostingInstance.Kind) -> any RemoteRepoBrowsing
     var makeActivity: @MainActor (HostingInstance.Kind) -> any ReviewActivitySource
+    /// Where a renamed or moved repo lives now (R3 Ruling 10), and the
+    /// searches of a whole host.
+    var makeSearch: @MainActor (HostingInstance.Kind) -> any HostSearching
     var snapshots: ReviewsSnapshotStore
     var now: @MainActor () -> Date = { .now }
     /// The writes of the detail stores: reviews, threads, merge.
@@ -57,6 +62,8 @@ final class ReviewsStore {
     static let membershipTTL: TimeInterval = 24 * 3600
     /// Most pages of membership read per account (Ruling 3).
     static let membershipPages = 10
+    /// Most clones asked about in one refresh, to follow a rename (R3 Ruling 10).
+    static let renameLookups = 20
 
     /// The repos followed, most recent activity first.
     private(set) var repos: [ReviewRepo] = []
@@ -96,6 +103,10 @@ final class ReviewsStore {
 
     private let environment: ReviewsEnvironment
     @ObservationIgnored private var memberships: [UUID: MembershipCache] = [:]
+    /// Where the clones the membership leaves out live now, by the clone's
+    /// `FollowedRepos.key` (R3 Ruling 10): only those of the last round's
+    /// clones, kept in the snapshot.
+    @ObservationIgnored private var lookups: [String: RepoLookup] = [:]
     @ObservationIgnored private var detailStores: [String: PullRequestStore] = [:]
     /// When the last refresh started, for the throttle.
     @ObservationIgnored private var lastRoundAt: Date?
@@ -134,11 +145,10 @@ final class ReviewsStore {
     /// no repo of its own, is still in `accountsNeedingAttention` but says
     /// nothing here: there's nothing in the inbox to reconnect it for. One
     /// whose repos are still listed (activity repos carried over, a clone
-    /// assigned to it) keeps its notice (spec §4.2). A clone assigned to it
-    /// can leave, though: where the usable accounts of its instance have a
-    /// complete membership that doesn't list the repo, it isn't followed, and
-    /// the notice goes with the account's last repo. One that was removed
-    /// meanwhile is left out.
+    /// that waits for it) keeps its notice (spec §4.2): a clone that waits for
+    /// it stays even where the membership doesn't list the repo, until it's
+    /// connected again (R3 Ruling 11). One that was removed meanwhile is left
+    /// out.
     var accountsToReconnect: [(account: HostingAccount, instance: HostingInstance)] {
         guard !accountsNeedingAttention.isEmpty else { return [] }
         let owners = Set(repos.map(\.accountId))
@@ -313,6 +323,7 @@ final class ReviewsStore {
         pulls = snapshot.pulls
         memberships = snapshot.memberships
         logins = snapshot.logins
+        lookups = snapshot.lookups ?? [:]
         lastRefreshedAt = snapshot.savedAt
     }
 
@@ -322,7 +333,7 @@ final class ReviewsStore {
         guard let lastRefreshedAt else { return }
         environment.snapshots.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion, savedAt: lastRefreshedAt,
                                                    repos: repos, pulls: pulls, memberships: memberships,
-                                                   logins: logins))
+                                                   logins: logins, lookups: lookups.isEmpty ? nil : lookups))
     }
 
     // MARK: Refresh
@@ -332,7 +343,10 @@ final class ReviewsStore {
     /// forced. A cancelled round (Reviews left, the auto refresh stopped)
     /// writes nothing to disk. Without accounts it reads nothing, not even
     /// the clones: it only empties what removed accounts left.
-    func refresh(force: Bool = false) async {
+    ///
+    /// The memberships and the rename lookups are read again once a day;
+    /// `rereadLists`, the Refresh button's, reads them again now (R3 Ruling 9).
+    func refresh(force: Bool = false, rereadLists: Bool = false) async {
         let now = environment.now()
         guard !isRefreshing else { return }
         if !force, let lastRoundAt, now.timeIntervalSince(lastRoundAt) < Self.reloadThrottle { return }
@@ -356,24 +370,35 @@ final class ReviewsStore {
         var lists: [UUID: MembershipCache] = [:]
         for (account, instance) in accounts {
             await tokens.prepare(account.id)
-            let list = await membership(of: account, on: instance, tokens: tokens, now: now)
+            let list = await membership(of: account, on: instance, tokens: tokens, now: now, rereadLists: rereadLists)
             lists[account.id] = list
             activity += await recentActivity(of: account, on: instance, members: list?.repos, tokens: tokens, now: now)
                 ?? Self.carriedOver(repos, accountId: account.id)
         }
-        let local = await environment.localRemotes()
+        let clones = await environment.localRemotes()
         // Cancelled, the clones may have come back empty: nothing is
         // committed, and the round doesn't count for the throttle.
         guard !Task.isCancelled else {
             lastRoundAt = previousRound
             return
         }
-        knownClones = Dictionary(local.map { (FollowedRepos.key($0.host), $0.repository.url) },
+        let memberKeys = Self.memberKeys(accounts: accounts, lists: lists)
+        // What keeps a clone the membership leaves out, as in `merge`: the activity.
+        let vouched = Set(activity.map { FollowedRepos.key($0.host) })
+        let local = await followRenames(of: clones, accounts: accounts, memberKeys: memberKeys, vouched: vouched,
+                                        tokens: tokens, now: now, rereadLists: rereadLists)
+        // Cancelled while looking up, a renamed clone may have missed its
+        // path: nothing is committed either.
+        guard !Task.isCancelled else {
+            lastRoundAt = previousRound
+            return
+        }
+        // A renamed clone under both paths: a link may still have the old one.
+        knownClones = Dictionary((local + clones).map { (FollowedRepos.key($0.host), $0.repository.url) },
                                  uniquingKeysWith: { first, _ in first })
         adopt(FollowedRepos.merge(local: local, activity: activity,
                                   accounts: Self.signingFirst(accounts.map { $0.account }),
-                                  instances: accounts.map { $0.instance },
-                                  memberKeys: Self.memberKeys(accounts: accounts, lists: lists)))
+                                  instances: accounts.map { $0.instance }, memberKeys: memberKeys))
 
         let outcomes = await readPulls(of: repos, tokens: tokens)
         // Cancelled while reading: what landed stays, nothing else follows.
@@ -458,13 +483,14 @@ final class ReviewsStore {
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
         guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || !others.isEmpty
-                || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty
+                || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty || !lookups.isEmpty
                 || !accountsNeedingAttention.isEmpty else { return }
         others = []
         otherGens = [:]
         adopt(FollowedSet(repos: [], dropped: 0))
         memberships = [:]
         logins = [:]
+        lookups = [:]
         accountsNeedingAttention = []
         saveSnapshot()
     }
@@ -497,20 +523,41 @@ final class ReviewsStore {
     }
 
     /// The repos `account` belongs to: the cached list within
-    /// `membershipTTL`, else read again (Ruling 3). `nil` when it can't be
-    /// read. Whether the list is complete comes with it (`isComplete`).
+    /// `membershipTTL`, else read again (Ruling 3). With `rereadLists` it's
+    /// read again anyway, and the cached list stands in if that read fails
+    /// (R3 Ruling 9). `nil` when it can't be read and no list of the day is
+    /// cached. Whether the list is complete comes with it (`isComplete`).
     private func membership(of account: HostingAccount, on instance: HostingInstance,
-                            tokens: TokenBook, now: Date) async -> MembershipCache? {
-        if let cached = memberships[account.id], now.timeIntervalSince(cached.fetchedAt) < Self.membershipTTL {
-            return cached
+                            tokens: TokenBook, now: Date, rereadLists: Bool) async -> MembershipCache? {
+        let cached = memberships[account.id].flatMap { list in
+            now.timeIntervalSince(list.fetchedAt) < Self.membershipTTL ? list : nil
         }
+        if let cached, !rereadLists { return cached }
         let browser = environment.makeBrowser(instance.kind)
         guard let read = try? await withToken(account.id, tokens, { token in
             try await Self.allPages(of: browser, apiBase: instance.apiBaseURL, token: token)
-        }) else { return nil }
+        }) else { return cached }
         let list = MembershipCache(fetchedAt: now, repos: read.repos, isComplete: read.isComplete)
         memberships[account.id] = list
         return list
+    }
+
+    /// The clones as `merge` takes them, a renamed one under its current path
+    /// (R3 Ruling 10). Asks about the due ones (`renameTargets`) and keeps the
+    /// answers in `lookups`, which holds only the lookups of these clones.
+    private func followRenames(of local: [LocalRemote],
+                               accounts: [(account: HostingAccount, instance: HostingInstance)],
+                               memberKeys: [UUID: Set<String>], vouched: Set<String>, tokens: TokenBook,
+                               now: Date, rereadLists: Bool) async -> [LocalRemote] {
+        let keys = Set(local.map { FollowedRepos.key($0.host) })
+        lookups = lookups.filter { keys.contains($0.key) }
+        let targets = Self.renameTargets(local, accounts: accounts, memberKeys: memberKeys, vouched: vouched,
+                                         lookups: lookups, now: now, rereadLists: rereadLists)
+        for (key, path) in await Self.lookUpPaths(targets, tokens: tokens, makeSearch: environment.makeSearch) {
+            lookups[key] = RepoLookup(fetchedAt: now, currentPath: path)
+        }
+        return Self.renamed(local, instances: accounts.map(\.instance), memberKeys: memberKeys, vouched: vouched,
+                            lookups: lookups)
     }
 
     /// The user's login on `account` (Ruling 11): the account's own, else read

@@ -74,15 +74,23 @@ final class AccountPullRequestAuth {
     /// credentials for git still gets the account the automatic rules pick
     /// (the API has no "system" credential). The Reviews inbox reads a clone
     /// with it, so it acts as the account the repo's own screen uses.
+    ///
+    /// `withAccountsToReconnect` adds the accounts that need attention to
+    /// those that sign (never an unverified one): the account the repo would
+    /// use once it's connected again. The inbox keeps a clone waiting for it
+    /// (R3 Ruling 11).
     func resolution(host: RemoteHost, repoPath: String, remoteName: String = "origin",
-                    activeProfileId: UUID?) -> AccountResolution {
+                    activeProfileId: UUID?, withAccountsToReconnect: Bool = false) -> AccountResolution {
         var assignments = store.assignments
         if store.choice(repoPath: repoPath, remoteName: remoteName) == .system { assignments[repoPath]?[remoteName] = nil }
+        let accounts = store.accounts.filter { account in
+            if AccountGitCredentials.signs(account) { return true }
+            guard withAccountsToReconnect, case .needsAttention = account.status else { return false }
+            return true
+        }
         return AccountResolver.resolve(remoteHost: host.host, remoteOwner: host.owner, repoPath: repoPath,
                                        remoteName: remoteName, activeProfileId: activeProfileId,
-                                       instances: store.instances,
-                                       accounts: store.accounts.filter(AccountGitCredentials.signs),
-                                       assignments: assignments)
+                                       instances: store.instances, accounts: accounts, assignments: assignments)
     }
 
     /// The token of a given account, without a repo to resolve it from: the

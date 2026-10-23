@@ -67,7 +67,8 @@ struct ReviewsList: View {
                 .frame(width: 26, height: 26)
         } else {
             IconButton(symbol: "arrow.clockwise", accessibilityLabel: String(localized: "Refresh")) {
-                Task { await store.refresh(force: true) }
+                // Reads the memberships and rename lookups again too (R3 Ruling 9).
+                Task { await store.refresh(force: true, rereadLists: true) }
             }
             .help(String(localized: "Refresh"))
         }

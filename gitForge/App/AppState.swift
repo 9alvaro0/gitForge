@@ -81,6 +81,7 @@ final class AppState {
             makeProvider: { PullRequestProviderFactory.make(for: $0) },
             makeBrowser: { RemoteRepoBrowserFactory.make(for: $0) },
             makeActivity: { ReviewActivitySourceFactory.make(for: $0) },
+            makeSearch: { HostSearchFactory.make(for: $0) },
             snapshots: reviewsSnapshots ?? ReviewsSnapshotStore()
         ))
         self.catalog.gitCredentials = gitCredentials
@@ -119,7 +120,10 @@ final class AppState {
     /// catalog's order. Each comes with the account its own Pull requests
     /// screen reads it with (`AccountPullRequestAuth.resolution`, with the
     /// clone's identity profile), or none when several fit; nobody is asked.
-    /// A clone without an `origin`, or on an undeclared host, gives nothing.
+    /// The same rules with the accounts that need attention too give the
+    /// account it waits for (`LocalRemote.waitingAccountId`), when that one
+    /// doesn't sign (R3 Ruling 11). A clone without an `origin`, or on an
+    /// undeclared host, gives nothing.
     func localRemotesForReviews() async -> [LocalRemote] {
         let instances = accounts.instances
         let clones = catalog.repositories
@@ -134,7 +138,14 @@ final class AppState {
                     let profile = await profileLookup.profileId(forRepoAt: repository.path)
                     let resolution = await auth.resolution(host: host, repoPath: repository.path, activeProfileId: profile)
                     let accountId: UUID? = if case .account(let account) = resolution { account.id } else { nil }
-                    return (index, LocalRemote(host: host, repository: repository, assignedAccountId: accountId))
+                    let waiting = await auth.resolution(host: host, repoPath: repository.path, activeProfileId: profile,
+                                                        withAccountsToReconnect: true)
+                    let waitingId: UUID? = switch waiting {
+                    case .account(let account) where !AccountGitCredentials.signs(account): account.id
+                    default: nil
+                    }
+                    return (index, LocalRemote(host: host, repository: repository, assignedAccountId: accountId,
+                                               waitingAccountId: waitingId))
                 }
             }
             var next = 0
