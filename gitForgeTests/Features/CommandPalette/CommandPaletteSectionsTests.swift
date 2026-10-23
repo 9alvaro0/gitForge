@@ -189,15 +189,42 @@ struct CommandPaletteSectionsTests {
         #expect(CommandPaletteSections.build(items: items, query: "retry").last?.kind == .branch)
     }
 
-    @Test("Search all comes after pinned rows and isn't one of the scopes ⇥ steps through")
+    @Test("Search all isn't one of the scopes ⇥ steps through")
     func trailingNotAScope() {
-        let link = Self.item(.pull, "Open pull request #7")
         let search = Self.item(.remote, "Search all of github.com")
-        let sections = CommandPaletteSections.build(items: [], query: "https://github.com/octo/app/pull/7",
-                                                    pinned: [link], trailing: [search])
-        #expect(sections.map(\.kind) == [.pull, .remote])
+        let sections = CommandPaletteSections.build(items: [], query: "retry", trailing: [search])
+        #expect(sections.map(\.kind) == [.remote])
         #expect(!CommandPaletteScope.ordered.contains(.only(.remote)))
         #expect(!CommandPaletteItem.Kind.displayOrder.contains(.remote))
+    }
+
+    @Test("A query that gives pinned rows, a pasted link or a host to add, gives no Search all, in any scope")
+    func noSearchAllWithPinnedRows() {
+        let link = Self.item(.pull, "Open pull request #7")
+        let search = Self.item(.remote, "Search all of github.com")
+        for scope in [CommandPaletteScope.all, .only(.pull), .only(.repo)] {
+            let sections = CommandPaletteSections.build(items: [Self.item(.repo, "octo/app")],
+                                                        query: "https://github.com/octo/app/pull/7", scope: scope,
+                                                        pinned: [link], trailing: [search])
+            #expect(!sections.contains { $0.kind == .remote })
+        }
+    }
+
+    @Test("A pasted pull request link, or one on a host that isn't declared, gets its row and no Search all rows")
+    func pastedLinkHasNoSearchAll() {
+        let instances = HostingInstance.builtIns
+        let gitLab = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
+        for query in ["https://github.com/octo/app/pull/7",
+                      "https://code.example.test/apps/payments/android/payments-app/-/merge_requests/482"] {
+            let pinned = CommandPaletteBuilder.linkItems(for: query, instances: instances)
+            let trailing = CommandPaletteBuilder.searchItems(for: query, instances: instances + [gitLab], searches: [:],
+                                                             followed: [])
+            #expect(pinned.count == 1)
+            #expect(!trailing.isEmpty)
+            let sections = CommandPaletteSections.build(items: [], query: query, pinned: pinned, trailing: trailing)
+            #expect(sections.map(\.kind) == [.pull])
+            #expect(sections.flatMap(\.rows).map(\.item.id) == pinned.map(\.id))
+        }
     }
 
     @Test("Searching a host and a row that does nothing keep the palette open; a found repo and connecting close it even with ⌘")

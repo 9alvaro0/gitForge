@@ -28,7 +28,9 @@ enum CommandPaletteSections {
     ///
     /// `trailing` rows ("Search all of <host>" and what it found) are the last
     /// group, Search all, as given: not ranked, not cut. They show in All and
-    /// in the Pull requests and Repositories scopes, what a host search finds.
+    /// in the Pull requests and Repositories scopes, what a host search finds,
+    /// unless there are `pinned` rows, in any scope: a query that is a link
+    /// isn't text to search a host for (R3 Ruling Y).
     static func build(items: [CommandPaletteItem], query: String, scope: CommandPaletteScope = .all,
                       pinned: [CommandPaletteItem] = [], trailing: [CommandPaletteItem] = []) -> [Section] {
         let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
@@ -38,7 +40,7 @@ enum CommandPaletteSections {
         }
         let pinnedRows = scopeKinds.contains(.pull) ? pinned.map { Row(item: $0, match: nil) } : []
         let kinds = pinnedRows.isEmpty ? scopeKinds : [.pull] + scopeKinds.filter { $0 != .pull }
-        let remote = scopeKinds.contains(.pull) || scopeKinds.contains(.repo) ? trailing : []
+        let remote = pinned.isEmpty && (scopeKinds.contains(.pull) || scopeKinds.contains(.repo)) ? trailing : []
         let remoteSection = remote.isEmpty ? [] : [Section(kind: .remote, rows: remote.map { Row(item: $0, match: nil) })]
         return kinds.compactMap { kind in
             let ofKind = items.filter { $0.kind == kind }

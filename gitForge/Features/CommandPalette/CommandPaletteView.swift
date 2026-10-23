@@ -9,7 +9,8 @@ struct CommandPaletteView: View {
     /// pull request link's), whatever it matches.
     var pinnedItems: (String) -> [CommandPaletteItem] = { _ in [] }
     /// The Search all group the query gives ("Search all of <host>" and what
-    /// a search found), after every other. Called while the body is built,
+    /// a search found), after every other; not shown when `pinnedItems` gives
+    /// rows (`CommandPaletteSections.build`). Called while the body is built,
     /// so the state it reads redraws the palette when a search lands.
     var trailingItems: (String) -> [CommandPaletteItem] = { _ in [] }
     /// `commandHeld`: ⌘↵, run without closing the palette.
