@@ -9,23 +9,31 @@ struct ReviewOtherRow: View {
     let onSelect: () -> Void
     let onClose: () -> Void
 
+    /// The ×'s inset from the row's top trailing corner.
+    private static let closeInset = Spacing.s4
+    /// `IconButton`'s square.
+    private static let closeSide: CGFloat = 26
+
     var body: some View {
+        let reference = item.repo.host.provider.reference(item.pull.number)
         PullRequestRow(
             pullRequest: item.pull,
             hostLabel: item.repo.host.repo,
-            reference: item.repo.host.provider.reference(item.pull.number),
+            reference: reference,
             ci: nil,
             isSelected: isSelected,
+            // The first line stops short of the ×, with a gap: a long repo
+            // name and a state pill never run under it.
+            firstLineTrailingClearance: Self.closeInset + Self.closeSide + Spacing.s4,
             onSelect: onSelect
         )
         .help(Text(verbatim: "\(item.repo.host.host)/\(item.repo.host.slug)"))
-        // Level with the reference line, where the row leaves room: no CI
-        // badge in Reviews.
+        // Level with the reference line: no CI badge in Reviews.
         .overlay(alignment: .topTrailing) {
             IconButton(symbol: "xmark", size: 10, accessibilityLabel: String(localized: "Close"), action: onClose)
                 .help(String(localized: "Close"))
-                .padding(.top, Spacing.s4)
-                .padding(.trailing, Spacing.s4)
+                .padding(.top, Self.closeInset)
+                .padding(.trailing, Self.closeInset)
         }
     }
 }
