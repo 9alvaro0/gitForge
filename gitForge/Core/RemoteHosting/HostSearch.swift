@@ -29,14 +29,20 @@ nonisolated struct HostSearchResults: Equatable, Sendable {
 nonisolated protocol HostSearching: Sendable {
     /// Open pull/merge requests matching `text`, newest update first, at most
     /// `HostSearchFactory.resultLimit`. `owners`: `nil` = everything the token
-    /// sees; otherwise only those owners (the first path segment of a repo).
+    /// sees (an instance of your own). A list is for github.com and gitlab.com,
+    /// where the owners are the first path segment of the account's repos:
+    /// - GitHub limits the search to those owners with `user:` qualifiers; an
+    ///   empty list adds none, so it searches everything, like `nil`.
+    /// - GitLab takes any non-nil list to mean "this is gitlab.com": it reads
+    ///   the merge requests group by group, so an empty list asks nothing.
     /// Requests whose URL isn't a link on `instance` are left out.
     func searchPulls(_ text: String, owners: [String]?, on instance: HostingInstance, token: String) async throws -> [FoundPull]
 
     /// Repos matching `text`, most recently active first, at most
     /// `HostSearchFactory.resultLimit`. `owners` as in `searchPulls` on GitHub;
     /// on GitLab, which takes no list of groups in a project search, any
-    /// value narrows the search to the account's own projects.
+    /// non-nil list (an empty one too) means gitlab.com and narrows the
+    /// search to the account's own projects (`membership=true`).
     func searchRepos(_ text: String, owners: [String]?, on instance: HostingInstance, token: String) async throws -> [FoundRepo]
 
     /// The repo's path now (`owner/repo`), after a rename or a move; `nil`
@@ -168,8 +174,10 @@ nonisolated struct GitLabHostSearch: HostSearching {
             ("per_page", String(HostSearchFactory.resultLimit)),
         ]
         guard let owners else {
-            // `scope` defaults to the account's own merge requests.
-            return try await mergeRequests("merge_requests", query: [("scope", "all")] + query, on: instance, token: token)
+            // `scope` defaults to the account's own merge requests, and archived
+            // projects are only left out when asked (a group's list leaves them out already).
+            return try await mergeRequests("merge_requests", query: [("scope", "all"), ("non_archived", "true")] + query,
+                                           on: instance, token: token)
         }
 
         // The groups at once. A group the account can't see (or that isn't

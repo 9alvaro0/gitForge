@@ -29,6 +29,11 @@ struct HostSearchTests {
                         number: number, instanceId: instance.id)
     }
 
+    /// The first request to `path` as it went over the wire (percent-encoding intact).
+    private static func rawURL(_ server: StubServer, _ path: String) throws -> String {
+        try #require(server.requests("GET", path).first).rawURL
+    }
+
     private static func timestamp(_ raw: String) throws -> Date {
         try #require(RemoteAPI.parseTimestamp(raw))
     }
@@ -150,6 +155,8 @@ struct HostSearchTests {
 
         let request = try #require(server.requests("GET", "/api/v4/merge_requests").first)
         #expect(request.query["scope"] == "all")
+        // The instance-wide list includes archived projects unless told not to.
+        #expect(request.query["non_archived"] == "true")
         #expect(request.query["state"] == "opened")
         #expect(request.query["search"] == "retry")
         #expect(request.query["order_by"] == "updated_at")
@@ -270,19 +277,24 @@ struct HostSearchTests {
 
     // MARK: - Text
 
-    @Test("The text reaches the server as it was typed", arguments: [
-        #"fix "retry" & más #12"#,
-        "c++ 100% a=b?c",
+    @Test("The text reaches the server as it was typed, and goes out percent-encoded", arguments: [
+        (#"fix "retry" & más #12"#, "fix%20%22retry%22%20%26%20m%C3%A1s%20%2312"),
+        ("c++ 100% a=b?c", "c%2B%2B%20100%25%20a%3Db%3Fc"),
     ])
-    func escapedText(text: String) async throws {
+    func escapedText(text: String, encoded: String) async throws {
         let gitHub = Self.gitHub()
         gitHub.server.on("GET", "/api/v3/search/issues", fixture: "github-search-pulls")
         gitHub.server.on("GET", "/api/v3/search/repositories", fixture: "github-search-repos")
         _ = try await gitHub.search.searchPulls(text, owners: nil, on: gitHub.instance, token: "t")
         _ = try await gitHub.search.searchRepos(text, owners: nil, on: gitHub.instance, token: "t")
+        // What the server reads...
         #expect(gitHub.server.requests("GET", "/api/v3/search/issues").first?.query["q"]
                 == "\(text) is:pr is:open archived:false")
         #expect(gitHub.server.requests("GET", "/api/v3/search/repositories").first?.query["q"] == text)
+        // ...and what went over the wire: the stub's decoded query would read a raw `+` as `+` too,
+        // but a server reads it as a space.
+        #expect(try Self.rawURL(gitHub.server, "/api/v3/search/issues").contains("q=\(encoded)%20is%3Apr%20is%3Aopen%20archived%3Afalse"))
+        #expect(try Self.rawURL(gitHub.server, "/api/v3/search/repositories").contains("q=\(encoded)&"))
 
         let gitLab = Self.gitLab()
         gitLab.server.on("GET", "/api/v4/merge_requests", fixture: "gitlab-search-mrs")
@@ -294,6 +306,9 @@ struct HostSearchTests {
         #expect(gitLab.server.requests("GET", "/api/v4/merge_requests").first?.query["search"] == text)
         #expect(gitLab.server.requests("GET", "/api/v4/groups/apps/merge_requests").first?.query["search"] == text)
         #expect(gitLab.server.requests("GET", "/api/v4/projects").first?.query["search"] == text)
+        for path in ["/api/v4/merge_requests", "/api/v4/groups/apps/merge_requests", "/api/v4/projects"] {
+            #expect(try Self.rawURL(gitLab.server, path).contains("search=\(encoded)&"))
+        }
     }
 
     @Test("Spaces around the text are not searched for")
@@ -336,6 +351,8 @@ struct HostSearchTests {
         #expect(path == "octo/new-name")
         let request = try #require(server.requests("GET", "/api/v3/repos/octo/old-name").first)
         #expect(request.header("Authorization") == "Bearer test-token")
+        // GitHub takes the owner and the repo as two path segments.
+        #expect(request.rawURL.hasSuffix("/api/v3/repos/octo/old-name"))
     }
 
     @Test("GitLab: a project's current path is the one it answers with, asked by its encoded old path")
@@ -347,6 +364,9 @@ struct HostSearchTests {
         #expect(path == "team/new")
         let request = try #require(server.requests("GET", "/api/v4/projects/team/old").first)
         #expect(request.header("Authorization") == "Bearer test-token")
+        // One project id, not two path segments: the slash goes out as %2F. The stub's decoded
+        // `path` can't tell, which is why this reads the raw URL.
+        #expect(request.rawURL.hasSuffix("/api/v4/projects/team%2Fold"))
     }
 
     @Test("A repo the host doesn't know any more has no current path")
@@ -385,6 +405,10 @@ struct HostSearchTests {
         server.on("GET", "/api/v4/projects/apps/payments/android/payments-app", fixture: "gitlab-project")
         let host = try #require(RemoteHost.make(fullName: "apps/payments/android/payments-app", on: instance))
         #expect(try await search.currentPath(of: host, token: "t") == "team/new")
+        // Every slash of the path goes out as %2F, not just the last one.
+        let raw = try Self.rawURL(server, "/api/v4/projects/apps/payments/android/payments-app")
+        #expect(raw.contains("/api/v4/projects/apps%2Fpayments%2Fandroid%2Fpayments"))
+        #expect(!raw.contains("/projects/apps/"))
     }
 
     // MARK: - Failures

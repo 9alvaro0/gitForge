@@ -21,6 +21,9 @@ final class StubServer: @unchecked Sendable {
         var body: Data = Data()
         /// The URL's query items (the last value wins for a repeated name).
         var query: [String: String] = [:]
+        /// The URL as it went over the wire: `path` and `query` are decoded, so
+        /// only this one can tell `%2F` from `/` or `+` from `%2B`.
+        var rawURL: String = ""
 
         /// The body as a JSON object, when it is one.
         var json: [String: Any]? {
@@ -81,7 +84,8 @@ final class StubServer: @unchecked Sendable {
         let query = URLComponents(url: request.url ?? URL(fileURLWithPath: "/"), resolvingAgainstBaseURL: false)?
             .queryItems?.reduce(into: [String: String]()) { $0[$1.name] = $1.value ?? "" } ?? [:]
         let recorded = Request(method: method, path: path, headers: request.allHTTPHeaderFields ?? [:],
-                               form: Self.form(body), body: body, query: query)
+                               form: Self.form(body), body: body, query: query,
+                               rawURL: request.url?.absoluteString ?? "")
         let key = "\(method) \(path)"
         return lock.withLock {
             log.append(recorded)
