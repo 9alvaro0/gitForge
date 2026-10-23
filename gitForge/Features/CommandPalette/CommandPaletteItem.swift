@@ -9,6 +9,9 @@ struct CommandPaletteItem: Identifiable, Hashable {
         case branch
         case file
         case command
+        /// "Search all of <host>" and what it found (R3 Ruling 12): the
+        /// group after all the others, outside `displayOrder` and the scopes.
+        case remote
 
         /// The order groups appear in ⌘K.
         static let displayOrder: [Kind] = [.command, .repo, .pull, .branch, .commit, .file]
@@ -21,6 +24,20 @@ struct CommandPaletteItem: Identifiable, Hashable {
             case .branch:  String(localized: "Branches")
             case .commit:  String(localized: "Commits")
             case .file:    String(localized: "Files")
+            case .remote:  String(localized: "Search all")
+            }
+        }
+
+        /// The SF Symbol of the group's rows.
+        var symbol: String {
+            switch self {
+            case .command: "bolt"
+            case .repo:    "folder"
+            case .pull:    "arrow.triangle.pull"
+            case .branch:  "arrow.triangle.branch"
+            case .commit:  "circle.circle"
+            case .file:    "doc"
+            case .remote:  "globe"
             }
         }
     }
@@ -35,6 +52,11 @@ struct CommandPaletteItem: Identifiable, Hashable {
     var keywords: [String] = []
     /// A pull request's number, so `#482` finds it exactly.
     var number: Int?
+    /// In place of the group's symbol (`Kind.symbol`): a pull request or a
+    /// repo found by searching a host, in the Search all group.
+    var symbol: String? = nil
+    /// A spinner in place of the symbol: the host is being searched.
+    var isLoading = false
 }
 
 /// What happens when a palette item is selected.
@@ -62,15 +84,38 @@ enum PaletteAction: Hashable {
     case push
     case stash
     case noop
+    /// Searches the whole of an instance for the trimmed query (R3 Ruling 12).
+    case searchHost(instanceId: UUID, query: String)
+    /// Reviews, narrowed to a repo found by searching a host (R3 Ruling 13).
+    case openFoundRepo(FoundRepo)
+    /// The sheet that connects an account on this instance.
+    case connectAccount(instanceId: UUID)
 
     /// Opens a panel or a sheet: ⌘↵ ("run without closing") still closes
     /// the palette for these, or it would sit on top of what they show. A
-    /// link may end in the connect sheet, and Reviews takes the window anyway.
+    /// link or a found repo may end in the connect sheet, and Reviews takes
+    /// the window anyway.
     var presentsUI: Bool {
         switch self {
-        case .openRepository, .cloneRepository, .addInstance, .openPullLink: true
+        case .openRepository, .cloneRepository, .addInstance, .openPullLink, .openFoundRepo, .connectAccount: true
         default: false
         }
+    }
+
+    /// Runs inside the palette, ⌘ or not: a host search shows its results
+    /// there, and a row that does nothing ("Searching…") leaves it as it is.
+    var keepsPaletteOpen: Bool {
+        switch self {
+        case .searchHost, .noop: true
+        default: false
+        }
+    }
+
+    /// Whether picking `action` leaves the palette open: always for those
+    /// that run inside it, with ⌘ (⌘↵) for any that doesn't show a panel or
+    /// a sheet.
+    static func keepOpen(_ action: PaletteAction, commandHeld: Bool) -> Bool {
+        action.keepsPaletteOpen || (commandHeld && !action.presentsUI)
     }
 }
 

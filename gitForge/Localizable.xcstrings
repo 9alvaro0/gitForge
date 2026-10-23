@@ -4284,6 +4284,22 @@
         }
       }
     },
+    "Connect an account on %@…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar una cuenta en %@…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligar uma conta em %@…"
+          }
+        }
+      }
+    },
     "Connect an account to see your team's pull requests." : {
       "localizations" : {
         "es" : {
@@ -4920,6 +4936,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível guardar a conta: %@"
+          }
+        }
+      }
+    },
+    "Couldn't search %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo buscar en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível pesquisar em %@"
           }
         }
       }
@@ -7291,6 +7323,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pasta não encontrada: %@"
+          }
+        }
+      }
+    },
+    "Followed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguido"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguido"
           }
         }
       }
@@ -10255,6 +10303,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não clonado"
+          }
+        }
+      }
+    },
+    "Nothing found on %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró nada en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada encontrado em %@"
           }
         }
       }
@@ -13690,6 +13754,38 @@
         }
       }
     },
+    "Search all" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en todo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar em tudo"
+          }
+        }
+      }
+    },
+    "Search all of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en todo %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar em todo o %@"
+          }
+        }
+      }
+    },
     "Search everything" : {
       "localizations" : {
         "es" : {
@@ -13766,6 +13862,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pesquisar assunto, autor, SHA…"
+          }
+        }
+      }
+    },
+    "Searching %@…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando en %@…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A pesquisar em %@…"
           }
         }
       }

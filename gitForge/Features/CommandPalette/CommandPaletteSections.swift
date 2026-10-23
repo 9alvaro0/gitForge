@@ -1,7 +1,8 @@
 import Foundation
 
 /// ⌘K results grouped by kind (Actions, Repositories, Pull requests,
-/// Branches, Commits, Files), each group ranked by its match score.
+/// Branches, Commits, Files), each group ranked by its match score, and
+/// Search all last, as its rows come.
 enum CommandPaletteSections {
     struct Row: Identifiable, Equatable {
         let item: CommandPaletteItem
@@ -24,8 +25,12 @@ enum CommandPaletteSections {
     /// `pinned` rows (a pasted pull request link's) lead the Pull requests
     /// group, which then goes first. They show in All and in the Pull requests
     /// scope, whatever the query, and are not counted against the group's limit.
+    ///
+    /// `trailing` rows ("Search all of <host>" and what it found) are the last
+    /// group, Search all, as given: not ranked, not cut. They show in All and
+    /// in the Pull requests and Repositories scopes, what a host search finds.
     static func build(items: [CommandPaletteItem], query: String, scope: CommandPaletteScope = .all,
-                      pinned: [CommandPaletteItem] = []) -> [Section] {
+                      pinned: [CommandPaletteItem] = [], trailing: [CommandPaletteItem] = []) -> [Section] {
         let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
         let scopeKinds: [CommandPaletteItem.Kind] = switch scope {
         case .all: CommandPaletteItem.Kind.displayOrder
@@ -33,6 +38,8 @@ enum CommandPaletteSections {
         }
         let pinnedRows = scopeKinds.contains(.pull) ? pinned.map { Row(item: $0, match: nil) } : []
         let kinds = pinnedRows.isEmpty ? scopeKinds : [.pull] + scopeKinds.filter { $0 != .pull }
+        let remote = scopeKinds.contains(.pull) || scopeKinds.contains(.repo) ? trailing : []
+        let remoteSection = remote.isEmpty ? [] : [Section(kind: .remote, rows: remote.map { Row(item: $0, match: nil) })]
         return kinds.compactMap { kind in
             let ofKind = items.filter { $0.kind == kind }
             let found: [Row]
@@ -44,7 +51,7 @@ enum CommandPaletteSections {
             }
             let rows = kind == .pull ? pinnedRows + found : found
             return rows.isEmpty ? nil : Section(kind: kind, rows: rows)
-        }
+        } + remoteSection
     }
 
     /// Matching items, best score first; ties keep their input order.

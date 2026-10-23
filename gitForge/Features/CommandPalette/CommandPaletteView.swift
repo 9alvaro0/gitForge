@@ -8,8 +8,12 @@ struct CommandPaletteView: View {
     /// Rows the query itself adds at the head of Pull requests (a pasted
     /// pull request link's), whatever it matches.
     var pinnedItems: (String) -> [CommandPaletteItem] = { _ in [] }
-    /// `keepOpen`: ⌘↵, run without closing the palette.
-    var onPick: (CommandPaletteItem, _ keepOpen: Bool) -> Void
+    /// The Search all group the query gives ("Search all of <host>" and what
+    /// a search found), after every other. Called while the body is built,
+    /// so the state it reads redraws the palette when a search lands.
+    var trailingItems: (String) -> [CommandPaletteItem] = { _ in [] }
+    /// `commandHeld`: ⌘↵, run without closing the palette.
+    var onPick: (CommandPaletteItem, _ commandHeld: Bool) -> Void
     var onClose: () -> Void
 
     @State private var query: String = ""
@@ -20,13 +24,14 @@ struct CommandPaletteView: View {
     @Environment(\.appTheme) private var theme
 
     private var sections: [CommandPaletteSections.Section] {
-        CommandPaletteSections.build(items: items, query: query, scope: scope, pinned: pinnedItems(query))
+        CommandPaletteSections.build(items: items, query: query, scope: scope, pinned: pinnedItems(query),
+                                     trailing: trailingItems(query))
     }
 
     var body: some View {
-        // Built once per render: a pinned row is made anew by every build,
-        // with its own identity, so the rows the keys walk and the rows
-        // drawn have to come from the same one.
+        // Built once per render: a pinned or Search all row is made anew by
+        // every build, with its own identity, so the rows the keys walk and
+        // the rows drawn have to come from the same one.
         let sections = self.sections
         // Rows in display order, for arrow-key navigation.
         let rows = sections.flatMap(\.rows)
@@ -226,9 +231,7 @@ private struct PaletteRow: View {
 
     var body: some View {
         HStack(spacing: Spacing.s12) {
-            Image(systemName: symbol)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(isActive ? theme.colors.accentOnFill : theme.colors.textSecondary)
+            icon
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: Radius.controlSmall)
                     .fill(isActive ? theme.colors.accentFill : theme.colors.fillControl))
@@ -245,7 +248,7 @@ private struct PaletteRow: View {
                         .lineLimit(1)
                         // A pull request's `!482 · repo` tells two of the same
                         // title apart: its title is cut first.
-                        .layoutPriority(row.item.kind == .pull ? 1 : 0)
+                        .layoutPriority(isPull ? 1 : 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -281,15 +284,23 @@ private struct PaletteRow: View {
         return text
     }
 
-    private var symbol: String {
-        switch row.item.kind {
-        case .command: "bolt"
-        case .repo:    "folder"
-        case .pull:    "arrow.triangle.pull"
-        case .branch:  "arrow.triangle.branch"
-        case .commit:  "circle.circle"
-        case .file:    "doc"
+    /// The row's symbol, or a spinner while its host is being searched.
+    @ViewBuilder
+    private var icon: some View {
+        if row.item.isLoading {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            Image(systemName: row.item.symbol ?? row.item.kind.symbol)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isActive ? theme.colors.accentOnFill : theme.colors.textSecondary)
         }
+    }
+
+    /// A pull request of the inbox, a pasted link's or one a host search found.
+    private var isPull: Bool {
+        if case .openPullLink = row.item.action { return true }
+        return row.item.kind == .pull
     }
 }
 
@@ -314,6 +325,7 @@ nonisolated struct PointerIntent: Equatable {
     CommandPaletteView(
         items: CommandPaletteItem.previewSamples,
         pinnedItems: { CommandPaletteBuilder.linkItems(for: $0, instances: CommandPaletteItem.previewInstances) },
+        trailingItems: CommandPaletteItem.previewSearchItems,
         onPick: { _, _ in },
         onClose: {}
     )
