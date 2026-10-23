@@ -23,6 +23,10 @@ nonisolated enum G5BenchEnv {
     static var slideAsync: Bool { env["GF_G5_ASYNC"] == "1" }
     /// Prototype only: the graph cell draws in its own layer while it slides (`group`) or always (`always`).
     static var isolation: String { env["GF_G5_GROUP"] ?? "" }
+    /// Prototype only: slide just one row.
+    static var oneRow: Bool { env["GF_G5_ONEROW"] == "1" }
+    /// Prototype only: the timeline ticks but the canvas draws the still row.
+    static var staticTick: Bool { env["GF_G5_STATIC"] == "1" }
     /// Scroll with synthetic wheel events instead of moving the clip view.
     static var wheel: Bool { env["GF_BENCH_WHEEL"] != "0" }
 }

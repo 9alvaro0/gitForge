@@ -689,7 +689,12 @@ final class HistoryStore {
             }.value
         guard gen == graphLayoutGen else { return }
         apply(layout, from: input)
-        if let motion, !motion.isEmpty { startMotion(motion) }
+        if var motion, !motion.isEmpty {
+            if G5BenchEnv.oneRow, let first = input.commits.first(where: { motion[$0.sha] != nil }) {
+                motion = [first.sha: motion[first.sha]!]
+            }
+            startMotion(motion)
+        }
     }
 
     /// SCRATCH G5: HEAD moved to another branch or commit.

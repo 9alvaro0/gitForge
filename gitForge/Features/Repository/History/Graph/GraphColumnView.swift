@@ -133,7 +133,7 @@ struct GraphColumnView: View {
         TimelineView(.animation) { timeline in
             let elapsed = timeline.date.timeIntervalSince(start) / GraphMotionState.duration
             let progress = UnitCurve.easeInOut.value(at: min(max(elapsed, 0), 1))
-            canvas(lanes: GraphRowLanes(style: style, motion: motion, progress: progress))
+            canvas(lanes: G5BenchEnv.staticTick ? nil : GraphRowLanes(style: style, motion: motion, progress: progress))
         }
     }
 
