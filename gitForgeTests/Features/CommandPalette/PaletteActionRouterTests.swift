@@ -50,18 +50,49 @@ struct PaletteActionRouterTests {
 
     // MARK: Pull requests and links
 
-    @Test("A pull request opens Reviews")
-    func openPull() {
-        let app = AppState.isolated()
-        PaletteActionRouter(appState: app).route(.openPull(id: "gitlab.example.test/team/app#4"))
-        #expect(app.ui.workspaceSection == .reviews)
+    /// An app whose inbox loaded team/app, not cloned, with the user's !4.
+    private static func appWithInbox() throws -> (app: AppState, repo: ReviewRepo, pullID: InboxPull.ID) {
+        let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
+        let accountId = UUID()
+        let repo = ReviewRepo(host: try #require(RemoteHost.make(fullName: "team/app", on: instance)),
+                              accountId: accountId, sources: [], lastActivity: nil,
+                              cloneURL: "https://gitlab.example.test/team/app.git", localURL: nil)
+        let pull = PullRequest(id: "iid:4", number: 4, title: "MR 4", state: .open, authorLogin: "marta",
+                               authorAvatarURL: nil, sourceBranch: "feature/4", targetBranch: "main", webURL: nil,
+                               createdAt: nil, updatedAt: nil)
+        let snapshots = ReviewsSnapshotStore(directory: TemporaryDirectories.make("gitForge-router-reviews"))
+        snapshots.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion,
+                                       savedAt: Date(timeIntervalSince1970: 1_790_000_000),
+                                       repos: [repo], pulls: [repo.id: [pull]], memberships: [:],
+                                       logins: [accountId: "marta"]))
+        let app = AppState.isolated(reviewsSnapshots: snapshots)
+        app.reviews.loadSnapshot()
+        return (app, repo, InboxPull.id(repoKey: repo.id, number: 4))
     }
 
-    @Test("A repo that isn't cloned opens Reviews")
-    func showReviews() {
-        let app = AppState.isolated()
-        PaletteActionRouter(appState: app).route(.showReviews(repoKey: "gitlab.example.test/team/app"))
+    @Test("A pull request opens Reviews with it selected, on the half that shows it")
+    func openPull() throws {
+        let (app, _, id) = try Self.appWithInbox()
+        #expect(app.reviews.filter == .team)
+
+        PaletteActionRouter(appState: app).route(.openPull(id: id))
+
         #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.reviews.selectedID == id)
+        // The user's own: Mine shows it.
+        #expect(app.reviews.filter == .mine)
+        #expect(app.reviews.selectedItem?.id == id)
+    }
+
+    @Test("A repo that isn't cloned opens Reviews narrowed to it")
+    func showReviews() throws {
+        let (app, repo, _) = try Self.appWithInbox()
+
+        PaletteActionRouter(appState: app).route(.showReviews(repoKey: repo.id))
+
+        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.reviews.filteredRepo?.id == repo.id)
+        #expect(app.reviews.groups.map(\.repo.id) == [repo.id])
     }
 
     @Test("Adding an instance from a link opens the sheet on that host, as the kind its URL said")
