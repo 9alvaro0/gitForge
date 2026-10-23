@@ -122,3 +122,50 @@ struct RepositoryViewModelStashSelectedTests {
         #expect(vm.commitError == nil)
     }
 }
+
+@Suite("RepositoryViewModel — stashes changed from the shell", .serialized)
+@MainActor
+struct RepositoryViewModelShellStashTests {
+
+    private static func stashSubjects(in vm: RepositoryViewModel) -> [String] {
+        vm.history.commits.map(\.subject).filter { $0.hasPrefix("On main:") }
+    }
+
+    @Test("A stash pushed or dropped from the shell shows up or goes away on the next watcher refresh, keeping the pages")
+    func shellStashesReload() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            for index in 0..<5 { try repo.commit("c\(index)", files: ["a.txt": "v\(index)\n"]) }
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        vm.history.pageSize = { 2 }
+        await vm.loadRefs()
+        await vm.history.loadInitial()
+        let last = try #require(vm.history.commits.last)
+        await vm.history.loadMoreIfNeeded(currentItem: last)
+        let deepest = try #require(vm.history.commits.last)
+        #expect(deepest.subject == "c1" && vm.history.loadedRawCount == 4)
+        #expect(Self.stashSubjects(in: vm).isEmpty)
+
+        // A push from the shell: the new stash is a row, and the pages loaded before still are.
+        try repo.write("one\n", to: "a.txt")
+        try await repo.gitAsync("stash", "push", "-q", "-m", "one")
+        await vm.refreshFromExternalChange()
+        #expect(Self.stashSubjects(in: vm) == ["On main: one"])
+        #expect(vm.history.commits.contains { $0.id == deepest.id })
+        #expect(vm.history.hasMore)
+
+        // A drop of a stash that isn't the last one only rewrites its reflog.
+        try repo.write("two\n", to: "a.txt")
+        try await repo.gitAsync("stash", "push", "-q", "-m", "two")
+        try await repo.gitAsync("stash", "drop", "-q", "stash@{1}")
+        await vm.refreshFromExternalChange()
+        #expect(Self.stashSubjects(in: vm) == ["On main: two"])
+        #expect(vm.history.commits.contains { $0.id == deepest.id })
+
+        try await repo.gitAsync("stash", "drop", "-q")
+        await vm.refreshFromExternalChange()
+        #expect(Self.stashSubjects(in: vm).isEmpty)
+        #expect(vm.history.commits.contains { $0.id == deepest.id })
+    }
+}

@@ -286,8 +286,8 @@ final class HistoryStore {
     }
 
     /// The published log no longer loads what the current refs ask for: a
-    /// remote branch in its scope moved, came or went
-    /// (`HistoryScope.isOutdated(by:)`). False before the first log.
+    /// remote branch in its scope moved, came or went, or a stash was made or
+    /// dropped (`HistoryScope.isOutdated(by:)`). False before the first log.
     var isScopeStale: Bool {
         loadedScope?.isOutdated(by: currentScope()) ?? false
     }
