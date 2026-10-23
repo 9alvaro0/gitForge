@@ -31,7 +31,10 @@ nonisolated enum RemoteProvider: String, Sendable, Equatable, CaseIterable, Coda
 
 /// Parsed coordinates of a hosted repository: host (e.g. `github.com` or a
 /// self-hosted GitLab), `owner/repo` slug, and the inferred provider.
-nonisolated struct RemoteHost: Sendable, Equatable, Identifiable, Codable {
+// Hashable is declared here, not in an extension: with the app's MainActor
+// default isolation, Xcode 26 makes an extension's conformance main
+// actor-isolated, and `PullRequestLink` needs it off the main actor.
+nonisolated struct RemoteHost: Sendable, Equatable, Hashable, Identifiable, Codable {
     let provider: RemoteProvider
     let host: String
     let owner: String
@@ -49,8 +52,6 @@ nonisolated struct RemoteHost: Sendable, Equatable, Identifiable, Codable {
         URL(string: "https://\(host)/\(owner)/\(repo)")
     }
 }
-
-extension RemoteHost: Hashable {}
 
 extension RemoteHost {
     /// Parses a git remote URL (SSH or HTTPS) whose host is a declared
