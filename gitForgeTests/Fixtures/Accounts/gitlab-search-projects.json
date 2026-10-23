@@ -1,0 +1,12 @@
+[
+  {"id": 21, "name": "payments-app", "path": "payments-app",
+   "path_with_namespace": "apps/payments/android/payments-app", "description": null, "default_branch": "main",
+   "ssh_url_to_repo": "git@code.example.test:apps/payments/android/payments-app.git",
+   "http_url_to_repo": "https://code.example.test/apps/payments/android/payments-app.git",
+   "last_activity_at": "2026-10-21T10:00:00.000Z"},
+  {"id": 22, "name": "portal", "path": "portal",
+   "path_with_namespace": "apps/web/portal", "description": "Customer portal", "default_branch": "main",
+   "ssh_url_to_repo": "git@code.example.test:apps/web/portal.git",
+   "http_url_to_repo": "https://code.example.test/apps/web/portal.git",
+   "last_activity_at": "2026-10-20T10:00:00.000Z"}
+]

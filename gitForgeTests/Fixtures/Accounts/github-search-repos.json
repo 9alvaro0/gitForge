@@ -1,0 +1,14 @@
+{
+  "total_count": 2,
+  "incomplete_results": false,
+  "items": [
+    {"id": 301, "name": "retry-kit", "full_name": "octo/retry-kit", "private": false,
+     "description": "Retry helpers", "default_branch": "main",
+     "ssh_url": "git@ghe.example.test:octo/retry-kit.git",
+     "clone_url": "https://ghe.example.test/octo/retry-kit.git"},
+    {"id": 302, "name": "retry-tools", "full_name": "ops/retry-tools", "private": true,
+     "description": null, "default_branch": "main",
+     "ssh_url": "git@ghe.example.test:ops/retry-tools.git",
+     "clone_url": "https://ghe.example.test/ops/retry-tools.git"}
+  ]
+}

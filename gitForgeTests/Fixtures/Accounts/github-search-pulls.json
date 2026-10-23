@@ -1,0 +1,20 @@
+{
+  "total_count": 3,
+  "incomplete_results": false,
+  "items": [
+    {"number": 482, "title": "Retry the sync after a timeout", "state": "open", "draft": true,
+     "html_url": "https://ghe.example.test/octo/app/pull/482",
+     "repository_url": "https://ghe.example.test/api/v3/repos/octo/app",
+     "updated_at": "2026-10-20T09:15:00Z", "user": {"login": "marta"},
+     "pull_request": {"url": "https://ghe.example.test/api/v3/repos/octo/app/pulls/482"}},
+    {"number": 17, "title": "Retry failed uploads", "state": "open", "draft": false,
+     "html_url": "https://ghe.example.test/ops/tools/pull/17",
+     "repository_url": "https://ghe.example.test/api/v3/repos/ops/tools",
+     "updated_at": "2026-10-18T16:40:12Z", "user": {"login": "ana"},
+     "pull_request": {"url": "https://ghe.example.test/api/v3/repos/ops/tools/pulls/17"}},
+    {"number": 5, "title": "Retry policy discussion", "state": "open",
+     "html_url": "https://ghe.example.test/octo/app/issues/5",
+     "repository_url": "https://ghe.example.test/api/v3/repos/octo/app",
+     "updated_at": "2026-10-19T08:00:00Z", "user": {"login": "marta"}}
+  ]
+}
