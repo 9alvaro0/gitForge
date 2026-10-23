@@ -755,7 +755,9 @@ final class ReviewsStore {
 
     /// Reads the open pull requests of `targets`, `concurrency` at a time,
     /// keeping each answer as it lands (Ruling 6). A 401 gets one fresh
-    /// token and one retry.
+    /// token and one retry. A change of the settings meanwhile may stop
+    /// following a target: one not started by then isn't read, and `apply`
+    /// drops what lands for one that left.
     private func readPulls(of targets: [ReviewRepo], tokens: TokenBook) async -> [ReadOutcome] {
         var outcomes: [ReadOutcome] = []
         var pending = targets[...]
@@ -763,6 +765,7 @@ final class ReviewsStore {
             var running = 0
             while true {
                 while running < Self.concurrency, !Task.isCancelled, let repo = pending.popFirst() {
+                    guard repos.contains(where: { $0.id == repo.id }) else { continue }
                     guard let token = tokens.current(repo.accountId) else {
                         outcomes.append(tokens.isUnavailable(repo.accountId) ? .offline : .withheld)
                         continue
@@ -795,10 +798,11 @@ final class ReviewsStore {
                 environment.makeProvider(repo.host))
     }
 
-    /// Keeps one answer, unless a newer read of that repo started since.
+    /// Keeps one answer, unless a newer read of that repo started since or
+    /// the repo is no longer followed.
     private func apply(_ read: PullsRead, tokens: TokenBook) -> ReadOutcome {
         let key = read.repo.id
-        guard latestRead[key] == read.generation else { return .answered }
+        guard latestRead[key] == read.generation, repos.contains(where: { $0.id == key }) else { return .answered }
         guard let failure = Self.failure(of: read) else {
             if case .success(let list) = read.result { pulls[key] = list }
             repoErrors[key] = nil

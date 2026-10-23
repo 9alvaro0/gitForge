@@ -681,6 +681,42 @@ struct ReviewsStoreFollowTests {
         #expect(store.proposal == nil)
     }
 
+    // MARK: During a refresh
+
+    @Test("Repos hidden while a refresh reads keep no pull requests: one not read yet isn't read, one being read is dropped")
+    func hideDuringRefreshReads() async {
+        let harness = ReviewsHarness()
+        let paths = (0..<7).map { "team/repo-\($0)" }
+        harness.locals = paths.map { ReviewsHarness.local($0) }
+        let reading = AsyncGate()
+        harness.provider.state { state in
+            for path in paths {
+                state.lists[path] = [ReviewsHarness.pr(1, by: "octo", updated: 100)]
+                // The first six reads, all that run at once, wait; the seventh hasn't started.
+                if path != "team/repo-6" { state.gates[path] = reading }
+            }
+        }
+        let store = harness.makeStore()
+        let round = Task { await store.refresh(force: true) }
+        await waitUntil { harness.provider.state { $0.running } == ReviewsStore.concurrency }
+        #expect(harness.provider.state { $0.running } == ReviewsStore.concurrency)
+        #expect(store.repos.count == 7)
+
+        let hidden = [ReviewsHarness.host("team/repo-0"), ReviewsHarness.host("team/repo-6")]
+        let change = Task { await store.applyConfig(ReviewsConfig(hidden: hidden)) }
+        await waitUntil { store.repos.count == 5 }
+        reading.open()
+        await round.value
+        await change.value
+
+        #expect(Self.slugs(store) == (1..<6).map { "team/repo-\($0)" })
+        #expect(store.pulls[ReviewsHarness.key("team/repo-0")] == nil)
+        #expect(store.pulls[ReviewsHarness.key("team/repo-6")] == nil)
+        #expect(!Self.reads(harness).contains("team/repo-6"))
+        #expect(store.pulls.count == 5)
+        #expect(store.badgeCount == 5)
+    }
+
     // MARK: Before the first refresh
 
     @Test("Before the first refresh, a change reads the inbox first")
