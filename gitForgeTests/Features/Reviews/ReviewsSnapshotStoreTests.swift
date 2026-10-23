@@ -109,6 +109,50 @@ struct ReviewsSnapshotStoreTests {
         #expect(loaded?.pulls[FollowedRepos.key(Self.host)]?.first?.authorName == nil)
     }
 
+    @Test("Repos from a pattern or by hand, an outdated origin and the rename lookups survive a round trip")
+    func newSourcesRoundTrip() {
+        let dir = TemporaryDirectories.make("gitForge-reviews")
+        let oldHost = RemoteHost(provider: .gitlab, host: "gitlab.example.test", owner: "marta", repo: "old-tools",
+                                 apiBaseURL: URL(string: "https://gitlab.example.test/api/v4"))
+        var repo = Self.repo
+        repo.sources = [.pattern, .manual]
+        repo.outdatedOrigin = oldHost
+        var snapshot = Self.snapshot()
+        snapshot.repos = [repo]
+        snapshot.lookups = [FollowedRepos.key(oldHost): RepoLookup(fetchedAt: Date(timeIntervalSince1970: 1_700_000_050),
+                                                                   currentPath: "marta/tools"),
+                            "gitlab.example.test/marta/gone": RepoLookup(fetchedAt: Date(timeIntervalSince1970: 1_700_000_060),
+                                                                         currentPath: nil)]
+        ReviewsSnapshotStore(directory: dir).save(snapshot)
+
+        let loaded = ReviewsSnapshotStore(directory: dir).load()
+        #expect(loaded == snapshot)
+        #expect(loaded?.repos.first?.sources == [.pattern, .manual])
+        #expect(loaded?.repos.first?.outdatedOrigin == oldHost)
+        #expect(loaded?.lookups?[FollowedRepos.key(oldHost)]?.currentPath == "marta/tools")
+        // A lookup that found nothing is still a lookup.
+        #expect(loaded?.lookups?["gitlab.example.test/marta/gone"] != nil)
+        #expect(loaded?.lookups?["gitlab.example.test/marta/gone"]?.currentPath == nil)
+    }
+
+    @Test("A snapshot saved before lookups and outdated origins existed still loads, at the same version")
+    func snapshotWithoutLookups() throws {
+        let dir = TemporaryDirectories.make("gitForge-reviews")
+        let store = ReviewsSnapshotStore(directory: dir)
+        store.save(Self.snapshot())
+
+        // What R2 wrote: the same file, with none of the new keys.
+        let text = try String(contentsOf: Self.fileURL(in: dir), encoding: .utf8)
+        #expect(!text.contains("lookups"))
+        #expect(!text.contains("outdatedOrigin"))
+        #expect(ReviewsSnapshot.currentVersion == 1)
+
+        let loaded = store.load()
+        #expect(loaded == Self.snapshot())
+        #expect(loaded?.lookups == nil)
+        #expect(loaded?.repos.first?.outdatedOrigin == nil)
+    }
+
     @Test("Saving again replaces the previous snapshot")
     func overwrite() {
         let dir = TemporaryDirectories.make("gitForge-reviews")

@@ -107,6 +107,29 @@ struct AppStateReviewsTests {
         #expect(app.accounts.choice(repoPath: repo.url.path(percentEncoded: false), remoteName: "origin") == nil)
     }
 
+    @Test("A clone waits for the account to reconnect it's assigned to, not for one that signs or isn't verified")
+    func waitingAccount() async throws {
+        let app = AppState.isolated()
+        let expiredClone = try await clone(origin: "https://gitlab.com/team/app.git")
+        let signingClone = try await clone(origin: "https://gitlab.com/team/api.git")
+        let unverifiedClone = try await clone(origin: "https://gitlab.com/team/web.git")
+        defer { [expiredClone, signingClone, unverifiedClone].forEach { $0.remove() } }
+        let signing = try addAccount(app, login: "tanuki-test")
+        let expired = try addAccount(app, login: "ana", status: .needsAttention(.expired))
+        let unverified = try addAccount(app, login: "marta", status: .unverified)
+        app.catalog.repositories = [expiredClone, signingClone, unverifiedClone].map { Repository(url: $0.url) }
+        for (repo, account) in [(expiredClone, expired), (signingClone, signing), (unverifiedClone, unverified)] {
+            app.accounts.assign(account.id, repoPath: repo.url.path(percentEncoded: false), remoteName: "origin")
+        }
+
+        let remotes = await app.localRemotesForReviews()
+
+        #expect(remotes.map(\.host.repo) == ["app", "api", "web"])
+        // The screen's own account is still the one that signs: the assignment can't be used for now.
+        #expect(remotes.map(\.assignedAccountId) == [signing.id, signing.id, signing.id])
+        #expect(remotes.map(\.waitingAccountId) == [expired.id, nil, nil])
+    }
+
     @Test("A clone without an origin gives nothing")
     func noOrigin() async throws {
         let app = AppState.isolated()

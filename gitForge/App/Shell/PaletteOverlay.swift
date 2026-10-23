@@ -14,7 +14,11 @@ struct PaletteOverlay: View {
     let unclonedRepos: [ReviewRepo]
     /// The declared instances, to read a pasted pull request link against.
     let instances: [HostingInstance]
-    /// `keepOpen`: ⌘↵ on an action that doesn't present a panel or sheet.
+    /// The Search all group for a query, built from the inbox's state when
+    /// the palette draws (`CommandPaletteView.trailingItems`).
+    let trailingItems: (String) -> [CommandPaletteItem]
+    /// `keepOpen`: `PaletteAction.keepOpen`, a search that runs inside the
+    /// palette or ⌘↵ on an action that doesn't present a panel or sheet.
     let onPick: (PaletteAction, _ keepOpen: Bool) -> Void
     let onClose: () -> Void
 
@@ -30,7 +34,10 @@ struct PaletteOverlay: View {
         CommandPaletteView(
             items: items,
             pinnedItems: { CommandPaletteBuilder.linkItems(for: $0, instances: instances) },
-            onPick: { item, keepOpen in onPick(item.action, keepOpen && !item.action.presentsUI) },
+            trailingItems: trailingItems,
+            onPick: { item, commandHeld in
+                onPick(item.action, PaletteAction.keepOpen(item.action, commandHeld: commandHeld))
+            },
             onClose: onClose
         )
     }
@@ -45,6 +52,7 @@ struct PaletteOverlay: View {
         pulls: CommandPaletteItem.previewPulls,
         unclonedRepos: CommandPaletteItem.previewUnclonedRepos,
         instances: CommandPaletteItem.previewInstances,
+        trailingItems: CommandPaletteItem.previewSearchItems,
         onPick: { _, _ in },
         onClose: {}
     )

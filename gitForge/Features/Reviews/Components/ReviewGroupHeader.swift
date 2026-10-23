@@ -1,9 +1,13 @@
 import SwiftUI
 
 /// A repo's heading in the inbox: its path, and "Not cloned" when it isn't on
-/// this Mac. Pinned while its rows scroll under it.
+/// this Mac. Pinned while its rows scroll under it. A followed repo's has
+/// "Hide from Reviews" in its context menu (R3 Ruling 15).
 struct ReviewGroupHeader: View {
     let repo: ReviewRepo
+    /// Hides the repo from the inbox; `nil` offers nothing (a repo opened
+    /// from a search, which nobody follows).
+    var onHide: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
 
@@ -28,8 +32,23 @@ struct ReviewGroupHeader: View {
         }
         .reviewSectionHeader()
         .help(Text(verbatim: "\(repo.host.host)/\(repo.host.slug)"))
+        .modifier(HideMenu(onHide: onHide))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    /// "Hide from Reviews" as the context menu, only with `onHide`: without
+    /// it there's no menu at all, rather than an empty one.
+    private struct HideMenu: ViewModifier {
+        let onHide: (() -> Void)?
+
+        func body(content: Content) -> some View {
+            if let onHide {
+                content.contextMenu { Button(String(localized: "Hide from Reviews"), action: onHide) }
+            } else {
+                content
+            }
+        }
     }
 }
 
@@ -78,7 +97,8 @@ private struct ReviewSectionHeaderChrome: ViewModifier {
             ReviewGroupHeader(repo: ReviewRepo(host: RemoteHost.make(fullName: path, on: instance)!,
                                                accountId: UUID(), sources: [.activity], lastActivity: nil,
                                                cloneURL: "https://gitlab.example.test/\(path).git",
-                                               localURL: path.hasSuffix("-app") ? URL(fileURLWithPath: "/tmp/payments-app") : nil))
+                                               localURL: path.hasSuffix("-app") ? URL(fileURLWithPath: "/tmp/payments-app") : nil),
+                              onHide: {})
         }
     }
     .frame(width: 320)

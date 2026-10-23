@@ -24,6 +24,49 @@ extension CommandPaletteItem {
         HostingInstance.builtIns + [PreviewReviewsWorld.gitLab]
     }
 
+    /// The Search all group for `query`, one instance in each state: type
+    /// `retry` to see what gitlab.example.test found (a merge request, then
+    /// payments-app, followed, and ledger), github.com searching, a failure on
+    /// ghe.example.test, code.example.test asking for an account and nothing
+    /// found on gitlab.com. Any other text of 3 characters or more gives the
+    /// row that searches each of them.
+    static func previewSearchItems(_ query: String) -> [CommandPaletteItem] {
+        CommandPaletteBuilder.searchItems(for: query, instances: previewSearchInstances, searches: previewSearches,
+                                          followed: [FollowedRepos.key(previewFoundRepo(PreviewReviewsWorld.paymentsApp).host)])
+    }
+
+    private static let previewEnterprise = HostingInstance(kind: .github, host: "ghe.example.test")
+    private static let previewSelfManaged = HostingInstance(kind: .gitlab, host: "code.example.test")
+
+    private static var previewSearchInstances: [HostingInstance] {
+        [PreviewReviewsWorld.gitLab, PreviewReviewsWorld.gitHub, previewEnterprise, previewSelfManaged,
+         .gitLabDotCom]
+    }
+
+    private static var previewSearches: [UUID: HostSearchState] {
+        let link = PullRequestLink.parse(
+            "https://gitlab.example.test/\(PreviewReviewsWorld.paymentsApp)/-/merge_requests/482",
+            instances: [PreviewReviewsWorld.gitLab])
+        let pulls = link.map {
+            [FoundPull(link: $0, title: "Retry card authorisation after a gateway timeout", authorLogin: "marta",
+                       updatedAt: nil, isDraft: false)]
+        } ?? []
+        let repos = [previewFoundRepo(PreviewReviewsWorld.paymentsApp), previewFoundRepo(PreviewReviewsWorld.ledger)]
+        return [
+            PreviewReviewsWorld.gitLab.id: HostSearchState(query: "retry",
+                                                           phase: .found(HostSearchResults(pulls: pulls, repos: repos))),
+            PreviewReviewsWorld.gitHub.id: HostSearchState(query: "retry", phase: .searching),
+            previewEnterprise.id: HostSearchState(query: "retry", phase: .failed("The server answered 502.")),
+            previewSelfManaged.id: HostSearchState(query: "retry", phase: .connectAccount),
+            HostingInstance.gitLabDotCom.id: HostSearchState(query: "retry", phase: .found(HostSearchResults())),
+        ]
+    }
+
+    private static func previewFoundRepo(_ path: String) -> FoundRepo {
+        FoundRepo(host: RemoteHost.make(fullName: path, on: PreviewReviewsWorld.gitLab)!,
+                  instanceId: PreviewReviewsWorld.gitLab.id, cloneURL: "https://gitlab.example.test/\(path).git")
+    }
+
     /// Newest first, as ⌘K gets them; those of payments-app are in a repo with a clone.
     static var previewPulls: [InboxPull] {
         let clone = URL(fileURLWithPath: "/Users/preview/Developer/payments-app")

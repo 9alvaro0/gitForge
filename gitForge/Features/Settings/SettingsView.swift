@@ -21,6 +21,8 @@ struct SettingsView: View {
                         UpdatesSection()
                         AccountsSection()
                             .id(SettingsAnchor.accounts)
+                        ReviewsSettingsSection(store: appState.reviews)
+                            .id(SettingsAnchor.reviews)
                     }
                     .padding(Spacing.s20)
                     .frame(maxWidth: .infinity, alignment: .topLeading)

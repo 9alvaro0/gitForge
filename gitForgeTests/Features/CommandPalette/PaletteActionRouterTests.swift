@@ -143,6 +143,105 @@ struct PaletteActionRouterTests {
         #expect(app.ui.connectAccountRequest == nil)
     }
 
+    // MARK: Search all
+
+    private static func found(_ repo: ReviewRepo, instanceId: UUID = UUID()) -> FoundRepo {
+        FoundRepo(host: repo.host, instanceId: instanceId, cloneURL: repo.cloneURL)
+    }
+
+    @Test("Connecting an account from a search row opens the sheet on that instance")
+    func connectAccount() {
+        let app = AppState.isolated()
+        let id = UUID()
+        PaletteActionRouter(appState: app).route(.connectAccount(instanceId: id))
+        #expect(app.ui.connectAccountRequest?.instanceId == id)
+    }
+
+    @Test("A found repo goes to Reviews at once, before the inbox has read it")
+    func foundRepoGoesToReviewsAtOnce() throws {
+        let (app, repo, _) = try Self.appWithInbox()
+        app.ui.workspaceSection = .history
+
+        PaletteActionRouter(appState: app).route(.openFoundRepo(Self.found(repo)))
+
+        #expect(app.ui.workspaceSection == .reviews)
+    }
+
+    @Test("A found repo that's followed opens Reviews narrowed to it")
+    func openFoundRepoFollowed() async throws {
+        let (app, repo, _) = try Self.appWithInbox()
+        app.ui.workspaceSection = .history
+
+        await PaletteActionRouter(appState: app).openFoundRepo(Self.found(repo))
+
+        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.reviews.filteredRepo?.id == repo.id)
+        #expect(app.ui.connectAccountRequest == nil)
+        #expect(app.ui.activeToast == nil)
+    }
+
+    @Test("A found repo no account can read asks to connect one on its instance")
+    func openFoundRepoWithoutAccounts() async throws {
+        let app = AppState.isolated()
+        let instance = HostingInstance.gitHubDotCom
+        let host = try #require(RemoteHost.make(fullName: "octo/lib", on: instance))
+
+        await PaletteActionRouter(appState: app).openFoundRepo(
+            FoundRepo(host: host, instanceId: instance.id, cloneURL: "https://github.com/octo/lib.git"))
+
+        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.connectAccountRequest?.instanceId == instance.id)
+        #expect(app.ui.activeToast == nil)
+    }
+
+    @Test("Closing the connect sheet with no pending link changes nothing")
+    func retryWithoutPendingLink() async {
+        let app = AppState.isolated()
+        app.ui.workspaceSection = .history
+
+        await PaletteActionRouter(appState: app).connectSheetClosed()
+
+        #expect(app.ui.workspaceSection == .history)
+        #expect(app.ui.connectAccountRequest == nil)
+        #expect(app.ui.activeToast == nil)
+    }
+
+    @Test("A pending link whose instance still has no account is dropped, changing nothing")
+    func retryStillWithoutAccount() async throws {
+        let app = AppState.isolated()
+        let link = try #require(PullRequestLink.parse("https://github.com/octo/lib/pull/7", instances: app.accounts.instances))
+        let router = PaletteActionRouter(appState: app)
+        await router.openLink(link)
+        #expect(app.reviews.pendingLink == link)
+        // The sheet closed without connecting anything.
+        app.ui.connectAccountRequest = nil
+        app.ui.workspaceSection = .history
+
+        await router.connectSheetClosed()
+
+        #expect(app.ui.workspaceSection == .history)
+        #expect(app.ui.connectAccountRequest == nil)
+        #expect(app.reviews.pendingLink == nil)
+    }
+
+    @Test("Closing the connect sheet turns a search that asked for an account back into the row that searches")
+    func connectSheetClosedForgetsConnectSearches() async throws {
+        let app = AppState.isolated()
+        let instance = HostingInstance.gitLabDotCom
+        let expired = HostingAccount(instanceId: instance.id, login: "marta", method: .personalToken,
+                                     status: .needsAttention(.expired))
+        try app.accounts.addAccount(expired, secret: AccountSecret(accessToken: "test-pat-value"))
+        await app.reviews.searchHost(instance.id, query: "retry")
+        #expect(app.reviews.hostSearches[instance.id]?.phase == .connectAccount)
+
+        await PaletteActionRouter(appState: app).connectSheetClosed()
+
+        #expect(app.reviews.hostSearches[instance.id] == nil)
+        let rows = CommandPaletteBuilder.searchItems(for: "retry", instances: app.reviews.searchInstances,
+                                                     searches: app.reviews.hostSearches, followed: [])
+        #expect(rows.map(\.label) == ["Search all of gitlab.com"])
+    }
+
     @Test("Adding an instance and opening a link may show a sheet, so ⌘↵ still closes the palette for them")
     func presentsUI() throws {
         let link = try #require(PullRequestLink.parse("https://github.com/octo/lib/pull/7",

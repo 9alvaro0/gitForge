@@ -17,19 +17,27 @@ struct ReviewsEnvironment {
     var accounts: @MainActor () -> [(account: HostingAccount, instance: HostingInstance)]
     /// The catalog's clones whose `origin` is on a declared instance, each
     /// with the account its own Pull requests screen reads it with, when one
-    /// stands out (`LocalRemote.assignedAccountId`); nobody is asked. Which of
-    /// them the inbox follows is not decided here: `FollowedRepos.merge` keeps
-    /// a clone only if an account of its instance belongs to the repo, when
-    /// the memberships tell. A refresh cancelled while this runs commits
-    /// nothing: `GitCLI` reads the remotes with `try?`, so a cancelled read
-    /// comes back empty.
+    /// stands out (`LocalRemote.assignedAccountId`), and the account to
+    /// reconnect it waits for, if any (`LocalRemote.waitingAccountId`);
+    /// nobody is asked. Which of them the inbox follows is not decided here:
+    /// `FollowedRepos.merge` keeps a clone only if an account of its instance
+    /// belongs to the repo, when the memberships tell, and the refresh first
+    /// looks for the ones that were renamed. A refresh cancelled while this
+    /// runs commits nothing: `GitCLI` reads the remotes with `try?`, so a
+    /// cancelled read comes back empty.
     var localRemotes: @MainActor () async -> [LocalRemote]
     /// An account's token; `rejected` is one that just got a 401.
     var token: @MainActor (_ accountId: UUID, _ rejected: String?) async -> PullRequestAuthResult
     var makeProvider: @MainActor (RemoteHost) -> PullRequestProvider
     var makeBrowser: @MainActor (HostingInstance.Kind) -> any RemoteRepoBrowsing
     var makeActivity: @MainActor (HostingInstance.Kind) -> any ReviewActivitySource
+    /// Where a renamed or moved repo lives now (R3 Ruling 10), and the
+    /// searches of a whole host.
+    var makeSearch: @MainActor (HostingInstance.Kind) -> any HostSearching
     var snapshots: ReviewsSnapshotStore
+    /// The user's patterns, repos followed by hand and hidden repos
+    /// (`reviews-settings.json`), read once when the store is made.
+    var config: ReviewsConfigStore
     var now: @MainActor () -> Date = { .now }
     /// The writes of the detail stores: reviews, threads, merge.
     var makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider = {
@@ -57,6 +65,11 @@ final class ReviewsStore {
     static let membershipTTL: TimeInterval = 24 * 3600
     /// Most pages of membership read per account (Ruling 3).
     static let membershipPages = 10
+    /// Most clones asked about in one refresh, to follow a rename (R3 Ruling 10).
+    static let renameLookups = 20
+    /// How long a clone whose lookup failed waits before it's asked about
+    /// again, but for the Refresh button (R3 Ruling X).
+    static let failedLookupBackoff: TimeInterval = 3600
 
     /// The repos followed, most recent activity first.
     private(set) var repos: [ReviewRepo] = []
@@ -68,8 +81,11 @@ final class ReviewsStore {
     private(set) var repoErrors: [String: String] = [:]
     /// Accounts to connect again: their token was rejected and couldn't be renewed.
     private(set) var accountsNeedingAttention: Set<UUID> = []
+    /// The keys (`FollowedRepos.key`) of the repos `FollowedRepos.limit`
+    /// leaves out: followed, only not loaded (R3 Ruling U).
+    private(set) var droppedKeys: Set<String> = []
     /// Repos left out by `FollowedRepos.limit`.
-    private(set) var droppedByLimit = 0
+    var droppedByLimit: Int { droppedKeys.count }
     private(set) var isRefreshing = false
     /// When the pull requests were last read; at launch, the snapshot's date.
     private(set) var lastRefreshedAt: Date?
@@ -93,9 +109,46 @@ final class ReviewsStore {
     private(set) var others: [InboxPull] = []
     /// The link `openLink` is reading, while it does (R2 Ruling 11).
     private(set) var openingLink: PendingLink?
+    /// The user's patterns, repos followed by hand, hidden repos and
+    /// answered proposals (R3 Ruling 8), as `reviews-settings.json` keeps
+    /// them. Only `applyConfig` and `storeConfig` change it; the follow API
+    /// in `ReviewsStore+Follow.swift` goes through them.
+    private(set) var config: ReviewsConfig
+    /// The pattern the inbox offers until it's answered (R3 Ruling 3), worked
+    /// out again by every refresh and every change of `config`.
+    private(set) var proposal: PatternProposal?
+    /// Each instance's last "Search all of <host>" (R3 Ruling 12), by
+    /// instance id. Only for the session.
+    private(set) var hostSearches: [UUID: HostSearchState] = [:]
+    /// Repos opened from a search that aren't followed (R3 Ruling 13), the
+    /// last one opened last: `repoFilter` may name one, and its open pull
+    /// requests are among the Others. One that comes to be followed leaves.
+    /// Only for the session.
+    private(set) var browsedRepos: [ReviewRepo] = []
+    /// The last link `openLink` couldn't read for want of an account, to open
+    /// again once one is connected (R3 Ruling 14). Every `openLink` clears it
+    /// and `retryPendingLink` takes it; a refresh without accounts keeps it,
+    /// since connecting the first account is what it waits for.
+    private(set) var pendingLink: PullRequestLink?
 
     private let environment: ReviewsEnvironment
-    @ObservationIgnored private var memberships: [UUID: MembershipCache] = [:]
+    /// Each account's membership list, kept past `membershipTTL` when it
+    /// can't be read again. Written by the refresh, the snapshot,
+    /// `clearWithoutAccounts` and `searchHost` (an account with no list yet);
+    /// `ReviewsStore+Follow.swift` reads it.
+    @ObservationIgnored private(set) var memberships: [UUID: MembershipCache] = [:]
+    /// What the last refresh's `FollowedRepos.merge` took besides `config`
+    /// (R3 Ruling 7): a change of the settings merges again on it, without
+    /// the network. `nil` before the first refresh and without accounts.
+    @ObservationIgnored private(set) var lastRound: FollowRound?
+    /// Where the clones the membership leaves out live now, by the clone's
+    /// `FollowedRepos.key` (R3 Ruling 10): only those of the last round's
+    /// clones, kept in the snapshot.
+    @ObservationIgnored private var lookups: [String: RepoLookup] = [:]
+    /// When the last lookup of each of those clones failed, by key, if it did
+    /// since its last answer (R3 Ruling X). Only for the session: a launch
+    /// asks again.
+    @ObservationIgnored private var failedLookups: [String: Date] = [:]
     @ObservationIgnored private var detailStores: [String: PullRequestStore] = [:]
     /// When the last refresh started, for the throttle.
     @ObservationIgnored private var lastRoundAt: Date?
@@ -118,15 +171,24 @@ final class ReviewsStore {
     @ObservationIgnored private var otherGens: [InboxPull.ID: UInt64] = [:]
     /// The last `revealRequest.serial`.
     @ObservationIgnored private var revealSerial: UInt64 = 0
+    /// The newest search started on each instance: an older one that lands
+    /// later is dropped (R3 Review Focus 5).
+    @ObservationIgnored private var latestSearch: [UUID: UInt64] = [:]
+    @ObservationIgnored private var searchCounter: UInt64 = 0
     @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
 
     init(environment: ReviewsEnvironment) {
         self.environment = environment
+        self.config = environment.config.load()
     }
 
     // MARK: Reading
 
     var hasAccounts: Bool { !environment.accounts().isEmpty }
+
+    /// The accounts the inbox reads with, with their instance, in store
+    /// order (`ReviewsEnvironment.accounts`).
+    var inboxAccounts: [(account: HostingAccount, instance: HostingInstance)] { environment.accounts() }
 
     /// The accounts of `accountsNeedingAttention` that own at least one
     /// followed repo, with their instance, in store order, for the inbox's
@@ -134,11 +196,10 @@ final class ReviewsStore {
     /// no repo of its own, is still in `accountsNeedingAttention` but says
     /// nothing here: there's nothing in the inbox to reconnect it for. One
     /// whose repos are still listed (activity repos carried over, a clone
-    /// assigned to it) keeps its notice (spec §4.2). A clone assigned to it
-    /// can leave, though: where the usable accounts of its instance have a
-    /// complete membership that doesn't list the repo, it isn't followed, and
-    /// the notice goes with the account's last repo. One that was removed
-    /// meanwhile is left out.
+    /// that waits for it) keeps its notice (spec §4.2): a clone that waits for
+    /// it stays even where the membership doesn't list the repo, until it's
+    /// connected again (R3 Ruling 11). One that was removed meanwhile is left
+    /// out.
     var accountsToReconnect: [(account: HostingAccount, instance: HostingInstance)] {
         guard !accountsNeedingAttention.isEmpty else { return [] }
         let owners = Set(repos.map(\.accountId))
@@ -166,8 +227,10 @@ final class ReviewsStore {
 
     /// The current filter's groups, by their newest update, then the repos
     /// that failed with nothing to show (Rulings 8 and 9). With `repoFilter`,
-    /// only that repo's, whoever opened the pull requests (R2 Ruling 7).
+    /// only that repo's, whoever opened the pull requests (R2 Ruling 7); on a
+    /// browsed repo, its Others (R3 Ruling 13).
     var groups: [ReviewGroup] {
+        if let browsed = filteredBrowsedRepo { return browsedGroups(browsed) }
         var loaded: [(group: ReviewGroup, newest: Date)] = []
         var failed: [ReviewGroup] = []
         let isOneRepo = repoFilter != nil
@@ -209,8 +272,10 @@ final class ReviewsStore {
     /// known). The repos of an account in `accountsNeedingAttention` don't
     /// count: they're withheld, never read until it's connected again. With
     /// `repoFilter`, only that repo counts: another one still unread says
-    /// nothing about what the list shows.
+    /// nothing about what the list shows. A browsed repo is never unread: its
+    /// pull requests, read when it was opened, are its Others.
     private var hasUnreadRepos: Bool {
+        if filteredBrowsedRepo != nil { return false }
         if let filteredRepo { return isUnread(filteredRepo) }
         return repos.isEmpty || repos.contains { isUnread($0) }
     }
@@ -251,15 +316,16 @@ final class ReviewsStore {
     /// inbox moves to the half that shows it, Mine if it's the user's and
     /// Team if not, and drops the filter by a repo other than its own; for an
     /// Other, which shows under either half, it drops the filter by repo,
-    /// which hides the Others. `false`, with nothing changed, when `id` is
-    /// neither.
+    /// which hides the Others, unless it's on the Other's own browsed repo,
+    /// which shows them (R3 Ruling 13). `false`, with nothing changed, when
+    /// `id` is neither.
     @discardableResult
     func reveal(_ id: InboxPull.ID) -> Bool {
         if let item = followedRows.first(where: { $0.id == id }) {
             filter = half(showing: item)
             if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
-        } else if others.contains(where: { $0.id == id }) {
-            repoFilter = nil
+        } else if let item = others.first(where: { $0.id == id }) {
+            if filteredBrowsedRepo?.id != item.repo.id { repoFilter = nil }
         } else {
             return false
         }
@@ -273,6 +339,13 @@ final class ReviewsStore {
     /// it's one of that repo's pull requests, and goes if not.
     func showRepo(_ repoKey: String) {
         guard repos.contains(where: { $0.id == repoKey }) else { return }
+        narrow(to: repoKey)
+    }
+
+    /// Narrows the inbox to `repoKey`, followed or browsed: the selection
+    /// stays, scrolled into view, if it's one of that repo's pull requests,
+    /// and goes if not.
+    private func narrow(to repoKey: String) {
         repoFilter = repoKey
         guard let selectedID else { return }
         if selectedID.hasPrefix(repoKey + "#") {
@@ -313,6 +386,7 @@ final class ReviewsStore {
         pulls = snapshot.pulls
         memberships = snapshot.memberships
         logins = snapshot.logins
+        lookups = snapshot.lookups ?? [:]
         lastRefreshedAt = snapshot.savedAt
     }
 
@@ -322,7 +396,7 @@ final class ReviewsStore {
         guard let lastRefreshedAt else { return }
         environment.snapshots.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion, savedAt: lastRefreshedAt,
                                                    repos: repos, pulls: pulls, memberships: memberships,
-                                                   logins: logins))
+                                                   logins: logins, lookups: lookups.isEmpty ? nil : lookups))
     }
 
     // MARK: Refresh
@@ -332,7 +406,10 @@ final class ReviewsStore {
     /// forced. A cancelled round (Reviews left, the auto refresh stopped)
     /// writes nothing to disk. Without accounts it reads nothing, not even
     /// the clones: it only empties what removed accounts left.
-    func refresh(force: Bool = false) async {
+    ///
+    /// The memberships and the rename lookups are read again once a day;
+    /// `rereadLists`, the Refresh button's, reads them again now (R3 Ruling 9).
+    func refresh(force: Bool = false, rereadLists: Bool = false) async {
         let now = environment.now()
         guard !isRefreshing else { return }
         if !force, let lastRoundAt, now.timeIntervalSince(lastRoundAt) < Self.reloadThrottle { return }
@@ -356,24 +433,41 @@ final class ReviewsStore {
         var lists: [UUID: MembershipCache] = [:]
         for (account, instance) in accounts {
             await tokens.prepare(account.id)
-            let list = await membership(of: account, on: instance, tokens: tokens, now: now)
+            let list = await membership(of: account, on: instance, tokens: tokens, now: now, rereadLists: rereadLists)
             lists[account.id] = list
             activity += await recentActivity(of: account, on: instance, members: list?.repos, tokens: tokens, now: now)
                 ?? Self.carriedOver(repos, accountId: account.id)
         }
-        let local = await environment.localRemotes()
+        let clones = await environment.localRemotes()
         // Cancelled, the clones may have come back empty: nothing is
         // committed, and the round doesn't count for the throttle.
         guard !Task.isCancelled else {
             lastRoundAt = previousRound
             return
         }
-        knownClones = Dictionary(local.map { (FollowedRepos.key($0.host), $0.repository.url) },
+        let memberKeys = Self.memberKeys(accounts: accounts, lists: lists)
+        // What keeps a clone the membership leaves out, as in `merge`: the
+        // activity and the repos the user chose. Such a clone isn't looked
+        // up, so it isn't followed under a new path too.
+        let vouched = FollowedRepos.vouchedKeys(activity: activity,
+                                                chosen: chosenCandidates(config, accounts: accounts),
+                                                accounts: Self.signingFirst(accounts.map { $0.account }),
+                                                instances: accounts.map { $0.instance })
+        let local = await followRenames(of: clones, accounts: accounts, memberKeys: memberKeys, vouched: vouched,
+                                        tokens: tokens, now: now, rereadLists: rereadLists)
+        // Cancelled while looking up, a renamed clone may have missed its
+        // path: nothing is committed either.
+        guard !Task.isCancelled else {
+            lastRoundAt = previousRound
+            return
+        }
+        // A renamed clone under both paths: a link may still have the old one.
+        knownClones = Dictionary((local + clones).map { (FollowedRepos.key($0.host), $0.repository.url) },
                                  uniquingKeysWith: { first, _ in first })
-        adopt(FollowedRepos.merge(local: local, activity: activity,
-                                  accounts: Self.signingFirst(accounts.map { $0.account }),
-                                  instances: accounts.map { $0.instance },
-                                  memberKeys: Self.memberKeys(accounts: accounts, lists: lists)))
+        let round = FollowRound(local: local, activity: activity, accounts: accounts, memberKeys: memberKeys)
+        lastRound = round
+        adopt(followed(in: round, with: config))
+        updateProposal()
 
         let outcomes = await readPulls(of: repos, tokens: tokens)
         // Cancelled while reading: what landed stays, nothing else follows.
@@ -410,19 +504,23 @@ final class ReviewsStore {
     /// and the filter by it; a repo now read with another account loses its
     /// detail store. The Others stay, with their selection and detail store
     /// (R2 Ruling 9): one whose repo is followed takes the followed repo, and
-    /// keeps its store unless that one is read with another account.
+    /// keeps its store unless that one is read with another account. A
+    /// browsed repo that's followed now leaves `browsedRepos`, and the filter
+    /// by it stays (R3 Ruling 13).
     private func adopt(_ followed: FollowedSet) {
         let after = Dictionary(followed.repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let before = readers(followed: repos)
         let moved = others.map { InboxPull(repo: otherRepo($0.repo, followed: after), pull: $0.pull) }
         if moved != others { others = moved }
+        let browsed = browsedRepos.filter { after[$0.id] == nil }.map { otherRepo($0, followed: after) }
+        if browsed != browsedRepos { browsedRepos = browsed }
         let now = readers(followed: followed.repos)
         detailStores = detailStores.filter { key, _ in
             guard let current = now[key], let previous = before[key] else { return false }
             return current.accountId == previous.accountId && current.host == previous.host
         }
         repos = followed.repos
-        droppedByLimit = followed.dropped
+        if droppedKeys != followed.droppedKeys { droppedKeys = followed.droppedKeys }
         pulls = pulls.filter { after[$0.key] != nil }
         repoErrors = repoErrors.filter { after[$0.key] != nil }
         latestRead = latestRead.filter { after[$0.key] != nil }
@@ -430,7 +528,9 @@ final class ReviewsStore {
            !others.contains(where: { $0.id == selectedID }) {
             self.selectedID = nil
         }
-        if let repoFilter, after[repoFilter] == nil { self.repoFilter = nil }
+        if let repoFilter, after[repoFilter] == nil, !browsedRepos.contains(where: { $0.id == repoFilter }) {
+            self.repoFilter = nil
+        }
     }
 
     /// The repo each key's detail store reads with: the followed one, else
@@ -454,17 +554,31 @@ final class ReviewsStore {
 
     /// No account left: the inbox empties, the Others included, with what it
     /// knew of the accounts, and is saved empty. With nothing to clear,
-    /// nothing is written.
+    /// nothing is written. The user's settings stay; the round and the
+    /// proposal go, and so do the browsed repos and the searches, which an
+    /// older one landing later doesn't bring back (R3 Ruling 13). The pending
+    /// link stays: a link pasted before any account is connected waits for
+    /// the first one (R3 Ruling 14).
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
+        lastRound = nil
+        failedLookups = [:]
+        if proposal != nil { proposal = nil }
+        latestSearch = [:]
+        if !hostSearches.isEmpty { hostSearches = [:] }
+        if !browsedRepos.isEmpty {
+            if filteredBrowsedRepo != nil { repoFilter = nil }
+            browsedRepos = []
+        }
         guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || !others.isEmpty
-                || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty
+                || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty || !lookups.isEmpty
                 || !accountsNeedingAttention.isEmpty else { return }
         others = []
         otherGens = [:]
-        adopt(FollowedSet(repos: [], dropped: 0))
+        adopt(FollowedSet(repos: [], droppedKeys: []))
         memberships = [:]
         logins = [:]
+        lookups = [:]
         accountsNeedingAttention = []
         saveSnapshot()
     }
@@ -476,6 +590,47 @@ final class ReviewsStore {
         attention.subtract(tokens.answered)
         attention.formUnion(tokens.reconnect)
         if attention != accountsNeedingAttention { accountsNeedingAttention = attention }
+    }
+
+    // MARK: Follow settings
+
+    /// Takes `next` as the user's settings and applies them (R3 Ruling 7):
+    /// saves them, merges again on `lastRound` without the network, adopts
+    /// the result, reads the pull requests of the repos that have none yet
+    /// and saves the snapshot. Before the first refresh there's no round to
+    /// merge on: a forced refresh does it all. No limit is checked here; the
+    /// follow API in `ReviewsStore+Follow.swift` checks it first.
+    func applyConfig(_ next: ReviewsConfig) async {
+        config = next
+        environment.config.save(next)
+        guard let lastRound else {
+            await refresh(force: true)
+            return
+        }
+        adopt(followed(in: lastRound, with: next))
+        updateProposal()
+        let unread = repos.filter(isUnread)
+        if !unread.isEmpty {
+            let tokens = TokenBook(ask: environment.token)
+            for repo in unread { await tokens.prepare(repo.accountId) }
+            _ = await readPulls(of: unread, tokens: tokens)
+            guard !Task.isCancelled else { return }
+            noteAttention(tokens, among: nil)
+        }
+        saveSnapshot()
+    }
+
+    /// Takes `next` as the user's settings when the change moves no repo
+    /// (an answered proposal): saves them and works out the proposal again.
+    func storeConfig(_ next: ReviewsConfig) {
+        config = next
+        environment.config.save(next)
+        updateProposal()
+    }
+
+    private func updateProposal() {
+        let next = nextProposal()
+        if next != proposal { proposal = next }
     }
 
     // MARK: Discovery
@@ -497,20 +652,63 @@ final class ReviewsStore {
     }
 
     /// The repos `account` belongs to: the cached list within
-    /// `membershipTTL`, else read again (Ruling 3). `nil` when it can't be
-    /// read. Whether the list is complete comes with it (`isComplete`).
+    /// `membershipTTL`, else read again (Ruling 3). With `rereadLists` it's
+    /// read again anyway, and the cached list stands in if that read fails
+    /// (R3 Ruling 9). `nil` when it can't be read and no list of the day is
+    /// cached. Whether the list is complete comes with it (`isComplete`).
     private func membership(of account: HostingAccount, on instance: HostingInstance,
-                            tokens: TokenBook, now: Date) async -> MembershipCache? {
-        if let cached = memberships[account.id], now.timeIntervalSince(cached.fetchedAt) < Self.membershipTTL {
+                            tokens: TokenBook, now: Date, rereadLists: Bool) async -> MembershipCache? {
+        let cached = memberships[account.id].flatMap { list in
+            now.timeIntervalSince(list.fetchedAt) < Self.membershipTTL ? list : nil
+        }
+        if let cached, !rereadLists { return cached }
+        guard let list = try? await readMembership(of: account, on: instance, tokens: tokens, now: now) else {
             return cached
         }
+        return list
+    }
+
+    /// Reads the repos `account` belongs to now and keeps the list in
+    /// `memberships`. `nil` when there's no token to read with; a read that
+    /// fails throws.
+    private func readMembership(of account: HostingAccount, on instance: HostingInstance,
+                                tokens: TokenBook, now: Date) async throws -> MembershipCache? {
         let browser = environment.makeBrowser(instance.kind)
-        guard let read = try? await withToken(account.id, tokens, { token in
+        guard let read = try await withToken(account.id, tokens, { token in
             try await Self.allPages(of: browser, apiBase: instance.apiBaseURL, token: token)
         }) else { return nil }
         let list = MembershipCache(fetchedAt: now, repos: read.repos, isComplete: read.isComplete)
         memberships[account.id] = list
         return list
+    }
+
+    /// The clones as `merge` takes them, a renamed one under its current path
+    /// (R3 Ruling 10). Asks about the due ones (`renameTargets`) with the
+    /// accounts that gave a token, keeps the answers in `lookups` and notes
+    /// the failures in `failedLookups` (Ruling X); both hold only these
+    /// clones. Failures of a cancelled round aren't noted: they're the
+    /// cancel's.
+    private func followRenames(of local: [LocalRemote],
+                               accounts: [(account: HostingAccount, instance: HostingInstance)],
+                               memberKeys: [UUID: Set<String>], vouched: Set<String>, tokens: TokenBook,
+                               now: Date, rereadLists: Bool) async -> [LocalRemote] {
+        let keys = Set(local.map { FollowedRepos.key($0.host) })
+        lookups = lookups.filter { keys.contains($0.key) }
+        failedLookups = failedLookups.filter { keys.contains($0.key) }
+        let asking = Set(accounts.map(\.account.id).filter { tokens.current($0) != nil })
+        let targets = Self.renameTargets(local, accounts: accounts, memberKeys: memberKeys, vouched: vouched,
+                                         lookups: lookups, failures: failedLookups, asking: asking, now: now,
+                                         rereadLists: rereadLists)
+        let answers = await Self.lookUpPaths(targets, tokens: tokens, makeSearch: environment.makeSearch)
+        for (key, path) in answers.found {
+            lookups[key] = RepoLookup(fetchedAt: now, currentPath: path)
+            failedLookups[key] = nil
+        }
+        if !Task.isCancelled {
+            for key in answers.failed { failedLookups[key] = now }
+        }
+        return Self.renamed(local, instances: accounts.map(\.instance), memberKeys: memberKeys, vouched: vouched,
+                            lookups: lookups)
     }
 
     /// The user's login on `account` (Ruling 11): the account's own, else read
@@ -557,7 +755,9 @@ final class ReviewsStore {
 
     /// Reads the open pull requests of `targets`, `concurrency` at a time,
     /// keeping each answer as it lands (Ruling 6). A 401 gets one fresh
-    /// token and one retry.
+    /// token and one retry. A change of the settings meanwhile may stop
+    /// following a target: one not started by then isn't read, and `apply`
+    /// drops what lands for one that left.
     private func readPulls(of targets: [ReviewRepo], tokens: TokenBook) async -> [ReadOutcome] {
         var outcomes: [ReadOutcome] = []
         var pending = targets[...]
@@ -565,6 +765,7 @@ final class ReviewsStore {
             var running = 0
             while true {
                 while running < Self.concurrency, !Task.isCancelled, let repo = pending.popFirst() {
+                    guard repos.contains(where: { $0.id == repo.id }) else { continue }
                     guard let token = tokens.current(repo.accountId) else {
                         outcomes.append(tokens.isUnavailable(repo.accountId) ? .offline : .withheld)
                         continue
@@ -597,10 +798,11 @@ final class ReviewsStore {
                 environment.makeProvider(repo.host))
     }
 
-    /// Keeps one answer, unless a newer read of that repo started since.
+    /// Keeps one answer, unless a newer read of that repo started since or
+    /// the repo is no longer followed.
     private func apply(_ read: PullsRead, tokens: TokenBook) -> ReadOutcome {
         let key = read.repo.id
-        guard latestRead[key] == read.generation else { return .answered }
+        guard latestRead[key] == read.generation, repos.contains(where: { $0.id == key }) else { return .answered }
         guard let failure = Self.failure(of: read) else {
             if case .success(let list) = read.result { pulls[key] = list }
             repoErrors[key] = nil
@@ -669,10 +871,12 @@ final class ReviewsStore {
     /// that went comes back if the list still shows it and nothing was
     /// picked meanwhile. A later `openLink` wins: an earlier one that lands
     /// after it adds its row, but neither selects anything nor touches
-    /// `openingLink`.
+    /// `openingLink`. One that asks to connect an account keeps its link in
+    /// `pendingLink`, unless a later one started meanwhile (R3 Ruling 14).
     func openLink(_ link: PullRequestLink) async -> LinkOpenOutcome {
         linkGen &+= 1
         let gen = linkGen
+        if pendingLink != nil { pendingLink = nil }
         let repoKey = FollowedRepos.key(link.host)
         let id = InboxPull.id(repoKey: repoKey, number: link.number)
         if reveal(id) {
@@ -694,6 +898,7 @@ final class ReviewsStore {
                     selectedID = cleared
                     dropHiddenSelection()
                 }
+                if case .connectAccount = outcome { pendingLink = link }
             }
             return outcome
         case .read(let pull, let accountId):
@@ -731,61 +936,95 @@ final class ReviewsStore {
     }
 
     /// Reads `link`'s pull request with the first account that can see it
-    /// (R2 Ruling 10), in `linkAccounts` order. A 404 or a 403 moves on to
-    /// the next account, a 401 renews the token and retries once, and any
-    /// other error stops. When none reads it: connecting an account if one
-    /// must be connected again or there's none, else why it's hidden, else
-    /// why there was no token.
+    /// (R2 Ruling 10; `readWithAccounts`). When none reads it: connecting an
+    /// account if one must be connected again or there's none, else why it's
+    /// hidden, else why there was no token.
     private func readLink(_ link: PullRequestLink) async -> LinkRead {
-        let accounts = linkAccounts(link)
-        guard !accounts.isEmpty else { return .unread(.connectAccount(instanceId: link.instanceId)) }
         let provider = environment.makeProvider(link.host)
+        let read = await readWithAccounts(readAccounts(for: link.host, instanceId: link.instanceId)) { token in
+            try await provider.fetchDetail(host: link.host, number: link.number, token: token)
+        }
+        switch read {
+        case .read(let detail, let accountId):
+            return .read(detail.pull, accountId: accountId)
+        case .connectAccount:
+            return .unread(.connectAccount(instanceId: link.instanceId))
+        case .hidden(let error):
+            let reference = "\(link.host.slug) \(link.host.provider.reference(link.number))"
+            return .unread(.failed("\(reference) — \(PullRequestStore.message(for: error))"))
+        case .failed(let error):
+            return .unread(.failed(PullRequestStore.message(for: error)))
+        case .noToken(let failure):
+            return .unread(.failed(failure ?? String(localized: "Request failed")))
+        }
+    }
+
+    /// What trying a read with each account in turn came to.
+    private enum AccountRead<Value> {
+        /// The first account that could, and what it read.
+        case read(Value, accountId: UUID)
+        /// None could, and connecting one may: one must be connected again,
+        /// or there's none.
+        case connectAccount
+        /// None could see it: the first 404 or 403.
+        case hidden(PullRequestFetchError)
+        /// Another error stopped the reads.
+        case failed(any Error)
+        /// No account had a token, with the reason when one was given.
+        case noToken(String?)
+    }
+
+    /// Runs `call` with the first of `accounts` that can (R2 Ruling 10): a
+    /// 404 or a 403 moves on to the next account, a 401 renews the token and
+    /// retries once, and any other error stops.
+    private func readWithAccounts<Value>(_ accounts: [UUID],
+                                         _ call: (String) async throws -> Value) async -> AccountRead<Value> {
+        guard !accounts.isEmpty else { return .connectAccount }
         let tokens = TokenBook(ask: environment.token)
         var hidden: PullRequestFetchError?
         for accountId in accounts {
             await tokens.prepare(accountId)
             do {
-                if let detail = try await withToken(accountId, tokens, { token in
-                    try await provider.fetchDetail(host: link.host, number: link.number, token: token)
-                }) {
-                    return .read(detail.pull, accountId: accountId)
+                if let value = try await withToken(accountId, tokens, call) {
+                    return .read(value, accountId: accountId)
                 }
             } catch let error as PullRequestFetchError where error == .notFound || error == .forbidden {
                 hidden = hidden ?? error
             } catch {
-                return .unread(.failed(PullRequestStore.message(for: error)))
+                return .failed(error)
             }
         }
-        if !tokens.reconnect.isEmpty { return .unread(.connectAccount(instanceId: link.instanceId)) }
-        if let hidden {
-            let reference = "\(link.host.slug) \(link.host.provider.reference(link.number))"
-            return .unread(.failed("\(reference) — \(PullRequestStore.message(for: hidden))"))
-        }
-        return .unread(.failed(tokens.failure ?? String(localized: "Request failed")))
+        if !tokens.reconnect.isEmpty { return .connectAccount }
+        if let hidden { return .hidden(hidden) }
+        return .noToken(tokens.failure)
     }
 
-    /// The accounts that may read a link (R2 Ruling 10): a followed repo's
-    /// own; else its instance's, those that sign first with the owner's
-    /// login at their head, then those to connect again.
-    private func linkAccounts(_ link: PullRequestLink) -> [UUID] {
-        if let repo = repos.first(where: { $0.id == FollowedRepos.key(link.host) }) { return [repo.accountId] }
-        let onInstance = environment.accounts().filter { $0.instance.id == link.instanceId }.map(\.account)
+    /// The accounts that may read a repo's pull requests from a link or a
+    /// search (R2 Ruling 10): a followed repo's own; else its instance's,
+    /// those that sign first with the owner's login at their head, then
+    /// those to connect again.
+    private func readAccounts(for host: RemoteHost, instanceId: UUID) -> [UUID] {
+        if let repo = repos.first(where: { $0.id == FollowedRepos.key(host) }) { return [repo.accountId] }
+        let onInstance = environment.accounts().filter { $0.instance.id == instanceId }.map(\.account)
         let signing = onInstance.filter { AccountGitCredentials.signs($0) }
         let rest = onInstance.filter { !AccountGitCredentials.signs($0) }
-        return (FollowedRepos.accountsInPreference(for: link.host, among: signing) + rest).map(\.id)
+        return (FollowedRepos.accountsInPreference(for: host, among: signing) + rest).map(\.id)
     }
 
     /// The repo a link's pull request shows with (R2 Ruling 9): the followed
-    /// one; else one that isn't followed, read with `accountId`, cloned from
-    /// its membership's URL when known, and with the clone the last refresh
-    /// saw.
+    /// one, else `looseRepo`.
     private func repoForLink(_ link: PullRequestLink, accountId: UUID) -> ReviewRepo {
-        let repoKey = FollowedRepos.key(link.host)
-        if let followed = repos.first(where: { $0.id == repoKey }) { return followed }
-        let member = memberships[accountId]?.repos.first { $0.fullName.lowercased() == link.host.slug.lowercased() }
-        return ReviewRepo(host: link.host, accountId: accountId, sources: [], lastActivity: nil,
-                          cloneURL: member?.httpsURL ?? FollowedRepos.cloneURL(for: link.host),
-                          localURL: knownClones[repoKey])
+        repos.first { $0.id == FollowedRepos.key(link.host) }
+            ?? looseRepo(link.host, accountId: accountId, cloneURL: FollowedRepos.cloneURL(for: link.host))
+    }
+
+    /// A repo that isn't followed, as the Others and the browsed repos show
+    /// it: read with `accountId`, cloned from its membership's URL when known
+    /// (else `cloneURL`), and with the clone the last refresh saw.
+    private func looseRepo(_ host: RemoteHost, accountId: UUID, cloneURL: String) -> ReviewRepo {
+        let member = memberships[accountId]?.repos.first { $0.fullName.lowercased() == host.slug.lowercased() }
+        return ReviewRepo(host: host, accountId: accountId, sources: [], lastActivity: nil,
+                          cloneURL: member?.httpsURL ?? cloneURL, localURL: knownClones[FollowedRepos.key(host)])
     }
 
     /// Puts `item` among the Others by opening order (`gen`), in place of the
@@ -803,6 +1042,139 @@ final class ReviewsStore {
         let index = rows.firstIndex { otherGens[$0.id, default: 0] < gen } ?? rows.count
         rows.insert(item, at: index)
         others = rows
+    }
+
+    /// Opens `pendingLink` again, once, after the sheet to connect an account
+    /// closes (R3 Ruling 14): only if its instance has an account that signs
+    /// now; if not it's dropped, and the answer is `nil`. Opened again, a
+    /// link that asks for an account once more isn't kept for another try.
+    func retryPendingLink() async -> LinkOpenOutcome? {
+        guard let link = pendingLink else { return nil }
+        pendingLink = nil
+        guard searchAccount(on: link.instanceId) != nil else { return nil }
+        let outcome = await openLink(link)
+        if case .connectAccount = outcome, pendingLink == link { pendingLink = nil }
+        return outcome
+    }
+
+    // MARK: Search all and found repos
+
+    /// Drops the searches that ended asking for an account, once the sheet to
+    /// connect one closes: ⌘K offers to search those hosts again instead of
+    /// the connect sheet. The other searches stay.
+    func forgetConnectSearches() {
+        let kept = hostSearches.filter { $0.value.phase != .connectAccount }
+        if kept.count != hostSearches.count { hostSearches = kept }
+    }
+
+    /// Searches the whole of instance `instanceId` for `query`, trimmed (R3
+    /// Ruling 12). Under `searchMinimum` characters, or on an instance with
+    /// no account in the inbox, nothing is asked. `hostSearches` says it's
+    /// searching, then what came of it (`searchPhase`). A newer search of the
+    /// instance wins: an older one that lands later changes nothing.
+    func searchHost(_ instanceId: UUID, query: String) async {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= Self.searchMinimum,
+              let instance = searchInstances.first(where: { $0.id == instanceId }) else { return }
+        searchCounter &+= 1
+        let gen = searchCounter
+        latestSearch[instanceId] = gen
+        hostSearches[instanceId] = HostSearchState(query: text, phase: .searching)
+        let phase = await searchPhase(text, on: instance)
+        guard latestSearch[instanceId] == gen else { return }
+        hostSearches[instanceId] = HostSearchState(query: text, phase: phase)
+    }
+
+    /// What searching `instance` for `text` comes to, with its first account
+    /// that signs (`searchAccount`); a 401 renews the token once. On
+    /// github.com and gitlab.com the search keeps to the owners of the
+    /// account's repos (`searchOwners`), from its membership list of any age,
+    /// read now when there's none; if that read fails, so does the search.
+    /// With a list that gives no owner to keep to, it finds nothing, without
+    /// asking: unscoped, it would search the whole public site.
+    private func searchPhase(_ text: String, on instance: HostingInstance) async -> HostSearchState.Phase {
+        guard let account = searchAccount(on: instance.id) else { return .connectAccount }
+        let tokens = TokenBook(ask: environment.token)
+        await tokens.prepare(account.id)
+        var owners: [String]?
+        if instance.isBuiltIn, tokens.current(account.id) != nil {
+            let members: [RemoteRepoSummary]
+            if let list = memberships[account.id] {
+                members = list.repos
+            } else {
+                do {
+                    // No token left to read with (`nil`): the search below says why.
+                    members = try await readMembership(of: account, on: instance, tokens: tokens,
+                                                       now: environment.now())?.repos ?? []
+                } catch {
+                    return .failed(PullRequestStore.message(for: error))
+                }
+            }
+            owners = Self.searchOwners(on: instance, members: members, login: account.login ?? logins[account.id])
+        }
+        let search = environment.makeSearch(instance.kind)
+        do {
+            if owners?.isEmpty == true, tokens.current(account.id) != nil { return .found(HostSearchResults()) }
+            if let results = try await withToken(account.id, tokens, { token in
+                try await Self.searchPullsAndRepos(text, owners: owners, on: instance, token: token, with: search)
+            }) {
+                return .found(results)
+            }
+        } catch {
+            return .failed(PullRequestStore.message(for: error))
+        }
+        if tokens.reconnect.contains(account.id) { return .connectAccount }
+        return .failed(tokens.failure ?? String(localized: "Request failed"))
+    }
+
+    /// Opens a repo found by searching a host (R3 Ruling 13). A followed one
+    /// narrows the inbox to it at once (`showRepo`), reading nothing; it
+    /// takes no turn from the links, so an `openLink` or `openFoundRepo`
+    /// started before it that lands later may still select or narrow over
+    /// it. Any other takes a turn, as `openLink` does (`linkGen`), and has
+    /// its open pull requests read with the first account that can
+    /// (`readWithAccounts`): each joins the Others, the repo joins
+    /// `browsedRepos`, in place of an older entry, and the inbox is narrowed
+    /// to it. A later `openLink` or `openFoundRepo` that takes a turn wins
+    /// over it: this one then lands adding its rows and its repo, but leaves
+    /// the filter and the selection.
+    func openFoundRepo(_ found: FoundRepo) async -> RepoOpenOutcome {
+        let repoKey = FollowedRepos.key(found.host)
+        if repos.contains(where: { $0.id == repoKey }) {
+            showRepo(repoKey)
+            return .shown(repoKey: repoKey)
+        }
+        linkGen &+= 1
+        let gen = linkGen
+        // The link being read gives way: its row still lands, unselected.
+        if openingLink != nil { openingLink = nil }
+        let provider = environment.makeProvider(found.host)
+        let read = await readWithAccounts(readAccounts(for: found.host, instanceId: found.instanceId)) { token in
+            try await provider.fetchPulls(host: found.host, state: .open, token: token)
+        }
+        let pulls: [PullRequest]
+        let accountId: UUID
+        switch read {
+        case .read(let list, let reader):
+            (pulls, accountId) = (list, reader)
+        case .connectAccount:
+            return .connectAccount(instanceId: found.instanceId)
+        case .hidden(let error):
+            return .failed("\(found.host.slug) — \(PullRequestStore.message(for: error))")
+        case .failed(let error):
+            return .failed("\(found.host.slug) — \(PullRequestStore.message(for: error))")
+        case .noToken(let failure):
+            return .failed("\(found.host.slug) — \(failure ?? String(localized: "Request failed"))")
+        }
+        // A refresh may have run meanwhile: the repo and the list as they are now.
+        let followed = repos.first { $0.id == repoKey }
+        let repo = followed ?? looseRepo(found.host, accountId: accountId, cloneURL: found.cloneURL)
+        for pull in pulls.sorted(by: Self.newerFirst) where !isListed(repoKey: repoKey, number: pull.number) {
+            addOther(InboxPull(repo: repo, pull: pull), gen: gen)
+        }
+        if followed == nil { browsedRepos = browsedRepos.filter { $0.id != repoKey } + [repo] }
+        if gen == linkGen { narrow(to: repoKey) }
+        return .shown(repoKey: repoKey)
     }
 
     // MARK: Auto refresh

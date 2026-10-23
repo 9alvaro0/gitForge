@@ -107,6 +107,13 @@ struct ShellView: View {
         }
         // A pull refused over local changes asks instead of failing.
         .pullDiscardPrompt()
+        // Once the sheet to connect an account closes, ⌘K searches the hosts
+        // that asked for one again and a pasted link that waited for one
+        // opens (R3 Ruling 14).
+        .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
+            guard closed else { return }
+            Task { await PaletteActionRouter(appState: appState).connectSheetClosed() }
+        }
         // Same idea for success: commit, fetch, pull and push confirm what
         // landed, wherever they were started from.
         .onChange(of: appState.catalog.activeViewModel?.operationSuccess) { _, success in
@@ -165,6 +172,7 @@ struct ShellView: View {
 
     private var paletteOverlay: some View {
         let router = PaletteActionRouter(appState: appState)
+        let reviews = appState.reviews
         return PaletteOverlay(
             repositories: appState.catalog.repositories,
             branches: appState.catalog.activeViewModel?.refs ?? [],
@@ -173,6 +181,12 @@ struct ShellView: View {
             pulls: appState.reviews.searchablePulls,
             unclonedRepos: appState.reviews.unclonedRepos,
             instances: appState.accounts.instances,
+            // Read when the palette draws, not here: a search landing redraws
+            // the palette alone.
+            trailingItems: { query in
+                CommandPaletteBuilder.searchItems(for: query, instances: reviews.searchInstances,
+                                                  searches: reviews.hostSearches, followed: reviews.followedKeys)
+            },
             onPick: { action, keepOpen in
                 if !keepOpen { appState.ui.commandPaletteOpen = false }
                 router.route(action)

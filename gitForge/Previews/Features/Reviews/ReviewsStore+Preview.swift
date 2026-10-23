@@ -15,6 +15,21 @@ extension ReviewsStore {
         case overLimit
         /// `loaded` plus an account to connect again.
         case attention
+        /// `loaded` plus two more Android apps followed by activity and two
+        /// that aren't: gitForge proposes `apps/*/android/*`.
+        case proposal
+        /// `proposal` with so many more Android apps that following the
+        /// pattern would pass `FollowedRepos.limit`.
+        case proposalOverLimit
+        /// What Settings › Reviews shows: `proposal` with
+        /// `androidPattern` accepted, oss/lib followed by hand, a clone whose
+        /// repo moved, a hidden repo, a third platform repo followed by
+        /// activity (gitForge proposes `apps/platform/*`) and a few members
+        /// nobody follows, for "Add repository…".
+        case settings
+        /// `settings` plus `toolFillerCount` members under `tools/legacy`:
+        /// a pattern for them would pass `FollowedRepos.limit`.
+        case settingsOverLimit
     }
 
     /// A store on `PreviewReviewsWorld`. Empty until it refreshes, which
@@ -50,6 +65,17 @@ extension ReviewsStore {
         await refreshForPreview()
         _ = await openLink(PreviewReviewsWorld.slowLink)
     }
+
+    /// Opens the repo at `path` on github.com as "Search all" finds it:
+    /// nobody follows it, so the inbox is narrowed to it and offers to follow
+    /// it (`PreviewReviewsWorld.ossLib` has open pull requests,
+    /// `PreviewReviewsWorld.ossCli` none).
+    func openPreviewFoundRepo(_ path: String) async {
+        await refreshForPreview()
+        let host = RemoteHost.make(fullName: path, on: PreviewReviewsWorld.gitHub)!
+        _ = await openFoundRepo(FoundRepo(host: host, instanceId: PreviewReviewsWorld.gitHub.id,
+                                          cloneURL: "https://github.com/\(path).git"))
+    }
 }
 
 /// The fake hosts behind `ReviewsStore.preview`: accounts on
@@ -80,6 +106,16 @@ struct PreviewReviewsWorld {
     static let releaseTools = "apps/platform/release-tools"
     /// On github.com, and nobody follows it: its pull requests open as Others.
     static let ossLib = "oss/lib"
+    /// On github.com, nobody follows it and it has no open pull request.
+    static let ossCli = "oss/cli"
+    /// Followed by activity in `proposal`, with the clone: three Android apps
+    /// of the same shape.
+    static let weatherApp = "apps/weather/android/weather-app"
+    static let notesApp = "apps/notes/android/notes-app"
+    /// Of the same shape in `proposal`, and not followed.
+    static let siblingApps = ["apps/maps/android/maps-app", "apps/chat/android/chat-app"]
+    /// More Android apps in `proposalOverLimit`, not followed either.
+    static let siblingFillerCount = 100
     /// A merged pull request of a followed repo, then an open one of
     /// `ossLib`, as `ReviewsStore.openPreviewOthers` opens them.
     static let otherLinks = [
@@ -90,6 +126,23 @@ struct PreviewReviewsWorld {
     static let slowLink = link("https://github.com/\(ossLib)/pull/15")
     /// Repos past `FollowedRepos.limit` in `overLimit`.
     static let fillerCount = 101
+    /// The pattern accepted in `settings`.
+    static let androidPattern = FollowPattern(host: gitLab.host, text: "apps/*/android/*")!
+    /// The path the second clone's `origin` still has in `settings`: the
+    /// repo is `ledger` now.
+    static let ledgerOldPath = "apps/payments/backend/ledger-api"
+    /// Followed by activity and hidden in `settings`.
+    static let ledgerSandbox = "apps/payments/backend/ledger-sandbox"
+    /// Followed by activity in `settings`, with `infraModules` and
+    /// `releaseTools`.
+    static let buildCache = "apps/platform/build-cache"
+    /// Members nobody follows in `settings`, on the GitLab instance and on
+    /// github.com.
+    static let unfollowedGitLab = ["apps/platform/feature-flags", "apps/payments/web/checkout-web",
+                                   "apps/fitness/backend/sync-service"]
+    static let unfollowedGitHub = ["oss/cli", "octo/dotfiles"]
+    /// Members under `tools/legacy` in `settingsOverLimit`.
+    static let toolFillerCount = 100
 
     let environment: ReviewsEnvironment
 
@@ -99,22 +152,41 @@ struct PreviewReviewsWorld {
         switch inbox {
         case .noAccounts: accounts = []
         case .empty: accounts = [(Self.marta, Self.gitLab)]
-        case .loaded, .overLimit: accounts = [(Self.marta, Self.gitLab), (Self.octo, Self.gitHub)]
+        case .loaded, .overLimit, .proposal, .proposalOverLimit, .settings, .settingsOverLimit:
+            accounts = [(Self.marta, Self.gitLab), (Self.octo, Self.gitHub)]
         case .attention:
             accounts = [(Self.marta, Self.gitLab), (Self.octo, Self.gitHub), (Self.martaOps, Self.gitLab)]
         }
         let populated = inbox != .empty && inbox != .noAccounts
         let fillers = inbox == .overLimit ? Self.fillerCount : 0
+        let siblings: Siblings = switch inbox {
+        case .proposal, .settings, .settingsOverLimit: .proposing
+        case .proposalOverLimit: .proposingOverLimit
+        default: .absent
+        }
+        let settings: SettingsExtras = switch inbox {
+        case .settings: .present
+        case .settingsOverLimit: .overLimit
+        default: .absent
+        }
 
-        let local = populated
+        var local = populated
             ? [LocalRemote(host: RemoteHost.make(fullName: Self.paymentsApp, on: Self.gitLab)!,
                            repository: Repository(url: URL(fileURLWithPath: "/Users/preview/Developer/payments-app"),
                                                   lastOpenedAt: now.addingTimeInterval(-3600)),
                            assignedAccountId: Self.marta.id)]
             : []
-        let gitLabMembers = populated ? Self.gitLabMembers(fillers: fillers) : []
-        let gitLabHits = populated ? Self.gitLabHits(now: now, fillers: fillers) : []
-        let gitHubMembers = populated ? [Self.member("201", Self.designTokens, on: Self.gitHub)] : []
+        if settings != .absent {
+            // Its repo moved: the inbox follows it as `ledger`.
+            local.append(LocalRemote(host: RemoteHost.make(fullName: Self.ledgerOldPath, on: Self.gitLab)!,
+                                     repository: Repository(url: URL(fileURLWithPath: "/Users/preview/Developer/ledger-api"),
+                                                            lastOpenedAt: now.addingTimeInterval(-3 * 86_400)),
+                                     assignedAccountId: Self.marta.id))
+        }
+        let gitLabMembers = populated ? Self.gitLabMembers(fillers: fillers, siblings: siblings, settings: settings) : []
+        let gitLabHits = populated ? Self.gitLabHits(now: now, fillers: fillers, siblings: siblings, settings: settings)
+            : []
+        let gitHubMembers = populated ? Self.gitHubMembers(settings: settings) : []
         let gitHubHits = populated ? [ActivityHit(ref: .path(Self.designTokens), at: now.addingTimeInterval(-1800))] : []
         let host = PreviewReviewsHost(lists: populated ? Self.lists(now: now) : [:],
                                       linked: populated ? Self.linked(now: now) : [:],
@@ -122,6 +194,13 @@ struct PreviewReviewsWorld {
                                       slowDetails: ["\(Self.ossLib)#\(Self.slowLink.number)"])
         let snapshots = FileManager.default.temporaryDirectory
             .appendingPathComponent("gitForge-previews/reviews-\(UUID().uuidString)", isDirectory: true)
+        let config = ReviewsConfigStore(directory: snapshots)
+        if settings != .absent {
+            config.save(ReviewsConfig(patterns: [Self.androidPattern],
+                                      manual: [RemoteHost.make(fullName: Self.ossLib, on: Self.gitHub)!],
+                                      hidden: [RemoteHost.make(fullName: Self.ledgerSandbox, on: Self.gitLab)!],
+                                      answeredProposals: [Self.androidPattern.id]))
+        }
 
         environment = ReviewsEnvironment(
             accounts: { accounts },
@@ -134,11 +213,32 @@ struct PreviewReviewsWorld {
             makeProvider: { _ in host },
             makeBrowser: { kind in PreviewRepoBrowser(members: kind == .gitlab ? gitLabMembers : gitHubMembers) },
             makeActivity: { kind in PreviewActivity(hits: kind == .gitlab ? gitLabHits : gitHubHits) },
+            makeSearch: { _ in PreviewHostSearch(moved: [Self.ledgerOldPath: Self.ledger]) },
             snapshots: ReviewsSnapshotStore(directory: snapshots),
+            config: config,
             makeReviewProvider: { _ in host })
     }
 
     // MARK: Data
+
+    /// The Android apps besides payments-app.
+    private enum Siblings {
+        case absent
+        /// `weatherApp` and `notesApp` followed by activity, and `siblingApps`.
+        case proposing
+        /// `proposing` plus `siblingFillerCount` more members.
+        case proposingOverLimit
+    }
+
+    /// What `settings` adds.
+    private enum SettingsExtras {
+        case absent
+        /// `ledgerSandbox` and `buildCache` followed by activity, and the
+        /// unfollowed members.
+        case present
+        /// `present` plus `toolFillerCount` members.
+        case overLimit
+    }
 
     private static func link(_ url: String) -> PullRequestLink {
         PullRequestLink.parse(url, instances: [gitLab, gitHub])!
@@ -150,19 +250,68 @@ struct PreviewReviewsWorld {
                           isPrivate: true, defaultBranch: "main")
     }
 
-    private static func gitLabMembers(fillers: Int) -> [RemoteRepoSummary] {
+    private static func gitLabMembers(fillers: Int, siblings: Siblings, settings: SettingsExtras) -> [RemoteRepoSummary] {
         // The clone is listed too: a clone counts only when the account belongs to its repo.
-        [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
-         member("103", infraModules, on: gitLab), member("104", releaseTools, on: gitLab)]
-            + (0..<fillers).map { member("9\($0)", "apps/archive/service-\($0)", on: gitLab) }
+        // Appended step by step: long `+` chains outran the Xcode 26 type checker on CI.
+        var members: [RemoteRepoSummary] = [member("101", paymentsApp, on: gitLab), member("102", ledger, on: gitLab),
+                                            member("103", infraModules, on: gitLab),
+                                            member("104", releaseTools, on: gitLab)]
+        for index in 0..<fillers {
+            members.append(member("9\(index)", "apps/archive/service-\(index)", on: gitLab))
+        }
+        if siblings != .absent {
+            members.append(contentsOf: [member("105", weatherApp, on: gitLab), member("106", notesApp, on: gitLab)])
+            for (offset, path) in siblingApps.enumerated() {
+                members.append(member("10\(7 + offset)", path, on: gitLab))
+            }
+        }
+        if siblings == .proposingOverLimit {
+            members += (0..<siblingFillerCount).map {
+                member("8\($0)", "apps/brand-\($0)/android/brand-\($0)-app", on: gitLab)
+            }
+        }
+        if settings != .absent {
+            members.append(member("110", ledgerSandbox, on: gitLab))
+            members.append(member("111", buildCache, on: gitLab))
+            for (offset, path) in unfollowedGitLab.enumerated() {
+                members.append(member("11\(2 + offset)", path, on: gitLab))
+            }
+        }
+        if settings == .overLimit {
+            for index in 0..<toolFillerCount {
+                members.append(member("7\(index)", "tools/legacy/script-\(index)", on: gitLab))
+            }
+        }
+        return members
+    }
+
+    private static func gitHubMembers(settings: SettingsExtras) -> [RemoteRepoSummary] {
+        var members: [RemoteRepoSummary] = [member("201", designTokens, on: gitHub)]
+        guard settings != .absent else { return members }
+        for (offset, path) in ([ossLib] + unfollowedGitHub).enumerated() {
+            members.append(member("20\(2 + offset)", path, on: gitHub))
+        }
+        return members
     }
 
     /// The fillers are older than the rest, so they're the ones left out.
-    private static func gitLabHits(now: Date, fillers: Int) -> [ActivityHit] {
-        [ActivityHit(ref: .projectId("102"), at: now.addingTimeInterval(-2 * 3600)),
-         ActivityHit(ref: .projectId("103"), at: now.addingTimeInterval(-5 * 3600)),
-         ActivityHit(ref: .projectId("104"), at: now.addingTimeInterval(-26 * 3600))]
-            + (0..<fillers).map { ActivityHit(ref: .projectId("9\($0)"), at: now.addingTimeInterval(-Double(2 + $0) * 86_400)) }
+    private static func gitLabHits(now: Date, fillers: Int, siblings: Siblings,
+                                   settings: SettingsExtras) -> [ActivityHit] {
+        // Built step by step: as one expression it outran the Xcode 26 type checker on CI.
+        func hit(_ id: String, hoursAgo: Double) -> ActivityHit {
+            ActivityHit(ref: .projectId(id), at: now.addingTimeInterval(-hoursAgo * 3600))
+        }
+        var hits: [ActivityHit] = [hit("102", hoursAgo: 2), hit("103", hoursAgo: 5), hit("104", hoursAgo: 26)]
+        for index in 0..<fillers {
+            hits.append(hit("9\(index)", hoursAgo: Double(2 + index) * 24))
+        }
+        if siblings != .absent {
+            hits.append(contentsOf: [hit("105", hoursAgo: 30), hit("106", hoursAgo: 50)])
+        }
+        if settings != .absent {
+            hits.append(contentsOf: [hit("110", hoursAgo: 60), hit("111", hoursAgo: 70)])
+        }
+        return hits
     }
 
     private static func pull(_ number: Int, _ title: String, by author: String, from branch: String,
@@ -176,16 +325,12 @@ struct PreviewReviewsWorld {
                            updatedAt: now.addingTimeInterval(-minutesAgo * 60), headSha: "a1b2c3d\(number)")
     }
 
-    /// Pull requests no open list has: of `ossLib`, and merged.
+    /// Pull requests no open list has: merged ones.
     private static func linked(now: Date) -> [String: [PullRequest]] {
         [
             paymentsApp: [
                 pull(466, "Keep the basket when the session expires", by: "jon", from: "fix/basket-session",
                      into: "develop", state: .merged, minutesAgo: 4300, on: paymentsApp, instance: gitLab, now: now),
-            ],
-            ossLib: [
-                pull(12, "Parse dates in the server's time zone", by: "octo", from: "fix/server-time-zone",
-                     minutesAgo: 70, on: ossLib, instance: gitHub, now: now),
             ],
         ]
     }
@@ -210,6 +355,14 @@ struct PreviewReviewsWorld {
                      minutesAgo: 50, on: designTokens, instance: gitHub, now: now),
                 pull(85, "Build the tokens with Node 22", by: "octo", from: "chore/node-22",
                      minutesAgo: 2900, on: designTokens, instance: gitHub, now: now),
+            ],
+            // Not followed: its pull requests come in from a link or when
+            // "Search all" opens the repo.
+            ossLib: [
+                pull(12, "Parse dates in the server's time zone", by: "octo", from: "fix/server-time-zone",
+                     minutesAgo: 70, on: ossLib, instance: gitHub, now: now),
+                pull(9, "Drop the deprecated date formatter", by: "ana", from: "chore/drop-old-formatter",
+                     minutesAgo: 3100, on: ossLib, instance: gitHub, now: now),
             ],
         ]
     }
@@ -299,4 +452,16 @@ struct PreviewActivity: ReviewActivitySource {
     func recentActivity(apiBase: URL, login: String, since: Date, token: String) async throws -> [ActivityHit] {
         hits
     }
+}
+
+/// Finds nothing; a repo has moved only when `moved` says so.
+nonisolated struct PreviewHostSearch: HostSearching {
+    /// Current paths by the old ones.
+    var moved: [String: String] = [:]
+
+    func searchPulls(_ text: String, owners: [String]?, on instance: HostingInstance,
+                     token: String) async throws -> [FoundPull] { [] }
+    func searchRepos(_ text: String, owners: [String]?, on instance: HostingInstance,
+                     token: String) async throws -> [FoundRepo] { [] }
+    func currentPath(of host: RemoteHost, token: String) async throws -> String? { moved[host.slug] ?? host.slug }
 }

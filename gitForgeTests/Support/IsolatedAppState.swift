@@ -3,7 +3,8 @@ import Foundation
 
 extension AppState {
     /// An `AppState` whose recents, preferences, profiles, accounts and
-    /// Reviews snapshot live in temporary storage, never the user's.
+    /// Reviews snapshot and settings live in temporary storage, never the
+    /// user's.
     /// `reviewsSnapshots`: a store a test has filled.
     @MainActor
     static func isolated(reviewsSnapshots: ReviewsSnapshotStore? = nil) -> AppState {
@@ -12,6 +13,7 @@ extension AppState {
         return AppState(catalog: RepositoryCatalog(store: RepositoryStore(directory: dir), defaults: defaults),
                         profiles: ProfileStore(defaults: defaults),
                         accounts: AccountStore(directory: dir, secrets: InMemoryAccountSecretStore()),
-                        reviewsSnapshots: reviewsSnapshots ?? ReviewsSnapshotStore(directory: dir))
+                        reviewsSnapshots: reviewsSnapshots ?? ReviewsSnapshotStore(directory: dir),
+                        reviewsConfig: ReviewsConfigStore(directory: dir))
     }
 }

@@ -1,7 +1,8 @@
 import Foundation
 
 /// ⌘K results grouped by kind (Actions, Repositories, Pull requests,
-/// Branches, Commits, Files), each group ranked by its match score.
+/// Branches, Commits, Files), each group ranked by its match score, and
+/// Search all last, as its rows come.
 enum CommandPaletteSections {
     struct Row: Identifiable, Equatable {
         let item: CommandPaletteItem
@@ -24,8 +25,14 @@ enum CommandPaletteSections {
     /// `pinned` rows (a pasted pull request link's) lead the Pull requests
     /// group, which then goes first. They show in All and in the Pull requests
     /// scope, whatever the query, and are not counted against the group's limit.
+    ///
+    /// `trailing` rows ("Search all of <host>" and what it found) are the last
+    /// group, Search all, as given: not ranked, not cut. They show in All and
+    /// in the Pull requests and Repositories scopes, what a host search finds,
+    /// unless there are `pinned` rows, in any scope: a query that is a link
+    /// isn't text to search a host for (R3 Ruling Y).
     static func build(items: [CommandPaletteItem], query: String, scope: CommandPaletteScope = .all,
-                      pinned: [CommandPaletteItem] = []) -> [Section] {
+                      pinned: [CommandPaletteItem] = [], trailing: [CommandPaletteItem] = []) -> [Section] {
         let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
         let scopeKinds: [CommandPaletteItem.Kind] = switch scope {
         case .all: CommandPaletteItem.Kind.displayOrder
@@ -33,6 +40,8 @@ enum CommandPaletteSections {
         }
         let pinnedRows = scopeKinds.contains(.pull) ? pinned.map { Row(item: $0, match: nil) } : []
         let kinds = pinnedRows.isEmpty ? scopeKinds : [.pull] + scopeKinds.filter { $0 != .pull }
+        let remote = pinned.isEmpty && (scopeKinds.contains(.pull) || scopeKinds.contains(.repo)) ? trailing : []
+        let remoteSection = remote.isEmpty ? [] : [Section(kind: .remote, rows: remote.map { Row(item: $0, match: nil) })]
         return kinds.compactMap { kind in
             let ofKind = items.filter { $0.kind == kind }
             let found: [Row]
@@ -44,7 +53,30 @@ enum CommandPaletteSections {
             }
             let rows = kind == .pull ? pinnedRows + found : found
             return rows.isEmpty ? nil : Section(kind: kind, rows: rows)
+        } + remoteSection
+    }
+
+    /// The selected row's index once `rows` changed under it, the query and
+    /// the scope unchanged (a host search landing): the row of `item`, by
+    /// its action and label (a rebuilt row is a new item), if it's still
+    /// listed; else `fallback`, the index it had, within the rows.
+    static func selection(keeping item: CommandPaletteItem?, in rows: [Row], fallback: Int) -> Int {
+        guard !rows.isEmpty else { return 0 }
+        if let item, let index = rows.firstIndex(where: { $0.item.action == item.action && $0.item.label == item.label }) {
+            return index
         }
+        return min(max(fallback, 0), rows.count - 1)
+    }
+
+    /// One change of the rows under the selection, the query and the scope
+    /// unchanged: its place now (`selection(keeping:in:fallback:)`) and what
+    /// it keeps for the next change, that place and the row now at it. A row
+    /// that's gone hands the selection to the one in its place, which a later
+    /// change then follows. With no rows, `item` is kept for when they're back.
+    static func follow(_ item: CommandPaletteItem?, at index: Int,
+                       in rows: [Row]) -> (index: Int, item: CommandPaletteItem?) {
+        let now = selection(keeping: item, in: rows, fallback: index)
+        return (now, rows[safe: now]?.item ?? item)
     }
 
     /// Matching items, best score first; ties keep their input order.

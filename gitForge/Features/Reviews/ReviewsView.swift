@@ -248,3 +248,39 @@ struct ReviewsView: View {
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
+
+#Preview("Pattern proposal") {
+    @Previewable @State var theme = AppTheme()
+    ReviewsView(store: .preview(.proposal))
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Pattern proposal over the limit") {
+    @Previewable @State var theme = AppTheme()
+    ReviewsView(store: .preview(.proposalOverLimit))
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Browsed repository") {
+    @Previewable @State var theme = AppTheme()
+    let store = ReviewsStore.preview(.loaded)
+    ReviewsView(store: store)
+        .task { await store.openPreviewFoundRepo(PreviewReviewsWorld.ossLib) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Browsed repository, empty") {
+    @Previewable @State var theme = AppTheme()
+    let store = ReviewsStore.preview(.loaded)
+    ReviewsView(store: store)
+        .task { await store.openPreviewFoundRepo(PreviewReviewsWorld.ossCli) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}

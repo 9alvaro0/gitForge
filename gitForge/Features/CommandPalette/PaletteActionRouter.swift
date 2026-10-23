@@ -64,6 +64,14 @@ struct PaletteActionRouter {
             runRemote { vm in await vm.push() }
         case .stash:
             runStash()
+        case .searchHost(let instanceId, let query):
+            // The palette stays open: the row turns into what the search finds.
+            Task { await appState.reviews.searchHost(instanceId, query: query) }
+        case .openFoundRepo(let repo):
+            appState.ui.workspaceSection = .reviews
+            Task { await openFoundRepo(repo) }
+        case .connectAccount(let instanceId):
+            appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId)
         case .noop:
             break
         }
@@ -75,6 +83,33 @@ struct PaletteActionRouter {
     func openLink(_ link: PullRequestLink) async {
         appState.ui.workspaceSection = .reviews
         present(await appState.reviews.openLink(link))
+    }
+
+    /// A repo found by searching a host (R3 Ruling 13): Reviews at once,
+    /// narrowed to it once the inbox has it, and what keeps it from opening
+    /// told as for a link: the connect sheet or an error toast.
+    func openFoundRepo(_ repo: FoundRepo) async {
+        appState.ui.workspaceSection = .reviews
+        switch await appState.reviews.openFoundRepo(repo) {
+        case .shown:
+            break
+        case .connectAccount(let instanceId):
+            present(.connectAccount(instanceId: instanceId))
+        case .failed(let message):
+            present(.failed(message))
+        }
+    }
+
+    /// The sheet to connect an account closed, whatever opened it: the host
+    /// searches that asked for an account go back to the row that searches,
+    /// and the link that waited for one is opened again (R3 Ruling 14):
+    /// Reviews and its outcome when the inbox tried it; nothing when there
+    /// was none or its instance still has no account that signs.
+    func connectSheetClosed() async {
+        appState.reviews.forgetConnectSearches()
+        guard let outcome = await appState.reviews.retryPendingLink() else { return }
+        appState.ui.workspaceSection = .reviews
+        present(outcome)
     }
 
     /// What a link's outcome asks of the app: nothing for a pull request that

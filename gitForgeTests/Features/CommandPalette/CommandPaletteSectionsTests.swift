@@ -164,4 +164,83 @@ struct CommandPaletteSectionsTests {
         #expect(!PaletteAction.fetch.presentsUI)
         #expect(!PaletteAction.selectSection(.history).presentsUI)
     }
+
+    // MARK: Search all
+
+    @Test("Trailing rows are the last group, Search all, in their order, all of them, whatever the query")
+    func trailing() {
+        let items = [Self.item(.command, "Retry the push"), Self.item(.pull, "Retry", keywords: ["octo/app"], number: 8),
+                     Self.item(.repo, "octo/retry"), Self.item(.branch, "retry-fix")]
+        let trailing = (0..<12).map { Self.item(.remote, "Search all of host-\($0).example.test") }
+
+        let all = CommandPaletteSections.build(items: items, query: "retry", trailing: trailing)
+        #expect(all.map(\.kind) == [.command, .repo, .pull, .branch, .remote])
+        #expect(all.last?.kind.title == "Search all")
+        #expect(all.last?.rows.map(\.item.id) == trailing.map(\.id))
+        #expect(all.last?.rows.allSatisfy { $0.match == nil } == true)
+
+        let pulls = CommandPaletteSections.build(items: items, query: "retry", scope: .only(.pull), trailing: trailing)
+        #expect(pulls.map(\.kind) == [.pull, .remote])
+        let repos = CommandPaletteSections.build(items: items, query: "retry", scope: .only(.repo), trailing: trailing)
+        #expect(repos.map(\.kind) == [.repo, .remote])
+        let branches = CommandPaletteSections.build(items: items, query: "retry", scope: .only(.branch), trailing: trailing)
+        #expect(branches.map(\.kind) == [.branch])
+
+        #expect(CommandPaletteSections.build(items: items, query: "retry").last?.kind == .branch)
+    }
+
+    @Test("Search all isn't one of the scopes ⇥ steps through")
+    func trailingNotAScope() {
+        let search = Self.item(.remote, "Search all of github.com")
+        let sections = CommandPaletteSections.build(items: [], query: "retry", trailing: [search])
+        #expect(sections.map(\.kind) == [.remote])
+        #expect(!CommandPaletteScope.ordered.contains(.only(.remote)))
+        #expect(!CommandPaletteItem.Kind.displayOrder.contains(.remote))
+    }
+
+    @Test("A query that gives pinned rows, a pasted link or a host to add, gives no Search all, in any scope")
+    func noSearchAllWithPinnedRows() {
+        let link = Self.item(.pull, "Open pull request #7")
+        let search = Self.item(.remote, "Search all of github.com")
+        for scope in [CommandPaletteScope.all, .only(.pull), .only(.repo)] {
+            let sections = CommandPaletteSections.build(items: [Self.item(.repo, "octo/app")],
+                                                        query: "https://github.com/octo/app/pull/7", scope: scope,
+                                                        pinned: [link], trailing: [search])
+            #expect(!sections.contains { $0.kind == .remote })
+        }
+    }
+
+    @Test("A pasted pull request link, or one on a host that isn't declared, gets its row and no Search all rows")
+    func pastedLinkHasNoSearchAll() {
+        let instances = HostingInstance.builtIns
+        let gitLab = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
+        for query in ["https://github.com/octo/app/pull/7",
+                      "https://code.example.test/apps/payments/android/payments-app/-/merge_requests/482"] {
+            let pinned = CommandPaletteBuilder.linkItems(for: query, instances: instances)
+            let trailing = CommandPaletteBuilder.searchItems(for: query, instances: instances + [gitLab], searches: [:],
+                                                             followed: [])
+            #expect(pinned.count == 1)
+            #expect(!trailing.isEmpty)
+            let sections = CommandPaletteSections.build(items: [], query: query, pinned: pinned, trailing: trailing)
+            #expect(sections.map(\.kind) == [.pull])
+            #expect(sections.flatMap(\.rows).map(\.item.id) == pinned.map(\.id))
+        }
+    }
+
+    @Test("Searching a host and a row that does nothing keep the palette open; a found repo and connecting close it even with ⌘")
+    func keepOpen() throws {
+        let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
+        let host = try #require(RemoteHost.make(fullName: "apps/payments/android/payments-app", on: instance))
+        let found = FoundRepo(host: host, instanceId: instance.id,
+                              cloneURL: "https://gitlab.example.test/apps/payments/android/payments-app.git")
+
+        #expect(PaletteAction.keepOpen(.searchHost(instanceId: instance.id, query: "retry"), commandHeld: false))
+        #expect(PaletteAction.keepOpen(.noop, commandHeld: false))
+        #expect(!PaletteAction.keepOpen(.openFoundRepo(found), commandHeld: true))
+        #expect(!PaletteAction.keepOpen(.connectAccount(instanceId: instance.id), commandHeld: true))
+        #expect(PaletteAction.keepOpen(.fetch, commandHeld: true))
+        #expect(!PaletteAction.keepOpen(.fetch, commandHeld: false))
+        #expect(PaletteAction.openFoundRepo(found).presentsUI)
+        #expect(PaletteAction.connectAccount(instanceId: instance.id).presentsUI)
+    }
 }

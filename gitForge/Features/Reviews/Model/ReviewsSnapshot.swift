@@ -14,6 +14,15 @@ nonisolated struct MembershipCache: Codable, Equatable, Sendable {
     var isComplete: Bool? = nil
 }
 
+/// What a rename lookup found for a clone whose `origin` matched no repo the
+/// accounts belong to: the repo's current path, or `nil` when the server has no
+/// such repo any more (a 404). Cached for 24 h so the inbox doesn't ask again
+/// on every refresh.
+nonisolated struct RepoLookup: Codable, Equatable, Sendable {
+    var fetchedAt: Date
+    var currentPath: String?
+}
+
 /// What the Reviews inbox knew when it last loaded: the repos it follows, their
 /// open pull requests, the cached memberships and each account's login. Kept in
 /// `reviews.json` so the inbox and ⌘K have data at launch and offline.
@@ -30,6 +39,10 @@ nonisolated struct ReviewsSnapshot: Codable, Equatable, Sendable {
     var memberships: [UUID: MembershipCache]
     /// The user's login on each account, by account id.
     var logins: [UUID: String]
+    /// Rename lookups by the clone's `FollowedRepos.key`. Optional with a `nil`
+    /// default so a snapshot saved by R2, which has none, still decodes at the
+    /// same version.
+    var lookups: [String: RepoLookup]? = nil
 }
 
 /// Reads and writes the last `ReviewsSnapshot` as `reviews.json`, next to

@@ -1,0 +1,6 @@
+{
+  "id": 303, "name": "new-name", "full_name": "octo/new-name", "private": false,
+  "description": "Renamed from old-name", "default_branch": "main",
+  "ssh_url": "git@ghe.example.test:octo/new-name.git",
+  "clone_url": "https://ghe.example.test/octo/new-name.git"
+}

@@ -98,6 +98,64 @@ enum CommandPaletteBuilder {
         return []
     }
 
+    /// The Search all group (R3 Ruling 12): with `ReviewsStore.searchMinimum`
+    /// characters or more, not counting the spaces around them, the rows of
+    /// each of `instances` in turn. An instance's last search shows while it
+    /// was made for this text, trimmed: a spinner while it runs, then what it
+    /// found (pull requests, then repos, those in `followed` marked), that it
+    /// found nothing, why it failed (picking that searches again) or that an
+    /// account must be connected. Otherwise, the row that searches it.
+    static func searchItems(for query: String, instances: [HostingInstance], searches: [UUID: HostSearchState],
+                            followed: Set<String>) -> [CommandPaletteItem] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= ReviewsStore.searchMinimum else { return [] }
+        return instances.flatMap { instance in
+            let search = searches[instance.id].flatMap { $0.query == text ? $0 : nil }
+            return searchRows(on: instance, text: text, phase: search?.phase, followed: followed)
+        }
+    }
+
+    private static func searchRows(on instance: HostingInstance, text: String, phase: HostSearchState.Phase?,
+                                   followed: Set<String>) -> [CommandPaletteItem] {
+        let host = instance.host
+        let search = PaletteAction.searchHost(instanceId: instance.id, query: text)
+        switch phase {
+        case nil:
+            return [CommandPaletteItem(kind: .remote, label: String(localized: "Search all of \(host)"),
+                                       hint: "“\(text)”", action: search)]
+        case .searching:
+            return [CommandPaletteItem(kind: .remote, label: String(localized: "Searching \(host)…"),
+                                       hint: nil, action: .noop, isLoading: true)]
+        case .found(let results) where results.pulls.isEmpty && results.repos.isEmpty:
+            return [CommandPaletteItem(kind: .remote, label: String(localized: "Nothing found on \(host)"),
+                                       hint: nil, action: .noop)]
+        case .found(let results):
+            let limit = HostSearchFactory.resultLimit
+            return results.pulls.prefix(limit).map(foundPullItem)
+                + results.repos.prefix(limit).map { foundRepoItem($0, followed: followed) }
+        case .failed(let message):
+            return [CommandPaletteItem(kind: .remote, label: String(localized: "Couldn't search \(host)"),
+                                       hint: message, action: search)]
+        case .connectAccount:
+            return [CommandPaletteItem(kind: .remote, label: String(localized: "Connect an account on \(host)…"),
+                                       hint: nil, action: .connectAccount(instanceId: instance.id))]
+        }
+    }
+
+    /// A pull request a host search found, written as the inbox's are; it
+    /// opens the way a pasted link does (R2 Ruling 11).
+    private static func foundPullItem(_ found: FoundPull) -> CommandPaletteItem {
+        CommandPaletteItem(kind: .remote, label: found.title, hint: pullHint(found.link.host, number: found.link.number),
+                           action: .openPullLink(found.link), symbol: CommandPaletteItem.Kind.pull.symbol)
+    }
+
+    /// A repo a host search found, by its path, marked if it's followed.
+    private static func foundRepoItem(_ found: FoundRepo, followed: Set<String>) -> CommandPaletteItem {
+        CommandPaletteItem(kind: .remote, label: found.host.slug,
+                           hint: followed.contains(FollowedRepos.key(found.host)) ? String(localized: "Followed") : nil,
+                           action: .openFoundRepo(found), symbol: CommandPaletteItem.Kind.repo.symbol)
+    }
+
     static let builtInCommands: [CommandPaletteItem] = [
         CommandPaletteItem(kind: .command, label: String(localized: "Open repository…"),  hint: "⌘O",  action: .openRepository),
         CommandPaletteItem(kind: .command, label: String(localized: "Clone repository…"), hint: "⌥⌘C", action: .cloneRepository),
@@ -117,12 +175,17 @@ enum CommandPaletteBuilder {
         return CommandPaletteItem(
             kind: .pull,
             label: pull.title,
-            hint: "\(host.provider.reference(pull.number)) · \(host.repo)",
+            hint: pullHint(host, number: pull.number),
             action: .openPull(id: inbox.id),
             keywords: [host.slug, pull.sourceBranch, pull.authorLogin, pull.authorName, String(pull.number)]
                 .compactMap { $0 },
             number: pull.number
         )
+    }
+
+    /// `!482 · payments-app`: tells two pull requests of the same title apart.
+    private static func pullHint(_ host: RemoteHost, number: Int) -> String {
+        "\(host.provider.reference(number)) · \(host.repo)"
     }
 
     private static func orgName(for repo: Repository) -> String {

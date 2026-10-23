@@ -8,28 +8,43 @@ struct CommandPaletteView: View {
     /// Rows the query itself adds at the head of Pull requests (a pasted
     /// pull request link's), whatever it matches.
     var pinnedItems: (String) -> [CommandPaletteItem] = { _ in [] }
-    /// `keepOpen`: ⌘↵, run without closing the palette.
-    var onPick: (CommandPaletteItem, _ keepOpen: Bool) -> Void
+    /// The Search all group the query gives ("Search all of <host>" and what
+    /// a search found), after every other; not shown when `pinnedItems` gives
+    /// rows (`CommandPaletteSections.build`). Called while the body is built,
+    /// so the state it reads redraws the palette when a search lands.
+    var trailingItems: (String) -> [CommandPaletteItem] = { _ in [] }
+    /// `commandHeld`: ⌘↵, run without closing the palette.
+    var onPick: (CommandPaletteItem, _ commandHeld: Bool) -> Void
     var onClose: () -> Void
 
     @State private var query: String = ""
     @State private var scope: CommandPaletteScope = .all
     @State private var selectedIndex: Int = 0
+    /// The selected row: a host search that lands adds and takes away rows,
+    /// and the selection stays on this one (`CommandPaletteSections.follow`).
+    @State private var selectedItem: CommandPaletteItem?
     @State private var pointer = PointerIntent()
     @FocusState private var inputFocused: Bool
     @Environment(\.appTheme) private var theme
 
     private var sections: [CommandPaletteSections.Section] {
-        CommandPaletteSections.build(items: items, query: query, scope: scope, pinned: pinnedItems(query))
+        CommandPaletteSections.build(items: items, query: query, scope: scope, pinned: pinnedItems(query),
+                                     trailing: trailingItems(query))
     }
 
     var body: some View {
-        // Built once per render: a pinned row is made anew by every build,
-        // with its own identity, so the rows the keys walk and the rows
-        // drawn have to come from the same one.
+        // Built once per render: a pinned or Search all row is made anew by
+        // every build, with its own identity, so the rows the keys walk and
+        // the rows drawn have to come from the same one.
         let sections = self.sections
         // Rows in display order, for arrow-key navigation.
         let rows = sections.flatMap(\.rows)
+        // The selected row's place now: rows a search landed since may have
+        // moved it, or taken it away.
+        let active = CommandPaletteSections.selection(keeping: selectedItem, in: rows, fallback: selectedIndex)
+        // What a change of the rows is compared by: a rebuilt row is a new
+        // item, with the same label.
+        let labels = rows.map(\.item.label)
         ZStack(alignment: .top) {
             theme.colors.bgWindow.opacity(0.46)
                 .ignoresSafeArea()
@@ -39,7 +54,7 @@ struct CommandPaletteView: View {
                 inputRow
                 scopeBar
                 Divider().overlay(theme.colors.separator)
-                results(sections, rows: rows)
+                results(sections, rows: rows, active: active)
                 Divider().overlay(theme.colors.separator)
                 footer
             }
@@ -52,7 +67,7 @@ struct CommandPaletteView: View {
         }
         .onAppear {
             inputFocused = true
-            selectedIndex = 0
+            resetSelection()
             pointer.reset(at: NSEvent.mouseLocation)
         }
         // With a list holding focus (a clicked History or Stashes row), the
@@ -65,11 +80,17 @@ struct CommandPaletteView: View {
         }
         .onKeyPress(.escape) { onClose(); return .handled }
         .onKeyPress(keys: [.return], phases: .down) { press in
-            if let row = rows[safe: selectedIndex] { onPick(row.item, press.modifiers.contains(.command)) }
+            if let row = rows[safe: active] { onPick(row.item, press.modifiers.contains(.command)) }
             return .handled
         }
-        .onKeyPress(.upArrow) { selectedIndex = max(0, selectedIndex - 1); return .handled }
-        .onKeyPress(.downArrow) { selectedIndex = min(max(rows.count - 1, 0), selectedIndex + 1); return .handled }
+        // Rows that change under the selection (a search landing) carry it
+        // along: the next change starts from the place and the row it's on
+        // now, not from where the keys last left it.
+        .onChange(of: labels) { _, _ in
+            (selectedIndex, selectedItem) = CommandPaletteSections.follow(selectedItem, at: selectedIndex, in: rows)
+        }
+        .onKeyPress(.upArrow) { select(max(0, active - 1), in: rows); return .handled }
+        .onKeyPress(.downArrow) { select(min(max(rows.count - 1, 0), active + 1), in: rows); return .handled }
     }
 
     private var inputRow: some View {
@@ -83,7 +104,7 @@ struct CommandPaletteView: View {
                 .textRole(.title, weight: .regular)
                 .foregroundStyle(theme.colors.textPrimary)
                 .focused($inputFocused)
-                .onChange(of: query) { _, _ in selectedIndex = 0 }
+                .onChange(of: query) { _, _ in resetSelection() }
                 // On the field itself: the field editor would otherwise
                 // take ⇥ to move focus out of the palette.
                 .onKeyPress(keys: [.tab, Self.backTab]) { press in
@@ -136,12 +157,24 @@ struct CommandPaletteView: View {
 
     private func setScope(_ newScope: CommandPaletteScope) {
         scope = newScope
-        selectedIndex = 0
+        resetSelection()
         inputFocused = true
     }
 
+    /// The first row, for a new query or scope.
+    private func resetSelection() {
+        selectedIndex = 0
+        selectedItem = nil
+    }
+
+    private func select(_ index: Int, in rows: [CommandPaletteSections.Row]) {
+        selectedIndex = index
+        selectedItem = rows[safe: index]?.item
+    }
+
     @ViewBuilder
-    private func results(_ sections: [CommandPaletteSections.Section], rows: [CommandPaletteSections.Row]) -> some View {
+    private func results(_ sections: [CommandPaletteSections.Section], rows: [CommandPaletteSections.Row],
+                         active: Int) -> some View {
         if rows.isEmpty {
             Text(query.isEmpty ? String(localized: "Nothing in \(scope.title)") : String(localized: "No matches for “\(query)”"))
                 .textRole(.body)
@@ -163,14 +196,14 @@ struct CommandPaletteView: View {
                             ForEach(section.rows) { row in
                                 let index = rows.firstIndex { $0.id == row.id } ?? 0
                                 Button { onPick(row.item, false) } label: {
-                                    PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == selectedIndex)
+                                    PaletteRow(row: row, groupTitle: section.kind.title, isActive: index == active)
                                 }
                                 .buttonStyle(.plain)
                                 .id(row.id)
                                 // Only a pointer that moved selects: rows scrolling under a
                                 // still one (arrow keys) would pull the selection back.
                                 .onHover { inside in
-                                    if inside, pointer.moved(to: NSEvent.mouseLocation) { selectedIndex = index }
+                                    if inside, pointer.moved(to: NSEvent.mouseLocation) { select(index, in: rows) }
                                 }
                             }
                         }
@@ -180,7 +213,7 @@ struct CommandPaletteView: View {
                     .padding(.bottom, Spacing.s8)
                 }
                 .frame(height: min(Self.listHeight(sections), 420))
-                .onChange(of: selectedIndex) { _, index in
+                .onChange(of: active) { _, index in
                     if let id = rows[safe: index]?.id { proxy.scrollTo(id) }
                 }
             }
@@ -226,9 +259,7 @@ private struct PaletteRow: View {
 
     var body: some View {
         HStack(spacing: Spacing.s12) {
-            Image(systemName: symbol)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(isActive ? theme.colors.accentOnFill : theme.colors.textSecondary)
+            icon
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: Radius.controlSmall)
                     .fill(isActive ? theme.colors.accentFill : theme.colors.fillControl))
@@ -245,7 +276,7 @@ private struct PaletteRow: View {
                         .lineLimit(1)
                         // A pull request's `!482 · repo` tells two of the same
                         // title apart: its title is cut first.
-                        .layoutPriority(row.item.kind == .pull ? 1 : 0)
+                        .layoutPriority(isPull ? 1 : 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -281,15 +312,23 @@ private struct PaletteRow: View {
         return text
     }
 
-    private var symbol: String {
-        switch row.item.kind {
-        case .command: "bolt"
-        case .repo:    "folder"
-        case .pull:    "arrow.triangle.pull"
-        case .branch:  "arrow.triangle.branch"
-        case .commit:  "circle.circle"
-        case .file:    "doc"
+    /// The row's symbol, or a spinner while its host is being searched.
+    @ViewBuilder
+    private var icon: some View {
+        if row.item.isLoading {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            Image(systemName: row.item.symbol ?? row.item.kind.symbol)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isActive ? theme.colors.accentOnFill : theme.colors.textSecondary)
         }
+    }
+
+    /// A pull request of the inbox, a pasted link's or one a host search found.
+    private var isPull: Bool {
+        if case .openPullLink = row.item.action { return true }
+        return row.item.kind == .pull
     }
 }
 
@@ -314,6 +353,7 @@ nonisolated struct PointerIntent: Equatable {
     CommandPaletteView(
         items: CommandPaletteItem.previewSamples,
         pinnedItems: { CommandPaletteBuilder.linkItems(for: $0, instances: CommandPaletteItem.previewInstances) },
+        trailingItems: CommandPaletteItem.previewSearchItems,
         onPick: { _, _ in },
         onClose: {}
     )
