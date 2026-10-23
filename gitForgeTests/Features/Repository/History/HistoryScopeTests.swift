@@ -70,8 +70,9 @@ struct HistoryScopeTests {
         let all = scope([GraphFixture.local("main", "m", head: true, upstream: "origin/main", ahead: 0, behind: 1),
                          GraphFixture.remote("origin/main", "u2")], all: true)
         #expect(loaded.isOutdated(by: all))
-        // A commit on main, still behind, plus a new branch: only local refs moved. (A stash is
-        // no local ref for this: it changes what the log loads, see `stashesOutdate`.)
+        // A commit on main, still behind, plus a new branch: only local refs moved. No new stash
+        // comes with them: a stash changes what the log loads, so it outdates the scope on its
+        // own (`stashesOutdate`), and this scenario is about local refs alone.
         let local = scope([GraphFixture.local("main", "m2", head: true, upstream: "origin/main", ahead: 1, behind: 1),
                            GraphFixture.remote("origin/main", "u2"), GraphFixture.local("topic", "t")],
                           unmerged: ["refs/heads/topic"])

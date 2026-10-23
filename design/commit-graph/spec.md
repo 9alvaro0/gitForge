@@ -120,7 +120,7 @@ Si estás en main, la columna 0 es main y el grafo se ve como hoy en un flujo de
 
 ### 3.5 Cambios sin commitear
 
-El cuadrado discontinuo de `UncommittedRow` ya cae en la columna 0, que ahora es siempre la de tu rama. Se une al commit de HEAD con una línea discontinua en el color de HEAD, que baja por la columna 0 atravesando las filas que haya por encima de HEAD. Por la regla 3.4.1 esa columna está libre ahí.
+El cuadrado discontinuo de `UncommittedRow` ya cae en la columna 0, que ahora es siempre la de tu rama. Se une al commit de HEAD con una línea punteada en el color de HEAD, que baja por la columna 0 atravesando las filas que haya por encima de HEAD. Por la regla 3.4.1 esa columna está libre ahí.
 
 **(Decidido en G4)** Concretando lo anterior:
 - El conector existe cuando hay cambios sin commitear (ficheros sin seguimiento incluidos), hay HEAD y el log tiene filas. Con HEAD sin nacer (repo vacío), la fila "Uncommitted changes" solo enseña su cuadrado.
@@ -239,9 +239,9 @@ En la línea de HEAD, cada tramo entre dos commits lleva el color del commit de 
 
 ### 5.5 Fila de cambios sin commitear
 
-`UncommittedRow` dibuja, bajo su cuadrado, el arranque de la línea discontinua de §3.5. Las filas entre ella y HEAD dibujan su tramo.
+`UncommittedRow` dibuja, bajo su cuadrado, el arranque de la línea punteada de §3.5. Las filas entre ella y HEAD dibujan su tramo.
 
-**(Decidido en G4)** El arranque es la mitad de salida del conector, con la misma punteada opaca y el mismo periodo que las filas de debajo, así que su último punto y el primero de la fila siguiente quedan a la misma distancia que dos puntos cualesquiera. Lo pinta `UncommittedConnectorView` en un lienzo como el de una fila del grafo (un paso entre filas más el margen de cada lado, centrado en la fila), con el interior del cuadrado sin trazar: dentro asoma el fondo de la fila. El cuadrado no cambia: 9 pt, color `mod` y discontinuo 2,5–2.
+**(Decidido en G4)** El arranque es la mitad de salida del conector, con la misma punteada opaca y el mismo periodo que las filas de debajo, así que su último punto y el primero de la fila siguiente quedan a la misma distancia que dos puntos cualesquiera. Lo pinta `UncommittedConnectorView` en un lienzo como el de una fila del grafo (un paso entre filas más el margen de cada lado, centrado en la fila), con el interior del cuadrado sin trazar: dentro asoma el fondo de la fila. Bajo el cuadrado solo se dibujan puntos enteros, los que tienen el centro al menos medio lado del cuadrado más un cuarto del ancho del trazo por debajo del centro de la fila, así que en regular el primero queda a 5,4375 pt y en compacto a 7,1875 pt, porque el de 4,3125 pt asomaría como un saliente bajo el borde inferior del cuadrado. El cuadrado no cambia: 9 pt, color `mod` y discontinuo 2,5–2.
 
 ### 5.6 Ancho
 

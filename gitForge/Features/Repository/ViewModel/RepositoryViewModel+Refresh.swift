@@ -19,8 +19,9 @@ extension RepositoryViewModel {
         _ = await conflictTask
         _ = await identityTask
         // The reload above runs alongside `loadRefs()`, so it may have built
-        // its scope from the refs as they were before (a fetch the watcher
-        // missed): reload once more if the new ones ask for remote branches.
+        // its scope from the refs and stashes as they were before (a fetch or
+        // a stash the watcher missed): reload once more if the new ones ask
+        // for other remote branches or stashes.
         await reloadLogIfScopeMoved()
     }
 }

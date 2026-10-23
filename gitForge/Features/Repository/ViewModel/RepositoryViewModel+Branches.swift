@@ -100,7 +100,7 @@ extension RepositoryViewModel {
     /// loaded `unmergedLocalBranchRefs` and `stashes` and stays sequential.
     /// Without `reloadLog`, the log still reloads when the change moved the
     /// remote branches it loads (deleting the local main makes `origin/main`
-    /// the trunk, a rename can do the reverse).
+    /// the trunk, a rename can do the reverse) or changed the stashes it loads.
     func refreshAfterRefMutation(reloadLog: Bool) async {
         async let refsTask: Void = loadRefs()
         async let statusTask: Void = workingCopy.refreshStatus()

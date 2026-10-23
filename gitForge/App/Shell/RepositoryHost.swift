@@ -56,9 +56,10 @@ struct RepositoryHost: View {
             // VM. Starting reactivity here would re-arm its watcher and
             // auto-fetch on a repo nobody is looking at.
             guard !Task.isCancelled, appState.catalog.activeViewModel === viewModel else { return }
-            // The first page may have been fetched before the refs were read
-            // (or with older ones): reload it if it misses a remote branch
-            // they ask for.
+            // The first page may have been fetched before the refs and the
+            // stashes were read (or with older ones): reload it if it misses
+            // a remote branch or a stash they ask for, or still has one they
+            // no longer do.
             await viewModel.reloadLogIfScopeMoved()
             guard !Task.isCancelled, appState.catalog.activeViewModel === viewModel else { return }
             viewModel.startReactivity(
