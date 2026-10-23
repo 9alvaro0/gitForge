@@ -10,7 +10,15 @@ import Observation
 @MainActor
 final class WorkingCopyStore {
     // MARK: Status
-    var status: WorkingCopyStatus = WorkingCopyStatus(files: [])
+    var status: WorkingCopyStatus = WorkingCopyStatus(files: []) {
+        didSet {
+            guard oldValue.isClean != status.isClean else { return }
+            onCleanChange?()
+        }
+    }
+    /// Called when the working tree turns dirty or clean (`status.isClean` flips), not on
+    /// every status read. The view model lays the history graph out again.
+    @ObservationIgnored var onCleanChange: (() -> Void)?
     /// `+N −M` per path for the Staged rows (index vs HEAD) and the Unstaged
     /// rows (worktree vs index). Untracked and binary files have none.
     var stagedLineCounts: [String: DiffStats] = [:]

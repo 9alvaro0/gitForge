@@ -167,6 +167,11 @@ final class RepositoryViewModel {
         self.history = HistoryStore(cli: cli, tasks: tasks, repositoryURL: repository.url)
         self.workingCopy = WorkingCopyStore(cli: cli, repositoryURL: repository.url, tasks: tasks)
         history.refsSource = self
+        // The graph reads whether the tree is dirty (the connector to HEAD, §3.5). A log
+        // still loading picks the change up when it is published (gen-token contract).
+        workingCopy.onCleanChange = { [weak self] in
+            self?.tasks.track { [weak self] in await self?.history.recomputeGraph() }
+        }
     }
 
     /// Idempotent. Call after `loadInitial` so the first reads aren't
@@ -299,4 +304,6 @@ final class RepositoryViewModel {
     }
 }
 
-extension RepositoryViewModel: HistoryRefsSource {}
+extension RepositoryViewModel: HistoryRefsSource {
+    var hasUncommittedChanges: Bool { !workingCopy.status.isClean }
+}

@@ -17,6 +17,9 @@ protocol HistoryRefsSource: AnyObject {
     var remoteHeads: [String: String] { get set }
     /// Commit HEAD points at, detached or not.
     var headSha: String? { get }
+    /// The working tree has changes (`WorkingCopyStatus.isClean` is false): the graph runs
+    /// the connector to HEAD (§3.5).
+    var hasUncommittedChanges: Bool { get }
 }
 
 /// History: the paged log, its graph layout, the commit detail cache, the
@@ -126,6 +129,11 @@ final class HistoryStore {
     /// refs and remote trunks that layout was laid out with and from the toggle of the
     /// loaded scope, so chips and graph never disagree (§4.4).
     private(set) var refChips: HistoryRefChips = .empty
+    /// The published graph was laid out with uncommitted changes. The table shows the
+    /// Uncommitted changes row exactly then, so the row and its connector come and go together.
+    private(set) var showsUncommittedRow = false
+    /// `GraphLayout.uncommitted` of the published layout: the half the Uncommitted changes row draws.
+    private(set) var uncommittedStep: GraphStep?
     /// What `refChips` was made from. `apply` keeps the chips while the refs, the remote
     /// trunks and the toggle are the same, so a page or a palette change costs nothing here.
     /// Tests read it to check that its refs share the published ones' storage.
@@ -151,8 +159,8 @@ final class HistoryStore {
     /// so it can't overwrite a newer pass or a log it wasn't computed for.
     var graphLayoutGen: UInt64 = 0
     /// Bumped by `recomputeGraph()`: something the graph reads besides the
-    /// log (refs, HEAD, palette) may have changed. A log staged before the
-    /// bump recomputes once more after it is published.
+    /// log (refs, HEAD, palette, uncommitted changes) may have changed. A log
+    /// staged before the bump recomputes once more after it is published.
     private var graphInputRevision: UInt64 = 0
     /// Lays a graph out, always off the main actor. A test seam: the race
     /// tests swap it to hold a pass and interleave it with another; no
@@ -217,6 +225,8 @@ final class HistoryStore {
         graphMaxLanes = 1
         refChips = .empty
         refChipsSource = nil
+        showsUncommittedRow = false
+        uncommittedStep = nil
         graphPageEnds = []
         detailCache.removeAll()
         detailCacheOrder.removeAll()
@@ -311,11 +321,12 @@ final class HistoryStore {
     //     the current one: `--skip` only means something on the same walk.
     //     When the current scope moves away from it (`isScopeStale`), the
     //     view model reloads the log.
-    //   • `recomputeGraph()` (refs, HEAD or palette changed) lays out the
-    //     published log and lands only while `graphLayoutGen` is unchanged:
-    //     a newer recompute or a log published meanwhile drops it. It also
-    //     bumps `graphInputRevision`; a log whose layout pass ends after that
-    //     bump is laid out again from the current inputs before it is
+    //   • `recomputeGraph()` (refs, HEAD or palette changed, or the working
+    //     tree turned dirty or clean) lays out the published log and lands
+    //     only while `graphLayoutGen` is unchanged: a newer recompute or a
+    //     log published meanwhile drops it. It also bumps
+    //     `graphInputRevision`; a log whose layout pass ends after that bump
+    //     is laid out again from the current inputs before it is
     //     installed, so a stale layout is never shown. Neither loses the
     //     other: a recompute that starts during a page load either is already
     //     in the page's input or makes the page lay itself out again.
@@ -554,16 +565,17 @@ final class HistoryStore {
     /// Lays `staged` out off the main actor, then publishes the log and its
     /// graph in one main-actor turn: `commits`, `loadedRawCount`,
     /// `graphPageEnds`, `loadedStashShas`, `loadedScope`, `graphLayouts`,
-    /// `graphMaxLanes` and `refChips`, followed by `finish`, the caller's own
-    /// state that goes with this log (`hasMore`, the selection…). Nothing is
-    /// awaited between the install and `finish`, so a newer load can't publish
-    /// in between and be overwritten.
+    /// `graphMaxLanes`, `refChips` and the Uncommitted changes row
+    /// (`showsUncommittedRow`, `uncommittedStep`), followed by `finish`, the
+    /// caller's own state that goes with this log (`hasMore`, the selection…).
+    /// Nothing is awaited between the install and `finish`, so a newer load
+    /// can't publish in between and be overwritten.
     ///
-    /// If refs, HEAD or the palette changed during a pass (a recompute was
-    /// asked for), the log is laid out again from the current ones before
-    /// anything is shown, as many times as it takes. Returns false, running
-    /// nothing, when a newer reload superseded it or (for a page) another log
-    /// was published since its base.
+    /// If refs, HEAD or the palette changed during a pass, or the working tree
+    /// turned dirty or clean (a recompute was asked for), the log is laid out
+    /// again from the current ones before anything is shown, as many times as
+    /// it takes. Returns false, running nothing, when a newer reload
+    /// superseded it or (for a page) another log was published since its base.
     @discardableResult
     func publish(_ staged: StagedLog, then finish: @MainActor () -> Void = {}) async -> Bool {
         var revision = staged.inputRevision
@@ -606,8 +618,8 @@ final class HistoryStore {
     }
 
     /// What the engine lays out for the published log: its rows, pages and
-    /// stashes, HEAD, the refs that name the lines, the remote trunks and
-    /// the size of the palette.
+    /// stashes, HEAD, the refs that name the lines, the remote trunks, the
+    /// size of the palette and whether the working tree has uncommitted changes.
     func graphInput() -> GraphInput {
         graphInput(for: loadedLog, scope: loadedScope)
     }
@@ -626,7 +638,8 @@ final class HistoryStore {
                           refs: refs,
                           stashShas: log.stashShas,
                           paletteSize: graphPaletteSize,
-                          remoteTrunks: remoteTrunks(in: refs))
+                          remoteTrunks: remoteTrunks(in: refs),
+                          hasUncommittedChanges: refsSource?.hasUncommittedChanges ?? false)
     }
 
     /// Pool colours for the current accent (`LaneColors.pool(accent:).count`).
@@ -639,10 +652,11 @@ final class HistoryStore {
     }
 
     /// Lays the published log out again after something else the graph reads
-    /// changed (refs, HEAD, palette). Runs off the main actor, so a reload
-    /// over 50k commits doesn't stutter the scroll view, and lands only on
-    /// the log it was computed for (see the gen-token contract above). A log
-    /// still loading picks the change up when it is published.
+    /// changed (refs, HEAD, palette, a working tree turning dirty or clean).
+    /// Runs off the main actor, so a reload over 50k commits doesn't stutter
+    /// the scroll view, and lands only on the log it was computed for (see the
+    /// gen-token contract above). A log still loading picks the change up when
+    /// it is published.
     func recomputeGraph() async {
         graphInputRevision &+= 1
         await relayout()
@@ -662,14 +676,17 @@ final class HistoryStore {
         return await Task.detached { await engine(input) }.value
     }
 
-    /// Shows `layout`'s rows and column count, and the chips of the `input` it was
-    /// laid out from: the last step of `install` and `relayout`, and of the
+    /// Shows `layout`'s rows, column count and connector, the Uncommitted changes
+    /// row exactly when `input` had uncommitted changes, and the chips of the `input`
+    /// it was laid out from: the last step of `install` and `relayout`, and of the
     /// synchronous hook in `HistoryStore+Preview.swift`. The chips follow the
     /// toggle of the loaded scope, not the live one: a log fetched without the
     /// remote branches has none of them to label.
     func apply(_ layout: GraphLayout, from input: GraphInput) {
         graphLayouts = layout.rows
         graphMaxLanes = max(1, layout.columnCount)
+        showsUncommittedRow = input.hasUncommittedChanges
+        uncommittedStep = layout.uncommitted
         let source = RefChipsSource(refs: input.refs, remoteTrunks: input.remoteTrunks,
                                     includesAllRemotes: loadedScope?.includesAllRemotes ?? false)
         // O(1) while the refs share the source's storage, element by element otherwise. Kept
