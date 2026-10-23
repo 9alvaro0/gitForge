@@ -1,5 +1,6 @@
 import Foundation
 import QuartzCore
+import Synchronization
 import Observation
 
 /// The session's refs as the graph sees them. `RepositoryViewModel` owns
