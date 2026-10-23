@@ -129,6 +129,12 @@ nonisolated struct GraphRowGeometry {
     /// The gap the table leaves between rows (`HistoryTableLayout.rowSpacing`):
     /// the pitch less the row's own height. 0 for rows that touch.
     var rowSpacing: CGFloat = 0
+    /// SCRATCH G5: the x of each column at the three centres a row draws between, while lines slide.
+    var lanes: GraphRowLanes? = nil
+
+    func xAbove(_ column: Int) -> CGFloat { lanes?.x(column, in: lanes!.above) ?? style.laneCenter(column) }
+    func xCenter(_ column: Int) -> CGFloat { lanes?.x(column, in: lanes!.center) ?? style.laneCenter(column) }
+    func xBelow(_ column: Int) -> CGFloat { lanes?.x(column, in: lanes!.below) ?? style.laneCenter(column) }
 
     /// How far a curve half runs past its joint, measured down the S: half
     /// the edge stroke. Along the slanted S that is at least as far. The part
@@ -263,21 +269,21 @@ nonisolated struct GraphRowGeometry {
         let straightPeriod = dashPeriod
         let above = row.stepsAbove, below = row.stepsBelow
         func arriving(_ step: GraphStep) -> GraphSegment.Piece {
-            let x = style.laneCenter(step.to)
-            guard step.from != step.to else {
+            let x = xCenter(step.to), x0 = xAbove(step.from)
+            guard x0 != x else {
                 let past = Self.isDashed(step) ? 0 : straightOverlap
                 return .line(from: CGPoint(x: x, y: jointAbove - past), to: CGPoint(x: x, y: center))
             }
-            return piece(GraphCurve.arriving(fromX: style.laneCenter(step.from), toX: x, center: center, height: pitch,
+            return piece(GraphCurve.arriving(fromX: x0, toX: x, center: center, height: pitch,
                                              overlap: Self.isDashed(step) ? 0 : curveOverlap))
         }
         func leaving(_ step: GraphStep) -> GraphSegment.Piece {
-            let x = style.laneCenter(step.from)
-            guard step.from != step.to else {
+            let x = xCenter(step.from), x1 = xBelow(step.to)
+            guard x1 != x else {
                 let past = Self.isDashed(step) ? 0 : straightOverlap
                 return .line(from: CGPoint(x: x, y: center), to: CGPoint(x: x, y: jointBelow + past))
             }
-            return piece(GraphCurve.leaving(fromX: x, toX: style.laneCenter(step.to), center: center, height: pitch,
+            return piece(GraphCurve.leaving(fromX: x, toX: x1, center: center, height: pitch,
                                             overlap: Self.isDashed(step) ? 0 : curveOverlap))
         }
         /// The step below that `above[index]` is joined with, if any.
@@ -291,7 +297,8 @@ nonisolated struct GraphRowGeometry {
         /// Reports `half`, the half `step` draws alone, with its dash period.
         func alone(_ half: GraphSegment.Piece, of step: GraphStep) {
             guard Self.isDashed(step) else { return body(half.alone, step, 0) }
-            body(half.alone, step, step.from == step.to ? straightPeriod : dashPeriod(ofCurve: half.length))
+            if case .line = half { return body(half.alone, step, straightPeriod) }
+            body(half.alone, step, dashPeriod(ofCurve: half.length))
         }
 
         // S halves drawn alone.
@@ -375,18 +382,42 @@ nonisolated struct GraphRowGeometry {
     /// gap. A point can come more than once. Allocates nothing.
     func forEachCrossingClearanceCenter(of row: GraphRow, _ body: (CGPoint) -> Void) {
         let node = row.node.column
-        body(CGPoint(x: style.laneCenter(node), y: center))
+        body(CGPoint(x: xCenter(node), y: center))
         for step in row.stepsAbove where step.from != step.to && step.to != node
             && row.stepsAbove.contains(where: { $0.from == step.to && $0.to == step.to }) {
-            body(CGPoint(x: style.laneCenter(step.to), y: center))
+            body(CGPoint(x: xCenter(step.to), y: center))
         }
         for step in row.stepsBelow where step.from != step.to && step.from != node
             && row.stepsBelow.contains(where: { $0.from == step.from && $0.to == step.from }) {
-            body(CGPoint(x: style.laneCenter(step.from), y: center))
+            body(CGPoint(x: xCenter(step.from), y: center))
         }
     }
 
     private func piece(_ bezier: GraphCurve.Bezier) -> GraphSegment.Piece {
         .curve(start: bezier.start, control1: bezier.control1, control2: bezier.control2, end: bezier.end)
+    }
+}
+
+/// SCRATCH G5: the x of each column at the centres above, at and below a row, part way
+/// from where it was before HEAD changed to where it is now.
+nonisolated struct GraphRowLanes {
+    let above: [CGFloat]
+    let center: [CGFloat]
+    let below: [CGFloat]
+
+    init(style: GraphStyle, motion: GraphRowMotion, progress: CGFloat) {
+        func lerp(_ old: [Int16]) -> [CGFloat] {
+            old.indices.map { column in
+                let from = style.laneCenter(Int(old[column])), to = style.laneCenter(column)
+                return from + (to - from) * progress
+            }
+        }
+        above = lerp(motion.above)
+        center = lerp(motion.center)
+        below = lerp(motion.below)
+    }
+
+    func x(_ column: Int, in xs: [CGFloat]) -> CGFloat? {
+        column < xs.count ? xs[column] : nil
     }
 }

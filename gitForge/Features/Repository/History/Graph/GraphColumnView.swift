@@ -111,7 +111,23 @@ struct GraphColumnView: View {
     /// (`GraphRowGeometry.overlapsJoints`).
     var isDimmed = false
 
+    /// SCRATCH G5: the row's columns before HEAD changed, and when the slide started.
+    var motion: GraphRowMotion? = nil
+    var motionStart: Date? = nil
+
     var body: some View {
+        if let motion, let motionStart {
+            TimelineView(.animation) { timeline in
+                let elapsed = timeline.date.timeIntervalSince(motionStart) / GraphMotionState.duration
+                let progress = UnitCurve.easeInOut.value(at: min(max(elapsed, 0), 1))
+                canvas(lanes: GraphRowLanes(style: style, motion: motion, progress: progress))
+            }
+        } else {
+            canvas(lanes: nil)
+        }
+    }
+
+    private func canvas(lanes: GraphRowLanes?) -> some View {
         let style = style
         let row = row
         let node = GraphNodeStyle.for(row, isHeadCommit: isHeadCommit)
@@ -119,11 +135,11 @@ struct GraphColumnView: View {
         let isHovered = isHovered
         let overlapsJoints = !isDimmed
         let rowSpacing = rowSpacing
-        Canvas { context, size in
+        return Canvas { context, size in
             let benchStart = CACurrentMediaTime()
-            defer { G5BenchCounters.shared.canvas(started: benchStart, moving: false) }
+            defer { G5BenchCounters.shared.canvas(started: benchStart, moving: lanes != nil) }
             let painter = GraphRowPainter(style: style, size: size, overlapsJoints: overlapsJoints,
-                                          rowSpacing: rowSpacing)
+                                          rowSpacing: rowSpacing, lanes: lanes)
             painter.drawSteps(of: row, in: &context)
             painter.drawNode(row.node, as: node, isSelected: isSelected, isHovered: isHovered, in: &context)
         }
@@ -151,6 +167,8 @@ nonisolated struct GraphRowPainter {
     var overlapsJoints = true
     /// `GraphRowGeometry.rowSpacing`.
     var rowSpacing: CGFloat = 0
+    /// SCRATCH G5: `GraphRowGeometry.lanes`.
+    var lanes: GraphRowLanes? = nil
 
     /// Dash of the stash node's square.
     private static let stashNodeDash: [CGFloat] = [2.5, 2]
@@ -167,12 +185,12 @@ nonisolated struct GraphRowPainter {
     /// through on either side of it (§5.2).
     func drawSteps(of row: GraphRow, in context: inout GraphicsContext) {
         let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
-                                        rowSpacing: rowSpacing)
+                                        rowSpacing: rowSpacing, lanes: lanes)
         // Without an S, the row's straight halves lie in their own columns,
         // 12 pt or more apart, and cross nothing; without a gap there is no
         // band. Either way there is nothing to erase, and the row draws
         // straight into the context, with no layer.
-        guard style.metrics.crossingGap > 0, Self.hasCurve(row) else {
+        guard style.metrics.crossingGap > 0, lanes != nil || Self.hasCurve(row) else {
             strokeSteps(of: row, geometry: geometry, eraser: nil, in: &context)
             return
         }
@@ -279,7 +297,8 @@ nonisolated struct GraphRowPainter {
                   in context: inout GraphicsContext) {
         let m = style.metrics
         let color = style.color(for: node.color)
-        let nodeCenter = CGPoint(x: style.laneCenter(node.column), y: center)
+        let nodeX = lanes?.x(node.column, in: lanes!.center) ?? style.laneCenter(node.column)
+        let nodeCenter = CGPoint(x: nodeX, y: center)
         let outer: CGFloat = switch shape {
         case .head: m.headOuterRadius
         case .stash: m.stashSize / 2
@@ -289,7 +308,7 @@ nonisolated struct GraphRowPainter {
             Path(ellipseIn: CGRect(x: nodeCenter.x - r, y: nodeCenter.y - r, width: r * 2, height: r * 2))
         }
         let geometry = GraphRowGeometry(style: style, size: size, overlapsJoints: overlapsJoints,
-                                        rowSpacing: rowSpacing)
+                                        rowSpacing: rowSpacing, lanes: lanes)
         if isSelected {
             context.fill(circle(geometry.haloRadius(outer: outer)), with: .color(color.opacity(m.selectHaloOpacity)))
         } else if isHovered {

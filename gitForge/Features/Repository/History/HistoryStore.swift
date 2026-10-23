@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 import Observation
 
 /// The session's refs as the graph sees them. `RepositoryViewModel` owns
@@ -134,6 +135,10 @@ final class HistoryStore {
     private(set) var showsUncommittedRow = false
     /// `GraphLayout.uncommitted` of the published layout: the half the Uncommitted changes row draws.
     private(set) var uncommittedStep: GraphStep?
+    /// SCRATCH G5: the slide in flight after HEAD changed.
+    private(set) var graphMotion: GraphMotionState?
+    @ObservationIgnored private var appliedInput: GraphInput?
+    @ObservationIgnored private var motionId: UInt64 = 0
     /// What `refChips` was made from. `apply` keeps the chips while the refs, the remote
     /// trunks and the toggle are the same, so a page or a palette change costs nothing here.
     /// Tests read it to check that its refs share the published ones' storage.
@@ -666,9 +671,40 @@ final class HistoryStore {
         graphLayoutGen &+= 1
         let gen = graphLayoutGen
         let input = graphInput()
-        let layout = input.commits.isEmpty ? GraphLayout.empty : await layOut(input)
+        let previous = appliedInput
+        let animates = G5BenchEnv.animates && !input.commits.isEmpty
+            && previous.map { Self.headMoved(from: $0, to: input) } == true
+        let engine = graphEngine
+        let (layout, motion): (GraphLayout, [String: GraphRowMotion]?) = input.commits.isEmpty
+            ? (GraphLayout.empty, nil)
+            : await Task.detached {
+                let layout = await engine(input)
+                guard animates, let previous else { return (layout, nil) }
+                let start = CACurrentMediaTime()
+                let motion = GraphMotionBuilder.motion(from: previous, to: input, newLayout: layout)
+                G5BenchCounters.shared.motionNanos.store(Int((CACurrentMediaTime() - start) * 1e9), ordering: .relaxed)
+                G5BenchCounters.shared.motionRows.store(motion.count, ordering: .relaxed)
+                return (layout, motion)
+            }.value
         guard gen == graphLayoutGen else { return }
         apply(layout, from: input)
+        if let motion, !motion.isEmpty { startMotion(motion) }
+    }
+
+    /// SCRATCH G5: HEAD moved to another branch or commit.
+    nonisolated static func headMoved(from old: GraphInput, to new: GraphInput) -> Bool {
+        old.headBranch != new.headBranch || (new.headBranch == nil && old.headSha != new.headSha)
+    }
+
+    private func startMotion(_ rows: [String: GraphRowMotion]) {
+        motionId &+= 1
+        let id = motionId
+        graphMotion = GraphMotionState(id: id, start: .now, rows: rows)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(GraphMotionState.duration + 0.05))
+            guard let self, self.graphMotion?.id == id else { return }
+            self.graphMotion = nil
+        }
     }
 
     private func layOut(_ input: GraphInput) async -> GraphLayout {
@@ -684,6 +720,7 @@ final class HistoryStore {
     /// remote branches has none of them to label.
     func apply(_ layout: GraphLayout, from input: GraphInput) {
         G5ApplyLog.shared.record()
+        appliedInput = input
         graphLayouts = layout.rows
         graphMaxLanes = max(1, layout.columnCount)
         showsUncommittedRow = input.hasUncommittedChanges

@@ -20,6 +20,8 @@ struct CommitRow: View, Equatable {
             && lhs.graphStyle == rhs.graphStyle
             && lhs.isHeadCommit == rhs.isHeadCommit
             && lhs.dimmed == rhs.dimmed
+            && lhs.motion == rhs.motion
+            && lhs.motionStart == rhs.motionStart
             && (lhs.onBranchDrop == nil) == (rhs.onBranchDrop == nil)
             && (lhs.onFilterByAuthor == nil) == (rhs.onFilterByAuthor == nil)
     }
@@ -42,6 +44,9 @@ struct CommitRow: View, Equatable {
     let onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)?
     /// `nil` disables the click-to-filter affordance on the author cell.
     var onFilterByAuthor: ((String) -> Void)? = nil
+    /// SCRATCH G5.
+    var motion: GraphRowMotion? = nil
+    var motionStart: Date? = nil
 
     /// The subject's colour: a ghost, a commit that only exists on the server
     /// (graph v3 spec §4.3), reads as quietly as its date and sha.
@@ -209,7 +214,9 @@ struct CommitRow: View, Equatable {
             isHeadCommit: isHeadCommit,
             isSelected: isSelected,
             isHovered: hovering,
-            isDimmed: dimmed
+            isDimmed: dimmed,
+            motion: motion,
+            motionStart: motionStart
         )
     }
 

@@ -41,6 +41,8 @@ struct CommitGraphTable: View {
     /// commit row.
     var uncommittedSelected: Bool = false
     let columns: ResizableTableModel
+    /// SCRATCH G5: the slide in flight after HEAD changed.
+    var graphMotion: GraphMotionState? = nil
     /// `nil` when search is inactive — every row renders at full opacity. When
     /// non-nil, non-matching rows dim so the graph topology stays intact (the
     /// lanes need both endpoints visible to make sense).
@@ -67,6 +69,7 @@ struct CommitGraphTable: View {
     @Environment(\.appTheme) private var theme
     /// Ghosts turn opaque with it (`GraphStyle.ghostOpacity`).
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The table takes keyboard focus when a row is clicked, so ↑ / ↓ can
     /// walk the history (a commit list a keyboard can't drive fails the HIG
     /// and leaves keyboard-only users stuck).
@@ -142,6 +145,7 @@ struct CommitGraphTable: View {
 
     var body: some View {
         let style = makeGraphStyle()
+        let motion = reduceMotion ? nil : graphMotion
         return GeometryReader { geo in
             // Resolve the derived widths once per render, not once per row.
             let viewport = geo.size.width - Self.legacyScrollerWidth
@@ -190,7 +194,9 @@ struct CommitGraphTable: View {
                                         onSelect(commit.sha)
                                     },
                                     onDoubleClick: { onDoubleClick?(commit.sha) },
-                                    onBranchDrop: onBranchDrop
+                                    onBranchDrop: onBranchDrop,
+                                    motion: motion?.rows[commit.sha],
+                                    motionStart: motion?.start
                                 )
                                 .equatable()
                             }

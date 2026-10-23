@@ -184,6 +184,7 @@ struct HistoryView: View {
                     uncommittedStep: viewModel.history.uncommittedStep,
                     uncommittedSelected: isUncommittedSelected,
                     columns: columns,
+                    graphMotion: viewModel.history.graphMotion,
                     isMatch: matcher,
                     onSelect: { sha in selectCommit(sha) },
                     onUncommittedSelect: { selectUncommitted() },
