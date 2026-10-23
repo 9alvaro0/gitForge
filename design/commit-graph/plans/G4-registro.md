@@ -73,10 +73,31 @@ Defectos encontrados y corregidos:
    - Ahora solo se dibujan puntos enteros (spec §5.5): el recorte llega hasta el centro del hueco anterior al primer punto que se dibuja.
    - Se comprueba en un test de píxeles con el paso real de la tabla, en las dos densidades, y en la app.
 
-PENDIENTE: Alvaro no tenía monitor externo al terminar la ejecución, así que quedan para antes de mergear:
+Alvaro no tenía monitor externo al terminar la ejecución, así que la revisión a 1x (la de G4 y la que quedó de G3) y la observación V7 de G3 se hicieron después del merge.
 
-- la revisión a 1x en un monitor externo, la de G4 y la que quedó de G3;
-- la observación V7 de G3 con el trackpad.
+### Revisión a 1x (2026-10-23, después del merge)
+
+Build, monitor y método, en el registro G3 («Revisión a 1x»). Repos de la verificación de G4, con sus ficheros sin seguimiento: `flow`, `ghost/work` (con la stash de `feature/x`) y `remotes/work` con páginas de 50. En oscuro y compacto:
+
+- **Conector.**
+  - Los puntos siguen de una fila a la siguiente sin uno de menos ni de más en las uniones.
+  - A 1x el periodo (2,875 pt) no cae en píxeles enteros: unos puntos ocupan un píxel y otros se reparten entre dos, con un patrón que se repite igual en cada fila. Se lee como una punteada uniforme.
+  - El primer punto bajo el cuadrado queda a unos 7 px del centro de la fila y nada asoma bajo el borde (V1 sigue corregido).
+- **HEAD por detrás con cambios** (`ghost` en `main`). Ramita fantasma al lado y tu columna recta; las líneas que llegan al nodo de HEAD se unen limpias.
+- **Stash junto al conector** (`ghost` en `feature/x`). Paso discontinuo nítido hasta tu commit.
+- **HEAD suelto** (`flow` en `dev: tweak`). El conector en el acento llega al nodo del color de develop.
+- **Feature ya mergeada** (`flow` en `feature/login`). La S del merge entra por un lado, con su hueco a los dos lados de la línea de main.
+- **Por encima de otras ramas** (`flow` en `feature/cart`). El conector pasa sobre las filas de `feature/search` y de develop sin tocar sus líneas.
+- **Punta de HEAD lejos** (`remotes` en `old`). Conector en la columna 0 y los 60 fantasmas de develop en la 1.
+- **Punta de HEAD en la página 2** (`remotes` en `develop`).
+  - El conector, la ramita fantasma y las ramas llegan al nodo de HEAD.
+  - La página 1, comparada píxel a píxel antes y después de cargar la página 2, solo cambia en las dos filas cuya selección cambió entre las dos capturas.
+
+En claro y normal (`ghost` en `main` y `flow` en `feature/login`), lo mismo. En normal las rectas miden 2 píxeles cubiertos del todo y el conector mantiene su periodo de 3,625 pt sin saltos.
+
+Ningún corte en ninguna captura. No se repitieron a 1x las pruebas que no dependen de la pantalla: aparecer y desaparecer, y las stashes desde el terminal.
+
+V7 se reprodujo con scroll real y sin accesibilidad, pero sin causa encontrada: registro G3, «V7 con scroll real».
 
 ### Accesibilidad (Tarea 6, Paso 4)
 
