@@ -360,6 +360,35 @@ struct ReviewsStoreFollowTests {
         #expect(store.repos.count + store.droppedByLimit == 102)
     }
 
+    @Test("Over the limit, following a repo the limit still leaves out changes nothing and says so")
+    func followDroppedRepo() async {
+        let harness = Self.overLimitHarness()
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let late = "apps/d/android/app"
+        #expect(store.droppedKeys.contains(ReviewsHarness.key(late)))
+
+        let outcome = await store.follow(Self.found(late))
+        #expect(outcome == .overLimit(total: 104))
+        #expect(store.config == ReviewsConfig())
+        #expect(Self.saved(harness) == ReviewsConfig())
+        #expect(Self.repo(store, late) == nil)
+        #expect(store.droppedByLimit == 4)
+
+        // One the limit keeps can still be followed by hand.
+        #expect(await store.follow(Self.found("apps/a/android/app")) == .done)
+        #expect(store.config.manual == [ReviewsHarness.host("apps/a/android/app")])
+
+        // Already followed by hand and still left out: the same answer.
+        let manual = Self.overLimitHarness()
+        Self.save(ReviewsConfig(manual: [ReviewsHarness.host(late)]), in: manual)
+        let manualStore = manual.makeStore()
+        await manualStore.refresh(force: true)
+        #expect(manualStore.droppedKeys.contains(ReviewsHarness.key(late)))
+        #expect(await manualStore.follow(Self.found(late)) == .overLimit(total: 104))
+        #expect(manualStore.config.manual == [ReviewsHarness.host(late)])
+    }
+
     @Test("A total passes the limit when it's over 100 and above what the inbox follows now")
     func exceedsLimit() async {
         let under = ReviewsHarness()

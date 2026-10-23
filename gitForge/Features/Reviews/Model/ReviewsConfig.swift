@@ -28,7 +28,9 @@ nonisolated struct ReviewsConfig: Codable, Equatable, Sendable {
 nonisolated enum FollowOutcome: Equatable, Sendable {
     /// Applied.
     case done
-    /// Not applied: the inbox would follow `total` repos, over the limit.
+    /// Not applied: the inbox would follow `total` repos, over the limit and
+    /// above what it follows now (Ruling L), or a repo followed by hand
+    /// would still be one the limit leaves out (Ruling W).
     case overLimit(total: Int)
 }
 

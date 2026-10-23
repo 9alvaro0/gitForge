@@ -64,10 +64,12 @@ extension ReviewsStore {
 
     /// Follows `repo` by hand and shows it again if it was hidden (Ruling 5),
     /// unless that takes the inbox over the limit and above what it follows
-    /// now (Ruling 6).
+    /// now (Ruling 6), or the limit would still leave it out (Ruling W):
+    /// over the limit a repo followed by hand comes last. Either way nothing
+    /// changes, and the answer is `.overLimit`.
     func follow(_ repo: FoundRepo) async -> FollowOutcome {
         let key = FollowedRepos.key(repo.host)
-        return await changeChecked { config in
+        return await changeChecked(following: key) { config in
             config.hidden.removeAll { FollowedRepos.key($0) == key }
             if !config.manual.contains(where: { FollowedRepos.key($0) == key }) { config.manual.append(repo.host) }
         }
@@ -250,17 +252,23 @@ extension ReviewsStore {
     /// 6, Ruling L), which changes nothing. Both totals are merges on the last
     /// round, with the edited settings and with the current ones. So an inbox
     /// already over the limit can still narrow a pattern, or follow by hand a
-    /// repo it follows already: the total stays or drops. An edit that changes
-    /// nothing is done at once. Before the first refresh one runs first, so
+    /// repo it follows already: the total stays or drops. With `key`, the
+    /// edit is also refused, changing nothing, when the limit would leave
+    /// that repo out after it (Ruling W). An edit that changes nothing is
+    /// otherwise done at once. Before the first refresh one runs first, so
     /// there's a round to count on; if there's still none (no account, or a
     /// refresh already running), the settings are applied unchecked, and that
     /// refresh merges with them.
-    private func changeChecked(_ edit: (inout ReviewsConfig) -> Void) async -> FollowOutcome {
+    private func changeChecked(following key: String? = nil,
+                               _ edit: (inout ReviewsConfig) -> Void) async -> FollowOutcome {
         if lastRound == nil { await refresh(force: true) }
         var next = config
         edit(&next)
+        let after = lastRound.map { followed(in: $0, with: next) }
+        let total = after.map { $0.repos.count + $0.dropped }
+        if let key, let after, let total, after.droppedKeys.contains(key) { return .overLimit(total: total) }
         guard next != config else { return .done }
-        if let after = total(with: next), exceedsLimit(after) { return .overLimit(total: after) }
+        if let total, exceedsLimit(total) { return .overLimit(total: total) }
         await applyConfig(next)
         return .done
     }
