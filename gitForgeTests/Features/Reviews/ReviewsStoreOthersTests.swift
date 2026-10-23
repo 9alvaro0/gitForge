@@ -104,6 +104,77 @@ struct ReviewsStoreOthersTests {
         #expect(store.selectedItem?.pull.state == .merged)
     }
 
+    @Test("A link to a row of a followed repo moves the inbox to the half that shows it and asks the list to show it")
+    func followedLinkMovesHalf() async {
+        let (store, harness) = await Self.loaded()
+        harness.provider.state { $0.lists["team/api"]?.append(ReviewsHarness.pr(3, by: "marta", updated: 150)) }
+        await store.refresh(force: true)
+
+        // Someone else's, with Mine on.
+        store.filter = .mine
+        _ = await store.openLink(Self.link("team/app", 1))
+        #expect(store.filter == .team)
+        #expect(store.selectedItem?.id == Self.id(Self.app, 1))
+        #expect(store.revealRequest?.id == Self.id(Self.app, 1))
+
+        // The user's own, with Team on.
+        _ = await store.openLink(Self.link("team/api", 3))
+        #expect(store.filter == .mine)
+        #expect(store.selectedItem?.id == Self.id(Self.api, 3))
+        #expect(store.revealRequest?.id == Self.id(Self.api, 3))
+    }
+
+    @Test("A link that lands among the Others keeps the half, which shows them either way, and asks the list to show it")
+    func otherLinkKeepsHalf() async {
+        let (store, harness) = await Self.loaded()
+        harness.provider.state { $0.lists["oss/lib"]?.append(ReviewsHarness.pr(8, by: "marta", updated: 350)) }
+
+        // Someone else's, with Mine on.
+        store.filter = .mine
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        #expect(store.filter == .mine)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
+        #expect(store.revealRequest?.id == Self.id(Self.lib, 5))
+
+        // The user's own, with Team on.
+        store.filter = .team
+        _ = await store.openLink(Self.link("oss/lib", 8))
+        #expect(store.filter == .team)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 8))
+        #expect(store.revealRequest?.id == Self.id(Self.lib, 8))
+    }
+
+    @Test("A link to an Other already open keeps the half and asks the list to show it again")
+    func reopenedLinkScrolls() async {
+        let (store, _) = await Self.loaded()
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        store.filter = .mine
+        let request = store.revealRequest
+
+        _ = await store.openLink(Self.link("oss/lib", 5))
+
+        #expect(store.filter == .mine)
+        #expect(store.revealRequest?.id == Self.id(Self.lib, 5))
+        #expect(store.revealRequest != request)
+    }
+
+    @Test("Picking an Other's row by hand keeps the half and asks for no scroll")
+    func manualSelectionKeepsHalf() async {
+        let (store, _) = await Self.loaded()
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        _ = await store.openLink(Self.link("oss/lib", 6))
+        let request = store.revealRequest
+        // The Others show under either half.
+        store.filter = .mine
+        #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 6), Self.id(Self.lib, 5)])
+
+        store.selectedID = Self.id(Self.lib, 5)
+
+        #expect(store.filter == .mine)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
+        #expect(store.revealRequest == request)
+    }
+
     @Test("A repo that isn't followed but has a clone the last refresh saw opens with that clone")
     func otherKnowsItsClone() async {
         let harness = ReviewsHarness()

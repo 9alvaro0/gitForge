@@ -96,6 +96,28 @@ struct CommandPaletteSectionsTests {
         #expect(sections[0].rows[0].match?.indices == [0, 1, 2, 3, 4])
     }
 
+    @Test("A repo path segment finds that repo's pull requests, not ones whose fields merely hold its letters apart")
+    func repoSegment() {
+        let carousel = "acme/apps/carousel/ios/carousel-front-ios"
+        let scatteredBranch = "fix/cart-routes-label"
+        let items = [Self.item(.pull, "Add cart routes label", keywords: ["acme/apps/shop/shop-ios", scatteredBranch, "luis", "40"], number: 40),
+                     Self.item(.pull, "Fix the swipe threshold", keywords: [carousel, "fix/swipe-threshold", "luis", "12"], number: 12),
+                     Self.item(.pull, "Bump the snapshot library", keywords: [carousel, "chore/snapshot-bump", "marta", "13"], number: 13)]
+        #expect(FuzzyMatcher.match("carousel", in: scatteredBranch) != nil, "precondition: the letters are in the branch, apart")
+        let sections = CommandPaletteSections.build(items: items, query: "carousel")
+        #expect(sections.flatMap(\.rows).map(\.item.number) == [12, 13])
+    }
+
+    @Test("!N lists only that pull request, not one whose branch holds the digits apart")
+    func referenceOnlyThatNumber() {
+        let hashBranch = "dependabot/bundler/snapshot-tool-8a6c91f9"
+        let items = [Self.item(.pull, "Bump snapshot-tool to 2.4", keywords: ["octo/app", hashBranch, "dependabot[bot]", "170"], number: 170),
+                     Self.item(.pull, "Speed up the cold start", keywords: ["acme/apps/garage", "perf/cold-start", "luis", "869"], number: 869)]
+        #expect(FuzzyMatcher.match("869", in: hashBranch) != nil, "precondition: 8, 6 and 9 are in the branch, apart")
+        let sections = CommandPaletteSections.build(items: items, query: "!869")
+        #expect(sections.flatMap(\.rows).map(\.item.number) == [869])
+    }
+
     @Test("Pinned rows lead the Pull requests group, which goes first; a scope other than All or Pull requests drops them")
     func pinned() {
         let items = [Self.item(.command, "Fetch all"), Self.item(.pull, "Bump deps", keywords: ["octo/app"], number: 8),

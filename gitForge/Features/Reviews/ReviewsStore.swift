@@ -82,6 +82,11 @@ final class ReviewsStore {
     /// a refresh that stops following the repo clear it.
     private(set) var repoFilter: String?
     var selectedID: InboxPull.ID?
+    /// The row the list scrolls into view, set each time the inbox selects or
+    /// keeps a row from outside the list: `reveal` (a ⌘K pick, a link that
+    /// lands), `showRepo` and `showAllRepos`. A click on a row only sets
+    /// `selectedID`: that row is in view already.
+    private(set) var revealRequest: ReviewsRevealRequest?
     /// Pull requests opened from a link that weren't rows of the followed
     /// list when they landed, by opening order, the last one first (R2
     /// Ruling 9). Only for the session: they never reach the snapshot.
@@ -111,6 +116,8 @@ final class ReviewsStore {
     @ObservationIgnored private var linkGen: UInt64 = 0
     /// The `openLink` that last opened each Other, for their order.
     @ObservationIgnored private var otherGens: [InboxPull.ID: UInt64] = [:]
+    /// The last `revealRequest.serial`.
+    @ObservationIgnored private var revealSerial: UInt64 = 0
     @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
 
     init(environment: ReviewsEnvironment) {
@@ -239,11 +246,13 @@ final class ReviewsStore {
 
     // MARK: Selection and repo filter
 
-    /// Selects `id` from outside the list (R2 Ruling 8). For a row of a
-    /// followed repo, the inbox moves to the half that shows it, Mine if it's
-    /// the user's and Team if not, and drops the filter by a repo other than
-    /// its own; for an Other, it drops the filter by repo, which hides the
-    /// Others. `false`, with nothing changed, when `id` is neither.
+    /// Selects `id` from outside the list (R2 Ruling 8) and asks the list to
+    /// scroll to it (`revealRequest`). For a row of a followed repo, the
+    /// inbox moves to the half that shows it, Mine if it's the user's and
+    /// Team if not, and drops the filter by a repo other than its own; for an
+    /// Other, which shows under either half, it drops the filter by repo,
+    /// which hides the Others. `false`, with nothing changed, when `id` is
+    /// neither.
     @discardableResult
     func reveal(_ id: InboxPull.ID) -> Bool {
         if let item = followedRows.first(where: { $0.id == id }) {
@@ -255,31 +264,44 @@ final class ReviewsStore {
             return false
         }
         selectedID = id
+        requestReveal(id)
         return true
     }
 
     /// Narrows the inbox to the followed repo `repoKey` (R2 Ruling 7); any
-    /// other key changes nothing. The selection stays if it's one of that
-    /// repo's pull requests and goes if not.
+    /// other key changes nothing. The selection stays, scrolled into view, if
+    /// it's one of that repo's pull requests, and goes if not.
     func showRepo(_ repoKey: String) {
         guard repos.contains(where: { $0.id == repoKey }) else { return }
         repoFilter = repoKey
-        if let selectedID, !selectedID.hasPrefix(repoKey + "#") { self.selectedID = nil }
+        guard let selectedID else { return }
+        if selectedID.hasPrefix(repoKey + "#") {
+            requestReveal(selectedID)
+        } else {
+            self.selectedID = nil
+        }
     }
 
     /// Shows every repo again, the × of the filter bar (R2 Ruling 7). The
     /// repo's view showed both halves, so a row picked there stays selected:
-    /// the inbox moves to the half that shows it, as `reveal` does.
+    /// the inbox moves to the half that shows it, as `reveal` does, and the
+    /// list scrolls to it.
     func showAllRepos() {
         repoFilter = nil
         if let selectedID, let item = followedRows.first(where: { $0.id == selectedID }) {
             filter = half(showing: item)
+            requestReveal(selectedID)
         }
     }
 
     /// Mine for the user's own pull request, Team for anyone else's.
     private func half(showing item: InboxPull) -> ReviewsFilter {
         isMine(item.pull, accountId: item.repo.accountId) ? .mine : .team
+    }
+
+    private func requestReveal(_ id: InboxPull.ID) {
+        revealSerial &+= 1
+        revealRequest = ReviewsRevealRequest(id: id, serial: revealSerial)
     }
 
     // MARK: Snapshot
