@@ -73,12 +73,8 @@ struct AddFollowedRepoSheet: View {
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(ReviewsSettingsModel.groups(shown), id: \.host) { group in
-                        MonoText(group.host, dim: true)
-                            .lineLimit(1)
-                            .padding(.horizontal, Spacing.s12)
-                            .padding(.top, Spacing.s8).padding(.bottom, Spacing.s6)
-                            .accessibilityAddTraits(.isHeader)
+                    ForEach(Array(ReviewsSettingsModel.groups(shown).enumerated()), id: \.element.host) { index, group in
+                        HostGroupLabel(host: group.host, first: index == 0)
                         ForEach(group.repos, id: \.self) { repo in
                             row(repo)
                         }

@@ -56,8 +56,10 @@ struct ReviewsSettingsSection: View {
             blockHeader(String(localized: "Repositories you follow")) {
                 GFButton(title: String(localized: "Add repository…"), size: .small) { addingRepo = true }
             }
-            ForEach(ReviewsSettingsModel.groups(store.repos), id: \.host) { group in
-                hostLabel(group.host)
+            ForEach(Array(ReviewsSettingsModel.groups(store.repos).enumerated()), id: \.element.host) { index, group in
+                // The first sits right under the block's header, whose bottom
+                // padding already makes most of the gap.
+                HostGroupLabel(host: group.host, first: index == 0, firstTopInset: Spacing.s4)
                 ForEach(group.repos) { repo in followedRow(repo) }
             }
             if store.droppedByLimit > 0 {
@@ -254,16 +256,6 @@ struct ReviewsSettingsSection: View {
         .padding(.horizontal, Spacing.s12).padding(.vertical, Spacing.s8)
     }
 
-    /// The host over its followed repos.
-    private func hostLabel(_ host: String) -> some View {
-        MonoText(host, dim: true)
-            .lineLimit(1)
-            .padding(.horizontal, Spacing.s12)
-            .padding(.top, Spacing.s4).padding(.bottom, Spacing.s6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityAddTraits(.isHeader)
-    }
-
     /// A repo or pattern path: both ends kept when it doesn't fit, so a
     /// nested GitLab path still shows its group and its repo.
     private func path(_ text: String) -> some View {
@@ -284,6 +276,32 @@ struct ReviewsSettingsSection: View {
 
     private var rowSeparator: some View {
         Rectangle().fill(theme.colors.separator).frame(height: 1)
+    }
+}
+
+/// A host heading a group of repos in Settings › Reviews and in "Add
+/// repository…". The first one sits under its block's header (`first`, with
+/// `firstTopInset` above it); every other one has a line over it, as
+/// Settings › Accounts separates its instances, and more room above than
+/// below, so it heads the rows under it rather than ending the row above.
+struct HostGroupLabel: View {
+    let host: String
+    let first: Bool
+    var firstTopInset: CGFloat = Spacing.s8
+
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        MonoText(host, dim: true)
+            .lineLimit(1)
+            .padding(.horizontal, Spacing.s12)
+            .padding(.top, first ? firstTopInset : Spacing.s12)
+            .padding(.bottom, Spacing.s6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) {
+                if !first { Rectangle().fill(theme.colors.separator).frame(height: 1) }
+            }
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
