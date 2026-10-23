@@ -17,3 +17,15 @@
 
 - **Límite también para los manuales (Ruling 6):** el spec (§4.1) solo impide aceptar un patrón que pase de 100 repos. Añadir un repo a mano y "Follow this repository" también se rechazan si pasan del límite, para que un repo añadido a mano no quede fuera nada más añadirlo.
 - **Alcance de "Search all" en github.com y gitlab.com (Ruling 12):** el spec pide limitarlo a las organizaciones o grupos de la cuenta y a los repos a los que tiene acceso. Se usan los dueños de los repos de la pertenencia de la cuenta (los 5 con más repos). En gitlab.com no se buscan las MRs de proyectos personales, porque un espacio personal no es un grupo.
+
+## Revisión final (subagente Opus)
+
+Lista con arreglos: 2 importantes y 9 menores, todos en una pasada (Rulings U a Z y cinco menores de las tareas 2, 6, 9 y 10). En lo que se nota al usar la app:
+
+- **U, importante:** con más de 100 repos, gitForge proponía un patrón cuyo único aporte eran repos que ya seguías pero que el límite dejaba fuera, y "Add repository…" los ofrecía como no seguidos. Ahora `merge` dice qué repos deja fuera (`droppedKeys`) y cuentan como seguidos en la propuesta, en lo que añade un patrón y en "Add repository…"; lo que añade un patrón se cuenta con las cuentas del último refresco, como la propuesta. Cuatro tests nuevos, uno con dos instancias.
+- **V, importante:** guardar en Ajustes una propuesta editada no la respondía si el patrón guardado ya cubría lo que ella añadía, así que volvía en cuanto aparecía un repo nuevo. Ahora el store guarda el patrón y responde la propuesta original en un solo paso (`acceptProposal(_:as:)`; `answerProposal` responde un patrón aunque ya no sea la propuesta), y la vista no decide cuál.
+- **W:** "Follow" sobre un repo que el límite seguía dejando fuera decía que sí y no lo traía. Ahora no cambia nada y avisa del límite.
+- **X:** los clones cuya consulta de renombrado falla (403, 5xx, sin red) se preguntaban en cada refresco automático y ocupaban los 20 huecos. Ahora esperan una hora, solo en memoria (el botón Refresh no espera); van primero los clones nunca consultados y luego los consultados hace más tiempo, y uno cuya cuenta no tiene token en esa ronda no gasta hueco. Un 403 sigue sin guardarse como "no existe".
+- **Y:** al pegar en ⌘K el enlace de una PR, o el de un host sin declarar, salían también filas "Search all of …" con la URL como texto. Ya no salen.
+- **Z:** los nombres inventados de las previews y los tests que no eran neutros pasan a otros que sí (weather, notes, maps, chat, fitness).
+- **Menores:** un guardado que llega tarde ya no cierra el editor de otro patrón; un patrón no válido lleva el triángulo de aviso, VoiceOver lo lee como "Invalid pattern" y lo anuncia al pulsar Save (texto nuevo con `es` y `pt-PT`); la cabecera de un repo explorado ya no tiene un menú contextual vacío; ocultar o dejar de seguir un repo mientras un refresco lee ya no le deja PRs escritas; y el título de un test de `merge` dice solo lo que comprueba.
