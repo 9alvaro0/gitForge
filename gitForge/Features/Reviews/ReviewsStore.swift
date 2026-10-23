@@ -120,13 +120,16 @@ final class ReviewsStore {
     /// Only for the session.
     private(set) var browsedRepos: [ReviewRepo] = []
     /// The last link `openLink` couldn't read for want of an account, to open
-    /// again once one is connected (R3 Ruling 14). Every `openLink` clears it.
+    /// again once one is connected (R3 Ruling 14). Every `openLink` clears it
+    /// and `retryPendingLink` takes it; a refresh without accounts keeps it,
+    /// since connecting the first account is what it waits for.
     private(set) var pendingLink: PullRequestLink?
 
     private let environment: ReviewsEnvironment
     /// Each account's membership list, kept past `membershipTTL` when it
-    /// can't be read again. Written by the refresh, the snapshot and
-    /// `clearWithoutAccounts`; `ReviewsStore+Follow.swift` reads it.
+    /// can't be read again. Written by the refresh, the snapshot,
+    /// `clearWithoutAccounts` and `searchHost` (an account with no list yet);
+    /// `ReviewsStore+Follow.swift` reads it.
     @ObservationIgnored private(set) var memberships: [UUID: MembershipCache] = [:]
     /// What the last refresh's `FollowedRepos.merge` took besides `config`
     /// (R3 Ruling 7): a change of the settings merges again on it, without
@@ -542,16 +545,16 @@ final class ReviewsStore {
     /// No account left: the inbox empties, the Others included, with what it
     /// knew of the accounts, and is saved empty. With nothing to clear,
     /// nothing is written. The user's settings stay; the round and the
-    /// proposal go, and so do what only the session kept: the browsed repos,
-    /// the searches, which an older one landing later doesn't bring back, and
-    /// the pending link (R3 Rulings 13 and 14).
+    /// proposal go, and so do the browsed repos and the searches, which an
+    /// older one landing later doesn't bring back (R3 Ruling 13). The pending
+    /// link stays: a link pasted before any account is connected waits for
+    /// the first one (R3 Ruling 14).
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
         lastRound = nil
         if proposal != nil { proposal = nil }
         latestSearch = [:]
         if !hostSearches.isEmpty { hostSearches = [:] }
-        if pendingLink != nil { pendingLink = nil }
         if !browsedRepos.isEmpty {
             if filteredBrowsedRepo != nil { repoFilter = nil }
             browsedRepos = []
@@ -648,10 +651,21 @@ final class ReviewsStore {
             now.timeIntervalSince(list.fetchedAt) < Self.membershipTTL ? list : nil
         }
         if let cached, !rereadLists { return cached }
+        guard let list = try? await readMembership(of: account, on: instance, tokens: tokens, now: now) else {
+            return cached
+        }
+        return list
+    }
+
+    /// Reads the repos `account` belongs to now and keeps the list in
+    /// `memberships`. `nil` when there's no token to read with; a read that
+    /// fails throws.
+    private func readMembership(of account: HostingAccount, on instance: HostingInstance,
+                                tokens: TokenBook, now: Date) async throws -> MembershipCache? {
         let browser = environment.makeBrowser(instance.kind)
-        guard let read = try? await withToken(account.id, tokens, { token in
+        guard let read = try await withToken(account.id, tokens, { token in
             try await Self.allPages(of: browser, apiBase: instance.apiBaseURL, token: token)
-        }) else { return cached }
+        }) else { return nil }
         let list = MembershipCache(fetchedAt: now, repos: read.repos, isComplete: read.isComplete)
         memberships[account.id] = list
         return list
@@ -1041,9 +1055,9 @@ final class ReviewsStore {
     /// that signs (`searchAccount`); a 401 renews the token once. On
     /// github.com and gitlab.com the search keeps to the owners of the
     /// account's repos (`searchOwners`), from its membership list of any age,
-    /// read now as a refresh does when there's none. With no owner to keep
-    /// to it finds nothing, without asking: unscoped, it would search the
-    /// whole public site.
+    /// read now when there's none; if that read fails, so does the search.
+    /// With a list that gives no owner to keep to, it finds nothing, without
+    /// asking: unscoped, it would search the whole public site.
     private func searchPhase(_ text: String, on instance: HostingInstance) async -> HostSearchState.Phase {
         guard let account = searchAccount(on: instance.id) else { return .connectAccount }
         let tokens = TokenBook(ask: environment.token)
@@ -1054,8 +1068,13 @@ final class ReviewsStore {
             if let list = memberships[account.id] {
                 members = list.repos
             } else {
-                members = await membership(of: account, on: instance, tokens: tokens, now: environment.now(),
-                                           rereadLists: false)?.repos ?? []
+                do {
+                    // No token left to read with (`nil`): the search below says why.
+                    members = try await readMembership(of: account, on: instance, tokens: tokens,
+                                                       now: environment.now())?.repos ?? []
+                } catch {
+                    return .failed(PullRequestStore.message(for: error))
+                }
             }
             owners = Self.searchOwners(on: instance, members: members, login: account.login ?? logins[account.id])
         }
@@ -1075,12 +1094,16 @@ final class ReviewsStore {
     }
 
     /// Opens a repo found by searching a host (R3 Ruling 13). A followed one
-    /// narrows the inbox to it (`showRepo`). Any other has its open pull
-    /// requests read with the first account that can (`readWithAccounts`):
-    /// each joins the Others, the repo joins `browsedRepos`, in place of an
-    /// older entry, and the inbox is narrowed to it. As with links, a later
-    /// `openLink` or `openFoundRepo` wins: an earlier one that lands after it
-    /// adds its rows and its repo, but leaves the filter and the selection.
+    /// narrows the inbox to it at once (`showRepo`), reading nothing; it
+    /// takes no turn from the links, so an `openLink` or `openFoundRepo`
+    /// started before it that lands later may still select or narrow over
+    /// it. Any other takes a turn, as `openLink` does (`linkGen`), and has
+    /// its open pull requests read with the first account that can
+    /// (`readWithAccounts`): each joins the Others, the repo joins
+    /// `browsedRepos`, in place of an older entry, and the inbox is narrowed
+    /// to it. A later `openLink` or `openFoundRepo` that takes a turn wins
+    /// over it: this one then lands adding its rows and its repo, but leaves
+    /// the filter and the selection.
     func openFoundRepo(_ found: FoundRepo) async -> RepoOpenOutcome {
         let repoKey = FollowedRepos.key(found.host)
         if repos.contains(where: { $0.id == repoKey }) {

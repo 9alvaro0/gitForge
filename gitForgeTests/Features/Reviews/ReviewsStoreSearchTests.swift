@@ -178,6 +178,32 @@ struct ReviewsStoreSearchTests {
         #expect(Self.listings(harness) == 2)
     }
 
+    @Test("On github.com or gitlab.com, an unreadable membership list fails the search; one of any age is used as is")
+    func dotComMembershipUnread() async {
+        let harness = ReviewsHarness()
+        let github = HostingInstance.gitHubDotCom.id
+        Self.addAccount(to: harness, on: .gitHubDotCom, login: "marta", token: "t-gh", members: ["octo/a"])
+        let offline = PullRequestFetchError.network("The Internet connection appears to be offline.")
+        harness.browser.state { $0.failure = offline }
+        let store = harness.makeStore()
+
+        await store.searchHost(github, query: "lib")
+
+        let failed = HostSearchState(query: "lib", phase: .failed(PullRequestStore.message(for: offline)))
+        #expect(store.hostSearches[github] == failed)
+        #expect(Self.searches(harness).isEmpty)
+
+        // Once read, the list is used however old it gets, without reading it again.
+        harness.browser.state { $0.failure = nil }
+        await store.searchHost(github, query: "lib")
+        #expect(Self.isPair(Self.takeSearches(harness), text: "lib", owners: ["octo"]))
+        harness.browser.state { $0.failure = offline }
+        harness.now = harness.now.addingTimeInterval(2 * ReviewsStore.membershipTTL)
+        await store.searchHost(github, query: "app")
+        #expect(Self.isPair(Self.takeSearches(harness), text: "app", owners: ["octo"]))
+        #expect(Self.listings(harness) == 2)
+    }
+
     @Test("Without an account of the instance that signs, the search asks to connect one, without a request")
     func noSigningAccount() async {
         let harness = ReviewsHarness()
@@ -429,24 +455,48 @@ struct ReviewsStoreSearchTests {
         #expect(store.pendingLink == nil)
     }
 
+    @Test("A link pasted before any account is connected outlives the refresh Reviews makes, and opens once one is")
+    func pendingLinkBeforeFirstAccount() async {
+        let harness = ReviewsHarness()
+        let marta = harness.account
+        harness.accounts = []
+        harness.provider.state { $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "octo", updated: 300)] }
+        let store = harness.makeStore()
+        let link = Self.link("oss/lib", 5)
+
+        let unread = await store.openLink(link)
+        #expect(unread == .connectAccount(instanceId: Self.own))
+        // Reviews shows up and refreshes, without accounts.
+        await store.refresh()
+        #expect(store.pendingLink == link)
+
+        harness.accounts = [marta]
+        let opened = await store.retryPendingLink()
+
+        #expect(opened == .opened(Self.id(Self.lib, 5)))
+        #expect(store.pendingLink == nil)
+        #expect(store.selectedID == Self.id(Self.lib, 5))
+    }
+
     // MARK: Without accounts
 
-    @Test("Without accounts the browsed repos, the searches and the pending link go")
+    @Test("Without accounts the browsed repos and the searches go; the pending link stays, waiting for one")
     func clearedWithoutAccounts() async {
         let (store, harness) = await Self.loaded()
         _ = await store.openFoundRepo(Self.found("oss/lib"))
         await store.searchHost(Self.own, query: "lib")
-        _ = await store.openLink(Self.linkElsewhere())
+        let elsewhere = Self.linkElsewhere()
+        _ = await store.openLink(elsewhere)
         #expect(!store.browsedRepos.isEmpty)
         #expect(!store.hostSearches.isEmpty)
-        #expect(store.pendingLink != nil)
+        #expect(store.pendingLink == elsewhere)
 
         harness.accounts = []
         await store.refresh(force: true)
 
         #expect(store.browsedRepos.isEmpty)
         #expect(store.hostSearches.isEmpty)
-        #expect(store.pendingLink == nil)
+        #expect(store.pendingLink == elsewhere)
         #expect(store.repoFilter == nil)
         #expect(store.filteredRepo == nil)
     }
