@@ -43,6 +43,19 @@ struct PaletteActionRouter {
                let file = workingCopy.status.files.first(where: { $0.path == path }) {
                 workingCopy.select(file, side: file.isUnstaged ? .unstaged : .staged)
             }
+        case .openPull(let id):
+            appState.ui.workspaceSection = .reviews
+            appState.reviews.reveal(id)
+        case .showReviews(let repoKey):
+            appState.ui.workspaceSection = .reviews
+            appState.reviews.showRepo(repoKey)
+        case .openPullLink(let link):
+            // Reviews before the read starts: its detail column says what's
+            // being opened (Ruling 11, "at once").
+            appState.ui.workspaceSection = .reviews
+            Task { await openLink(link) }
+        case .addInstance(let kind, let host):
+            appState.ui.addInstanceRequest = AddInstanceRequest(kind: kind, url: "https://\(host)")
         case .fetch:
             runRemote { vm in await vm.fetch() }
         case .pull:
@@ -53,6 +66,28 @@ struct PaletteActionRouter {
             runStash()
         case .noop:
             break
+        }
+    }
+
+    /// A pasted pull request link (R2 Ruling 11): Reviews at once, where the
+    /// detail column says it's being opened, and then what the inbox made of
+    /// it. The outcome is acted on even when a newer link overtook this one.
+    func openLink(_ link: PullRequestLink) async {
+        appState.ui.workspaceSection = .reviews
+        present(await appState.reviews.openLink(link))
+    }
+
+    /// What a link's outcome asks of the app: nothing for a pull request that
+    /// opened (the inbox selected it), the connect sheet for an instance with
+    /// no account that can read it, an error toast for the rest.
+    func present(_ outcome: LinkOpenOutcome) {
+        switch outcome {
+        case .opened:
+            break
+        case .connectAccount(let instanceId):
+            appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId)
+        case .failed(let message):
+            appState.ui.activeToast = ToastMessage(message: message, kind: .error)
         }
     }
 

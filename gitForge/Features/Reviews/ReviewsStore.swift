@@ -76,7 +76,18 @@ final class ReviewsStore {
     /// The last refresh reached no repo, for lack of network.
     private(set) var lastRefreshFailed = false
     var filter: ReviewsFilter = .team
+    /// The repo the inbox is narrowed to (`ReviewRepo.id`), with the pull
+    /// requests of both halves; `nil` shows every repo, by `filter` (R2
+    /// Ruling 7). `showRepo(_:)` sets it; `showAllRepos()`, `reveal(_:)` and
+    /// a refresh that stops following the repo clear it.
+    private(set) var repoFilter: String?
     var selectedID: InboxPull.ID?
+    /// Pull requests opened from a link that weren't rows of the followed
+    /// list when they landed, by opening order, the last one first (R2
+    /// Ruling 9). Only for the session: they never reach the snapshot.
+    private(set) var others: [InboxPull] = []
+    /// The link `openLink` is reading, while it does (R2 Ruling 11).
+    private(set) var openingLink: PendingLink?
 
     private let environment: ReviewsEnvironment
     @ObservationIgnored private var memberships: [UUID: MembershipCache] = [:]
@@ -92,6 +103,14 @@ final class ReviewsStore {
     /// Bumped by every `open`: one that waited on its token longer than the
     /// next one doesn't select over it.
     @ObservationIgnored private var openGen: UInt64 = 0
+    /// The clones the last refresh saw, by `FollowedRepos.key`: an Other of a
+    /// repo that isn't followed goes to its clone, when there's one.
+    @ObservationIgnored private var knownClones: [String: URL] = [:]
+    /// Bumped by every `openLink`: an earlier one that lands later adds its
+    /// row but selects nothing (R2 Ruling 11).
+    @ObservationIgnored private var linkGen: UInt64 = 0
+    /// The `openLink` that last opened each Other, for their order.
+    @ObservationIgnored private var otherGens: [InboxPull.ID: UInt64] = [:]
     @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
 
     init(environment: ReviewsEnvironment) {
@@ -121,13 +140,14 @@ final class ReviewsStore {
         }
     }
 
-    /// The selected row, while the current filter shows it.
+    /// The selected row, while the current filter shows it: in its group or
+    /// among the Others shown.
     var selectedItem: InboxPull? {
         guard let selectedID else { return nil }
         for group in groups {
             if let item = group.pulls.first(where: { $0.id == selectedID }) { return item }
         }
-        return nil
+        return visibleOthers.first { $0.id == selectedID }
     }
 
     /// Forgets a selection the list no longer shows: it left with a refresh,
@@ -138,13 +158,15 @@ final class ReviewsStore {
     }
 
     /// The current filter's groups, by their newest update, then the repos
-    /// that failed with nothing to show (Rulings 8 and 9).
+    /// that failed with nothing to show (Rulings 8 and 9). With `repoFilter`,
+    /// only that repo's, whoever opened the pull requests (R2 Ruling 7).
     var groups: [ReviewGroup] {
         var loaded: [(group: ReviewGroup, newest: Date)] = []
         var failed: [ReviewGroup] = []
-        for repo in repos {
+        let isOneRepo = repoFilter != nil
+        for repo in repos where !isOneRepo || repo.id == repoFilter {
             let rows = (pulls[repo.id] ?? [])
-                .filter { isMine($0, accountId: repo.accountId) == (filter == .mine) }
+                .filter { isOneRepo || isMine($0, accountId: repo.accountId) == (filter == .mine) }
                 .sorted(by: Self.newerFirst)
                 .map { InboxPull(repo: repo, pull: $0) }
             if let newest = rows.first {
@@ -160,27 +182,34 @@ final class ReviewsStore {
         return ordered.map(\.group) + failed
     }
 
-    /// The current filter's groups; with none, the loading placeholder while
-    /// a read runs and something is still unknown (`hasUnreadRepos`), else the
-    /// empty state. Not only the first read ever: the first after connecting
-    /// an account says nothing about its repos until it lands, though an
-    /// earlier read left a date. But a refresh over repos all read before
-    /// leaves the empty state up: an empty filter (Mine with nothing of the
-    /// user's) isn't news, and the skeleton would flash on every refresh.
+    /// The current filter's groups and the Others shown; with neither, the
+    /// loading placeholder while a read runs and something is still unknown
+    /// (`hasUnreadRepos`), else the empty state. Not only the first read
+    /// ever: the first after connecting an account says nothing about its
+    /// repos until it lands, though an earlier read left a date. But a
+    /// refresh over repos all read before leaves the empty state up: an
+    /// empty filter (Mine with nothing of the user's) isn't news, and the
+    /// skeleton would flash on every refresh.
     var listContent: ReviewsListContent {
         let groups = groups
-        if !groups.isEmpty { return .groups(groups) }
+        let others = visibleOthers
+        if !groups.isEmpty || !others.isEmpty { return .groups(groups, others: others) }
         return isRefreshing && hasUnreadRepos ? .loading : .empty
     }
 
     /// No repo is followed yet, or one has neither pull requests nor an error
     /// (`pulls` keeps an empty list for a repo read with none open, which is
     /// known). The repos of an account in `accountsNeedingAttention` don't
-    /// count: they're withheld, never read until it's connected again.
+    /// count: they're withheld, never read until it's connected again. With
+    /// `repoFilter`, only that repo counts: another one still unread says
+    /// nothing about what the list shows.
     private var hasUnreadRepos: Bool {
-        repos.isEmpty || repos.contains { repo in
-            pulls[repo.id] == nil && repoErrors[repo.id] == nil && !accountsNeedingAttention.contains(repo.accountId)
-        }
+        if let filteredRepo { return isUnread(filteredRepo) }
+        return repos.isEmpty || repos.contains { isUnread($0) }
+    }
+
+    private func isUnread(_ repo: ReviewRepo) -> Bool {
+        pulls[repo.id] == nil && repoErrors[repo.id] == nil && !accountsNeedingAttention.contains(repo.accountId)
     }
 
     /// The open pull requests that aren't the user's: drafts don't count, and
@@ -196,10 +225,61 @@ final class ReviewsStore {
         return author.lowercased() == login.lowercased()
     }
 
-    private static func newerFirst(_ lhs: PullRequest, _ rhs: PullRequest) -> Bool {
+    // Not private: `ReviewsStore+Palette.swift` reads these two as well.
+    static func newerFirst(_ lhs: PullRequest, _ rhs: PullRequest) -> Bool {
         let left = lhs.updatedAt ?? .distantPast
         let right = rhs.updatedAt ?? .distantPast
         return left == right ? lhs.number > rhs.number : left > right
+    }
+
+    /// The rows of every followed repo, in `repos` order.
+    var followedRows: [InboxPull] {
+        repos.flatMap { repo in (pulls[repo.id] ?? []).map { InboxPull(repo: repo, pull: $0) } }
+    }
+
+    // MARK: Selection and repo filter
+
+    /// Selects `id` from outside the list (R2 Ruling 8). For a row of a
+    /// followed repo, the inbox moves to the half that shows it, Mine if it's
+    /// the user's and Team if not, and drops the filter by a repo other than
+    /// its own; for an Other, it drops the filter by repo, which hides the
+    /// Others. `false`, with nothing changed, when `id` is neither.
+    @discardableResult
+    func reveal(_ id: InboxPull.ID) -> Bool {
+        if let item = followedRows.first(where: { $0.id == id }) {
+            filter = half(showing: item)
+            if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
+        } else if others.contains(where: { $0.id == id }) {
+            repoFilter = nil
+        } else {
+            return false
+        }
+        selectedID = id
+        return true
+    }
+
+    /// Narrows the inbox to the followed repo `repoKey` (R2 Ruling 7); any
+    /// other key changes nothing. The selection stays if it's one of that
+    /// repo's pull requests and goes if not.
+    func showRepo(_ repoKey: String) {
+        guard repos.contains(where: { $0.id == repoKey }) else { return }
+        repoFilter = repoKey
+        if let selectedID, !selectedID.hasPrefix(repoKey + "#") { self.selectedID = nil }
+    }
+
+    /// Shows every repo again, the × of the filter bar (R2 Ruling 7). The
+    /// repo's view showed both halves, so a row picked there stays selected:
+    /// the inbox moves to the half that shows it, as `reveal` does.
+    func showAllRepos() {
+        repoFilter = nil
+        if let selectedID, let item = followedRows.first(where: { $0.id == selectedID }) {
+            filter = half(showing: item)
+        }
+    }
+
+    /// Mine for the user's own pull request, Team for anyone else's.
+    private func half(showing item: InboxPull) -> ReviewsFilter {
+        isMine(item.pull, accountId: item.repo.accountId) ? .mine : .team
     }
 
     // MARK: Snapshot
@@ -266,6 +346,8 @@ final class ReviewsStore {
             lastRoundAt = previousRound
             return
         }
+        knownClones = Dictionary(local.map { (FollowedRepos.key($0.host), $0.repository.url) },
+                                 uniquingKeysWith: { first, _ in first })
         adopt(FollowedRepos.merge(local: local, activity: activity,
                                   accounts: Self.signingFirst(accounts.map { $0.account }),
                                   instances: accounts.map { $0.instance },
@@ -302,13 +384,19 @@ final class ReviewsStore {
     }
 
     /// Takes `followed` as the repos to show. One that left loses its pull
-    /// requests, its error and its detail store, as does the selection on
-    /// it; a repo now read with another account loses its detail store.
+    /// requests, its error and its detail store, as do the selection on it
+    /// and the filter by it; a repo now read with another account loses its
+    /// detail store. The Others stay, with their selection and detail store
+    /// (R2 Ruling 9): one whose repo is followed takes the followed repo, and
+    /// keeps its store unless that one is read with another account.
     private func adopt(_ followed: FollowedSet) {
-        let before = Dictionary(repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let after = Dictionary(followed.repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let before = readers(followed: repos)
+        let moved = others.map { InboxPull(repo: otherRepo($0.repo, followed: after), pull: $0.pull) }
+        if moved != others { others = moved }
+        let now = readers(followed: followed.repos)
         detailStores = detailStores.filter { key, _ in
-            guard let current = after[key], let previous = before[key] else { return false }
+            guard let current = now[key], let previous = before[key] else { return false }
             return current.accountId == previous.accountId && current.host == previous.host
         }
         repos = followed.repos
@@ -316,17 +404,42 @@ final class ReviewsStore {
         pulls = pulls.filter { after[$0.key] != nil }
         repoErrors = repoErrors.filter { after[$0.key] != nil }
         latestRead = latestRead.filter { after[$0.key] != nil }
-        if let selectedID, !after.keys.contains(where: { selectedID.hasPrefix($0 + "#") }) {
+        if let selectedID, !after.keys.contains(where: { selectedID.hasPrefix($0 + "#") }),
+           !others.contains(where: { $0.id == selectedID }) {
             self.selectedID = nil
         }
+        if let repoFilter, after[repoFilter] == nil { self.repoFilter = nil }
     }
 
-    /// No account left: the inbox empties, with what it knew of the accounts,
-    /// and is saved empty. With nothing to clear, nothing is written.
+    /// The repo each key's detail store reads with: the followed one, else
+    /// its Others'.
+    private func readers(followed: [ReviewRepo]) -> [String: ReviewRepo] {
+        Dictionary(others.map { ($0.repo.id, $0.repo) } + followed.map { ($0.id, $0) },
+                   uniquingKeysWith: { _, last in last })
+    }
+
+    /// An Other's repo after a refresh (R2 Ruling 9): the followed one when
+    /// its repo is followed; else its own as a repo that isn't, with the
+    /// clone the refresh saw.
+    private func otherRepo(_ repo: ReviewRepo, followed: [String: ReviewRepo]) -> ReviewRepo {
+        if let followedRepo = followed[repo.id] { return followedRepo }
+        var loose = repo
+        loose.sources = []
+        loose.lastActivity = nil
+        loose.localURL = knownClones[repo.id]
+        return loose
+    }
+
+    /// No account left: the inbox empties, the Others included, with what it
+    /// knew of the accounts, and is saved empty. With nothing to clear,
+    /// nothing is written.
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
-        guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || droppedByLimit > 0
-                || !memberships.isEmpty || !logins.isEmpty || !accountsNeedingAttention.isEmpty else { return }
+        guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || !others.isEmpty
+                || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty
+                || !accountsNeedingAttention.isEmpty else { return }
+        others = []
+        otherGens = [:]
         adopt(FollowedSet(repos: [], dropped: 0))
         memberships = [:]
         logins = [:]
@@ -488,11 +601,12 @@ final class ReviewsStore {
     // MARK: Detail
 
     /// The store that opens `repoKey`'s pull requests, made on first use with
-    /// the repo's account and kept while the repo is followed. `nil` for a
-    /// repo that isn't.
+    /// the repo's account and kept while the repo is followed or an Other
+    /// uses it. `nil` for a repo that's neither.
     func detailStore(for repoKey: String) -> PullRequestStore? {
         if let store = detailStores[repoKey] { return store }
-        guard let repo = repos.first(where: { $0.id == repoKey }) else { return nil }
+        guard let repo = repos.first(where: { $0.id == repoKey })
+                ?? others.first(where: { $0.repo.id == repoKey })?.repo else { return nil }
         let accountId = repo.accountId
         let host = repo.host
         let token = environment.token
@@ -513,6 +627,160 @@ final class ReviewsStore {
         let gen = openGen
         guard await store.prepareForDetail(), gen == openGen else { return }
         store.select(item.pull)
+    }
+
+    // MARK: Links
+
+    /// What reading a link came to: its pull request and the account that
+    /// read it, or why there's none.
+    private enum LinkRead {
+        case read(PullRequest, accountId: UUID)
+        case unread(LinkOpenOutcome)
+    }
+
+    /// Opens the pull request `link` points to (R2 Rulings 9 to 11). A row
+    /// of the inbox, followed or an Other, is revealed without a request; an
+    /// Other opened again moves to the top. Otherwise the selection goes and
+    /// `openingLink` names the link while its detail is read (`readLink`);
+    /// the pull request then joins the Others, unless a refresh listed it
+    /// meanwhile, and is selected. Read to no pull request, the selection
+    /// that went comes back if the list still shows it and nothing was
+    /// picked meanwhile. A later `openLink` wins: an earlier one that lands
+    /// after it adds its row, but neither selects anything nor touches
+    /// `openingLink`.
+    func openLink(_ link: PullRequestLink) async -> LinkOpenOutcome {
+        linkGen &+= 1
+        let gen = linkGen
+        let repoKey = FollowedRepos.key(link.host)
+        let id = InboxPull.id(repoKey: repoKey, number: link.number)
+        if reveal(id) {
+            if let index = others.firstIndex(where: { $0.id == id }) {
+                others.insert(others.remove(at: index), at: 0)
+                otherGens[id] = gen
+            }
+            openingLink = nil
+            return .opened(id)
+        }
+        let cleared = selectedID
+        selectedID = nil
+        openingLink = PendingLink(host: link.host, number: link.number)
+        switch await readLink(link) {
+        case .unread(let outcome):
+            if gen == linkGen {
+                openingLink = nil
+                if selectedID == nil, let cleared {
+                    selectedID = cleared
+                    dropHiddenSelection()
+                }
+            }
+            return outcome
+        case .read(let pull, let accountId):
+            // A refresh may have run meanwhile: the repo and the list as they are now.
+            let item = InboxPull(repo: repoForLink(link, accountId: accountId), pull: pull)
+            if !isListed(repoKey: repoKey, number: pull.number) { addOther(item, gen: gen) }
+            if gen == linkGen {
+                openingLink = nil
+                reveal(item.id)
+            }
+            return .opened(item.id)
+        }
+    }
+
+    /// The × of an Other (R2 Ruling 9): its row goes, with the selection if
+    /// it was on it, and its repo's detail store once no row uses that repo.
+    func closeOther(_ id: InboxPull.ID) {
+        guard let item = others.first(where: { $0.id == id }) else { return }
+        others.removeAll { $0.id == id }
+        otherGens[id] = nil
+        if selectedID == id { selectedID = nil }
+        let repoKey = item.repo.id
+        if !repos.contains(where: { $0.id == repoKey }), !others.contains(where: { $0.repo.id == repoKey }) {
+            detailStores[repoKey] = nil
+        }
+    }
+
+    /// The pull request an Other's detail holds (R2 Ruling 9): merged or
+    /// closed there, its row shows it. A row of the followed list is read
+    /// again instead (`reload(repoKey:)`).
+    func noteDetail(_ pull: PullRequest, for id: InboxPull.ID) {
+        guard let index = others.firstIndex(where: { $0.id == id }),
+              others[index].pull.number == pull.number, others[index].pull != pull else { return }
+        others[index] = InboxPull(repo: others[index].repo, pull: pull)
+    }
+
+    /// Reads `link`'s pull request with the first account that can see it
+    /// (R2 Ruling 10), in `linkAccounts` order. A 404 or a 403 moves on to
+    /// the next account, a 401 renews the token and retries once, and any
+    /// other error stops. When none reads it: connecting an account if one
+    /// must be connected again or there's none, else why it's hidden, else
+    /// why there was no token.
+    private func readLink(_ link: PullRequestLink) async -> LinkRead {
+        let accounts = linkAccounts(link)
+        guard !accounts.isEmpty else { return .unread(.connectAccount(instanceId: link.instanceId)) }
+        let provider = environment.makeProvider(link.host)
+        let tokens = TokenBook(ask: environment.token)
+        var hidden: PullRequestFetchError?
+        for accountId in accounts {
+            await tokens.prepare(accountId)
+            do {
+                if let detail = try await withToken(accountId, tokens, { token in
+                    try await provider.fetchDetail(host: link.host, number: link.number, token: token)
+                }) {
+                    return .read(detail.pull, accountId: accountId)
+                }
+            } catch let error as PullRequestFetchError where error == .notFound || error == .forbidden {
+                hidden = hidden ?? error
+            } catch {
+                return .unread(.failed(PullRequestStore.message(for: error)))
+            }
+        }
+        if !tokens.reconnect.isEmpty { return .unread(.connectAccount(instanceId: link.instanceId)) }
+        if let hidden {
+            let reference = "\(link.host.slug) \(link.host.provider.reference(link.number))"
+            return .unread(.failed("\(reference) — \(PullRequestStore.message(for: hidden))"))
+        }
+        return .unread(.failed(tokens.failure ?? String(localized: "Request failed")))
+    }
+
+    /// The accounts that may read a link (R2 Ruling 10): a followed repo's
+    /// own; else its instance's, those that sign first with the owner's
+    /// login at their head, then those to connect again.
+    private func linkAccounts(_ link: PullRequestLink) -> [UUID] {
+        if let repo = repos.first(where: { $0.id == FollowedRepos.key(link.host) }) { return [repo.accountId] }
+        let onInstance = environment.accounts().filter { $0.instance.id == link.instanceId }.map(\.account)
+        let signing = onInstance.filter { AccountGitCredentials.signs($0) }
+        let rest = onInstance.filter { !AccountGitCredentials.signs($0) }
+        return (FollowedRepos.accountsInPreference(for: link.host, among: signing) + rest).map(\.id)
+    }
+
+    /// The repo a link's pull request shows with (R2 Ruling 9): the followed
+    /// one; else one that isn't followed, read with `accountId`, cloned from
+    /// its membership's URL when known, and with the clone the last refresh
+    /// saw.
+    private func repoForLink(_ link: PullRequestLink, accountId: UUID) -> ReviewRepo {
+        let repoKey = FollowedRepos.key(link.host)
+        if let followed = repos.first(where: { $0.id == repoKey }) { return followed }
+        let member = memberships[accountId]?.repos.first { $0.fullName.lowercased() == link.host.slug.lowercased() }
+        return ReviewRepo(host: link.host, accountId: accountId, sources: [], lastActivity: nil,
+                          cloneURL: member?.httpsURL ?? FollowedRepos.cloneURL(for: link.host),
+                          localURL: knownClones[repoKey])
+    }
+
+    /// Puts `item` among the Others by opening order (`gen`), in place of the
+    /// row it had. The Others of a repo share one repo, which their detail
+    /// store reads with: a read with another account takes them all over,
+    /// and the store goes.
+    private func addOther(_ item: InboxPull, gen: UInt64) {
+        var rows = others.filter { $0.id != item.id }
+        if let shared = rows.first(where: { $0.repo.id == item.repo.id })?.repo,
+           shared.accountId != item.repo.accountId || shared.host != item.repo.host {
+            rows = rows.map { $0.repo.id == item.repo.id ? InboxPull(repo: item.repo, pull: $0.pull) : $0 }
+            detailStores[item.repo.id] = nil
+        }
+        otherGens[item.id] = gen
+        let index = rows.firstIndex { otherGens[$0.id, default: 0] < gen } ?? rows.count
+        rows.insert(item, at: index)
+        others = rows
     }
 
     // MARK: Auto refresh

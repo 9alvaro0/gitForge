@@ -37,7 +37,8 @@ final class AppState {
         profiles: ProfileStore? = nil,
         accounts: AccountStore? = nil,
         network: NetworkMonitor? = nil,
-        whatsNew: WhatsNewController? = nil
+        whatsNew: WhatsNewController? = nil,
+        reviewsSnapshots: ReviewsSnapshotStore? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
@@ -80,7 +81,7 @@ final class AppState {
             makeProvider: { PullRequestProviderFactory.make(for: $0) },
             makeBrowser: { RemoteRepoBrowserFactory.make(for: $0) },
             makeActivity: { ReviewActivitySourceFactory.make(for: $0) },
-            snapshots: ReviewsSnapshotStore()
+            snapshots: reviewsSnapshots ?? ReviewsSnapshotStore()
         ))
         self.catalog.gitCredentials = gitCredentials
         self.catalog.pullRequestAuth = pullRequestAuth
@@ -226,12 +227,13 @@ final class AppState {
 
     /// "Open in repository" from Reviews (R1 Ruling 13): activates the clone
     /// at `url`, goes to its Pull requests and opens `number` there, now if
-    /// its list shows it, else once it does. The inbox only lists open pull
-    /// requests, so the list goes back to Open: a repository already open on
-    /// Mine or Closed would otherwise keep its selection and jump to the pull
-    /// request only when Open is picked later. A clone that can't be opened
-    /// shows why and leaves the section as it was.
-    func openPullRequest(number: Int, inRepositoryAt url: URL) async {
+    /// its list shows it, else once it does. The list goes to the scope that
+    /// lists a pull request in `state`: Closed for a merged or closed one (an
+    /// Other of the inbox, R2 Ruling 9), else Open. A repository already open
+    /// on another scope would otherwise keep its selection and jump to the
+    /// pull request only when that scope is picked later. A clone that can't
+    /// be opened shows why and leaves the section as it was.
+    func openPullRequest(number: Int, state: PullRequest.State, inRepositoryAt url: URL) async {
         do {
             try await openRepository(at: url)
         } catch {
@@ -240,7 +242,8 @@ final class AppState {
         }
         ui.workspaceSection = .pulls
         guard let pulls = catalog.activeViewModel?.pullRequests else { return }
-        if pulls.scope != .open { await pulls.setScope(.open) }
+        let scope: PullListScope = state == .merged || state == .closed ? .closed : .open
+        if pulls.scope != scope { await pulls.setScope(scope) }
         pulls.requestSelection(number: number)
     }
 

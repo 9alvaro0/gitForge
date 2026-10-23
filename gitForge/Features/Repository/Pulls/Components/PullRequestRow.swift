@@ -9,6 +9,10 @@ struct PullRequestRow: View {
     var reference: String? = nil
     let ci: CIStatus?
     let isSelected: Bool
+    /// How far from the row's trailing edge the first line stops, for a
+    /// control laid over that corner (the × of an Other in Reviews). Within
+    /// the row's own padding it changes nothing.
+    var firstLineTrailingClearance: CGFloat = 0
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -26,6 +30,8 @@ struct PullRequestRow: View {
                         Text(hostLabel)
                             .textRole(.caption, weight: .semibold)
                             .foregroundStyle(theme.colors.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                             .padding(.horizontal, Spacing.s6)
                             .background(RoundedRectangle(cornerRadius: Radius.badge).fill(theme.colors.fillControl))
                     }
@@ -37,6 +43,7 @@ struct PullRequestRow: View {
                         CIBadge(status: ci)
                     }
                 }
+                .padding(.trailing, max(0, firstLineTrailingClearance - Self.horizontalPadding))
                 Text(pullRequest.title)
                     .textRole(.body, weight: .semibold)
                     .foregroundStyle(theme.colors.textPrimary)
@@ -59,7 +66,7 @@ struct PullRequestRow: View {
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textTertiary)
             }
-            .padding(.horizontal, Spacing.s12)
+            .padding(.horizontal, Self.horizontalPadding)
             .padding(.vertical, Spacing.s8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: Radius.control).fill(rowFill))
@@ -79,6 +86,8 @@ struct PullRequestRow: View {
             }
         }
     }
+
+    private static let horizontalPadding = Spacing.s12
 
     private var rowFill: Color {
         if isSelected { return theme.colors.accentSoft }

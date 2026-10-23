@@ -130,6 +130,21 @@ nonisolated enum FollowedRepos {
         return FollowedSet(repos: Array(repos.prefix(limit)), dropped: max(0, repos.count - limit))
     }
 
+    /// A repo's HTTPS clone URL when no membership gives one (Ruling 12).
+    static func cloneURL(for host: RemoteHost) -> String {
+        "https://\(host.host)/\(host.owner)/\(host.repo).git"
+    }
+
+    /// `accounts` in the order they're tried for `host` (Ruling 4, and R2
+    /// Ruling 10 for a link): the one whose login is the repo's owner first,
+    /// the rest in the order given.
+    static func accountsInPreference(for host: RemoteHost, among accounts: [HostingAccount]) -> [HostingAccount] {
+        let owner = host.owner.lowercased()
+        guard let index = accounts.firstIndex(where: { $0.login?.lowercased() == owner }) else { return accounts }
+        var rest = accounts
+        return [rest.remove(at: index)] + rest
+    }
+
     // MARK: - Private
 
     /// A repo being assembled. `host` is the local remote's when there is one,
@@ -157,7 +172,7 @@ nonisolated enum FollowedRepos {
             let accountId = localAccountAssigned ? localAccountId : seen ?? localAccountId
             guard let accountId else { return nil }
             return ReviewRepo(host: host, accountId: accountId, sources: sources, lastActivity: lastActivity,
-                              cloneURL: apiCloneURL ?? "https://\(host.host)/\(host.owner)/\(host.repo).git",
+                              cloneURL: apiCloneURL ?? FollowedRepos.cloneURL(for: host),
                               localURL: localURL)
         }
     }
@@ -178,7 +193,6 @@ nonisolated enum FollowedRepos {
     /// Ruling 4 without an assignment: the account whose login is the repo's
     /// owner, else the first one.
     private static func preferredAccount(for host: RemoteHost, among accounts: [HostingAccount]) -> HostingAccount? {
-        let owner = host.owner.lowercased()
-        return accounts.first { $0.login?.lowercased() == owner } ?? accounts.first
+        accountsInPreference(for: host, among: accounts).first
     }
 }

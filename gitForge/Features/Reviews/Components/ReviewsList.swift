@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Left column of Reviews: Team / Mine, when the inbox was last read and
-/// Refresh; the notices that hold for the whole inbox; then the open pull
-/// requests grouped by repo (Rulings 8 and 9).
+/// Refresh; the repo the inbox is narrowed to, if any; the notices that hold
+/// for the whole inbox; then the open pull requests grouped by repo (Rulings
+/// 8 and 9) and the Others opened from a link (R2 Ruling 9).
 struct ReviewsList: View {
     let store: ReviewsStore
     let onSelect: (InboxPull) -> Void
@@ -13,6 +14,13 @@ struct ReviewsList: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let repo = store.filteredRepo {
+                // A row of its own, the column's whole width: the path and
+                // its button would crowd the header (R2 Ruling 7).
+                ReviewsRepoFilterBar(repo: repo) { store.showAllRepos() }
+                    .padding(.horizontal, Spacing.s12)
+                    .padding(.bottom, Spacing.s8)
+            }
             notices
             content
         }
@@ -22,14 +30,17 @@ struct ReviewsList: View {
 
     // MARK: Header
 
-    /// As the Pull requests scope bar: the filter above the list.
+    /// As the Pull requests scope bar: the filter above the list. Narrowed
+    /// to a repo, Team / Mine goes: the list shows both halves (R2 Ruling 7).
     private var header: some View {
         HStack(spacing: Spacing.s8) {
-            SegmentedControl<ReviewsFilter>(
-                ReviewsFilter.allCases.map { ($0, $0.title) },
-                selection: Bindable(store).filter
-            )
-            .fixedSize()
+            if store.filteredRepo == nil {
+                SegmentedControl<ReviewsFilter>(
+                    ReviewsFilter.allCases.map { ($0, $0.title) },
+                    selection: Bindable(store).filter
+                )
+                .fixedSize()
+            }
             Spacer(minLength: 0)
             if let updated = store.lastRefreshedAt {
                 // Ticks over while the inbox stays on screen.
@@ -106,9 +117,16 @@ struct ReviewsList: View {
         case .loading:
             PullsLoadingPlaceholder()
         case .empty:
-            EmptyState(symbol: "arrow.triangle.pull",
-                       title: String(localized: "No open pull requests in the repositories you follow."))
-        case .groups(let groups):
+            if let repo = store.filteredRepo {
+                EmptyState(symbol: "arrow.triangle.pull",
+                           title: String(localized: "No open pull requests in \(repo.host.slug).")) {
+                    ReviewRepoActionButton(repo: repo)
+                }
+            } else {
+                EmptyState(symbol: "arrow.triangle.pull",
+                           title: String(localized: "No open pull requests in the repositories you follow."))
+            }
+        case .groups(let groups, let others):
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
                     ForEach(groups) { group in
@@ -128,6 +146,20 @@ struct ReviewsList: View {
                             }
                         } header: {
                             ReviewGroupHeader(repo: group.repo)
+                        }
+                    }
+                    if !others.isEmpty {
+                        Section {
+                            ForEach(others) { item in
+                                ReviewOtherRow(
+                                    item: item,
+                                    isSelected: store.selectedID == item.id,
+                                    onSelect: { onSelect(item) },
+                                    onClose: { store.closeOther(item.id) }
+                                )
+                            }
+                        } header: {
+                            ReviewOthersHeader()
                         }
                     }
                 }

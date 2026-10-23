@@ -25,6 +25,9 @@ extension ReviewsStore {
         private(set) var answered: Set<UUID> = []
         /// Accounts to connect again.
         private(set) var reconnect: Set<UUID> = []
+        /// The reason the last account whose token couldn't be had for now
+        /// gave (offline, TLS, a server that's down).
+        private(set) var failure: String?
 
         init(ask: @escaping @MainActor (UUID, String?) async -> PullRequestAuthResult) {
             self.ask = ask
@@ -74,7 +77,10 @@ extension ReviewsStore {
             case .connectAccount:
                 entry = .reconnect
                 reconnect.insert(accountId)
-            case .cancelled, .failed:
+            case .failed(let message):
+                entry = .unavailable
+                failure = message
+            case .cancelled:
                 entry = .unavailable
             }
             entries[accountId] = entry

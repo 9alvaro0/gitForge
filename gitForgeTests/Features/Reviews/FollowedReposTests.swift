@@ -7,6 +7,7 @@ struct FollowedReposTests {
     static let gitlab = HostingInstance.gitLabDotCom
     static let marta = HostingAccount(instanceId: gitlab.id, login: "marta", method: .oauth, status: .ok)
     static let octo = HostingAccount(instanceId: gitlab.id, login: "octo", method: .oauth, status: .ok)
+    static let ana = HostingAccount(instanceId: gitlab.id, login: "ana", method: .oauth, status: .ok)
 
     static func host(_ path: String) -> RemoteHost { RemoteHost.make(fullName: path, on: gitlab)! }
     static func local(_ path: String, opened: TimeInterval, assigned: UUID? = nil) -> LocalRemote {
@@ -37,6 +38,15 @@ struct FollowedReposTests {
                                       activity: [], accounts: [Self.marta, Self.octo], instances: [Self.gitlab])
         #expect(set.repos.first { $0.host.repo == "tools" }?.accountId == Self.octo.id)
         #expect(set.repos.first { $0.host.repo == "api" }?.accountId == Self.marta.id)
+    }
+
+    @Test("The owner's account comes first, the rest in the order given")
+    func accountsInPreference() {
+        #expect(FollowedRepos.accountsInPreference(for: Self.host("octo/tools"), among: [Self.marta, Self.octo, Self.ana])
+                == [Self.octo, Self.marta, Self.ana])
+        // No account is the owner's: the order given.
+        #expect(FollowedRepos.accountsInPreference(for: Self.host("team/api"), among: [Self.marta, Self.octo, Self.ana])
+                == [Self.marta, Self.octo, Self.ana])
     }
 
     @Test("A clone with no account of its own takes one that saw its activity, not the instance's first")

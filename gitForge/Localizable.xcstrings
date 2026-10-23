@@ -3659,6 +3659,38 @@
         }
       }
     },
+    "Close" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar"
+          }
+        }
+      }
+    },
+    "Close %@ %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar %@ %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar %@ %@"
+          }
+        }
+      }
+    },
     "Close Repository" : {
       "localizations" : {
         "es" : {
@@ -9955,6 +9987,22 @@
         }
       }
     },
+    "No open pull requests in %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay pull requests abiertas en %@."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não há pull requests abertos em %@."
+          }
+        }
+      }
+    },
     "No open pull requests in the repositories you follow." : {
       "localizations" : {
         "es" : {
@@ -10468,6 +10516,22 @@
         }
       }
     },
+    "Open %@ %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir %@ %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir %@ %@"
+          }
+        }
+      }
+    },
     "Open Clone…" : {
       "localizations" : {
         "es" : {
@@ -10772,6 +10836,22 @@
         }
       }
     },
+    "Opening %@ %@…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abriendo %@ %@…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A abrir %@ %@…"
+          }
+        }
+      }
+    },
     "Opening %@…" : {
       "localizations" : {
         "es" : {
@@ -10880,6 +10960,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Outros certificados fidedignos"
+          }
+        }
+      }
+    },
+    "Others" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otras"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outros"
           }
         }
       }
@@ -13578,6 +13674,22 @@
         }
       }
     },
+    "Search actions, repositories, pull requests, branches, commits, files…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar acciones, repositorios, pull requests, ramas, commits, archivos…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar ações, repositórios, pull requests, ramos, commits, ficheiros…"
+          }
+        }
+      }
+    },
     "Search everything" : {
       "localizations" : {
         "es" : {
@@ -14118,6 +14230,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostra um diálogo antes de fazer push com --force-with-lease."
+          }
+        }
+      }
+    },
+    "Show all repositories" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver todos los repos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver todos os repositórios"
           }
         }
       }

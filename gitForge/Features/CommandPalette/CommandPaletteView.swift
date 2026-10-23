@@ -5,6 +5,9 @@ import SwiftUI
 /// fuzzy results grouped by kind and the matched letters highlighted.
 struct CommandPaletteView: View {
     let items: [CommandPaletteItem]
+    /// Rows the query itself adds at the head of Pull requests (a pasted
+    /// pull request link's), whatever it matches.
+    var pinnedItems: (String) -> [CommandPaletteItem] = { _ in [] }
     /// `keepOpen`: ⌘↵, run without closing the palette.
     var onPick: (CommandPaletteItem, _ keepOpen: Bool) -> Void
     var onClose: () -> Void
@@ -17,16 +20,16 @@ struct CommandPaletteView: View {
     @Environment(\.appTheme) private var theme
 
     private var sections: [CommandPaletteSections.Section] {
-        CommandPaletteSections.build(items: items, query: query, scope: scope)
-    }
-
-    /// Rows in display order, for arrow-key navigation.
-    private var flatRows: [CommandPaletteSections.Row] {
-        sections.flatMap(\.rows)
+        CommandPaletteSections.build(items: items, query: query, scope: scope, pinned: pinnedItems(query))
     }
 
     var body: some View {
-        let rows = flatRows
+        // Built once per render: a pinned row is made anew by every build,
+        // with its own identity, so the rows the keys walk and the rows
+        // drawn have to come from the same one.
+        let sections = self.sections
+        // Rows in display order, for arrow-key navigation.
+        let rows = sections.flatMap(\.rows)
         ZStack(alignment: .top) {
             theme.colors.bgWindow.opacity(0.46)
                 .ignoresSafeArea()
@@ -36,7 +39,7 @@ struct CommandPaletteView: View {
                 inputRow
                 scopeBar
                 Divider().overlay(theme.colors.separator)
-                results(rows)
+                results(sections, rows: rows)
                 Divider().overlay(theme.colors.separator)
                 footer
             }
@@ -126,7 +129,7 @@ struct CommandPaletteView: View {
 
     private var placeholder: String {
         switch scope {
-        case .all: String(localized: "Search actions, repositories, branches, commits, files…")
+        case .all: String(localized: "Search actions, repositories, pull requests, branches, commits, files…")
         case .only(let kind): String(localized: "Search \(kind.title.lowercased())…")
         }
     }
@@ -138,7 +141,7 @@ struct CommandPaletteView: View {
     }
 
     @ViewBuilder
-    private func results(_ rows: [CommandPaletteSections.Row]) -> some View {
+    private func results(_ sections: [CommandPaletteSections.Section], rows: [CommandPaletteSections.Row]) -> some View {
         if rows.isEmpty {
             Text(query.isEmpty ? String(localized: "Nothing in \(scope.title)") : String(localized: "No matches for “\(query)”"))
                 .textRole(.body)
@@ -240,6 +243,9 @@ private struct PaletteRow: View {
                         .textRole(.monoSmall)
                         .foregroundStyle(theme.colors.textTertiary)
                         .lineLimit(1)
+                        // A pull request's `!482 · repo` tells two of the same
+                        // title apart: its title is cut first.
+                        .layoutPriority(row.item.kind == .pull ? 1 : 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,6 +285,7 @@ private struct PaletteRow: View {
         switch row.item.kind {
         case .command: "bolt"
         case .repo:    "folder"
+        case .pull:    "arrow.triangle.pull"
         case .branch:  "arrow.triangle.branch"
         case .commit:  "circle.circle"
         case .file:    "doc"
@@ -306,6 +313,7 @@ nonisolated struct PointerIntent: Equatable {
     @Previewable @State var theme = AppTheme()
     CommandPaletteView(
         items: CommandPaletteItem.previewSamples,
+        pinnedItems: { CommandPaletteBuilder.linkItems(for: $0, instances: CommandPaletteItem.previewInstances) },
         onPick: { _, _ in },
         onClose: {}
     )

@@ -24,6 +24,10 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable, Codable {
     let updatedAt: Date?
     /// SHA of the source branch tip; CI checks are looked up by it.
     var headSha: String? = nil
+    /// The author's display name, when the list or detail carries it (GitLab
+    /// does; GitHub's list only has the login). Optional so a snapshot saved
+    /// before this existed still decodes.
+    var authorName: String? = nil
 
     var label: String {
         switch state {

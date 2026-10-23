@@ -31,12 +31,7 @@ struct GitLabPullRequestProvider: PullRequestProvider {
         ]
         let request = Self.makeRequest(url: components.url, token: token)
         let data = try await RemoteAPI.send(request)
-        do {
-            let decoded = try JSONDecoder().decode([GitLabMRDTO].self, from: data)
-            return decoded.map { $0.toModel() }
-        } catch {
-            throw PullRequestFetchError.decoding(error.localizedDescription)
-        }
+        return try Self.parseList(data)
     }
 
     func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String {
@@ -144,6 +139,14 @@ struct GitLabPullRequestProvider: PullRequestProvider {
 // MARK: - Parsers (static so the tests can feed them fixtures)
 
 extension GitLabPullRequestProvider {
+    static func parseList(_ data: Data) throws -> [PullRequest] {
+        do {
+            return try JSONDecoder().decode([GitLabMRDTO].self, from: data).map { $0.toModel() }
+        } catch {
+            throw PullRequestFetchError.decoding(error.localizedDescription)
+        }
+    }
+
     static func parseDetail(_ data: Data, approvedBy: [String] = []) throws -> PullRequestDetail {
         do {
             return try JSONDecoder().decode(GitLabMRDetailDTO.self, from: data).toModel(approvedBy: approvedBy)
@@ -272,6 +275,7 @@ private struct GitLabMRDTO: Decodable {
 
     struct Author: Decodable {
         let username: String?
+        let name: String?
         let avatar_url: String?
     }
 
@@ -297,7 +301,8 @@ private struct GitLabMRDTO: Decodable {
             webURL: web_url.flatMap(URL.init(string:)),
             createdAt: RemoteAPI.parseDate(created_at),
             updatedAt: RemoteAPI.parseDate(updated_at),
-            headSha: sha
+            headSha: sha,
+            authorName: author?.name
         )
     }
 }
@@ -331,6 +336,7 @@ private struct GitLabMRDetailDTO: Decodable {
 
     struct User: Decodable {
         let username: String?
+        let name: String?
         let avatar_url: String?
     }
     struct Viewer: Decodable { let can_merge: Bool? }
@@ -366,7 +372,8 @@ private struct GitLabMRDetailDTO: Decodable {
             webURL: web_url.flatMap(URL.init(string:)),
             createdAt: RemoteAPI.parseDate(created_at),
             updatedAt: RemoteAPI.parseDate(updated_at),
-            headSha: sha
+            headSha: sha,
+            authorName: author?.name
         )
         let mergeable: Bool? = {
             switch merge_status {

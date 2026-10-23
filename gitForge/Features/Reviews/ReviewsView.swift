@@ -28,17 +28,25 @@ struct ReviewsView: View {
         // Throttled: coming back within `reloadThrottle` reads nothing.
         .task { await store.refresh() }
         // Opens the selection's detail: picked in the list, or still
-        // selected when the inbox shows again.
-        .task(id: store.selectedItem?.id) {
+        // selected when the inbox shows again. Keyed on the account too: a
+        // refresh that reads the repo with another account replaces its
+        // detail store (R2 Ruling 9), which has to open the pull request again.
+        .task(id: store.selectedItem.map { "\($0.id)|\($0.repo.accountId)" }) {
             if let item = store.selectedItem { await store.open(item) }
         }
         .onChange(of: store.selectedItem?.id) { _, id in
             if id == nil { store.dropHiddenSelection() }
         }
         // Merged or closed from here: its repo is read again so it leaves
-        // the list (Ruling 14).
+        // the list (Ruling 14), and an Other's row takes its new state (R2
+        // Ruling 9).
         .onChange(of: detailState) { old, new in
-            if ReviewDetailState.leftOpen(from: old, to: new), let item = store.selectedItem {
+            guard let item = store.selectedItem else { return }
+            if store.others.contains(where: { $0.id == item.id }),
+               let pull = store.detailStore(for: item.repo.id)?.selected, pull.number == item.pull.number {
+                store.noteDetail(pull, for: item.id)
+            }
+            if ReviewDetailState.leftOpen(from: old, to: new) {
                 Task { await store.reload(repoKey: item.repo.id) }
             }
         }
@@ -96,9 +104,25 @@ struct ReviewsView: View {
                 // Getting the account's token before the detail can load.
                 ProgressView().controlSize(.small)
             }
+        } else if let link = store.openingLink {
+            openingPlaceholder(link)
         } else {
             EmptyState(symbol: "arrow.triangle.pull", title: String(localized: "Select a pull request"))
         }
+    }
+
+    /// A pasted link's pull request while it's read (R2 Ruling 11).
+    private func openingPlaceholder(_ link: PendingLink) -> some View {
+        VStack(spacing: Spacing.s8) {
+            ProgressView().controlSize(.small)
+            Text("Opening \(link.host.repo) \(link.host.provider.reference(link.number))…")
+                .textRole(.callout)
+                .foregroundStyle(theme.colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(Spacing.s32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     /// The selection's detail store's pull request, while it's the selection's.
@@ -118,7 +142,10 @@ struct ReviewsView: View {
             }
         case .openInRepository(let localURL):
             .remote(title: String(localized: "Open in repository"), systemImage: "arrow.right.circle") {
-                Task { await appState.openPullRequest(number: item.pull.number, inRepositoryAt: localURL) }
+                Task {
+                    await appState.openPullRequest(number: item.pull.number, state: item.pull.state,
+                                                   inRepositoryAt: localURL)
+                }
             }
         }
     }
@@ -177,6 +204,46 @@ struct ReviewsView: View {
 #Preview("Account to reconnect") {
     @Previewable @State var theme = AppTheme()
     ReviewsView(store: .preview(.attention))
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Others") {
+    @Previewable @State var theme = AppTheme()
+    let store = ReviewsStore.preview(.loaded)
+    ReviewsView(store: store)
+        .task { await store.openPreviewOthers() }
+        .previewAppState(.preview)
+        .frame(width: 1240, height: 760)
+        .appTheme(theme)
+}
+
+#Preview("Filtered by repo") {
+    @Previewable @State var theme = AppTheme()
+    let store = ReviewsStore.preview(.loaded)
+    ReviewsView(store: store)
+        .task { await store.showPreviewRepo(PreviewReviewsWorld.paymentsApp) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Filtered, empty") {
+    @Previewable @State var theme = AppTheme()
+    let store = ReviewsStore.preview(.loaded)
+    ReviewsView(store: store)
+        .task { await store.showPreviewRepo(PreviewReviewsWorld.releaseTools) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Opening a link") {
+    @Previewable @State var theme = AppTheme()
+    let store = ReviewsStore.preview(.loaded)
+    ReviewsView(store: store)
+        .task { await store.openPreviewSlowLink() }
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
