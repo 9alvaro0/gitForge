@@ -64,7 +64,7 @@ struct ReviewsSettingsModelTests {
     func removal() {
         #expect(ReviewsSettingsModel.removal(for: repo("oss/lib", on: Self.gitHub, sources: [.manual])) == .stopFollowing)
         #expect(ReviewsSettingsModel.removal(for: repo("oss/lib", on: Self.gitHub, sources: [.local, .manual])) == .hide)
-        #expect(ReviewsSettingsModel.removal(for: repo("apps/catalog/android/catalog-app", sources: [.pattern])) == .hide)
+        #expect(ReviewsSettingsModel.removal(for: repo("apps/maps/android/maps-app", sources: [.pattern])) == .hide)
         #expect(ReviewsSettingsModel.removal(for: repo("apps/payments/backend/ledger", sources: [.activity])) == .hide)
     }
 
@@ -100,7 +100,7 @@ struct ReviewsSettingsModelTests {
     func patternRepoCount() throws {
         let pattern = try #require(FollowPattern(host: Self.gitLab, text: "apps/*/android/*"))
         let repos = [repo("apps/payments/android/payments-app", sources: [.local, .pattern]),
-                     repo("Apps/Loyalty/Android/loyalty-app", sources: [.pattern]),
+                     repo("Apps/Weather/Android/weather-app", sources: [.pattern]),
                      repo("apps/payments/backend/ledger"),
                      repo("apps/x/android/y", on: Self.gitHub)]
         #expect(ReviewsSettingsModel.repoCount(of: pattern, in: repos) == 2)

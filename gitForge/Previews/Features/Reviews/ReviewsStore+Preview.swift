@@ -110,10 +110,10 @@ struct PreviewReviewsWorld {
     static let ossCli = "oss/cli"
     /// Followed by activity in `proposal`, with the clone: three Android apps
     /// of the same shape.
-    static let loyaltyApp = "apps/loyalty/android/loyalty-app"
-    static let courierApp = "apps/delivery/android/courier-app"
+    static let weatherApp = "apps/weather/android/weather-app"
+    static let notesApp = "apps/notes/android/notes-app"
     /// Of the same shape in `proposal`, and not followed.
-    static let siblingApps = ["apps/catalog/android/catalog-app", "apps/stores/android/store-finder"]
+    static let siblingApps = ["apps/maps/android/maps-app", "apps/chat/android/chat-app"]
     /// More Android apps in `proposalOverLimit`, not followed either.
     static let siblingFillerCount = 100
     /// A merged pull request of a followed repo, then an open one of
@@ -139,7 +139,7 @@ struct PreviewReviewsWorld {
     /// Members nobody follows in `settings`, on the GitLab instance and on
     /// github.com.
     static let unfollowedGitLab = ["apps/platform/feature-flags", "apps/payments/web/checkout-web",
-                                   "apps/stores/backend/stock-sync"]
+                                   "apps/fitness/backend/sync-service"]
     static let unfollowedGitHub = ["oss/cli", "octo/dotfiles"]
     /// Members under `tools/legacy` in `settingsOverLimit`.
     static let toolFillerCount = 100
@@ -228,7 +228,7 @@ struct PreviewReviewsWorld {
     /// The Android apps besides payments-app.
     private enum Siblings {
         case absent
-        /// `loyaltyApp` and `courierApp` followed by activity, and `siblingApps`.
+        /// `weatherApp` and `notesApp` followed by activity, and `siblingApps`.
         case proposing
         /// `proposing` plus `siblingFillerCount` more members.
         case proposingOverLimit
@@ -260,7 +260,7 @@ struct PreviewReviewsWorld {
                        member("103", infraModules, on: gitLab), member("104", releaseTools, on: gitLab)]
             + (0..<fillers).map { member("9\($0)", "apps/archive/service-\($0)", on: gitLab) }
         if siblings != .absent {
-            members += [member("105", loyaltyApp, on: gitLab), member("106", courierApp, on: gitLab)]
+            members += [member("105", weatherApp, on: gitLab), member("106", notesApp, on: gitLab)]
                 + siblingApps.enumerated().map { member("10\(7 + $0.offset)", $0.element, on: gitLab) }
         }
         if siblings == .proposingOverLimit {
