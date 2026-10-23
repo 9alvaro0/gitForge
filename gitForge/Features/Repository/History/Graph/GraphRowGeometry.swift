@@ -181,7 +181,10 @@ nonisolated struct GraphRowGeometry {
     }
 
     /// Whether a step is drawn dashed: a stash's side step, a ghost line and the
-    /// connector from the Uncommitted changes row.
+    /// connector from the Uncommitted changes row, which the painter dots
+    /// (§3.5). Its halves stop exactly on the joints, are never joined with
+    /// the line they meet at a row's centre, and hold a whole number of their
+    /// dash period, so the pattern runs on from one half to the next.
     static func isDashed(_ step: GraphStep) -> Bool {
         switch step.stroke {
         case .solid: false

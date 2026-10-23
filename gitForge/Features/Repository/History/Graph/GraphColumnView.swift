@@ -197,7 +197,7 @@ nonisolated struct GraphRowPainter {
         // or at the row's centre under the node (a line that carries on
         // through the centre is one path), and the canvas no longer clips a
         // cap that would reach past a joint. Round caps would also eat the
-        // gaps of a dash.
+        // gaps of a dash. Only the connector's dots are round.
         let solid = StrokeStyle(lineWidth: edge, lineCap: .butt, lineJoin: .round)
         // The band is the stroke widened by the gap on each side, and stays
         // whole under a dashed stroke. Butt caps too, so it ends where the
@@ -209,7 +209,14 @@ nonisolated struct GraphRowPainter {
         // gap and the next half, in this row or the next, starts with a dash.
         // The pattern is built again only when the period changes: the
         // straight halves share one, the halves of S curves as wide another.
-        var dash: [CGFloat] = []
+        //
+        // The connector from the Uncommitted changes row is dotted instead
+        // (§3.5): round dots as wide as the stroke, each a dash of no length
+        // with round caps, every half period `q` from `q/2` past the half's
+        // start. So none touches a joint or the row's centre, none is drawn
+        // twice or cut there, and the last dot of a half and the first of the
+        // next are `q` apart like any two others.
+        var dash: [CGFloat] = [], dots: [CGFloat] = []
         let opacity = context.opacity
         geometry.forEachSegment(of: row) { segment, step, dashPeriod in
             let path = segment.path
@@ -217,6 +224,14 @@ nonisolated struct GraphRowPainter {
             let shading = GraphicsContext.Shading.color(style.color(for: step.color))
             guard dashPeriod > 0 else {
                 context.stroke(path, with: shading, style: solid)
+                return
+            }
+            // Opaque, unlike a ghost: the connector and a ghost line can run
+            // side by side in HEAD's colour (§3.5), and the dots tell them apart.
+            guard step.stroke != .uncommitted else {
+                if dots.last != dashPeriod / 2 { dots = [0, dashPeriod / 2] }
+                let dotted = StrokeStyle(lineWidth: edge, lineCap: .round, dash: dots, dashPhase: dashPeriod / 4)
+                context.stroke(path, with: shading, style: dotted)
                 return
             }
             if dash.first != dashPeriod / 2 { dash = [dashPeriod / 2, dashPeriod / 2] }
@@ -315,7 +330,15 @@ nonisolated struct GraphRowPainter {
 }
 
 #Preview {
-    let rows = [GraphRow].previewSamples
+    // With uncommitted changes, while HEAD's branch is behind its remote: the dotted connector comes down column 0
+    // past the commit HEAD would pull, a ghost beside it in HEAD's colour (§3.5), into HEAD's tip. Then the samples.
+    let samples = [GraphRow].previewSamples
+    let pull = GraphStep(from: 1, to: 0, color: .head, stroke: .ghost)
+    let rows = [
+        GraphRow(node: GraphNode(column: 1, kind: .commit, color: .head, isGhost: true),
+                 stepsAbove: [.uncommitted], stepsBelow: [.uncommitted, pull], width: 2),
+        GraphRow(node: samples[0].node, stepsAbove: [.uncommitted, pull], stepsBelow: samples[0].stepsBelow, width: 2),
+    ] + samples.dropFirst()
     // Spaced like the History table, so the lines cross the gaps between rows.
     // The right-hand copy is dimmed the way a search dims its misses.
     HStack(spacing: 24) {
@@ -323,7 +346,7 @@ nonisolated struct GraphRowPainter {
             VStack(spacing: HistoryTableLayout.rowSpacing) {
                 ForEach(rows.indices, id: \.self) { index in
                     GraphColumnView(row: rows[index], maxLanes: 2, rowSpacing: HistoryTableLayout.rowSpacing,
-                                    isHeadCommit: index == 0, isSelected: index == 3, isDimmed: dimmed)
+                                    isHeadCommit: index == 1, isSelected: index == 4, isDimmed: dimmed)
                         .frame(height: 28)
                         .opacity(dimmed ? 0.35 : 1)
                 }

@@ -109,7 +109,7 @@ struct GraphRowGeometryTests {
         for overlapsJoints in [true, false] {
             let geometry = Self.geometry(density, overlapsJoints: overlapsJoints)
             let x = geometry.style.laneCenter(1)
-            for stroke in [GraphStroke.solid, .stash, .ghost] {
+            for stroke in [GraphStroke.solid, .stash, .ghost, .uncommitted] {
                 let step = Self.step(1, 1, stroke)
                 // Dashed halves never run past a joint (`dashedNoOverlap`), nor a dimmed row's.
                 let past = overlapsJoints && stroke == .solid ? straightOverlap : 0
@@ -287,18 +287,19 @@ struct GraphRowGeometryTests {
         #expect(geometry.dashPeriod == (density == .regular ? 7.25 : 5.75))
     }
 
-    @Test("Stash and ghost steps are dashed; solid ones are not")
+    @Test("Stash, ghost and connector steps are dashed; solid ones are not")
     func isDashed() {
         #expect(GraphRowGeometry.isDashed(Self.step(0, 1, .stash)))
         #expect(GraphRowGeometry.isDashed(Self.step(0, 0, .stash)))
         #expect(GraphRowGeometry.isDashed(Self.step(0, 1, .ghost)))
         #expect(GraphRowGeometry.isDashed(Self.step(2, 2, .ghost)))
+        #expect(GraphRowGeometry.isDashed(.uncommitted))
         #expect(!GraphRowGeometry.isDashed(Self.step(0, 1)))
         #expect(!GraphRowGeometry.isDashed(Self.step(2, 2)))
     }
 
     @Test("A solid half has no dash; a dashed straight half uses the straight period, and a dashed S half its own",
-          arguments: [DensityMetrics.regular, .compact], [GraphStroke.solid, .ghost, .stash])
+          arguments: [DensityMetrics.regular, .compact], [GraphStroke.solid, .ghost, .stash, .uncommitted])
     func dashPeriods(density: DensityMetrics, stroke: GraphStroke) {
         let geometry = Self.geometry(density)
         let straightPeriod = geometry.dashPeriod
@@ -338,7 +339,7 @@ struct GraphRowGeometryTests {
     }
 
     @Test("Both halves of a dashed step share its period and hold it a whole number of times, whichever way the S leans",
-          arguments: [DensityMetrics.regular, .compact], [GraphStroke.ghost, .stash])
+          arguments: [DensityMetrics.regular, .compact], [GraphStroke.ghost, .stash, .uncommitted])
     func dashAcrossJointBothWays(density: DensityMetrics, stroke: GraphStroke) {
         let geometry = Self.geometry(density)
         for (from, to) in [(0, 1), (1, 0), (4, 1), (5, 0), (1, 6), (6, 0), (3, 3), (0, 20)] {
@@ -391,7 +392,7 @@ struct GraphRowGeometryTests {
         let solidOverlap = overlapsJoints ? GraphRowGeometry.overlap(for: density.graph) : 0
         let straightOverlap = overlapsJoints ? GraphRowGeometry.straightOverlap(for: density.graph) : 0
         for (from, to) in [(0, 2), (3, 1), (0, 1), (6, 0), (2, 2)] {
-            for stroke in [GraphStroke.stash, .ghost, .solid] {
+            for stroke in [GraphStroke.stash, .ghost, .uncommitted, .solid] {
                 let step = Self.step(from, to, stroke)
                 let upper = Self.segments(Self.row(below: [step]), in: geometry)[0].0
                 let lower = Self.segments(Self.row(above: [step]), in: geometry)[0].0
@@ -400,6 +401,24 @@ struct GraphRowGeometryTests {
                 #expect(abs(lower.samples.first!.y - (geometry.jointAbove - past)) < 1e-9, "\(step) arriving")
             }
         }
+    }
+
+    @Test("A connector half is dashed with the straight period, never joined with the line it meets")
+    func connectorHalves() {
+        // The connector passing a row whose node is in column 1, down column 0: where a solid line would be one
+        // path through the centre (`joinedThroughLine`), its halves are drawn alone, each holding the straight
+        // dash period and ending exactly on its joint and on the centre.
+        let geometry = Self.geometry()
+        let row = GraphRow(node: GraphNode(column: 1, kind: .commit, color: .pool(0), isGhost: false),
+                           stepsAbove: [.uncommitted], stepsBelow: [.uncommitted], width: 2)
+        let x = geometry.style.laneCenter(0)
+        let segments = Self.dashedSegments(row, in: geometry)
+        #expect(segments.map(\.segment) == [
+            .line(from: CGPoint(x: x, y: geometry.jointAbove), to: CGPoint(x: x, y: geometry.center)),
+            .line(from: CGPoint(x: x, y: geometry.center), to: CGPoint(x: x, y: geometry.jointBelow)),
+        ])
+        #expect(segments.map(\.step) == [.uncommitted, .uncommitted])
+        #expect(segments.map(\.dashPeriod) == [geometry.dashPeriod, geometry.dashPeriod])
     }
 
     @Test("In the gitflow graph every half a row leaves joins the half the next row arrives with",
