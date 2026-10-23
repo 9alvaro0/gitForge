@@ -111,6 +111,17 @@ final class ReviewsStore {
     /// The pattern the inbox offers until it's answered (R3 Ruling 3), worked
     /// out again by every refresh and every change of `config`.
     private(set) var proposal: PatternProposal?
+    /// Each instance's last "Search all of <host>" (R3 Ruling 12), by
+    /// instance id. Only for the session.
+    private(set) var hostSearches: [UUID: HostSearchState] = [:]
+    /// Repos opened from a search that aren't followed (R3 Ruling 13), the
+    /// last one opened last: `repoFilter` may name one, and its open pull
+    /// requests are among the Others. One that comes to be followed leaves.
+    /// Only for the session.
+    private(set) var browsedRepos: [ReviewRepo] = []
+    /// The last link `openLink` couldn't read for want of an account, to open
+    /// again once one is connected (R3 Ruling 14). Every `openLink` clears it.
+    private(set) var pendingLink: PullRequestLink?
 
     private let environment: ReviewsEnvironment
     /// Each account's membership list, kept past `membershipTTL` when it
@@ -147,6 +158,10 @@ final class ReviewsStore {
     @ObservationIgnored private var otherGens: [InboxPull.ID: UInt64] = [:]
     /// The last `revealRequest.serial`.
     @ObservationIgnored private var revealSerial: UInt64 = 0
+    /// The newest search started on each instance: an older one that lands
+    /// later is dropped (R3 Review Focus 5).
+    @ObservationIgnored private var latestSearch: [UUID: UInt64] = [:]
+    @ObservationIgnored private var searchCounter: UInt64 = 0
     @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
 
     init(environment: ReviewsEnvironment) {
@@ -199,8 +214,10 @@ final class ReviewsStore {
 
     /// The current filter's groups, by their newest update, then the repos
     /// that failed with nothing to show (Rulings 8 and 9). With `repoFilter`,
-    /// only that repo's, whoever opened the pull requests (R2 Ruling 7).
+    /// only that repo's, whoever opened the pull requests (R2 Ruling 7); on a
+    /// browsed repo, its Others (R3 Ruling 13).
     var groups: [ReviewGroup] {
+        if let browsed = filteredBrowsedRepo { return browsedGroups(browsed) }
         var loaded: [(group: ReviewGroup, newest: Date)] = []
         var failed: [ReviewGroup] = []
         let isOneRepo = repoFilter != nil
@@ -242,8 +259,10 @@ final class ReviewsStore {
     /// known). The repos of an account in `accountsNeedingAttention` don't
     /// count: they're withheld, never read until it's connected again. With
     /// `repoFilter`, only that repo counts: another one still unread says
-    /// nothing about what the list shows.
+    /// nothing about what the list shows. A browsed repo is never unread: its
+    /// pull requests, read when it was opened, are its Others.
     private var hasUnreadRepos: Bool {
+        if filteredBrowsedRepo != nil { return false }
         if let filteredRepo { return isUnread(filteredRepo) }
         return repos.isEmpty || repos.contains { isUnread($0) }
     }
@@ -284,15 +303,16 @@ final class ReviewsStore {
     /// inbox moves to the half that shows it, Mine if it's the user's and
     /// Team if not, and drops the filter by a repo other than its own; for an
     /// Other, which shows under either half, it drops the filter by repo,
-    /// which hides the Others. `false`, with nothing changed, when `id` is
-    /// neither.
+    /// which hides the Others, unless it's on the Other's own browsed repo,
+    /// which shows them (R3 Ruling 13). `false`, with nothing changed, when
+    /// `id` is neither.
     @discardableResult
     func reveal(_ id: InboxPull.ID) -> Bool {
         if let item = followedRows.first(where: { $0.id == id }) {
             filter = half(showing: item)
             if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
-        } else if others.contains(where: { $0.id == id }) {
-            repoFilter = nil
+        } else if let item = others.first(where: { $0.id == id }) {
+            if filteredBrowsedRepo?.id != item.repo.id { repoFilter = nil }
         } else {
             return false
         }
@@ -306,6 +326,13 @@ final class ReviewsStore {
     /// it's one of that repo's pull requests, and goes if not.
     func showRepo(_ repoKey: String) {
         guard repos.contains(where: { $0.id == repoKey }) else { return }
+        narrow(to: repoKey)
+    }
+
+    /// Narrows the inbox to `repoKey`, followed or browsed: the selection
+    /// stays, scrolled into view, if it's one of that repo's pull requests,
+    /// and goes if not.
+    private func narrow(to repoKey: String) {
         repoFilter = repoKey
         guard let selectedID else { return }
         if selectedID.hasPrefix(repoKey + "#") {
@@ -464,12 +491,16 @@ final class ReviewsStore {
     /// and the filter by it; a repo now read with another account loses its
     /// detail store. The Others stay, with their selection and detail store
     /// (R2 Ruling 9): one whose repo is followed takes the followed repo, and
-    /// keeps its store unless that one is read with another account.
+    /// keeps its store unless that one is read with another account. A
+    /// browsed repo that's followed now leaves `browsedRepos`, and the filter
+    /// by it stays (R3 Ruling 13).
     private func adopt(_ followed: FollowedSet) {
         let after = Dictionary(followed.repos.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let before = readers(followed: repos)
         let moved = others.map { InboxPull(repo: otherRepo($0.repo, followed: after), pull: $0.pull) }
         if moved != others { others = moved }
+        let browsed = browsedRepos.filter { after[$0.id] == nil }.map { otherRepo($0, followed: after) }
+        if browsed != browsedRepos { browsedRepos = browsed }
         let now = readers(followed: followed.repos)
         detailStores = detailStores.filter { key, _ in
             guard let current = now[key], let previous = before[key] else { return false }
@@ -484,7 +515,9 @@ final class ReviewsStore {
            !others.contains(where: { $0.id == selectedID }) {
             self.selectedID = nil
         }
-        if let repoFilter, after[repoFilter] == nil { self.repoFilter = nil }
+        if let repoFilter, after[repoFilter] == nil, !browsedRepos.contains(where: { $0.id == repoFilter }) {
+            self.repoFilter = nil
+        }
     }
 
     /// The repo each key's detail store reads with: the followed one, else
@@ -509,11 +542,20 @@ final class ReviewsStore {
     /// No account left: the inbox empties, the Others included, with what it
     /// knew of the accounts, and is saved empty. With nothing to clear,
     /// nothing is written. The user's settings stay; the round and the
-    /// proposal go.
+    /// proposal go, and so do what only the session kept: the browsed repos,
+    /// the searches, which an older one landing later doesn't bring back, and
+    /// the pending link (R3 Rulings 13 and 14).
     private func clearWithoutAccounts() {
         if lastRefreshFailed { lastRefreshFailed = false }
         lastRound = nil
         if proposal != nil { proposal = nil }
+        latestSearch = [:]
+        if !hostSearches.isEmpty { hostSearches = [:] }
+        if pendingLink != nil { pendingLink = nil }
+        if !browsedRepos.isEmpty {
+            if filteredBrowsedRepo != nil { repoFilter = nil }
+            browsedRepos = []
+        }
         guard !repos.isEmpty || !pulls.isEmpty || !repoErrors.isEmpty || !detailStores.isEmpty || !others.isEmpty
                 || droppedByLimit > 0 || !memberships.isEmpty || !logins.isEmpty || !lookups.isEmpty
                 || !accountsNeedingAttention.isEmpty else { return }
@@ -789,10 +831,12 @@ final class ReviewsStore {
     /// that went comes back if the list still shows it and nothing was
     /// picked meanwhile. A later `openLink` wins: an earlier one that lands
     /// after it adds its row, but neither selects anything nor touches
-    /// `openingLink`.
+    /// `openingLink`. One that asks to connect an account keeps its link in
+    /// `pendingLink`, unless a later one started meanwhile (R3 Ruling 14).
     func openLink(_ link: PullRequestLink) async -> LinkOpenOutcome {
         linkGen &+= 1
         let gen = linkGen
+        if pendingLink != nil { pendingLink = nil }
         let repoKey = FollowedRepos.key(link.host)
         let id = InboxPull.id(repoKey: repoKey, number: link.number)
         if reveal(id) {
@@ -814,6 +858,7 @@ final class ReviewsStore {
                     selectedID = cleared
                     dropHiddenSelection()
                 }
+                if case .connectAccount = outcome { pendingLink = link }
             }
             return outcome
         case .read(let pull, let accountId):
@@ -851,61 +896,95 @@ final class ReviewsStore {
     }
 
     /// Reads `link`'s pull request with the first account that can see it
-    /// (R2 Ruling 10), in `linkAccounts` order. A 404 or a 403 moves on to
-    /// the next account, a 401 renews the token and retries once, and any
-    /// other error stops. When none reads it: connecting an account if one
-    /// must be connected again or there's none, else why it's hidden, else
-    /// why there was no token.
+    /// (R2 Ruling 10; `readWithAccounts`). When none reads it: connecting an
+    /// account if one must be connected again or there's none, else why it's
+    /// hidden, else why there was no token.
     private func readLink(_ link: PullRequestLink) async -> LinkRead {
-        let accounts = linkAccounts(link)
-        guard !accounts.isEmpty else { return .unread(.connectAccount(instanceId: link.instanceId)) }
         let provider = environment.makeProvider(link.host)
+        let read = await readWithAccounts(readAccounts(for: link.host, instanceId: link.instanceId)) { token in
+            try await provider.fetchDetail(host: link.host, number: link.number, token: token)
+        }
+        switch read {
+        case .read(let detail, let accountId):
+            return .read(detail.pull, accountId: accountId)
+        case .connectAccount:
+            return .unread(.connectAccount(instanceId: link.instanceId))
+        case .hidden(let error):
+            let reference = "\(link.host.slug) \(link.host.provider.reference(link.number))"
+            return .unread(.failed("\(reference) — \(PullRequestStore.message(for: error))"))
+        case .failed(let error):
+            return .unread(.failed(PullRequestStore.message(for: error)))
+        case .noToken(let failure):
+            return .unread(.failed(failure ?? String(localized: "Request failed")))
+        }
+    }
+
+    /// What trying a read with each account in turn came to.
+    private enum AccountRead<Value> {
+        /// The first account that could, and what it read.
+        case read(Value, accountId: UUID)
+        /// None could, and connecting one may: one must be connected again,
+        /// or there's none.
+        case connectAccount
+        /// None could see it: the first 404 or 403.
+        case hidden(PullRequestFetchError)
+        /// Another error stopped the reads.
+        case failed(any Error)
+        /// No account had a token, with the reason when one was given.
+        case noToken(String?)
+    }
+
+    /// Runs `call` with the first of `accounts` that can (R2 Ruling 10): a
+    /// 404 or a 403 moves on to the next account, a 401 renews the token and
+    /// retries once, and any other error stops.
+    private func readWithAccounts<Value>(_ accounts: [UUID],
+                                         _ call: (String) async throws -> Value) async -> AccountRead<Value> {
+        guard !accounts.isEmpty else { return .connectAccount }
         let tokens = TokenBook(ask: environment.token)
         var hidden: PullRequestFetchError?
         for accountId in accounts {
             await tokens.prepare(accountId)
             do {
-                if let detail = try await withToken(accountId, tokens, { token in
-                    try await provider.fetchDetail(host: link.host, number: link.number, token: token)
-                }) {
-                    return .read(detail.pull, accountId: accountId)
+                if let value = try await withToken(accountId, tokens, call) {
+                    return .read(value, accountId: accountId)
                 }
             } catch let error as PullRequestFetchError where error == .notFound || error == .forbidden {
                 hidden = hidden ?? error
             } catch {
-                return .unread(.failed(PullRequestStore.message(for: error)))
+                return .failed(error)
             }
         }
-        if !tokens.reconnect.isEmpty { return .unread(.connectAccount(instanceId: link.instanceId)) }
-        if let hidden {
-            let reference = "\(link.host.slug) \(link.host.provider.reference(link.number))"
-            return .unread(.failed("\(reference) — \(PullRequestStore.message(for: hidden))"))
-        }
-        return .unread(.failed(tokens.failure ?? String(localized: "Request failed")))
+        if !tokens.reconnect.isEmpty { return .connectAccount }
+        if let hidden { return .hidden(hidden) }
+        return .noToken(tokens.failure)
     }
 
-    /// The accounts that may read a link (R2 Ruling 10): a followed repo's
-    /// own; else its instance's, those that sign first with the owner's
-    /// login at their head, then those to connect again.
-    private func linkAccounts(_ link: PullRequestLink) -> [UUID] {
-        if let repo = repos.first(where: { $0.id == FollowedRepos.key(link.host) }) { return [repo.accountId] }
-        let onInstance = environment.accounts().filter { $0.instance.id == link.instanceId }.map(\.account)
+    /// The accounts that may read a repo's pull requests from a link or a
+    /// search (R2 Ruling 10): a followed repo's own; else its instance's,
+    /// those that sign first with the owner's login at their head, then
+    /// those to connect again.
+    private func readAccounts(for host: RemoteHost, instanceId: UUID) -> [UUID] {
+        if let repo = repos.first(where: { $0.id == FollowedRepos.key(host) }) { return [repo.accountId] }
+        let onInstance = environment.accounts().filter { $0.instance.id == instanceId }.map(\.account)
         let signing = onInstance.filter { AccountGitCredentials.signs($0) }
         let rest = onInstance.filter { !AccountGitCredentials.signs($0) }
-        return (FollowedRepos.accountsInPreference(for: link.host, among: signing) + rest).map(\.id)
+        return (FollowedRepos.accountsInPreference(for: host, among: signing) + rest).map(\.id)
     }
 
     /// The repo a link's pull request shows with (R2 Ruling 9): the followed
-    /// one; else one that isn't followed, read with `accountId`, cloned from
-    /// its membership's URL when known, and with the clone the last refresh
-    /// saw.
+    /// one, else `looseRepo`.
     private func repoForLink(_ link: PullRequestLink, accountId: UUID) -> ReviewRepo {
-        let repoKey = FollowedRepos.key(link.host)
-        if let followed = repos.first(where: { $0.id == repoKey }) { return followed }
-        let member = memberships[accountId]?.repos.first { $0.fullName.lowercased() == link.host.slug.lowercased() }
-        return ReviewRepo(host: link.host, accountId: accountId, sources: [], lastActivity: nil,
-                          cloneURL: member?.httpsURL ?? FollowedRepos.cloneURL(for: link.host),
-                          localURL: knownClones[repoKey])
+        repos.first { $0.id == FollowedRepos.key(link.host) }
+            ?? looseRepo(link.host, accountId: accountId, cloneURL: FollowedRepos.cloneURL(for: link.host))
+    }
+
+    /// A repo that isn't followed, as the Others and the browsed repos show
+    /// it: read with `accountId`, cloned from its membership's URL when known
+    /// (else `cloneURL`), and with the clone the last refresh saw.
+    private func looseRepo(_ host: RemoteHost, accountId: UUID, cloneURL: String) -> ReviewRepo {
+        let member = memberships[accountId]?.repos.first { $0.fullName.lowercased() == host.slug.lowercased() }
+        return ReviewRepo(host: host, accountId: accountId, sources: [], lastActivity: nil,
+                          cloneURL: member?.httpsURL ?? cloneURL, localURL: knownClones[FollowedRepos.key(host)])
     }
 
     /// Puts `item` among the Others by opening order (`gen`), in place of the
@@ -923,6 +1002,122 @@ final class ReviewsStore {
         let index = rows.firstIndex { otherGens[$0.id, default: 0] < gen } ?? rows.count
         rows.insert(item, at: index)
         others = rows
+    }
+
+    /// Opens `pendingLink` again, once, after the sheet to connect an account
+    /// closes (R3 Ruling 14): only if its instance has an account that signs
+    /// now; if not it's dropped, and the answer is `nil`. Opened again, a
+    /// link that asks for an account once more isn't kept for another try.
+    func retryPendingLink() async -> LinkOpenOutcome? {
+        guard let link = pendingLink else { return nil }
+        pendingLink = nil
+        guard searchAccount(on: link.instanceId) != nil else { return nil }
+        let outcome = await openLink(link)
+        if case .connectAccount = outcome, pendingLink == link { pendingLink = nil }
+        return outcome
+    }
+
+    // MARK: Search all and found repos
+
+    /// Searches the whole of instance `instanceId` for `query`, trimmed (R3
+    /// Ruling 12). Under `searchMinimum` characters, or on an instance with
+    /// no account in the inbox, nothing is asked. `hostSearches` says it's
+    /// searching, then what came of it (`searchPhase`). A newer search of the
+    /// instance wins: an older one that lands later changes nothing.
+    func searchHost(_ instanceId: UUID, query: String) async {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= Self.searchMinimum,
+              let instance = searchInstances.first(where: { $0.id == instanceId }) else { return }
+        searchCounter &+= 1
+        let gen = searchCounter
+        latestSearch[instanceId] = gen
+        hostSearches[instanceId] = HostSearchState(query: text, phase: .searching)
+        let phase = await searchPhase(text, on: instance)
+        guard latestSearch[instanceId] == gen else { return }
+        hostSearches[instanceId] = HostSearchState(query: text, phase: phase)
+    }
+
+    /// What searching `instance` for `text` comes to, with its first account
+    /// that signs (`searchAccount`); a 401 renews the token once. On
+    /// github.com and gitlab.com the search keeps to the owners of the
+    /// account's repos (`searchOwners`), from its membership list of any age,
+    /// read now as a refresh does when there's none. With no owner to keep
+    /// to it finds nothing, without asking: unscoped, it would search the
+    /// whole public site.
+    private func searchPhase(_ text: String, on instance: HostingInstance) async -> HostSearchState.Phase {
+        guard let account = searchAccount(on: instance.id) else { return .connectAccount }
+        let tokens = TokenBook(ask: environment.token)
+        await tokens.prepare(account.id)
+        var owners: [String]?
+        if instance.isBuiltIn, tokens.current(account.id) != nil {
+            let members: [RemoteRepoSummary]
+            if let list = memberships[account.id] {
+                members = list.repos
+            } else {
+                members = await membership(of: account, on: instance, tokens: tokens, now: environment.now(),
+                                           rereadLists: false)?.repos ?? []
+            }
+            owners = Self.searchOwners(on: instance, members: members, login: account.login ?? logins[account.id])
+        }
+        let search = environment.makeSearch(instance.kind)
+        do {
+            if owners?.isEmpty == true, tokens.current(account.id) != nil { return .found(HostSearchResults()) }
+            if let results = try await withToken(account.id, tokens, { token in
+                try await Self.searchPullsAndRepos(text, owners: owners, on: instance, token: token, with: search)
+            }) {
+                return .found(results)
+            }
+        } catch {
+            return .failed(PullRequestStore.message(for: error))
+        }
+        if tokens.reconnect.contains(account.id) { return .connectAccount }
+        return .failed(tokens.failure ?? String(localized: "Request failed"))
+    }
+
+    /// Opens a repo found by searching a host (R3 Ruling 13). A followed one
+    /// narrows the inbox to it (`showRepo`). Any other has its open pull
+    /// requests read with the first account that can (`readWithAccounts`):
+    /// each joins the Others, the repo joins `browsedRepos`, in place of an
+    /// older entry, and the inbox is narrowed to it. As with links, a later
+    /// `openLink` or `openFoundRepo` wins: an earlier one that lands after it
+    /// adds its rows and its repo, but leaves the filter and the selection.
+    func openFoundRepo(_ found: FoundRepo) async -> RepoOpenOutcome {
+        let repoKey = FollowedRepos.key(found.host)
+        if repos.contains(where: { $0.id == repoKey }) {
+            showRepo(repoKey)
+            return .shown(repoKey: repoKey)
+        }
+        linkGen &+= 1
+        let gen = linkGen
+        // The link being read gives way: its row still lands, unselected.
+        if openingLink != nil { openingLink = nil }
+        let provider = environment.makeProvider(found.host)
+        let read = await readWithAccounts(readAccounts(for: found.host, instanceId: found.instanceId)) { token in
+            try await provider.fetchPulls(host: found.host, state: .open, token: token)
+        }
+        let pulls: [PullRequest]
+        let accountId: UUID
+        switch read {
+        case .read(let list, let reader):
+            (pulls, accountId) = (list, reader)
+        case .connectAccount:
+            return .connectAccount(instanceId: found.instanceId)
+        case .hidden(let error):
+            return .failed("\(found.host.slug) — \(PullRequestStore.message(for: error))")
+        case .failed(let error):
+            return .failed("\(found.host.slug) — \(PullRequestStore.message(for: error))")
+        case .noToken(let failure):
+            return .failed("\(found.host.slug) — \(failure ?? String(localized: "Request failed"))")
+        }
+        // A refresh may have run meanwhile: the repo and the list as they are now.
+        let followed = repos.first { $0.id == repoKey }
+        let repo = followed ?? looseRepo(found.host, accountId: accountId, cloneURL: found.cloneURL)
+        for pull in pulls.sorted(by: Self.newerFirst) where !isListed(repoKey: repoKey, number: pull.number) {
+            addOther(InboxPull(repo: repo, pull: pull), gen: gen)
+        }
+        if followed == nil { browsedRepos = browsedRepos.filter { $0.id != repoKey } + [repo] }
+        if gen == linkGen { narrow(to: repoKey) }
+        return .shown(repoKey: repoKey)
     }
 
     // MARK: Auto refresh

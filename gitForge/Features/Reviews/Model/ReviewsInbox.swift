@@ -117,3 +117,34 @@ nonisolated enum LinkOpenOutcome: Equatable, Sendable {
     /// Why it couldn't be opened.
     case failed(String)
 }
+
+/// Where one instance's "Search all of <host>" stands (R3 Ruling 12): the
+/// query it was made for, trimmed, and how far it got. ⌘K shows it only
+/// while the text it searches, trimmed, is still `query`.
+nonisolated struct HostSearchState: Equatable, Sendable {
+    enum Phase: Equatable, Sendable {
+        /// The host hasn't answered yet.
+        case searching
+        /// What it answered with; both lists empty is "Nothing found".
+        case found(HostSearchResults)
+        /// Why it couldn't search; picking the row tries again.
+        case failed(String)
+        /// No account of the instance signs, or its token was rejected twice.
+        case connectAccount
+    }
+
+    let query: String
+    var phase: Phase
+}
+
+/// What opening a repo found by searching a host came to (R3 Ruling 13).
+nonisolated enum RepoOpenOutcome: Equatable, Sendable {
+    /// The inbox is narrowed to it: a followed repo, or one browsed with its
+    /// open pull requests among the Others.
+    case shown(repoKey: String)
+    /// No account of that instance could read it, and connecting one may:
+    /// there's none, or one must be connected again.
+    case connectAccount(instanceId: UUID)
+    /// Why it couldn't be opened.
+    case failed(String)
+}

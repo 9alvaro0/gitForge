@@ -2,13 +2,15 @@ import Foundation
 
 /// What ⌘K reads from the inbox (R2 Rulings 6, 7 and 9): the pull requests
 /// to search, the followed repos that aren't cloned, the repo the inbox is
-/// narrowed to and the Others shown. What it does to the inbox, `reveal` and
+/// narrowed to and the Others shown. "Search all of <host>" is in
+/// `ReviewsStore+Search.swift`. What it does to the inbox, `reveal` and
 /// `showRepo`, is in `ReviewsStore.swift`, next to the filter they set.
 extension ReviewsStore {
-    /// The repo `repoFilter` names, while it's still followed.
+    /// The repo `repoFilter` names: a followed one, or one browsed from a
+    /// search (R3 Ruling 13).
     var filteredRepo: ReviewRepo? {
         guard let repoFilter else { return nil }
-        return repos.first { $0.id == repoFilter }
+        return repos.first { $0.id == repoFilter } ?? filteredBrowsedRepo
     }
 
     /// What the palette searches (Rulings 5 and 9): the Others that aren't

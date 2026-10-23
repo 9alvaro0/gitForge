@@ -360,6 +360,25 @@ struct ReviewsStoreFollowTests {
         #expect(store.repos.count + store.droppedByLimit == 102)
     }
 
+    @Test("A total passes the limit when it's over 100 and above what the inbox follows now")
+    func exceedsLimit() async {
+        let under = ReviewsHarness()
+        under.locals = (0..<99).map { ReviewsHarness.local("org/repo-\($0)") }
+        let store = under.makeStore()
+        await store.refresh(force: true)
+        #expect(!store.exceedsLimit(100))
+        #expect(store.exceedsLimit(101))
+
+        let over = ReviewsHarness()
+        over.locals = (0..<101).map { ReviewsHarness.local("org/repo-\($0)") }
+        let busy = over.makeStore()
+        await busy.refresh(force: true)
+        #expect(busy.repos.count + busy.droppedByLimit == 101)
+        #expect(!busy.exceedsLimit(100))
+        #expect(!busy.exceedsLimit(101))
+        #expect(busy.exceedsLimit(102))
+    }
+
     // MARK: Proposal
 
     /// Activity in three Android apps under `apps/`, and `extra` more Android

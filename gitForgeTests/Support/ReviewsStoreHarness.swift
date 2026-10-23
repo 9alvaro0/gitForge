@@ -217,10 +217,16 @@ final class ReviewsFakeSearch: HostSearching, Sendable {
 
 /// Accounts on `gitlab.example.test`, their clones, the fakes, the clock
 /// and the folder of the snapshot and the settings; `makeStore` builds a
-/// store on them, as a launch.
+/// store on them, as a launch. An account on github.com or gitlab.com
+/// (`HostingInstance.builtIns`) is on that instance instead.
 @MainActor
 final class ReviewsHarness {
     static let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
+
+    /// The instance `account` is on: a built-in one when it names one, else `instance`.
+    static func instance(of account: HostingAccount) -> HostingInstance {
+        HostingInstance.builtIns.first { $0.id == account.instanceId } ?? instance
+    }
 
     /// In store order.
     var accounts: [HostingAccount]
@@ -259,7 +265,7 @@ final class ReviewsHarness {
 
     func makeStore() -> ReviewsStore {
         ReviewsStore(environment: ReviewsEnvironment(
-            accounts: { [self] in accounts.map { (account: $0, instance: Self.instance) } },
+            accounts: { [self] in accounts.map { (account: $0, instance: Self.instance(of: $0)) } },
             localRemotes: { [self] in
                 localReads += 1
                 if let localsGate { await localsGate.wait() }
@@ -269,7 +275,7 @@ final class ReviewsHarness {
                 // As `AccountPullRequestAuth.access(accountId:)`: an account
                 // that doesn't sign has to be connected again.
                 if let account = accounts.first(where: { $0.id == accountId }), !AccountGitCredentials.signs(account) {
-                    return .connectAccount(instanceId: Self.instance.id, replacing: accountId)
+                    return .connectAccount(instanceId: Self.instance(of: account).id, replacing: accountId)
                 }
                 if let fixed = tokenFor[accountId] { return fixed }
                 if let rejected { renewals.append(rejected) }

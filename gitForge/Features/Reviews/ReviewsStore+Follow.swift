@@ -50,6 +50,15 @@ extension ReviewsStore {
         return (adds, total ?? repos.count + droppedByLimit + adds)
     }
 
+    /// Whether following `total` repos passes the limit (Ruling 6, Ruling
+    /// L): over `FollowedRepos.limit` and above what the inbox follows now,
+    /// counted as `changeChecked` counts it. An inbox already over the limit
+    /// may keep or lower its total. Before the first refresh, what's followed
+    /// now is `repos.count + droppedByLimit`.
+    func exceedsLimit(_ total: Int) -> Bool {
+        total > FollowedRepos.limit && total > (self.total(with: config) ?? repos.count + droppedByLimit)
+    }
+
     // MARK: Changing
 
     /// Follows `repo` by hand and shows it again if it was hidden (Ruling 5),
@@ -230,9 +239,7 @@ extension ReviewsStore {
         var next = config
         edit(&next)
         guard next != config else { return .done }
-        if let after = total(with: next), after > FollowedRepos.limit, let now = total(with: config), after > now {
-            return .overLimit(total: after)
-        }
+        if let after = total(with: next), exceedsLimit(after) { return .overLimit(total: after) }
         await applyConfig(next)
         return .done
     }
