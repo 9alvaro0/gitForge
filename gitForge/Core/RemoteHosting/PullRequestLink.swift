@@ -50,11 +50,14 @@ nonisolated struct PullRequestLink: Hashable, Sendable {
         }
 
         /// `…/<repo>/-/merge_requests/<N>` or the older `…/<repo>/merge_requests/<N>`.
+        /// A `-` left before it ends the repo earlier: the path goes on into
+        /// the repo (`/-/blob/main/merge_requests/5`), not to a merge request.
         private static func gitlabForm(_ segments: [String]) -> (repoPath: String, number: Int)? {
             for index in segments.indices.dropLast() where segments[index] == "merge_requests" {
                 guard let number = number(segments[index + 1]) else { continue }
                 var repo = segments[..<index]
                 if repo.last == "-" { repo.removeLast() }
+                guard !repo.contains("-") else { return nil }
                 return (repo.joined(separator: "/"), number)
             }
             return nil

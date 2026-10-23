@@ -38,6 +38,8 @@ struct PullRequestLinkTests {
         "https://github.com/octo/app/-/merge_requests/3", "https://gitlab.example.test/team/app/pull/3",
         "https://gitlab.example.test/-/merge_requests/3", "git@github.com:octo/app.git",
         "https://code.example.test/team/app/-/merge_requests/5",
+        // A file's path that happens to hold `merge_requests/<N>`, past the `/-/` that ends the repo.
+        "https://gitlab.example.test/team/app/-/blob/main/merge_requests/5",
     ])
     func notALink(text: String) {
         #expect(PullRequestLink.parse(text, instances: Self.instances) == nil)
@@ -51,5 +53,7 @@ struct PullRequestLinkTests {
                                            instances: Self.instances) == InstanceSuggestion(host: "ghe.example.test", kind: .github))
         #expect(PullRequestLink.suggestion(for: "https://github.com/octo/app/pull/7", instances: Self.instances) == nil)
         #expect(PullRequestLink.suggestion(for: "https://code.example.test/team/app", instances: Self.instances) == nil)
+        #expect(PullRequestLink.suggestion(for: "https://code.example.test/team/app/-/blob/main/merge_requests/5",
+                                           instances: Self.instances) == nil)
     }
 }
