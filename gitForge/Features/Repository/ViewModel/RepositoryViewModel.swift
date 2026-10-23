@@ -232,8 +232,8 @@ final class RepositoryViewModel {
     /// tick was the source of feedback loops with our own write paths. Every
     /// local tip counts, not just HEAD's: the graph walks all local branches,
     /// so a commit made in another worktree or a `git branch -f` from the
-    /// terminal must show up too.
-    private func refreshFromExternalChange() async {
+    /// terminal must show up too. Internal so tests can drive the watcher path.
+    func refreshFromExternalChange() async {
         let previousBranch = currentBranchName
         let previousTips = localBranchTips
         async let statusTask: Void = workingCopy.refreshStatus()

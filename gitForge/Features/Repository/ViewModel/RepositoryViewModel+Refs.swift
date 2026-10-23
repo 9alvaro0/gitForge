@@ -9,7 +9,7 @@ extension RepositoryViewModel {
         refsGen &+= 1
         let gen = refsGen
         async let refsTask: [GitRef]? = try? cli.refs()
-        async let currentTask: String? = cli.currentBranchName()
+        async let currentTask: HeadBranch? = try? cli.headBranch()
         async let stashTask: [Stash]? = try? cli.stashes()
         async let unmergedTask: [String]? = try? cli.unmergedLocalBranches()
         async let headTask: String? = cli.headSha()
@@ -29,8 +29,9 @@ extension RepositoryViewModel {
             graphInputChanged = refs != self.refs
             self.refs = refs
         }
+        // A detached HEAD clears the name; only a failed read keeps it.
         if let current = currentResult {
-            self.currentBranchName = current
+            self.currentBranchName = current.name
         }
         if let stashes = stashResult {
             self.stashes = stashes
@@ -38,7 +39,7 @@ extension RepositoryViewModel {
         if let unmerged = unmergedResult {
             self.unmergedLocalBranchRefs = unmerged
         }
-        // Unlike the branch name, nil here is meaningful (empty repo), so it's
+        // nil here means an empty repo (a failed read looks the same), so it's
         // always written.
         if headResult != self.headSha {
             graphInputChanged = true
