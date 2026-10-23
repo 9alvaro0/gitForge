@@ -58,6 +58,68 @@ struct RepositoryViewModelRefsLoaderTests {
     }
 }
 
+@Suite("RepositoryViewModel — HEAD's branch from disk", .serialized)
+@MainActor
+struct RepositoryViewModelHeadBranchTests {
+
+    @Test("A detached checkout made outside the app clears the current branch")
+    func externalDetachClearsCurrentBranch() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "1"])
+            try repo.commit("second", files: ["a.txt": "2"])
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        #expect(vm.currentBranchName == "main")
+
+        let first = try await repo.gitAsync("rev-parse", "HEAD~1").trimmingCharacters(in: .whitespacesAndNewlines)
+        try await repo.gitAsync("checkout", "-q", "--detach", first)
+        await vm.refreshFromExternalChange()
+
+        #expect(vm.currentBranchName == nil)
+        #expect(vm.headSha == first)
+        // Chips mark HEAD's branch by name; `isHead` comes from for-each-ref.
+        #expect(!vm.localBranches.contains { $0.name == vm.currentBranchName || $0.isHead })
+    }
+
+    @Test("Detaching on the branch's own tip still clears the current branch")
+    func externalDetachAtSameCommitClearsCurrentBranch() async throws {
+        let repo = try await GitTestRepo.make { try $0.commit("first", files: ["a.txt": "1"]) }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        let tip = vm.headSha
+        #expect(vm.currentBranchName == "main")
+
+        try await repo.gitAsync("checkout", "-q", "--detach")
+        await vm.refreshFromExternalChange()
+
+        #expect(vm.currentBranchName == nil)
+        #expect(vm.headSha == tip)
+    }
+
+    @Test("Checking out a commit from the app clears the current branch")
+    func checkoutCommitClearsCurrentBranch() async throws {
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "1"])
+            try repo.commit("second", files: ["a.txt": "2"])
+        }
+        defer { repo.remove() }
+        let vm = RepositoryViewModel(repository: Repository(url: repo.url))
+        await vm.loadRefs()
+        #expect(vm.currentBranchName == "main")
+
+        let first = try await repo.gitAsync("rev-parse", "HEAD~1").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard case .success = await vm.checkoutCommit(first) else {
+            Issue.record("checkoutCommit failed"); return
+        }
+
+        #expect(vm.currentBranchName == nil)
+        #expect(vm.headSha == first)
+    }
+}
+
 @Suite("RepositoryViewModel — derived ref lists")
 @MainActor
 struct RepositoryViewModelRefListsTests {
