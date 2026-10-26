@@ -16,6 +16,7 @@ struct SidebarHost: View {
             activeRepository: appState.catalog.activeRepository,
             statusFor: statusFor,
             activeSection: appState.ui.workspaceSection,
+            order: appState.ui.sidebarOrder,
             unstagedBadge: appState.catalog.activeViewModel?.workingCopy.status.unstagedFiles.count ?? 0,
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
             pullsBadge: appState.reviews.badgeCount,
@@ -77,7 +78,14 @@ struct SidebarHost: View {
                 appState.ui.workspaceSection = .settings
             },
             hostingSections: hostingSections(identitySnapshot.activeProfileId),
-            onHostingEntry: handleHostingEntry
+            onHostingEntry: handleHostingEntry,
+            onReorder: { edit in
+                // Without a repository the list is Pull requests alone, so
+                // an edit that lands as the repository closes does nothing
+                // (pulls-unified §4.7, Ruling 6).
+                guard appState.catalog.activeRepository != nil else { return }
+                appState.ui.sidebarOrder.apply(edit)
+            }
         )
         // Remotes live in `.git/config`, which the watcher doesn't follow:
         // read them again when a new remote's branches show up, and when the

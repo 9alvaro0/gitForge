@@ -9617,6 +9617,22 @@
         }
       }
     },
+    "Move Down" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover abajo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover para baixo"
+          }
+        }
+      }
+    },
     "Move HEAD of the current branch to %@. Soft / mixed / hard control how the working tree is affected — hard discards uncommitted changes." : {
       "localizations" : {
         "es" : {
@@ -9645,6 +9661,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mover o ramo para %@"
+          }
+        }
+      }
+    },
+    "Move Up" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover arriba"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover para cima"
           }
         }
       }
@@ -13415,6 +13447,22 @@
         }
       }
     },
+    "Reset Order" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer orden"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repor ordem"
+          }
+        }
+      }
+    },
     "Reset paused on conflicts — resolve to continue" : {
       "localizations" : {
         "es" : {
@@ -14744,6 +14792,22 @@
         }
       }
     },
+    "Show Conflicts" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar conflictos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar conflitos"
+          }
+        }
+      }
+    },
     "Show History" : {
       "localizations" : {
         "es" : {
@@ -14772,6 +14836,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar pull requests"
+          }
+        }
+      }
+    },
+    "Show Stashes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar stashes"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar stashes"
           }
         }
       }

@@ -82,7 +82,7 @@ Not supported (yet): interactive rebase, LFS, submodule management, creating or 
 | `⌥⌘N` | New Repository… |
 | `⇧⌘W` | Close Repository |
 | `⌘B` | New Branch… |
-| `⌘1` … `⌘4` | Show History / Changes / Branches / Pull Requests |
+| `⌘1` … `⌘6` | Show the sidebar sections in the order they have in the sidebar (History, Changes, Branches, Pull Requests, Stashes, Conflicts by default) |
 | `⌘K` | Command palette |
 | `⌘F` | Filter history (History tab) |
 | `⌘R` | Refresh |

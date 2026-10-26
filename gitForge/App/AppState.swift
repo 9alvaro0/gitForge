@@ -52,7 +52,7 @@ final class AppState {
         let defaults = defaults ?? .standard
         self.gitEnvironment = gitEnvironment ?? GitEnvironment()
         self.clone = clone ?? CloneController()
-        self.ui = ui ?? WorkspaceUI()
+        self.ui = ui ?? WorkspaceUI(defaults: defaults)
         self.whatsNew = whatsNew ?? WhatsNewController()
         let profileStore = profiles ?? ProfileStore()
         self.profiles = profileStore

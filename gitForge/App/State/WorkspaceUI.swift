@@ -7,7 +7,25 @@ import Foundation
 @Observable
 @MainActor
 final class WorkspaceUI {
+    /// The defaults key the sidebar's section order is saved under.
+    static let sidebarOrderKey = "sidebar.sectionOrder"
+
     var workspaceSection: WorkspaceSection = .history
+    /// The order of the sidebar's sections, one for the whole app. Written
+    /// to the defaults when it changes (and removed when it is the default
+    /// again, so a later default reaches whoever never changed it); reading
+    /// it at launch writes nothing, even if what was saved was incomplete.
+    /// No initial value: assigned in `init`, the `didSet` doesn't run there.
+    var sidebarOrder: SidebarOrder {
+        didSet {
+            guard sidebarOrder != oldValue else { return }
+            if let saved = sidebarOrder.savedValue {
+                defaults.set(saved, forKey: Self.sidebarOrderKey)
+            } else {
+                defaults.removeObject(forKey: Self.sidebarOrderKey)
+            }
+        }
+    }
     var theme: AppTheme = AppTheme()
     var preferences: AppPreferences = AppPreferences()
     var commandPaletteOpen: Bool = false
@@ -25,6 +43,13 @@ final class WorkspaceUI {
 
     /// A Settings section to scroll to once Settings shows; cleared then.
     var settingsAnchor: SettingsAnchor?
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        sidebarOrder = SidebarOrder(saved: defaults.stringArray(forKey: Self.sidebarOrderKey))
+    }
 
     /// Shows Settings, scrolled to `anchor` when given.
     func openSettings(at anchor: SettingsAnchor? = nil) {
