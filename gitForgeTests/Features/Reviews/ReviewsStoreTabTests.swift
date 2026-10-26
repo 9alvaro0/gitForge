@@ -9,9 +9,20 @@ import Testing
 struct ReviewsStoreTabTests {
     private static let app = ReviewsHarness.key("team/app")
     private static let api = ReviewsHarness.key("team/api")
+    private static let lib = ReviewsHarness.key("oss/lib")
 
     /// The row id of pull request `number` in the repo with key `repo`.
     private static func id(_ repo: String, _ number: Int) -> InboxPull.ID { "\(repo)#\(number)" }
+
+    private static func link(_ path: String, _ number: Int) -> PullRequestLink {
+        PullRequestLink(host: ReviewsHarness.host(path), number: number, instanceId: ReviewsHarness.instance.id)
+    }
+
+    /// `path` as "Search all" finds it.
+    private static func found(_ path: String) -> FoundRepo {
+        FoundRepo(host: ReviewsHarness.host(path), instanceId: ReviewsHarness.instance.id,
+                  cloneURL: "https://gitlab.example.test/\(path).git")
+    }
 
     /// team/app (a clone) and team/api (activity) read: !1 by `lucia` in
     /// team/app, !2 by `marta` (the user) in team/api.
@@ -170,6 +181,95 @@ struct ReviewsStoreTabTests {
         #expect(!found)
         #expect(store.tab == .open)
         #expect(harness.savedTabs == [.open])
+    }
+
+    @Test("A link read from a repository list leaves it for the inbox as its read starts, keeping the half, saved once")
+    func linkLeavesRepositoryListAtOnce() async {
+        let (store, harness) = await Self.loaded()
+        let gate = AsyncGate()
+        harness.provider.state {
+            $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "lucia", updated: 300)]
+            $0.detailGates[5] = gate
+        }
+        store.tab = .closed
+
+        let opening = Task { await store.openLink(Self.link("oss/lib", 5)) }
+        await gate.waiting()
+
+        // The inbox, where "Opening oss/lib !5…" shows, before the read lands.
+        #expect(store.tab.half != nil)
+        #expect(store.tab == .team)
+        #expect(store.repositoryList == nil)
+        #expect(store.openingLink == PendingLink(host: ReviewsHarness.host("oss/lib"), number: 5))
+        #expect(harness.savedTabs == [.closed, .team])
+
+        gate.open()
+        #expect(await opening.value == .opened(Self.id(Self.lib, 5)))
+        #expect(store.tab == .team)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
+        #expect(harness.savedTabs == [.closed, .team])
+    }
+
+    @Test("A link that can't be read leaves the section on the inbox: the repository list doesn't come back")
+    func unreadLinkStaysOnInbox() async {
+        let (store, harness) = await Self.loaded()
+        store.tab = .open
+
+        let outcome = await store.openLink(Self.link("oss/lib", 404))
+
+        #expect(outcome != .opened(Self.id(Self.lib, 404)))
+        #expect(store.openingLink == nil)
+        #expect(store.tab == .team)
+        #expect(harness.savedTabs == [.open, .team])
+    }
+
+    @Test("A found repo that isn't followed leaves the repository list as its read starts; × brings the list back")
+    func foundRepoLeavesRepositoryListAtOnce() async {
+        let (store, harness) = await Self.loaded()
+        let gate = AsyncGate()
+        harness.provider.state {
+            $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "lucia", updated: 300)]
+            $0.gates["oss/lib"] = gate
+        }
+        store.tab = .closed
+
+        let opening = Task { await store.openFoundRepo(Self.found("oss/lib")) }
+        await gate.waiting()
+
+        #expect(store.tab.half != nil)
+        #expect(store.tab == .team)
+        #expect(store.repositoryList == nil)
+        #expect(harness.savedTabs == [.closed, .team])
+
+        gate.open()
+        #expect(await opening.value == .shown(repoKey: Self.lib))
+        #expect(store.repoFilter == Self.lib)
+        #expect(harness.savedTabs == [.closed, .team])
+
+        // Nothing selected: closing the filter goes back to the tab from before it.
+        store.showAllRepos()
+        #expect(store.repoFilter == nil)
+        #expect(store.tab == .closed)
+    }
+
+    @Test("A tab picked while a found repo is read is the one the × of its filter goes back to")
+    func foundRepoAfterTabChange() async {
+        let (store, harness) = await Self.loaded()
+        let gate = AsyncGate()
+        harness.provider.state {
+            $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "lucia", updated: 300)]
+            $0.gates["oss/lib"] = gate
+        }
+        store.tab = .closed
+
+        let opening = Task { await store.openFoundRepo(Self.found("oss/lib")) }
+        await gate.waiting()
+        store.tab = .mine
+        gate.open()
+        #expect(await opening.value == .shown(repoKey: Self.lib))
+
+        store.showAllRepos()
+        #expect(store.tab == .mine)
     }
 
     @Test("Showing a repo leaves the repository list")

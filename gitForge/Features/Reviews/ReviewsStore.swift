@@ -108,8 +108,9 @@ final class ReviewsStore {
     /// The open repository's list the section shows instead of the inbox
     /// (U1 Ruling 2); `nil` shows the inbox, by `filter`. Set through `tab`;
     /// `reveal(_:)`, `showRepo(_:)` and `showAllRepos()` take the section
-    /// back to the inbox, though closing a repo filter with nothing selected
-    /// brings the list back.
+    /// back to the inbox, and so do `openLink(_:)` and `openFoundRepo(_:)` as
+    /// their reads start (U1 Ruling M), though closing a repo filter with
+    /// nothing selected brings the list back.
     private(set) var repositoryList: PullListState? {
         didSet { saveTabIfChanged() }
     }
@@ -442,9 +443,11 @@ final class ReviewsStore {
     /// stays, scrolled into view, if it's one of that repo's pull requests,
     /// and goes if not. The section leaves the repository's list for the
     /// inbox; the first narrowing sets the list aside, for `showAllRepos()`
-    /// to bring back, and moving to another repo keeps what it set aside.
-    private func narrow(to repoKey: String) {
-        if repoFilter == nil { listSetAside = repositoryList }
+    /// to bring back, or `leftList`, the one a read that narrows left when
+    /// it started (`openFoundRepo`), and moving to another repo keeps what it
+    /// set aside.
+    private func narrow(to repoKey: String, leftList: PullListState? = nil) {
+        if repoFilter == nil { listSetAside = repositoryList ?? leftList }
         repositoryList = nil
         repoFilter = repoKey
         guard let selectedID else { return }
@@ -474,6 +477,17 @@ final class ReviewsStore {
             requestReveal(selectedID)
         }
         repositoryList = nil
+    }
+
+    /// Takes the section off the repository's list to the inbox, on the half
+    /// it had, saved once (Ruling B), as a read from ⌘K starts (U1 Ruling M):
+    /// what it opens shows in the inbox, and so does that it's being read.
+    /// The list it left, if one showed.
+    @discardableResult
+    private func leaveRepositoryList() -> PullListState? {
+        guard let list = repositoryList else { return nil }
+        repositoryList = nil
+        return list
     }
 
     /// Mine for the user's own pull request, Team for anyone else's: the half
@@ -983,13 +997,16 @@ final class ReviewsStore {
     /// of the inbox, followed or an Other, is revealed without a request; an
     /// Other opened again moves to the top. Otherwise the selection goes and
     /// `openingLink` names the link while its detail is read (`readLink`);
-    /// the pull request then joins the Others, unless a refresh listed it
-    /// meanwhile, and is selected. Read to no pull request, the selection
-    /// that went comes back if the list still shows it and nothing was
-    /// picked meanwhile. A later `openLink` wins: an earlier one that lands
-    /// after it adds its row, but neither selects anything nor touches
-    /// `openingLink`. One that asks to connect an account keeps its link in
-    /// `pendingLink`, unless a later one started meanwhile (R3 Ruling 14).
+    /// the section leaves a repository's list for the inbox at once, on the
+    /// half it had, so the link shows it's being opened whatever the tab (U1
+    /// Ruling M), and doesn't go back to the list if the read fails. The pull
+    /// request then joins the Others, unless a refresh listed it meanwhile,
+    /// and is selected. Read to no pull request, the selection that went
+    /// comes back if the list still shows it and nothing was picked
+    /// meanwhile. A later `openLink` wins: an earlier one that lands after it
+    /// adds its row, but neither selects anything nor touches `openingLink`.
+    /// One that asks to connect an account keeps its link in `pendingLink`,
+    /// unless a later one started meanwhile (R3 Ruling 14).
     func openLink(_ link: PullRequestLink) async -> LinkOpenOutcome {
         linkGen &+= 1
         let gen = linkGen
@@ -1007,6 +1024,7 @@ final class ReviewsStore {
         let cleared = selectedID
         selectedID = nil
         openingLink = PendingLink(host: link.host, number: link.number)
+        leaveRepositoryList()
         switch await readLink(link) {
         case .unread(let outcome):
             if gen == linkGen {
@@ -1250,11 +1268,15 @@ final class ReviewsStore {
     /// started before it that lands later may still select or narrow over
     /// it. Any other takes a turn, as `openLink` does (`linkGen`), and has
     /// its open pull requests read with the first account that can
-    /// (`readWithAccounts`): each joins the Others, the repo joins
-    /// `browsedRepos`, in place of an older entry, and the inbox is narrowed
-    /// to it. A later `openLink` or `openFoundRepo` that takes a turn wins
-    /// over it: this one then lands adding its rows and its repo, but leaves
-    /// the filter and the selection.
+    /// (`readWithAccounts`): each joins the Others, unless it's a row of the
+    /// list already, the repo joins `browsedRepos`, in place of an older
+    /// entry, and the inbox is narrowed to it. The section leaves a
+    /// repository's list for the inbox as the read starts (U1 Ruling M), and
+    /// doesn't go back to it if the read fails; narrowed, the list is set
+    /// aside for the × of the filter, unless the tab was changed meanwhile.
+    /// A later `openLink` or `openFoundRepo` that takes a turn wins over it:
+    /// this one then lands adding its rows and its repo, but leaves the
+    /// filter and the selection.
     func openFoundRepo(_ found: FoundRepo) async -> RepoOpenOutcome {
         let repoKey = FollowedRepos.key(found.host)
         if repos.contains(where: { $0.id == repoKey }) {
@@ -1265,6 +1287,8 @@ final class ReviewsStore {
         let gen = linkGen
         // The link being read gives way: its row still lands, unselected.
         if openingLink != nil { openingLink = nil }
+        let leftList = leaveRepositoryList()
+        let leftOn = tab
         let provider = environment.makeProvider(found.host)
         let read = await readWithAccounts(readAccounts(for: found.host, instanceId: found.instanceId)) { token in
             try await provider.fetchPulls(host: found.host, state: .open, token: token)
@@ -1290,7 +1314,7 @@ final class ReviewsStore {
             addOther(InboxPull(repo: repo, pull: pull), gen: gen)
         }
         if followed == nil { browsedRepos = browsedRepos.filter { $0.id != repoKey } + [repo] }
-        if gen == linkGen { narrow(to: repoKey) }
+        if gen == linkGen { narrow(to: repoKey, leftList: tab == leftOn ? leftList : nil) }
         return .shown(repoKey: repoKey)
     }
 
