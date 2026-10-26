@@ -17,8 +17,8 @@ struct RepositoryViewModelSubtitleTests {
     func branchSubtitle() {
         let vm = Self.makeVM()
         vm.aheadCount = 2
-        #expect(vm.toolbarSubtitle(for: .history) == "main  ↑2")
-        #expect(vm.toolbarSubtitle(for: .branches) == "main  ↑2")
+        #expect(vm.toolbarSubtitle(for: .history, pullsTab: .team) == "main  ↑2")
+        #expect(vm.toolbarSubtitle(for: .branches, pullsTab: .team) == "main  ↑2")
     }
 
     @Test("Changes adds the staged and unstaged counts the status bar used to show")
@@ -29,19 +29,33 @@ struct RepositoryViewModelSubtitleTests {
             WorkingCopyFile(path: "b", stagedStatus: .unmodified, unstagedStatus: .modified, originalPath: nil),
             WorkingCopyFile(path: "c", stagedStatus: .unmodified, unstagedStatus: .untracked, originalPath: nil),
         ])
-        #expect(vm.toolbarSubtitle(for: .changes) == "main · 2 unstaged, 1 staged")
+        #expect(vm.toolbarSubtitle(for: .changes, pullsTab: .team) == "main · 2 unstaged, 1 staged")
     }
 
     @Test("A clean working copy says so on Changes")
     func changesClean() {
         let vm = Self.makeVM()
         vm.workingCopy.status = WorkingCopyStatus(files: [])
-        #expect(vm.toolbarSubtitle(for: .changes) == "main · no changes")
+        #expect(vm.toolbarSubtitle(for: .changes, pullsTab: .team) == "main · no changes")
     }
 
-    @Test("Pull requests show the host, or that none is connected")
-    func pullsSubtitle() {
-        #expect(Self.makeVM().toolbarSubtitle(for: .pulls) == "not connected")
+    @Test("Open and Closed show the host, or that none is connected", arguments: [PullsTab.open, .closed])
+    func pullsSubtitle(tab: PullsTab) {
+        #expect(Self.makeVM().toolbarSubtitle(for: .pulls, pullsTab: tab) == "not connected")
+    }
+
+    @Test("Team and Mine show no branch nor host: the inbox belongs to no repository", arguments: [PullsTab.team, .mine])
+    func pullsInboxSubtitle(tab: PullsTab) {
+        let vm = Self.makeVM()
+        vm.aheadCount = 2
+        #expect(vm.toolbarSubtitle(for: .pulls, pullsTab: tab) == "")
+    }
+
+    @Test("The tab of Pull requests changes no other section's subtitle")
+    func otherSectionsIgnoreTheTab() {
+        let vm = Self.makeVM()
+        vm.aheadCount = 2
+        #expect(vm.toolbarSubtitle(for: .history, pullsTab: .open) == "main  ↑2")
     }
 
     @Test("Conflicts describe the operation in progress", arguments: [
@@ -54,18 +68,11 @@ struct RepositoryViewModelSubtitleTests {
     func conflictSubtitle(state: MergeState, expected: String) {
         let vm = Self.makeVM()
         vm.mergeState = state
-        #expect(vm.toolbarSubtitle(for: .conflict) == expected)
+        #expect(vm.toolbarSubtitle(for: .conflict, pullsTab: .team) == expected)
     }
 
     @Test("Conflicts with nothing in progress fall back to the branch")
     func conflictClean() {
-        #expect(Self.makeVM().toolbarSubtitle(for: .conflict) == "main")
-    }
-
-    @Test("Reviews shows no branch: the inbox belongs to no repository")
-    func reviewsSubtitle() {
-        let vm = Self.makeVM()
-        vm.aheadCount = 2
-        #expect(vm.toolbarSubtitle(for: .reviews) == "")
+        #expect(Self.makeVM().toolbarSubtitle(for: .conflict, pullsTab: .team) == "main")
     }
 }

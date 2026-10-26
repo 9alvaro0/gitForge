@@ -43,6 +43,15 @@ struct ReviewsEnvironment {
     var makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider = {
         PullRequestReviewProviderFactory.make(for: $0)
     }
+    /// The tab the Pull requests section was left on, read once when the
+    /// store is made (U1 Ruling 2); `nil` when none was saved or it can't be read.
+    var loadTab: @MainActor () -> PullsTab? = { nil }
+    /// Saves the tab each time it changes.
+    var saveTab: @MainActor (PullsTab) -> Void = { _ in }
+    /// The repository open in gitForge and its pull requests store, if there
+    /// is one (U1 Ruling 3). Read every time it's needed: opening another
+    /// repository changes it.
+    var activeRepository: @MainActor () -> ActiveRepositoryPulls? = { nil }
 }
 
 // MARK: - Store
@@ -91,7 +100,20 @@ final class ReviewsStore {
     private(set) var lastRefreshedAt: Date?
     /// The last refresh reached no repo, for lack of network.
     private(set) var lastRefreshFailed = false
-    var filter: ReviewsFilter = .team
+    /// Which half of the inbox shows. Under a `repositoryList` it's the half
+    /// the inbox goes back to; it is what `tab` reads while that is `nil`.
+    var filter: ReviewsFilter = .team {
+        didSet { saveTabIfChanged() }
+    }
+    /// The open repository's list the section shows instead of the inbox
+    /// (U1 Ruling 2); `nil` shows the inbox, by `filter`. Set through `tab`;
+    /// `reveal(_:)`, `showRepo(_:)` and `showAllRepos()` take the section
+    /// back to the inbox, and so do `openLink(_:)` and `openFoundRepo(_:)` as
+    /// their reads start (U1 Ruling M), though closing a repo filter with
+    /// nothing selected brings the list back.
+    private(set) var repositoryList: PullListState? {
+        didSet { saveTabIfChanged() }
+    }
     /// The repo the inbox is narrowed to (`ReviewRepo.id`), with the pull
     /// requests of both halves; `nil` shows every repo, by `filter` (R2
     /// Ruling 7). `showRepo(_:)` sets it; `showAllRepos()`, `reveal(_:)` and
@@ -109,6 +131,12 @@ final class ReviewsStore {
     private(set) var others: [InboxPull] = []
     /// The link `openLink` is reading, while it does (R2 Ruling 11).
     private(set) var openingLink: PendingLink?
+    /// The row whose detail store couldn't get ready the last time `open`
+    /// opened it: no host (the open repository's `origin` isn't on a declared
+    /// instance), no token, no account chosen or an error, as the store says.
+    /// The detail then shows why, with a way to try again, instead of waiting.
+    /// The next `open` clears it.
+    private(set) var unpreparedDetail: InboxPull.ID?
     /// The user's patterns, repos followed by hand, hidden repos and
     /// answered proposals (R3 Ruling 8), as `reviews-settings.json` keeps
     /// them. Only `applyConfig` and `storeConfig` change it; the follow API
@@ -176,10 +204,22 @@ final class ReviewsStore {
     @ObservationIgnored private var latestSearch: [UUID: UInt64] = [:]
     @ObservationIgnored private var searchCounter: UInt64 = 0
     @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
+    /// The tab as it was last saved, or read at launch: a change of `filter`
+    /// or `repositoryList` saves only if it moves `tab` off this.
+    @ObservationIgnored private var lastTab: PullsTab = .team
+    /// The `repositoryList` narrowing the inbox to a repo took off the
+    /// section, for `showAllRepos()` to bring back (U1 Ruling 2).
+    @ObservationIgnored private var listSetAside: PullListState?
 
     init(environment: ReviewsEnvironment) {
         self.environment = environment
         self.config = environment.config.load()
+        // What was read is not a change to save: `lastTab` is already it when
+        // the setter, which moves the tab in one step, runs.
+        if let saved = environment.loadTab() {
+            lastTab = saved
+            tab = saved
+        }
     }
 
     // MARK: Reading
@@ -189,6 +229,10 @@ final class ReviewsStore {
     /// The accounts the inbox reads with, with their instance, in store
     /// order (`ReviewsEnvironment.accounts`).
     var inboxAccounts: [(account: HostingAccount, instance: HostingInstance)] { environment.accounts() }
+
+    /// The repository open in gitForge, if any (`ReviewsEnvironment.activeRepository`);
+    /// `ReviewsStore+Active.swift` says what the inbox makes of it.
+    var activeRepository: ActiveRepositoryPulls? { environment.activeRepository() }
 
     /// The accounts of `accountsNeedingAttention` that own at least one
     /// followed repo, with their instance, in store order, for the inbox's
@@ -225,18 +269,26 @@ final class ReviewsStore {
         if selectedID != nil, selectedItem == nil { selectedID = nil }
     }
 
-    /// The current filter's groups, by their newest update, then the repos
-    /// that failed with nothing to show (Rulings 8 and 9). With `repoFilter`,
-    /// only that repo's, whoever opened the pull requests (R2 Ruling 7); on a
-    /// browsed repo, its Others (R3 Ruling 13).
+    /// The current filter's groups, by their newest update, with the open
+    /// repository's first (U1 Ruling 3), then the repos that failed with
+    /// nothing to show (Rulings 8 and 9). With `repoFilter`, only that repo's,
+    /// whoever opened the pull requests (R2 Ruling 7); on a browsed repo, its
+    /// Others (R3 Ruling 13).
     var groups: [ReviewGroup] {
         if let browsed = filteredBrowsedRepo { return browsedGroups(browsed) }
+        return groups(of: filter, narrowedTo: repoFilter)
+    }
+
+    /// The groups `half` lists, as `groups` has them, whatever the inbox
+    /// shows: `count(for:)` reads each half this way, without the repo filter.
+    /// With `repoKey`, only that repo's, with the pull requests of both halves.
+    private func groups(of half: ReviewsFilter, narrowedTo repoKey: String? = nil) -> [ReviewGroup] {
         var loaded: [(group: ReviewGroup, newest: Date)] = []
         var failed: [ReviewGroup] = []
-        let isOneRepo = repoFilter != nil
-        for repo in repos where !isOneRepo || repo.id == repoFilter {
+        let isOneRepo = repoKey != nil
+        for repo in repos where !isOneRepo || repo.id == repoKey {
             let rows = (pulls[repo.id] ?? [])
-                .filter { isOneRepo || isMine($0, accountId: repo.accountId) == (filter == .mine) }
+                .filter { isOneRepo || isMine($0, accountId: repo.accountId) == (half == .mine) }
                 .sorted(by: Self.newerFirst)
                 .map { InboxPull(repo: repo, pull: $0) }
             if let newest = rows.first {
@@ -249,7 +301,7 @@ final class ReviewsStore {
         let ordered = loaded.sorted { lhs, rhs in
             lhs.newest == rhs.newest ? lhs.group.id < rhs.group.id : lhs.newest > rhs.newest
         }
-        return ordered.map(\.group) + failed
+        return placingActiveFirst(ordered.map(\.group), of: half, narrowed: isOneRepo) + failed
     }
 
     /// The current filter's groups and the Others shown; with neither, the
@@ -292,7 +344,20 @@ final class ReviewsStore {
         }
     }
 
-    private func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
+    /// The number the tab of `half` shows (U1 Ruling 6, spec §4.2): the rows
+    /// it lists in every repo, whatever the repo filter, drafts and the open
+    /// repository included, and its Others that aren't rows of the list. So it
+    /// can be more than `badgeCount`. `nil` without accounts, or while nothing
+    /// has been read yet: the tab then shows no number.
+    func count(for half: ReviewsFilter) -> Int? {
+        guard hasAccounts, lastRefreshedAt != nil else { return nil }
+        let rows = groups(of: half).reduce(0) { $0 + $1.pulls.count }
+        let unlisted = others.filter { !isListed(repoKey: $0.repo.id, number: $0.pull.number) }
+        return rows + unlisted.count(where: { isMine($0) == (half == .mine) })
+    }
+
+    // Not private: `ReviewsStore+Active.swift` reads this one.
+    func isMine(_ pull: PullRequest, accountId: UUID) -> Bool {
         guard let login = logins[accountId], let author = pull.authorLogin else { return false }
         return author.lowercased() == login.lowercased()
     }
@@ -309,26 +374,64 @@ final class ReviewsStore {
         repos.flatMap { repo in (pulls[repo.id] ?? []).map { InboxPull(repo: repo, pull: $0) } }
     }
 
+    // MARK: Tab
+
+    /// The tab the section is on: `repositoryList` when it shows one, else
+    /// the inbox's `filter` (U1 Ruling 2). Writing it sets both and is saved
+    /// once; so is any other change of `filter` that moves it. Open and Closed
+    /// are the repository's: they leave a repo filter, and the half goes back
+    /// to Team, so without a repository, where the view falls back to Team
+    /// (`PullsTab.shown(_:hasRepository:)`), it isn't a Mine left under them.
+    /// The saved tab isn't what the view shows without a repository open.
+    var tab: PullsTab {
+        get { PullsTab(half: filter, repositoryList: repositoryList) }
+        set {
+            if let half = newValue.half {
+                // The half first: while a list shows, a half doesn't move the
+                // tab, and the list's going is then the only change.
+                filter = half
+                repositoryList = nil
+            } else {
+                // The list first, for the same reason the other way round: the
+                // half moving under it is then no change of tab.
+                repositoryList = newValue.repositoryList
+                filter = .team
+                repoFilter = nil
+                listSetAside = nil
+            }
+        }
+    }
+
+    private func saveTabIfChanged() {
+        let current = tab
+        guard current != lastTab else { return }
+        lastTab = current
+        environment.saveTab(current)
+    }
+
     // MARK: Selection and repo filter
 
     /// Selects `id` from outside the list (R2 Ruling 8) and asks the list to
-    /// scroll to it (`revealRequest`). For a row of a followed repo, the
-    /// inbox moves to the half that shows it, Mine if it's the user's and
-    /// Team if not, and drops the filter by a repo other than its own; for an
-    /// Other, which shows under either half, it drops the filter by repo,
-    /// which hides the Others, unless it's on the Other's own browsed repo,
+    /// scroll to it (`revealRequest`). For a row of a followed repo or of the
+    /// open repository, or an Other, the inbox moves to the half that shows
+    /// it, Mine if it's the user's and Team if not, and drops the filter by a
+    /// repo other than its own; the filter by repo hides the Others, so for
+    /// an Other it is dropped unless it's on the Other's own browsed repo,
     /// which shows them (R3 Ruling 13). `false`, with nothing changed, when
-    /// `id` is neither.
+    /// `id` is none of them.
     @discardableResult
     func reveal(_ id: InboxPull.ID) -> Bool {
-        if let item = followedRows.first(where: { $0.id == id }) {
+        if let item = inboxRows.first(where: { $0.id == id }) {
             filter = half(showing: item)
             if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
         } else if let item = others.first(where: { $0.id == id }) {
+            filter = half(showing: item)
             if filteredBrowsedRepo?.id != item.repo.id { repoFilter = nil }
         } else {
             return false
         }
+        // After the half, so the tab moves once.
+        repositoryList = nil
         selectedID = id
         requestReveal(id)
         return true
@@ -344,8 +447,14 @@ final class ReviewsStore {
 
     /// Narrows the inbox to `repoKey`, followed or browsed: the selection
     /// stays, scrolled into view, if it's one of that repo's pull requests,
-    /// and goes if not.
-    private func narrow(to repoKey: String) {
+    /// and goes if not. The section leaves the repository's list for the
+    /// inbox; the first narrowing sets the list aside, for `showAllRepos()`
+    /// to bring back, or `leftList`, the one a read that narrows left when
+    /// it started (`openFoundRepo`), and moving to another repo keeps what it
+    /// set aside.
+    private func narrow(to repoKey: String, leftList: PullListState? = nil) {
+        if repoFilter == nil { listSetAside = repositoryList ?? leftList }
+        repositoryList = nil
         repoFilter = repoKey
         guard let selectedID else { return }
         if selectedID.hasPrefix(repoKey + "#") {
@@ -358,18 +467,39 @@ final class ReviewsStore {
     /// Shows every repo again, the × of the filter bar (R2 Ruling 7). The
     /// repo's view showed both halves, so a row picked there stays selected:
     /// the inbox moves to the half that shows it, as `reveal` does, and the
-    /// list scrolls to it.
+    /// list scrolls to it. With nothing selected the section goes back to the
+    /// tab it had before the filter, a repository's list included (U1
+    /// Ruling 2); with a selection it stays on the inbox.
     func showAllRepos() {
+        let setAside = listSetAside
+        listSetAside = nil
         repoFilter = nil
-        if let selectedID, let item = followedRows.first(where: { $0.id == selectedID }) {
+        guard let selectedID else {
+            if let setAside { repositoryList = setAside }
+            return
+        }
+        if let item = inboxRows.first(where: { $0.id == selectedID }) ?? others.first(where: { $0.id == selectedID }) {
             filter = half(showing: item)
             requestReveal(selectedID)
         }
+        repositoryList = nil
     }
 
-    /// Mine for the user's own pull request, Team for anyone else's.
+    /// Takes the section off the repository's list to the inbox, on the half
+    /// it had, saved once (Ruling B), as a read from ⌘K starts (U1 Ruling M):
+    /// what it opens shows in the inbox, and so does that it's being read.
+    /// The list it left, if one showed.
+    @discardableResult
+    private func leaveRepositoryList() -> PullListState? {
+        guard let list = repositoryList else { return nil }
+        repositoryList = nil
+        return list
+    }
+
+    /// Mine for the user's own pull request, Team for anyone else's: the half
+    /// of the list that shows it, an Other included.
     private func half(showing item: InboxPull) -> ReviewsFilter {
-        isMine(item.pull, accountId: item.repo.accountId) ? .mine : .team
+        isMine(item) ? .mine : .team
     }
 
     private func requestReveal(_ id: InboxPull.ID) {
@@ -824,10 +954,13 @@ final class ReviewsStore {
 
     // MARK: Detail
 
-    /// The store that opens `repoKey`'s pull requests, made on first use with
-    /// the repo's account and kept while the repo is followed or an Other
-    /// uses it. `nil` for a repo that's neither.
+    /// The store that opens `repoKey`'s pull requests: the open repository's
+    /// own, which carries its local actions, whether the repo is followed, a
+    /// visitor or the repo of an Other (U1 Ruling 4); else one made on first
+    /// use with the repo's account and kept while the repo is followed or an
+    /// Other uses it. `nil` for a repo that's none of those.
     func detailStore(for repoKey: String) -> PullRequestStore? {
+        if repoKey == activeRepoKey, let store = activeRepository?.store { return store }
         if let store = detailStores[repoKey] { return store }
         guard let repo = repos.first(where: { $0.id == repoKey })
                 ?? others.first(where: { $0.repo.id == repoKey })?.repo else { return nil }
@@ -844,12 +977,23 @@ final class ReviewsStore {
         return store
     }
 
-    /// Opens `item` in its repo's detail store once that has a token.
+    /// Opens `item` in its repo's detail store once that has a token; one
+    /// that can't get ready marks it `unpreparedDetail`. The open
+    /// repository's own store may have it open already, from its Open tab:
+    /// selecting it again would only read the detail over, so it's left (U1
+    /// Ruling F). The inbox's own stores select every time.
     func open(_ item: InboxPull) async {
         guard let store = detailStore(for: item.repo.id) else { return }
         openGen &+= 1
         let gen = openGen
-        guard await store.prepareForDetail(), gen == openGen else { return }
+        if unpreparedDetail != nil { unpreparedDetail = nil }
+        let prepared = await store.prepareForDetail()
+        guard gen == openGen else { return }
+        guard prepared else {
+            unpreparedDetail = item.id
+            return
+        }
+        guard store !== activeRepository?.store || store.selected?.number != item.pull.number else { return }
         store.select(item.pull)
     }
 
@@ -866,13 +1010,16 @@ final class ReviewsStore {
     /// of the inbox, followed or an Other, is revealed without a request; an
     /// Other opened again moves to the top. Otherwise the selection goes and
     /// `openingLink` names the link while its detail is read (`readLink`);
-    /// the pull request then joins the Others, unless a refresh listed it
-    /// meanwhile, and is selected. Read to no pull request, the selection
-    /// that went comes back if the list still shows it and nothing was
-    /// picked meanwhile. A later `openLink` wins: an earlier one that lands
-    /// after it adds its row, but neither selects anything nor touches
-    /// `openingLink`. One that asks to connect an account keeps its link in
-    /// `pendingLink`, unless a later one started meanwhile (R3 Ruling 14).
+    /// the section leaves a repository's list for the inbox at once, on the
+    /// half it had, so the link shows it's being opened whatever the tab (U1
+    /// Ruling M), and doesn't go back to the list if the read fails. The pull
+    /// request then joins the Others, unless a refresh listed it meanwhile,
+    /// and is selected. Read to no pull request, the selection that went
+    /// comes back if the list still shows it and nothing was picked
+    /// meanwhile. A later `openLink` wins: an earlier one that lands after it
+    /// adds its row, but neither selects anything nor touches `openingLink`.
+    /// One that asks to connect an account keeps its link in `pendingLink`,
+    /// unless a later one started meanwhile (R3 Ruling 14).
     func openLink(_ link: PullRequestLink) async -> LinkOpenOutcome {
         linkGen &+= 1
         let gen = linkGen
@@ -890,6 +1037,7 @@ final class ReviewsStore {
         let cleared = selectedID
         selectedID = nil
         openingLink = PendingLink(host: link.host, number: link.number)
+        leaveRepositoryList()
         switch await readLink(link) {
         case .unread(let outcome):
             if gen == linkGen {
@@ -1133,11 +1281,15 @@ final class ReviewsStore {
     /// started before it that lands later may still select or narrow over
     /// it. Any other takes a turn, as `openLink` does (`linkGen`), and has
     /// its open pull requests read with the first account that can
-    /// (`readWithAccounts`): each joins the Others, the repo joins
-    /// `browsedRepos`, in place of an older entry, and the inbox is narrowed
-    /// to it. A later `openLink` or `openFoundRepo` that takes a turn wins
-    /// over it: this one then lands adding its rows and its repo, but leaves
-    /// the filter and the selection.
+    /// (`readWithAccounts`): each joins the Others, unless it's a row of the
+    /// list already, the repo joins `browsedRepos`, in place of an older
+    /// entry, and the inbox is narrowed to it. The section leaves a
+    /// repository's list for the inbox as the read starts (U1 Ruling M), and
+    /// doesn't go back to it if the read fails; narrowed, the list is set
+    /// aside for the × of the filter, unless the tab was changed meanwhile.
+    /// A later `openLink` or `openFoundRepo` that takes a turn wins over it:
+    /// this one then lands adding its rows and its repo, but leaves the
+    /// filter and the selection.
     func openFoundRepo(_ found: FoundRepo) async -> RepoOpenOutcome {
         let repoKey = FollowedRepos.key(found.host)
         if repos.contains(where: { $0.id == repoKey }) {
@@ -1148,6 +1300,8 @@ final class ReviewsStore {
         let gen = linkGen
         // The link being read gives way: its row still lands, unselected.
         if openingLink != nil { openingLink = nil }
+        let leftList = leaveRepositoryList()
+        let leftOn = tab
         let provider = environment.makeProvider(found.host)
         let read = await readWithAccounts(readAccounts(for: found.host, instanceId: found.instanceId)) { token in
             try await provider.fetchPulls(host: found.host, state: .open, token: token)
@@ -1173,23 +1327,36 @@ final class ReviewsStore {
             addOther(InboxPull(repo: repo, pull: pull), gen: gen)
         }
         if followed == nil { browsedRepos = browsedRepos.filter { $0.id != repoKey } + [repo] }
-        if gen == linkGen { narrow(to: repoKey) }
+        if gen == linkGen { narrow(to: repoKey, leftList: tab == leftOn ? leftList : nil) }
         return .shown(repoKey: repoKey)
     }
 
     // MARK: Auto refresh
 
     /// Refreshes every `autoRefreshInterval` while `isOnline` and `isActive`
-    /// hold. Replaces a loop already running.
+    /// hold (`autoRefreshOnce`). Replaces a loop already running.
     func startAutoRefresh(isOnline: @escaping @MainActor () -> Bool, isActive: @escaping @MainActor () -> Bool) {
         autoRefreshTask?.cancel()
         autoRefreshTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.autoRefreshInterval)
                 guard !Task.isCancelled, let self else { return }
-                if isOnline(), isActive() { await self.refresh(force: true) }
+                if isOnline(), isActive() { await self.autoRefreshOnce() }
             }
         }
+    }
+
+    /// One turn of the auto refresh: the inbox and, at the same time, the
+    /// list of the repository open in gitForge while it isn't followed, which
+    /// its group in Team and Mine shows (`visitingRepo`, U1 Ruling 3). A
+    /// followed one's rows come with the inbox's own read. The open
+    /// repository's list is re-read quietly: a timer never asks for an
+    /// account nor reloads Closed (`refreshOpenListQuietly`).
+    func autoRefreshOnce() async {
+        let visiting = visitingRepo == nil ? nil : activeRepository?.store
+        async let inbox: Void = refresh(force: true)
+        async let repository: Void? = visiting?.refreshOpenListQuietly()
+        _ = await (inbox, repository)
     }
 
     func stopAutoRefresh() {

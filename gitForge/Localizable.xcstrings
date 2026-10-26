@@ -8173,18 +8173,18 @@
         }
       }
     },
-    "Hide from Reviews" : {
+    "Hide from Pull requests" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ocultar de Revisiones"
+            "value" : "Ocultar de Pull requests"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ocultar de Revisões"
+            "value" : "Ocultar de Pull requests"
           }
         }
       }
@@ -10625,38 +10625,6 @@
         }
       }
     },
-    "None of the open merge requests are yours" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ninguna de las merge requests abiertas es tuya"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nenhum dos merge requests abertos é seu"
-          }
-        }
-      }
-    },
-    "None of the open pull requests are yours" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ninguna de las pull requests abiertas es tuya"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nenhum dos pull requests abertos é seu"
-          }
-        }
-      }
-    },
     "Not cloned" : {
       "localizations" : {
         "es" : {
@@ -13077,18 +13045,18 @@
         }
       }
     },
-    "Repositories whose pull requests appear in Reviews." : {
+    "Repositories whose pull requests appear in Team and Mine." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Repos cuyas pull requests salen en Revisiones."
+            "value" : "Repos cuyas pull requests salen en Equipo y Mías."
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Repositórios cujos pull requests aparecem em Revisões."
+            "value" : "Repositórios cujos pull requests aparecem em Equipa e Meus."
           }
         }
       }
@@ -14019,22 +13987,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Revisores"
-          }
-        }
-      }
-    },
-    "Reviews" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Revisiones"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Revisões"
           }
         }
       }

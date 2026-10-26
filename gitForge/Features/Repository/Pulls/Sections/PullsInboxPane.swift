@@ -1,10 +1,15 @@
 import SwiftUI
 
-/// The Reviews inbox (spec §4.3): the open pull requests of the repos the
-/// user follows, grouped by repo, with the pull request detail on the right.
-/// It belongs to no repository, so it shows with or without one open.
-struct ReviewsView: View {
+/// Team and Mine (U1 Ruling 8): the open pull requests of the repos the user
+/// follows, and of the repository open in gitForge, grouped by repo, with the
+/// selected one's detail on the right. A pull request of the open repository
+/// opens in that repository's own store, with its local actions; one of
+/// another repo offers to open that repo's clone or to clone it (spec §4.3).
+struct PullsInboxPane: View {
     let store: ReviewsStore
+    /// The repository open in gitForge, whose local actions its pull requests'
+    /// detail carries; `nil` with none.
+    let repository: PullsRepository?
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -14,7 +19,7 @@ struct ReviewsView: View {
             if store.hasAccounts {
                 splitLayout
             } else {
-                EmptyState(symbol: WorkspaceSection.reviews.symbol,
+                EmptyState(symbol: WorkspaceSection.pulls.symbol,
                            title: String(localized: "Connect an account to see your team's pull requests.")) {
                     GFButton(title: String(localized: "Open Settings"), style: .primary) {
                         appState.ui.openSettings(at: .accounts)
@@ -22,21 +27,23 @@ struct ReviewsView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(theme.colors.bgContent)
-        .navigationTitle(WorkspaceSection.reviews.label)
-        // Throttled: coming back within `reloadThrottle` reads nothing.
-        .task { await store.refresh() }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Opens the selection's detail: picked in the list, or still
-        // selected when the inbox shows again. Keyed on the account too: a
+        // selected when the pane shows again. Keyed on the account too: a
         // refresh that reads the repo with another account replaces its
-        // detail store (R2 Ruling 9), which has to open the pull request again.
-        .task(id: store.selectedItem.map { "\($0.id)|\($0.repo.accountId)" }) {
+        // detail store (R2 Ruling 9), which has to open the pull request
+        // again. And on whether it's the open repository's: its own store
+        // takes over its detail once the inbox knows it (U1 Ruling 4).
+        .task(id: store.selectedItem.map { "\($0.id)|\($0.repo.accountId)|\(store.isActive($0.repo))" }) {
             if let item = store.selectedItem { await store.open(item) }
         }
         .onChange(of: store.selectedItem?.id) { _, id in
             if id == nil { store.dropHiddenSelection() }
         }
+        // Shown again, as after another repository opened, the pane is a new
+        // one: a selection the list lost meanwhile, a row of the repository
+        // open before, goes rather than coming back with it.
+        .onAppear { store.dropHiddenSelection() }
         // Merged or closed from here: its repo is read again so it leaves
         // the list (Ruling 14), and an Other's row takes its new state (R2
         // Ruling 9).
@@ -49,6 +56,11 @@ struct ReviewsView: View {
             if ReviewDetailState.leftOpen(from: old, to: new) {
                 Task { await store.reload(repoKey: item.repo.id) }
             }
+        }
+        .onChange(of: appState.ui.addInstanceRequest == nil) { _, closed in
+            // The open repository's `origin` may be on the instance just added.
+            guard closed, let item = store.selectedItem, store.unpreparedDetail == item.id else { return }
+            Task { await store.open(item) }
         }
         .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
             guard closed else { return }
@@ -100,6 +112,8 @@ struct ReviewsView: View {
                            subtitle: message) {
                     GFButton(title: String(localized: "Retry")) { Task { await store.open(item) } }
                 }
+            } else if store.unpreparedDetail == item.id {
+                unpreparedState(detail, item: item)
             } else {
                 // Getting the account's token before the detail can load.
                 ProgressView().controlSize(.small)
@@ -108,6 +122,56 @@ struct ReviewsView: View {
             openingPlaceholder(link)
         } else {
             EmptyState(symbol: "arrow.triangle.pull", title: String(localized: "Select a pull request"))
+        }
+    }
+
+    /// Why the selection's detail store couldn't get ready
+    /// (`ReviewsStore.unpreparedDetail`), as the repository's own list says it
+    /// (`PullsContentSection`), with a way to open the pull request again: the
+    /// open repository's `origin` isn't on a declared instance, or the
+    /// account chooser was closed without picking one.
+    @ViewBuilder
+    private func unpreparedState(_ detail: PullRequestStore, item: InboxPull) -> some View {
+        let nounPlural = nounPlural(item.repo.host.provider)
+        if detail.host == nil {
+            if let suggestion = detail.suggestedInstance {
+                EmptyState(
+                    symbol: "arrow.triangle.pull",
+                    title: String(localized: "\(suggestion.host) isn't added yet"),
+                    subtitle: String(localized: "It looks like a \(suggestion.kind.label) server. Add it as an instance to see its \(nounPlural).")
+                ) {
+                    HStack(spacing: Spacing.s8) {
+                        GFButton(title: String(localized: "Add as \(suggestion.kind.label) instance…"), style: .primary) {
+                            appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind,
+                                                                                url: "https://\(suggestion.host)")
+                        }
+                        GFButton(title: String(localized: "Try again")) { Task { await store.open(item) } }
+                    }
+                }
+            } else {
+                EmptyState(
+                    symbol: "arrow.triangle.pull",
+                    title: String(localized: "No supported remote detected"),
+                    subtitle: String(localized: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts.")
+                ) {
+                    GFButton(title: String(localized: "Try again")) { Task { await store.open(item) } }
+                }
+            }
+        } else if detail.accountNotChosen {
+            let host = detail.host ?? item.repo.host
+            EmptyState(
+                symbol: "person.crop.circle.badge.questionmark",
+                title: String(localized: "No account chosen"),
+                subtitle: String(localized: "Several \(host.provider.label) accounts can read \(host.host). Choose the one this repository uses to list its \(nounPlural).")
+            ) {
+                GFButton(title: String(localized: "Choose account…"), style: .primary) {
+                    Task { await store.open(item) }
+                }
+            }
+        } else {
+            EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Couldn't load detail")) {
+                GFButton(title: String(localized: "Retry")) { Task { await store.open(item) } }
+            }
         }
     }
 
@@ -132,155 +196,33 @@ struct ReviewsView: View {
         return ReviewDetailState(itemID: item.id, state: selected.state, isMerging: detail.isMerging)
     }
 
-    /// No checkout nor "Resolve locally" here: one button that clones the
-    /// repo or goes to its clone, where they are (spec §4.3).
+    /// The open repository's own local actions for its pull requests (spec
+    /// §4.3); for any other repo, one button that clones it or goes to its
+    /// clone, where they are.
     private func localActions(for item: InboxPull) -> PullRequestLocalActions {
-        switch ReviewRepoAction(item.repo) {
+        switch store.detailAction(for: item) {
+        case .local:
+            repository?.localActions ?? repoAction(ReviewRepoAction(item.repo), for: item)
+        case .repo(let action):
+            repoAction(action, for: item)
+        }
+    }
+
+    private func repoAction(_ action: ReviewRepoAction, for item: InboxPull) -> PullRequestLocalActions {
+        switch action {
         case .clone(let url):
             .remote(title: String(localized: "Clone repository…"), systemImage: "square.and.arrow.down") {
                 appState.ui.requestClone(CloneRequest(initialURL: url))
             }
         case .openInRepository(let localURL):
             .remote(title: String(localized: "Open in repository"), systemImage: "arrow.right.circle") {
-                Task {
-                    await appState.openPullRequest(number: item.pull.number, state: item.pull.state,
-                                                   inRepositoryAt: localURL)
-                }
+                Task { await appState.openPullRequest(item, inRepositoryAt: localURL) }
             }
         }
     }
 
-    /// As `PullsView` words it: whole phrases per provider.
+    /// As the repository's lists word it: whole phrases per provider.
     private func nounPlural(_ provider: RemoteProvider) -> String {
         provider == .gitlab ? String(localized: "merge requests") : String(localized: "pull requests")
     }
-}
-
-#Preview("Loaded") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.loaded))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Selected, not cloned") {
-    @Previewable @State var theme = AppTheme()
-    let store: ReviewsStore = {
-        let store = ReviewsStore.preview(.loaded)
-        store.selectedID = "gitlab.example.test/apps/payments/backend/ledger#1203"
-        return store
-    }()
-    ReviewsView(store: store)
-        .previewAppState(.preview)
-        .frame(width: 1240, height: 760)
-        .appTheme(theme)
-}
-
-#Preview("Empty") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.empty))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("No accounts") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.noAccounts))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Over the limit") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.overLimit))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Account to reconnect") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.attention))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Others") {
-    @Previewable @State var theme = AppTheme()
-    let store = ReviewsStore.preview(.loaded)
-    ReviewsView(store: store)
-        .task { await store.openPreviewOthers() }
-        .previewAppState(.preview)
-        .frame(width: 1240, height: 760)
-        .appTheme(theme)
-}
-
-#Preview("Filtered by repo") {
-    @Previewable @State var theme = AppTheme()
-    let store = ReviewsStore.preview(.loaded)
-    ReviewsView(store: store)
-        .task { await store.showPreviewRepo(PreviewReviewsWorld.paymentsApp) }
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Filtered, empty") {
-    @Previewable @State var theme = AppTheme()
-    let store = ReviewsStore.preview(.loaded)
-    ReviewsView(store: store)
-        .task { await store.showPreviewRepo(PreviewReviewsWorld.releaseTools) }
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Opening a link") {
-    @Previewable @State var theme = AppTheme()
-    let store = ReviewsStore.preview(.loaded)
-    ReviewsView(store: store)
-        .task { await store.openPreviewSlowLink() }
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Pattern proposal") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.proposal))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Pattern proposal over the limit") {
-    @Previewable @State var theme = AppTheme()
-    ReviewsView(store: .preview(.proposalOverLimit))
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Browsed repository") {
-    @Previewable @State var theme = AppTheme()
-    let store = ReviewsStore.preview(.loaded)
-    ReviewsView(store: store)
-        .task { await store.openPreviewFoundRepo(PreviewReviewsWorld.ossLib) }
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
-}
-
-#Preview("Browsed repository, empty") {
-    @Previewable @State var theme = AppTheme()
-    let store = ReviewsStore.preview(.loaded)
-    ReviewsView(store: store)
-        .task { await store.openPreviewFoundRepo(PreviewReviewsWorld.ossCli) }
-        .previewAppState(.preview)
-        .frame(width: 1100, height: 700)
-        .appTheme(theme)
 }

@@ -8,10 +8,21 @@ private final class FakeProvider: PullRequestProvider, @unchecked Sendable {
     var closed: [PullRequest] = []
     var user = "me"
     var checksBySha: [String: [CICheck]] = [:]
+    /// What reading the open list throws, while set.
+    var openFailure: PullRequestFetchError?
+    /// What reading the closed list throws, while set.
+    var closedFailure: PullRequestFetchError?
+    private(set) var openFetches = 0
     private(set) var closedFetches = 0
 
     func fetchPulls(host: RemoteHost, state: PullListState, token: String) async throws -> [PullRequest] {
-        if state == .closed { closedFetches += 1; return closed }
+        if state == .closed {
+            closedFetches += 1
+            if let closedFailure { throw closedFailure }
+            return closed
+        }
+        openFetches += 1
+        if let openFailure { throw openFailure }
         return open
     }
     func fetchCurrentUser(host: RemoteHost, token: String) async throws -> String { user }
@@ -59,18 +70,6 @@ struct PullRequestStoreScopeTests {
         for _ in 0..<100 where !condition() { try? await Task.sleep(for: .milliseconds(10)) }
     }
 
-    @Test("Mine shows the open PRs authored by the token's user")
-    func mine() async {
-        let provider = FakeProvider()
-        provider.open = [Self.pr(1, author: "me", sha: "a"), Self.pr(2, author: "lucia", sha: "b")]
-        let store = Self.makeStore(provider)
-        await store.load(force: true)
-        await store.setScope(.mine)
-        #expect(store.visibleItems.map(\.number) == [1])
-        #expect(store.count(for: .mine) == 1)
-        #expect(store.count(for: .open) == 2)
-    }
-
     @Test("Closed is fetched the first time it's shown, and only then")
     func closedLazily() async {
         let provider = FakeProvider()
@@ -85,6 +84,95 @@ struct PullRequestStoreScopeTests {
         await store.setScope(.closed)
         #expect(provider.closedFetches == 1)
         #expect(store.visibleItems.map(\.number) == [9])
+    }
+
+    // MARK: Showing a list (U1 Ruling L)
+
+    @Test("Entering the section on Closed reads the open list, then Closed once")
+    func showEnteringClosed() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1, author: "me", sha: "a")]
+        provider.closed = [Self.pr(9, author: "lucia", sha: "z")]
+        let store = Self.makeStore(provider)
+
+        await store.show(.closed, entering: true)
+
+        #expect(provider.openFetches == 1)
+        #expect(provider.closedFetches == 1)
+        #expect(store.scope == .closed)
+        #expect(store.visibleItems.map(\.number) == [9])
+    }
+
+    @Test("Switching to Closed on a store that never loaded reads the open list, then Closed once")
+    func showClosedNeverLoaded() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1, author: "me", sha: "a")]
+        provider.closed = [Self.pr(9, author: "lucia", sha: "z")]
+        let store = Self.makeStore(provider)
+
+        await store.show(.closed, entering: false)
+
+        #expect(provider.openFetches == 1)
+        #expect(provider.closedFetches == 1)
+        #expect(store.visibleItems.map(\.number) == [9])
+    }
+
+    @Test("Switching between Open and Closed on a loaded store only changes the scope: Closed is read once")
+    func showSwitchesScope() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1, author: "me", sha: "a")]
+        provider.closed = [Self.pr(9, author: "lucia", sha: "z")]
+        let store = Self.makeStore(provider)
+        await store.load()
+
+        await store.show(.open, entering: false)
+        await store.show(.closed, entering: false)
+        await store.show(.open, entering: false)
+        await store.show(.closed, entering: false)
+
+        #expect(provider.openFetches == 1)
+        #expect(provider.closedFetches == 1)
+        #expect(store.scope == .closed)
+        #expect(store.visibleItems.map(\.number) == [9])
+    }
+
+    @Test("Entering the section again within the throttle reads nothing")
+    func showEnteringWithinThrottle() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1, author: "me", sha: "a")]
+        let store = Self.makeStore(provider)
+        await store.show(.open, entering: true)
+
+        await store.show(.open, entering: true)
+
+        #expect(provider.openFetches == 1)
+        #expect(provider.closedFetches == 0)
+    }
+
+    @Test("A store showing an error reads its list again when switched to, within the throttle too")
+    func showReloadsOnError() async {
+        let provider = FakeProvider()
+        provider.open = [Self.pr(1, author: "me", sha: "a")]
+        provider.openFailure = .network("offline")
+        let store = Self.makeStore(provider)
+        await store.load()
+        #expect(store.error != nil)
+
+        provider.openFailure = nil
+        await store.show(.open, entering: false)
+        #expect(provider.openFetches == 2)
+        #expect(store.error == nil)
+        #expect(store.visibleItems.map(\.number) == [1])
+
+        // Loaded a moment ago, then Closed fails: back to Open, the list is read again.
+        provider.closedFailure = .network("offline")
+        await store.show(.closed, entering: false)
+        #expect(store.error != nil)
+        provider.closedFailure = nil
+        await store.show(.open, entering: false)
+        #expect(provider.openFetches == 3)
+        #expect(store.error == nil)
+        #expect(store.scope == .open)
     }
 
     @Test("Each row gets its own CI summary from its head commit's checks")

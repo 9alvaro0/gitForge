@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// The row under the inbox's header while it's narrowed to one repo (R2
-/// Ruling 7), where Team / Mine no longer applies: the repo's path, a × that
-/// shows every repo again, and its clone or open button. A repo opened from a
-/// search that isn't followed has "Follow this repository" before that
-/// button (R3 Ruling 13).
+/// The row at the top of Team and Mine's list while the inbox is narrowed to
+/// one repo (R2 Ruling 7), where the tabs, which no longer apply, give way to
+/// it: the repo's path, a × that shows every repo again, and its clone or
+/// open button. A repo opened from a search that isn't followed has "Follow
+/// this repository" before that button (R3 Ruling 13).
 struct ReviewsRepoFilterBar: View {
     let repo: ReviewRepo
+    /// The inbox the bar narrows, which its open button reads and moves.
+    let reviews: ReviewsStore
     let onShowAll: () -> Void
     /// Follows the repo; `nil` when it's followed already or can't be.
     var onFollow: (() -> Void)? = nil
@@ -69,16 +71,20 @@ struct ReviewsRepoFilterBar: View {
     }
 
     private var actionButton: some View {
-        ReviewRepoActionButton(repo: repo, size: .small)
+        ReviewRepoActionButton(repo: repo, reviews: reviews, size: .small)
             .fixedSize()
     }
 }
 
-/// The repo's one action in Reviews (spec §4.3), as the detail offers it:
-/// "Clone repository…" when it isn't on this Mac, else "Open in repository",
-/// which goes to the clone's Pull requests.
+/// The repo's one action in Team and Mine (spec §4.3), as the detail offers
+/// it: "Clone repository…" when it isn't on this Mac, else "Open in
+/// repository", which goes to the clone's own list, Open. None for the
+/// repository open in gitForge, which is where it would go.
 struct ReviewRepoActionButton: View {
     let repo: ReviewRepo
+    /// The inbox that shows `repo`: it knows the open repository, and goes to
+    /// Open once the clone is open.
+    let reviews: ReviewsStore
     var size: GFButton.Size = .regular
     /// Stretches the button to the width it's given.
     var fullWidth = false
@@ -86,6 +92,13 @@ struct ReviewRepoActionButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        if !reviews.isActive(repo) {
+            button
+        }
+    }
+
+    @ViewBuilder
+    private var button: some View {
         switch ReviewRepoAction(repo) {
         case .clone(let url):
             GFButton(title: String(localized: "Clone repository…"), size: size, fullWidth: fullWidth) {
@@ -98,8 +111,9 @@ struct ReviewRepoActionButton: View {
         }
     }
 
-    /// Makes the clone the active repository, then shows its Pull requests;
-    /// a clone that can't be opened says why and leaves the section as it was.
+    /// Makes the clone the active repository, then shows its Pull requests on
+    /// Open, its own list, which leaves the filter by repo (U1 Ruling D); a
+    /// clone that can't be opened says why and leaves the section as it was.
     private func openPullRequests(at url: URL) async {
         do {
             try await appState.openRepository(at: url)
@@ -108,12 +122,14 @@ struct ReviewRepoActionButton: View {
             return
         }
         appState.ui.workspaceSection = .pulls
+        reviews.tab = .open
     }
 }
 
 #Preview {
     @Previewable @State var theme = AppTheme()
     let instance = PreviewReviewsWorld.gitLab
+    let reviews = ReviewsStore.preview(.loaded)
     VStack(alignment: .leading, spacing: Spacing.s12) {
         ForEach([PreviewReviewsWorld.paymentsApp, PreviewReviewsWorld.ledger], id: \.self) { path in
             ReviewsRepoFilterBar(
@@ -122,14 +138,14 @@ struct ReviewRepoActionButton: View {
                                  cloneURL: "https://gitlab.example.test/\(path).git",
                                  localURL: path == PreviewReviewsWorld.paymentsApp
                                      ? URL(fileURLWithPath: "/Users/preview/Developer/payments-app") : nil),
-                onShowAll: {})
+                reviews: reviews, onShowAll: {})
         }
         // Opened from a search, not followed.
         ReviewsRepoFilterBar(
             repo: ReviewRepo(host: RemoteHost.make(fullName: PreviewReviewsWorld.ossLib, on: PreviewReviewsWorld.gitHub)!,
                              accountId: UUID(), sources: [], lastActivity: nil,
                              cloneURL: "https://github.com/\(PreviewReviewsWorld.ossLib).git", localURL: nil),
-            onShowAll: {}, onFollow: {})
+            reviews: reviews, onShowAll: {}, onFollow: {})
     }
     .padding(Spacing.s12)
     .frame(width: 380, alignment: .leading)

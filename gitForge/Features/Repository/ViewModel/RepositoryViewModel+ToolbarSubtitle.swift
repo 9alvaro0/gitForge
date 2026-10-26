@@ -4,16 +4,19 @@ extension RepositoryViewModel {
     /// Subtitle under the toolbar title (redesign spec §6.1). The shell owns
     /// it: a screen's own `.navigationSubtitle` loses to the shell's, so the
     /// per-section variants live here instead of in each screen.
-    func toolbarSubtitle(for section: WorkspaceSection) -> String {
+    ///
+    /// `pullsTab` is the tab Pull requests shows: Team and Mine are the inbox's
+    /// and belong to no repository, so they show nothing under their title;
+    /// Open and Closed are this repository's, and show where it lives.
+    func toolbarSubtitle(for section: WorkspaceSection, pullsTab: PullsTab) -> String {
         switch section {
+        case .pulls where pullsTab.half != nil:
+            return ""
         case .pulls:
             guard let host = pullRequests.host else { return String(localized: "not connected") }
             return "\(host.slug) · \(host.provider.label.lowercased())"
         case .conflict where mergeState.isInProgress:
             return mergeStateSubtitle
-        case .reviews:
-            // The inbox belongs to no repository: no branch under its title.
-            return ""
         case .changes:
             // The staged / unstaged counts the old status bar showed.
             let branch = currentBranchName ?? String(localized: "Detached HEAD")

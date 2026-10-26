@@ -12,13 +12,9 @@ struct Sidebar: View {
     let activeSection: WorkspaceSection
     let unstagedBadge: Int
     let stashesBadge: Int
+    /// Open pull requests waiting on the user, across every followed repo.
     let pullsBadge: Int
     let conflictsBadge: Int
-    /// Open pull requests waiting on the user, across every followed repo.
-    let reviewsBadge: Int
-    /// The Reviews inbox is the section on screen. The workspace items
-    /// compare against `activeSection`, so none looks selected meanwhile.
-    let reviewsActive: Bool
     let refs: [GitRef]
     let identity: GitIdentity
     let scopeTag: SidebarUserCard.ScopeTag
@@ -71,17 +67,17 @@ struct Sidebar: View {
 
     private var list: some View {
         List {
-            if activeRepository != nil {
-                Section {
-                    ForEach(WorkspaceSection.workspaceItems) { section in
-                        SidebarNavItem(
-                            section: section,
-                            badge: badge(for: section),
-                            isActive: section == activeSection,
-                            onSelect: { onSelectSection(section) }
-                        )
-                    }
+            Section {
+                ForEach(WorkspaceSection.sidebarItems(hasRepository: activeRepository != nil)) { section in
+                    SidebarNavItem(
+                        section: section,
+                        badge: badge(for: section),
+                        isActive: section == activeSection,
+                        onSelect: { onSelectSection(section) }
+                    )
                 }
+            }
+            if activeRepository != nil {
                 Section("Branches") {
                     ForEach(BranchTree.rows(for: refs, collapsed: collapsedFolders)) { row in
                         SidebarBranchRow(
@@ -105,29 +101,17 @@ struct Sidebar: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .top, spacing: 0) {
-            // Reviews is global: it stays with or without an active repository.
-            VStack(spacing: Spacing.s4) {
-                SidebarNavItem(
-                    section: .reviews,
-                    badge: reviewsBadge > 0 ? reviewsBadge : nil,
-                    isActive: reviewsActive,
-                    onSelect: { onSelectSection(.reviews) }
-                )
-                // The list's rows sit 8 pt further in than this inset: the
-                // same again keeps its icon and count in their columns.
-                .padding(.horizontal, Spacing.s8)
-                SidebarRepoSwitcher(
-                    repositories: repositories,
-                    activeRepository: activeRepository,
-                    statusFor: statusFor,
-                    onSelectRepo: onSelectRepo,
-                    onRemoveRepo: onRemoveRepo,
-                    onRevealRepo: onRevealRepo,
-                    onOpenExisting: onOpenExisting,
-                    onCloneNew: onCloneNew,
-                    onOpenSettings: onOpenSettings
-                )
-            }
+            SidebarRepoSwitcher(
+                repositories: repositories,
+                activeRepository: activeRepository,
+                statusFor: statusFor,
+                onSelectRepo: onSelectRepo,
+                onRemoveRepo: onRemoveRepo,
+                onRevealRepo: onRevealRepo,
+                onOpenExisting: onOpenExisting,
+                onCloneNew: onCloneNew,
+                onOpenSettings: onOpenSettings
+            )
             .padding(.horizontal, Spacing.s8)
             .padding(.bottom, Spacing.s8)
         }
@@ -157,18 +141,16 @@ struct Sidebar: View {
     }
 }
 
-#Preview {
-    @Previewable @State var theme = AppTheme()
-    @Previewable @State var section: WorkspaceSection = .history
-    let active = Repository.previewSamples.first
+/// The sidebar as the previews show it: with `active` open, or with none.
+@MainActor
+private func previewSidebar(active: Repository?, section: Binding<WorkspaceSection>) -> some View {
     Sidebar(
         repositories: Repository.previewSamples,
         activeRepository: active,
         statusFor: RepoStatusSnapshot.previewStatusFor(active: active),
-        activeSection: section,
-        unstagedBadge: 3, stashesBadge: 1, pullsBadge: 2, conflictsBadge: 0,
-        reviewsBadge: 4, reviewsActive: section == .reviews,
-        refs: [
+        activeSection: section.wrappedValue,
+        unstagedBadge: 3, stashesBadge: 1, pullsBadge: 4, conflictsBadge: 0,
+        refs: active == nil ? [] : [
             GitRef(name: "main", kind: .localBranch, targetSha: "a", isHead: true),
             GitRef(name: "feature/lane-legend", kind: .localBranch, targetSha: "b", isHead: false),
             GitRef(name: "origin/main", kind: .remoteBranch(remote: "origin"), targetSha: "a", isHead: false),
@@ -186,7 +168,7 @@ struct Sidebar: View {
         onOpenExisting: {},
         onCloneNew: {},
         onOpenSettings: {},
-        onSelectSection: { section = $0 },
+        onSelectSection: { section.wrappedValue = $0 },
         onRevealBranch: { _ in },
         onCheckoutBranch: { _ in },
         onApplyProfile: { _ in },
@@ -194,5 +176,18 @@ struct Sidebar: View {
         onManageProfiles: {}
     )
     .frame(width: 240, height: 640)
-    .appTheme(theme)
+}
+
+#Preview("Repository open") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var section: WorkspaceSection = .history
+    previewSidebar(active: Repository.previewSamples.first, section: $section)
+        .appTheme(theme)
+}
+
+#Preview("No repository") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var section: WorkspaceSection = .pulls
+    previewSidebar(active: nil, section: $section)
+        .appTheme(theme)
 }

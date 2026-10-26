@@ -267,19 +267,33 @@ final class PullRequestStore {
     var visibleItems: [PullRequest] {
         switch scope {
         case .open: items
-        case .mine: items.filter { $0.authorLogin != nil && $0.authorLogin == currentUser }
         case .closed: closedItems
         }
     }
 
-    /// Count for a scope's segment; `nil` while unknown (Closed not loaded,
-    /// Mine before the user is known).
+    /// Count for a scope's tab; `nil` while unknown (Closed not loaded).
     func count(for scope: PullListScope) -> Int? {
         switch scope {
         case .open: items.count
-        case .mine: currentUser == nil ? nil : items.filter { $0.authorLogin == currentUser }.count
         case .closed: closedLoaded ? closedItems.count : nil
         }
+    }
+
+    /// Shows the list of `newScope`, as the Pull requests section's Open and
+    /// Closed tabs do (U1 Ruling L). `entering` the section loads the list
+    /// within its throttle; switching to the tab loads it only if it never
+    /// loaded or shows an error, and otherwise only changes the scope, as the
+    /// scope bar did. An error reads it again even within the throttle: the
+    /// list shows nothing else, a failed Closed read included. Closed is read
+    /// once either way: the scope is set before a load, which then reads
+    /// Closed too, and `setScope` after it reads Closed the first time it's
+    /// shown, if nothing did.
+    func show(_ newScope: PullListScope, entering: Bool) async {
+        if entering || lastLoadedAt == nil || error != nil {
+            scope = newScope
+            await load(force: error != nil)
+        }
+        await setScope(newScope)
     }
 
     /// Switches the list; Closed is fetched the first time it's shown.
@@ -666,6 +680,40 @@ final class PullRequestStore {
     func refresh() async {
         await load(force: true)
         if selected != nil { await loadDetail() }
+    }
+
+    /// Re-reads the open list in the background, for a read the user didn't
+    /// start (the inbox's auto refresh of the open repository, which Team and
+    /// Mine show). It uses the token of the last load and, after a 401,
+    /// renews it with `silentAuth`, so it never asks for an account. It shows
+    /// no spinner, error or connect state: a failure keeps the list as it
+    /// was. Closed and the detail are left alone. Nothing happens until a
+    /// load has succeeded (so not after a cancelled account chooser), while a
+    /// load runs, or when one starts before this read lands.
+    func refreshOpenListQuietly() async {
+        guard !isLoading, lastLoadedAt != nil, let host, let token = currentToken else { return }
+        let gen = listGen
+        let provider = makeProvider(host)
+        var used = token
+        let fetched: [PullRequest]
+        do {
+            fetched = try await provider.fetchPulls(host: host, state: .open, token: token)
+        } catch PullRequestFetchError.unauthorized {
+            guard case .token(let fresh) = await silentAuth(host, token),
+                  let retried = try? await provider.fetchPulls(host: host, state: .open, token: fresh) else { return }
+            used = fresh
+            fetched = retried
+        } catch {
+            return
+        }
+        guard gen == listGen, !isLoading else { return }
+        items = fetched
+        currentToken = used
+        lastLoadedAt = .now
+        ciTask?.cancel()
+        ciTask = Task { [weak self] in
+            await self?.loadCI(for: fetched, host: host, token: used, gen: gen)
+        }
     }
 
     /// CI of one commit for History's detail, `nil` when there's nothing to

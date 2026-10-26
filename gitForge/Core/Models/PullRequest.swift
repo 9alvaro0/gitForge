@@ -41,21 +41,19 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable, Codable {
 
 /// Which pull requests the list shows.
 nonisolated enum PullListScope: String, CaseIterable, Identifiable, Sendable {
-    case open, mine, closed
+    case open, closed
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .open: String(localized: "pr.scope.open", defaultValue: "Open")
-        case .mine: String(localized: "pr.scope.mine", defaultValue: "Mine")
         case .closed: String(localized: "pr.scope.closed", defaultValue: "Closed")
         }
     }
 }
 
-/// What a provider list request asks for. "Mine" is the open list filtered
-/// locally by author, so it doesn't need its own request.
+/// What a provider list request asks for.
 nonisolated enum PullListState: Sendable {
     case open, closed
 }

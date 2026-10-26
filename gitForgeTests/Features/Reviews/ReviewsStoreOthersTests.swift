@@ -38,6 +38,17 @@ struct ReviewsStoreOthersTests {
         return (store, harness)
     }
 
+    /// `loaded()` with oss/lib !5 by `lucia` and !8 by `marta`, the user, open
+    /// on the host and not yet among the Others.
+    private static func withLuciaAndMarta() async -> (store: ReviewsStore, harness: ReviewsHarness) {
+        let (store, harness) = await loaded()
+        harness.provider.state {
+            $0.lists["oss/lib"] = [ReviewsHarness.pr(5, by: "lucia", updated: 300),
+                                   ReviewsHarness.pr(8, by: "marta", updated: 350)]
+        }
+        return (store, harness)
+    }
+
     /// `loaded()` with team/app !9 by `author` on the host, opened from its
     /// link before a refresh lists it.
     private static func newPull(by author: String) async -> (store: ReviewsStore, harness: ReviewsHarness) {
@@ -124,27 +135,107 @@ struct ReviewsStoreOthersTests {
         #expect(store.revealRequest?.id == Self.id(Self.api, 3))
     }
 
-    @Test("A link that lands among the Others keeps the half, which shows them either way, and asks the list to show it")
-    func otherLinkKeepsHalf() async {
-        let (store, harness) = await Self.loaded()
-        harness.provider.state { $0.lists["oss/lib"]?.append(ReviewsHarness.pr(8, by: "marta", updated: 350)) }
+    @Test("A link that lands among the Others moves the inbox to the half of its author and asks the list to show it")
+    func otherLinkSetsHalf() async {
+        let (store, _) = await Self.withLuciaAndMarta()
 
         // Someone else's, with Mine on.
         store.filter = .mine
         _ = await store.openLink(Self.link("oss/lib", 5))
-        #expect(store.filter == .mine)
+        #expect(store.filter == .team)
         #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
         #expect(store.revealRequest?.id == Self.id(Self.lib, 5))
 
         // The user's own, with Team on.
-        store.filter = .team
         _ = await store.openLink(Self.link("oss/lib", 8))
-        #expect(store.filter == .team)
+        #expect(store.filter == .mine)
         #expect(store.selectedItem?.id == Self.id(Self.lib, 8))
         #expect(store.revealRequest?.id == Self.id(Self.lib, 8))
     }
 
-    @Test("A link to an Other already open keeps the half and asks the list to show it again")
+    @Test("Revealing an Other moves the inbox to the half that shows it, as a row does")
+    func revealOtherSetsHalf() async {
+        let (store, _) = await Self.withLuciaAndMarta()
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        _ = await store.openLink(Self.link("oss/lib", 8))
+        store.filter = .team
+        store.selectedID = nil
+
+        #expect(store.reveal(Self.id(Self.lib, 8)))
+        #expect(store.filter == .mine)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 8))
+        #expect(store.revealRequest?.id == Self.id(Self.lib, 8))
+        #expect(store.repositoryList == nil)
+
+        #expect(store.reveal(Self.id(Self.lib, 5)))
+        #expect(store.filter == .team)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
+    }
+
+    @Test("The Others show under the half of their author: Team's are someone else's and Mine's are the user's")
+    func othersByHalf() async {
+        let (store, _) = await Self.withLuciaAndMarta()
+        _ = await store.openLink(Self.link("oss/lib", 5))
+        _ = await store.openLink(Self.link("oss/lib", 8))
+        #expect(store.others.map(\.id) == [Self.id(Self.lib, 8), Self.id(Self.lib, 5)])
+        // Nothing selected: the selected Other shows in either half.
+        store.selectedID = nil
+
+        store.filter = .team
+        #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 5)])
+        store.filter = .mine
+        #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 8)])
+        #expect(store.listContent == .groups(store.groups, others: store.visibleOthers))
+    }
+
+    @Test("With the user's login still unread none of the Others is theirs")
+    func othersWithUnknownLogin() async {
+        // Never refreshed: no account has told its login yet.
+        let harness = ReviewsHarness()
+        harness.provider.state { $0.lists["oss/lib"] = [ReviewsHarness.pr(8, by: "marta", updated: 350)] }
+        let store = harness.makeStore()
+        _ = await store.openLink(Self.link("oss/lib", 8))
+        // Nothing selected: the selected Other shows in either half.
+        store.selectedID = nil
+
+        #expect(store.logins.isEmpty)
+        #expect(store.filter == .team)
+        #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 8)])
+        store.filter = .mine
+        #expect(store.visibleOthers.isEmpty)
+    }
+
+    @Test("An Other opened before the login is read stays shown, and selected, once the login makes it the user's")
+    func selectedOtherStaysWhenLoginArrives() async {
+        // Never refreshed: no account has told its login yet.
+        let harness = ReviewsHarness()
+        harness.provider.state { $0.lists["oss/lib"] = [ReviewsHarness.pr(8, by: "marta", updated: 350)] }
+        let store = harness.makeStore()
+        let id = Self.id(Self.lib, 8)
+        #expect(await store.openLink(Self.link("oss/lib", 8)) == .opened(id))
+        #expect(store.filter == .team)
+        #expect(store.visibleOthers.map(\.id) == [id])
+
+        // The first refresh reads the login: the Other is the user's now.
+        await store.refresh(force: true)
+        #expect(store.logins[harness.account.id] == "marta")
+        #expect(store.filter == .team)
+
+        // Selected, it stays where the user is, and its selection isn't dropped.
+        #expect(store.visibleOthers.map(\.id) == [id])
+        store.dropHiddenSelection()
+        #expect(store.selectedItem?.id == id)
+        store.filter = .mine
+        #expect(store.visibleOthers.map(\.id) == [id])
+
+        // Unselected, it shows only in its own half.
+        store.selectedID = nil
+        #expect(store.visibleOthers.map(\.id) == [id])
+        store.filter = .team
+        #expect(store.visibleOthers.isEmpty)
+    }
+
+    @Test("A link to an Other already open moves to its half and asks the list to show it again")
     func reopenedLinkScrolls() async {
         let (store, _) = await Self.loaded()
         _ = await store.openLink(Self.link("oss/lib", 5))
@@ -153,7 +244,7 @@ struct ReviewsStoreOthersTests {
 
         _ = await store.openLink(Self.link("oss/lib", 5))
 
-        #expect(store.filter == .mine)
+        #expect(store.filter == .team)
         #expect(store.revealRequest?.id == Self.id(Self.lib, 5))
         #expect(store.revealRequest != request)
     }
@@ -164,13 +255,13 @@ struct ReviewsStoreOthersTests {
         _ = await store.openLink(Self.link("oss/lib", 5))
         _ = await store.openLink(Self.link("oss/lib", 6))
         let request = store.revealRequest
-        // The Others show under either half.
-        store.filter = .mine
+        // Both are someone else's: Team shows them.
+        #expect(store.filter == .team)
         #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 6), Self.id(Self.lib, 5)])
 
         store.selectedID = Self.id(Self.lib, 5)
 
-        #expect(store.filter == .mine)
+        #expect(store.filter == .team)
         #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
         #expect(store.revealRequest == request)
     }
@@ -543,14 +634,20 @@ struct ReviewsStoreOthersTests {
         #expect(store.selectedItem?.id == id)
     }
 
-    @Test("The user's own new pull request stays among the Others while selected and Team hides its row")
-    func newOwnPullOfFollowedRepo() async {
+    @Test("The selected Other stays among the Others while the current half hides its row, which a refresh listed")
+    func selectedOtherStaysVisible() async {
         let (store, _) = await Self.newPull(by: "marta")
         let id = Self.id(Self.app, 9)
+        #expect(store.filter == .mine)
 
         await store.refresh(force: true)
 
-        #expect(store.filter == .team)
+        // Listed in Mine now.
+        #expect(store.visibleOthers.isEmpty)
+        #expect(store.groups.first { $0.repo.id == Self.app }?.pulls.map(\.id) == [id])
+
+        // Team hides its row: the selection stays among the Others.
+        store.filter = .team
         #expect(store.visibleOthers.map(\.id) == [id])
         #expect(store.selectedItem?.id == id)
 

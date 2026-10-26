@@ -14,15 +14,14 @@ struct ContentRouter: View {
         case .branches: BranchesView(viewModel: viewModel)
         case .stashes:  StashesView(viewModel: viewModel)
         case .pulls:
-            PullsView(store: viewModel.pullRequests,
-                      localActions: .repository(
-                          integrate: { await viewModel.attemptLocalMergeForPullRequest() },
-                          checkout: { await viewModel.checkoutPullRequestBranch() }))
+            PullsView(reviews: appState.reviews,
+                      repository: PullsRepository(
+                          store: viewModel.pullRequests,
+                          localActions: .repository(
+                              integrate: { await viewModel.attemptLocalMergeForPullRequest() },
+                              checkout: { await viewModel.checkoutPullRequestBranch() })))
         case .conflict: ConflictView(viewModel: viewModel)
         case .settings: SettingsView()
-        // Inside a repository so going to Reviews and back does not mount
-        // the repository again.
-        case .reviews:  ReviewsView(store: appState.reviews)
         }
     }
 }

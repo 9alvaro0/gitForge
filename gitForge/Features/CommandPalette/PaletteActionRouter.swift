@@ -44,15 +44,15 @@ struct PaletteActionRouter {
                 workingCopy.select(file, side: file.isUnstaged ? .unstaged : .staged)
             }
         case .openPull(let id):
-            appState.ui.workspaceSection = .reviews
+            appState.ui.workspaceSection = .pulls
             appState.reviews.reveal(id)
         case .showReviews(let repoKey):
-            appState.ui.workspaceSection = .reviews
+            appState.ui.workspaceSection = .pulls
             appState.reviews.showRepo(repoKey)
         case .openPullLink(let link):
-            // Reviews before the read starts: its detail column says what's
-            // being opened (Ruling 11, "at once").
-            appState.ui.workspaceSection = .reviews
+            // Pull requests before the read starts: its detail column says
+            // what's being opened (Ruling 11, "at once").
+            appState.ui.workspaceSection = .pulls
             Task { await openLink(link) }
         case .addInstance(let kind, let host):
             appState.ui.addInstanceRequest = AddInstanceRequest(kind: kind, url: "https://\(host)")
@@ -68,7 +68,7 @@ struct PaletteActionRouter {
             // The palette stays open: the row turns into what the search finds.
             Task { await appState.reviews.searchHost(instanceId, query: query) }
         case .openFoundRepo(let repo):
-            appState.ui.workspaceSection = .reviews
+            appState.ui.workspaceSection = .pulls
             Task { await openFoundRepo(repo) }
         case .connectAccount(let instanceId):
             appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId)
@@ -77,19 +77,19 @@ struct PaletteActionRouter {
         }
     }
 
-    /// A pasted pull request link (R2 Ruling 11): Reviews at once, where the
-    /// detail column says it's being opened, and then what the inbox made of
-    /// it. The outcome is acted on even when a newer link overtook this one.
+    /// A pasted pull request link (R2 Ruling 11): Pull requests at once, where
+    /// the detail column says it's being opened, and then what the inbox made
+    /// of it. The outcome is acted on even when a newer link overtook this one.
     func openLink(_ link: PullRequestLink) async {
-        appState.ui.workspaceSection = .reviews
+        appState.ui.workspaceSection = .pulls
         present(await appState.reviews.openLink(link))
     }
 
-    /// A repo found by searching a host (R3 Ruling 13): Reviews at once,
+    /// A repo found by searching a host (R3 Ruling 13): Pull requests at once,
     /// narrowed to it once the inbox has it, and what keeps it from opening
     /// told as for a link: the connect sheet or an error toast.
     func openFoundRepo(_ repo: FoundRepo) async {
-        appState.ui.workspaceSection = .reviews
+        appState.ui.workspaceSection = .pulls
         switch await appState.reviews.openFoundRepo(repo) {
         case .shown:
             break
@@ -103,12 +103,12 @@ struct PaletteActionRouter {
     /// The sheet to connect an account closed, whatever opened it: the host
     /// searches that asked for an account go back to the row that searches,
     /// and the link that waited for one is opened again (R3 Ruling 14):
-    /// Reviews and its outcome when the inbox tried it; nothing when there
+    /// Pull requests and its outcome when the inbox tried it; nothing when there
     /// was none or its instance still has no account that signs.
     func connectSheetClosed() async {
         appState.reviews.forgetConnectSearches()
         guard let outcome = await appState.reviews.retryPendingLink() else { return }
-        appState.ui.workspaceSection = .reviews
+        appState.ui.workspaceSection = .pulls
         present(outcome)
     }
 

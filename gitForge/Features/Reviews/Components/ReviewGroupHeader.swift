@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// A repo's heading in the inbox: its path, and "Not cloned" when it isn't on
-/// this Mac. Pinned while its rows scroll under it. A followed repo's has
-/// "Hide from Reviews" in its context menu (R3 Ruling 15).
+/// A repo's heading in Team and Mine: its path, and "Not cloned" when it isn't
+/// on this Mac. Pinned while its rows scroll under it. The open repository's
+/// looks like any other, first in the list. A followed repo's, and the open
+/// repository's when it isn't followed, has "Hide" in its context menu (R3
+/// Ruling 15, U1 Ruling 8).
 struct ReviewGroupHeader: View {
     let repo: ReviewRepo
-    /// Hides the repo from the inbox; `nil` offers nothing (a repo opened
+    /// Hides the repo from Team and Mine; `nil` offers nothing (a repo opened
     /// from a search, which nobody follows).
     var onHide: (() -> Void)? = nil
 
@@ -37,14 +39,14 @@ struct ReviewGroupHeader: View {
         .accessibilityAddTraits(.isHeader)
     }
 
-    /// "Hide from Reviews" as the context menu, only with `onHide`: without
-    /// it there's no menu at all, rather than an empty one.
+    /// The hiding as the context menu, only with `onHide`: without it there's
+    /// no menu at all, rather than an empty one.
     private struct HideMenu: ViewModifier {
         let onHide: (() -> Void)?
 
         func body(content: Content) -> some View {
             if let onHide {
-                content.contextMenu { Button(String(localized: "Hide from Reviews"), action: onHide) }
+                content.contextMenu { Button(String(localized: "Hide from Pull requests"), action: onHide) }
             } else {
                 content
             }

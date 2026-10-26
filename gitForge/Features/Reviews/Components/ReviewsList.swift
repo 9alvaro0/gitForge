@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Left column of Reviews: Team / Mine, when the inbox was last read and
-/// Refresh; the repo the inbox is narrowed to, if any; the notices that hold
-/// for the whole inbox (the pattern gitForge proposes first); then the open
-/// pull requests grouped by repo (Rulings 8 and 9) and the Others opened from
-/// a link (R2 Ruling 9). A row selected from outside the list scrolls into
-/// view (`ReviewsStore.revealRequest`).
+/// Left column of Team and Mine, under the section's tab bar
+/// (`PullsTabBar`): the repo the inbox is narrowed to, if any; the notices
+/// that hold for the whole inbox (the pattern gitForge proposes first); then
+/// the open pull requests grouped by repo (Rulings 8 and 9), the open
+/// repository's first (U1 Ruling 3), and the Others opened from a link (R2
+/// Ruling 9). A row selected from outside the list scrolls into view
+/// (`ReviewsStore.revealRequest`).
 struct ReviewsList: View {
     let store: ReviewsStore
     let onSelect: (InboxPull) -> Void
@@ -15,65 +16,20 @@ struct ReviewsList: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
             if let repo = store.filteredRepo {
-                // A row of its own, the column's whole width: the path and
-                // its button would crowd the header (R2 Ruling 7).
-                ReviewsRepoFilterBar(repo: repo, onShowAll: { store.showAllRepos() },
+                // In place of Team and Mine, which the tab bar no longer
+                // offers: a row of its own, the column's whole width, where
+                // the path and its button fit (R2 Ruling 7).
+                ReviewsRepoFilterBar(repo: repo, reviews: store, onShowAll: { store.showAllRepos() },
                                      onFollow: followable(repo).map { found in { follow(found) } })
                     .padding(.horizontal, Spacing.s12)
-                    .padding(.bottom, Spacing.s8)
+                    .padding(.vertical, Spacing.s8)
             }
             notices
             content
         }
         // The pinned repo headers are painted with it.
         .background(theme.colors.bgContent)
-    }
-
-    // MARK: Header
-
-    /// As the Pull requests scope bar: the filter above the list. Narrowed
-    /// to a repo, Team / Mine goes: the list shows both halves (R2 Ruling 7).
-    private var header: some View {
-        HStack(spacing: Spacing.s8) {
-            if store.filteredRepo == nil {
-                SegmentedControl<ReviewsFilter>(
-                    ReviewsFilter.allCases.map { ($0, $0.title) },
-                    selection: Bindable(store).filter
-                )
-                .fixedSize()
-            }
-            Spacer(minLength: 0)
-            if let updated = store.lastRefreshedAt {
-                // Ticks over while the inbox stays on screen.
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text("Updated \(DateDisplayMode.elapsed(since: updated, reference: context.date))")
-                        .textRole(.caption)
-                        .foregroundStyle(theme.colors.textTertiary)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                }
-            }
-            refreshButton
-        }
-        .padding(.horizontal, Spacing.s12)
-        .frame(height: 44)
-    }
-
-    @ViewBuilder
-    private var refreshButton: some View {
-        if store.isRefreshing {
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 26, height: 26)
-        } else {
-            IconButton(symbol: "arrow.clockwise", accessibilityLabel: String(localized: "Refresh")) {
-                // Reads the memberships and rename lookups again too (R3 Ruling 9).
-                Task { await store.refresh(force: true, rereadLists: true) }
-            }
-            .help(String(localized: "Refresh"))
-        }
     }
 
     // MARK: Notices
@@ -112,6 +68,8 @@ struct ReviewsList: View {
                 }
             }
             .padding(.horizontal, Spacing.s8)
+            // Off the tab bar's rule, unless the filter bar is between them.
+            .padding(.top, store.filteredRepo == nil ? Spacing.s8 : 0)
             .padding(.bottom, Spacing.s8)
         }
     }
@@ -175,11 +133,12 @@ struct ReviewsList: View {
             message: String(localized: "Following it would pass the limit of 100 repositories."), kind: .warn)
     }
 
-    /// "Hide from Reviews" on the heading of a followed repo (R3 Ruling 15,
-    /// Ruling Q); `nil` on a repo opened from a search, which hiding wouldn't
-    /// change.
-    private func hideAction(_ repo: ReviewRepo, followed: Set<String>) -> (() -> Void)? {
-        guard followed.contains(repo.id) else { return nil }
+    /// "Hide" on the heading of a followed repo (R3 Ruling 15, Ruling Q),
+    /// and of the open repository that isn't followed, which hiding keeps out
+    /// of Team and Mine (U1 Ruling 3); `nil` on a repo opened from a search,
+    /// which hiding wouldn't change. `hideable`: the keys of both.
+    private func hideAction(_ repo: ReviewRepo, hideable: Set<String>) -> (() -> Void)? {
+        guard hideable.contains(repo.id) else { return nil }
         return { Task { await store.hide(repo.host) } }
     }
 
@@ -201,17 +160,17 @@ struct ReviewsList: View {
                             HStack(spacing: Spacing.s8) {
                                 followButton(found)
                                     .fixedSize()
-                                ReviewRepoActionButton(repo: repo)
+                                ReviewRepoActionButton(repo: repo, reviews: store)
                                     .fixedSize()
                             }
                             VStack(spacing: Spacing.s8) {
                                 followButton(found, fullWidth: true)
-                                ReviewRepoActionButton(repo: repo, fullWidth: true)
+                                ReviewRepoActionButton(repo: repo, reviews: store, fullWidth: true)
                             }
                             .fixedSize(horizontal: true, vertical: false)
                         }
                     } else {
-                        ReviewRepoActionButton(repo: repo)
+                        ReviewRepoActionButton(repo: repo, reviews: store)
                     }
                 }
             } else {
@@ -267,7 +226,8 @@ struct ReviewsList: View {
     }
 
     private func rows(groups: [ReviewGroup], others: [InboxPull]) -> some View {
-        let followed = store.followedKeys
+        var hideable = store.followedKeys
+        if let visiting = store.visitingRepo { hideable.insert(visiting.id) }
         return LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
             ForEach(groups) { group in
                 Section {
@@ -286,7 +246,7 @@ struct ReviewsList: View {
                         errorRow(error)
                     }
                 } header: {
-                    ReviewGroupHeader(repo: group.repo, onHide: hideAction(group.repo, followed: followed))
+                    ReviewGroupHeader(repo: group.repo, onHide: hideAction(group.repo, hideable: hideable))
                         .id(ReviewsHeading.group(group.id))
                 }
             }

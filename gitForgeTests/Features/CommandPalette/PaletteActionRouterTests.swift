@@ -50,7 +50,8 @@ struct PaletteActionRouterTests {
 
     // MARK: Pull requests and links
 
-    /// An app whose inbox loaded team/app, not cloned, with the user's !4.
+    /// An app whose inbox loaded team/app, not cloned, with the user's !4 and
+    /// lucia's !5.
     private static func appWithInbox() throws -> (app: AppState, repo: ReviewRepo, pullID: InboxPull.ID) {
         let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
         let accountId = UUID()
@@ -60,37 +61,55 @@ struct PaletteActionRouterTests {
         let pull = PullRequest(id: "iid:4", number: 4, title: "MR 4", state: .open, authorLogin: "marta",
                                authorAvatarURL: nil, sourceBranch: "feature/4", targetBranch: "main", webURL: nil,
                                createdAt: nil, updatedAt: nil)
+        let teammate = PullRequest(id: "iid:5", number: 5, title: "MR 5", state: .open, authorLogin: "lucia",
+                                   authorAvatarURL: nil, sourceBranch: "feature/5", targetBranch: "main", webURL: nil,
+                                   createdAt: nil, updatedAt: nil)
         let snapshots = ReviewsSnapshotStore(directory: TemporaryDirectories.make("gitForge-router-reviews"))
         snapshots.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion,
                                        savedAt: Date(timeIntervalSince1970: 1_790_000_000),
-                                       repos: [repo], pulls: [repo.id: [pull]], memberships: [:],
+                                       repos: [repo], pulls: [repo.id: [pull, teammate]], memberships: [:],
                                        logins: [accountId: "marta"]))
         let app = AppState.isolated(reviewsSnapshots: snapshots)
         app.reviews.loadSnapshot()
         return (app, repo, InboxPull.id(repoKey: repo.id, number: 4))
     }
 
-    @Test("A pull request opens Reviews with it selected, on the half that shows it")
+    @Test("A pull request opens Pull requests with it selected, on the half that shows it")
     func openPull() throws {
         let (app, _, id) = try Self.appWithInbox()
         #expect(app.reviews.filter == .team)
 
         PaletteActionRouter(appState: app).route(.openPull(id: id))
 
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
         #expect(app.reviews.selectedID == id)
         // The user's own: Mine shows it.
         #expect(app.reviews.filter == .mine)
         #expect(app.reviews.selectedItem?.id == id)
     }
 
-    @Test("A repo that isn't cloned opens Reviews narrowed to it")
+    @Test("A pull request picked while the repository's Closed list shows opens the inbox, on the half that shows it")
+    func openPullFromRepositoryTab() throws {
+        let (app, repo, _) = try Self.appWithInbox()
+        app.reviews.tab = .closed
+        let id = InboxPull.id(repoKey: repo.id, number: 5)
+
+        PaletteActionRouter(appState: app).route(.openPull(id: id))
+
+        #expect(app.ui.workspaceSection == .pulls)
+        #expect(app.reviews.selectedID == id)
+        // lucia's: Team shows it, not the Closed list the section was on.
+        #expect(app.reviews.tab == .team)
+        #expect(app.reviews.selectedItem?.id == id)
+    }
+
+    @Test("A repo that isn't cloned opens Pull requests narrowed to it")
     func showReviews() throws {
         let (app, repo, _) = try Self.appWithInbox()
 
         PaletteActionRouter(appState: app).route(.showReviews(repoKey: repo.id))
 
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
         #expect(app.reviews.filteredRepo?.id == repo.id)
         #expect(app.reviews.groups.map(\.repo.id) == [repo.id])
     }
@@ -103,7 +122,7 @@ struct PaletteActionRouterTests {
         #expect(app.ui.addInstanceRequest?.url == "https://code.example.test")
     }
 
-    @Test("A pasted link goes to Reviews at once, before the inbox has read it")
+    @Test("A pasted link goes to Pull requests at once, before the inbox has read it")
     func linkGoesToReviewsAtOnce() throws {
         let app = AppState.isolated()
         let link = try #require(PullRequestLink.parse("https://github.com/octo/lib/pull/7", instances: app.accounts.instances))
@@ -111,17 +130,17 @@ struct PaletteActionRouterTests {
         PaletteActionRouter(appState: app).route(.openPullLink(link))
 
         // No suspension point since `route`: the read hasn't started yet.
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
     }
 
-    @Test("A link on an instance with no account goes to Reviews and asks to connect one")
+    @Test("A link on an instance with no account goes to Pull requests and asks to connect one")
     func linkWithoutAccounts() async throws {
         let app = AppState.isolated()
         let link = try #require(PullRequestLink.parse("https://github.com/octo/lib/pull/7", instances: app.accounts.instances))
 
         await PaletteActionRouter(appState: app).openLink(link)
 
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
         #expect(app.ui.connectAccountRequest?.instanceId == HostingInstance.gitHubDotCom.id)
         #expect(app.ui.activeToast == nil)
     }
@@ -157,24 +176,24 @@ struct PaletteActionRouterTests {
         #expect(app.ui.connectAccountRequest?.instanceId == id)
     }
 
-    @Test("A found repo goes to Reviews at once, before the inbox has read it")
+    @Test("A found repo goes to Pull requests at once, before the inbox has read it")
     func foundRepoGoesToReviewsAtOnce() throws {
         let (app, repo, _) = try Self.appWithInbox()
         app.ui.workspaceSection = .history
 
         PaletteActionRouter(appState: app).route(.openFoundRepo(Self.found(repo)))
 
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
     }
 
-    @Test("A found repo that's followed opens Reviews narrowed to it")
+    @Test("A found repo that's followed opens Pull requests narrowed to it")
     func openFoundRepoFollowed() async throws {
         let (app, repo, _) = try Self.appWithInbox()
         app.ui.workspaceSection = .history
 
         await PaletteActionRouter(appState: app).openFoundRepo(Self.found(repo))
 
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
         #expect(app.reviews.filteredRepo?.id == repo.id)
         #expect(app.ui.connectAccountRequest == nil)
         #expect(app.ui.activeToast == nil)
@@ -189,7 +208,7 @@ struct PaletteActionRouterTests {
         await PaletteActionRouter(appState: app).openFoundRepo(
             FoundRepo(host: host, instanceId: instance.id, cloneURL: "https://github.com/octo/lib.git"))
 
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.ui.workspaceSection == .pulls)
         #expect(app.ui.connectAccountRequest?.instanceId == instance.id)
         #expect(app.ui.activeToast == nil)
     }
