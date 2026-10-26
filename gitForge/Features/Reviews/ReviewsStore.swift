@@ -919,7 +919,7 @@ final class ReviewsStore {
     /// use with the repo's account and kept while the repo is followed or an
     /// Other uses it. `nil` for a repo that's none of those.
     func detailStore(for repoKey: String) -> PullRequestStore? {
-        if let active = activeRepository, active.store.host.map(FollowedRepos.key) == repoKey { return active.store }
+        if repoKey == activeRepoKey, let store = activeRepository?.store { return store }
         if let store = detailStores[repoKey] { return store }
         guard let repo = repos.first(where: { $0.id == repoKey })
                 ?? others.first(where: { $0.repo.id == repoKey })?.repo else { return nil }
@@ -936,15 +936,16 @@ final class ReviewsStore {
         return store
     }
 
-    /// Opens `item` in its repo's detail store once that has a token, unless
-    /// the store has it open already: the open repository's own may, from its
-    /// Open tab, and selecting it again would only read the detail over.
+    /// Opens `item` in its repo's detail store once that has a token. The
+    /// open repository's own store may have it open already, from its Open
+    /// tab: selecting it again would only read the detail over, so it's left
+    /// (U1 Ruling F). The inbox's own stores select every time.
     func open(_ item: InboxPull) async {
         guard let store = detailStore(for: item.repo.id) else { return }
         openGen &+= 1
         let gen = openGen
         guard await store.prepareForDetail(), gen == openGen else { return }
-        guard store.selected?.number != item.pull.number else { return }
+        guard store !== activeRepository?.store || store.selected?.number != item.pull.number else { return }
         store.select(item.pull)
     }
 

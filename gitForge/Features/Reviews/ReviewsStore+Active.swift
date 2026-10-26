@@ -17,12 +17,14 @@ struct ActiveRepositoryPulls {
 /// and it isn't added to the repos followed. Its store, not the inbox's, opens
 /// the detail of its pull requests (`ReviewsStore.detailStore(for:)`).
 extension ReviewsStore {
-    /// The key (`FollowedRepos.key`) of the repository open in gitForge, once
-    /// its store knows the host. A repository with no remote, or on an
-    /// instance that isn't declared, has none: the inbox then has no open
-    /// repository.
+    /// The key (`FollowedRepos.key`) of the repository open in gitForge: that
+    /// of the followed repo it is (`followedRepo(for:)`), else of the host its
+    /// store knows. A repository with no remote, or on an instance that isn't
+    /// declared, and that no followed repo is cloned at, has none: the inbox
+    /// then has no open repository.
     var activeRepoKey: String? {
-        activeRepository?.store.host.map(FollowedRepos.key)
+        guard let active = activeRepository else { return nil }
+        return followedRepo(for: active)?.id ?? active.store.host.map(FollowedRepos.key)
     }
 
     /// Whether `repo` is the repository open in gitForge.
@@ -77,12 +79,26 @@ extension ReviewsStore {
 
     // MARK: Private
 
+    /// The followed repo that `active` is (U1 Ruling G): the one whose clone is
+    /// its folder, else the one at the path of its store's host. The folder
+    /// goes first because a followed clone whose repo was renamed is followed
+    /// under its new path, while its `origin`, and so the store's host, keeps
+    /// the old one (`outdatedOrigin`, R3 Ruling 10).
+    private func followedRepo(for active: ActiveRepositoryPulls) -> ReviewRepo? {
+        let folder = active.localURL.standardizedFileURL.path
+        if let cloned = repos.first(where: { $0.localURL?.standardizedFileURL.path == folder }) { return cloned }
+        guard let host = active.store.host else { return nil }
+        let key = FollowedRepos.key(host)
+        return repos.first { $0.id == key }
+    }
+
     /// The visiting repo and the store its rows come from.
     private var visiting: (repo: ReviewRepo, store: PullRequestStore)? {
-        guard let active = activeRepository, let host = active.store.host else { return nil }
+        guard let active = activeRepository, let host = active.store.host, followedRepo(for: active) == nil else {
+            return nil
+        }
         let key = FollowedRepos.key(host)
-        guard !repos.contains(where: { $0.id == key }),
-              !config.hidden.contains(where: { FollowedRepos.key($0) == key }),
+        guard !config.hidden.contains(where: { FollowedRepos.key($0) == key }),
               let account = inboxAccounts.first(where: { $0.instance.host == host.host })?.account else { return nil }
         let repo = ReviewRepo(host: host, accountId: account.id, sources: [], lastActivity: nil,
                               cloneURL: FollowedRepos.cloneURL(for: host), localURL: active.localURL)

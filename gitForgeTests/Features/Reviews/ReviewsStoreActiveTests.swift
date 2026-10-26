@@ -189,6 +189,44 @@ struct ReviewsStoreActiveTests {
         #expect(Set(ids).count == ids.count)
     }
 
+    @Test("A followed repo cloned in the open folder is the open repo, though its origin still has the old path")
+    func renamedCloneIsActive() async throws {
+        let harness = ReviewsHarness.twoRepos()
+        let renamedKey = ReviewsHarness.key("team/app-renamed")
+        // team/app was renamed: followed under its new path, its clone is /r/team/app.
+        harness.locals = [LocalRemote(host: ReviewsHarness.host("team/app-renamed"),
+                                      repository: Repository(url: URL(fileURLWithPath: "/r/team/app"),
+                                                             lastOpenedAt: ReviewsHarness.date(1_780_000_000)),
+                                      assignedAccountId: nil, outdatedOrigin: ReviewsHarness.host("team/app"))]
+        harness.provider.state {
+            $0.lists["team/app-renamed"] = [ReviewsHarness.pr(1, by: "lucia", updated: 100),
+                                            ReviewsHarness.pr(2, by: "marta", updated: 110)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(3, by: "lucia", updated: 300),
+                                    ReviewsHarness.pr(4, by: "marta", updated: 310)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        #expect(store.groups.map(\.repo.id) == [Self.api, renamedKey])
+
+        // The store of the open folder still reads `origin`: the old path.
+        let active = await harness.activeStore("team/app", pulls: [], user: "marta")
+        harness.active = active
+        #expect(active.store.host?.slug == "team/app")
+
+        #expect(store.activeRepoKey == renamedKey)
+        #expect(store.visitingRepo == nil)
+        #expect(store.groups.map(\.repo.id) == [renamedKey, Self.api])
+        store.filter = .mine
+        #expect(store.groups.map(\.repo.id) == [renamedKey, Self.api])
+        let ids = store.searchablePulls.map(\.id)
+        #expect(Set(ids).count == ids.count)
+
+        let row = try #require(store.inboxRows.first { $0.id == Self.id(renamedKey, 1) })
+        #expect(store.isActive(row.repo))
+        #expect(store.detailAction(for: row) == .local)
+        #expect(store.detailStore(for: renamedKey) === active.store)
+    }
+
     // MARK: ⌘K and the inbox's actions
 
     @Test("The open repo's pull requests are searched and revealed, in the half that shows them")
@@ -305,5 +343,24 @@ struct ReviewsStoreActiveTests {
         harness.active = followed
         #expect(store.detailStore(for: Self.app) === followed.store)
         #expect(store.detailStore(for: Self.lib) == nil)
+    }
+
+    @Test("A store of the inbox's own selects the pull request again each time it's opened")
+    func inboxStoresSelectAgain() async throws {
+        let (store, harness) = await Self.loaded()
+        let active = await harness.activeStore("oss/lib", pulls: Self.libPulls, user: "marta")
+        harness.active = active
+        let item = try #require(store.inboxRows.first { $0.id == Self.id(Self.app, 1) })
+        let detail = try #require(store.detailStore(for: Self.app))
+        #expect(detail !== active.store)
+
+        await store.open(item)
+        #expect(detail.selected?.number == 1)
+        await waitUntil { detail.detail != nil && !detail.isLoadingDetail }
+
+        let gen = detail.detailGen
+        await store.open(item)
+        #expect(detail.detailGen != gen)
+        #expect(detail.selected?.number == 1)
     }
 }
