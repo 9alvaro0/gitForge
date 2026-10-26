@@ -59,21 +59,17 @@ struct PullsView: View {
         PullsTab.shown(reviews.tab, hasRepository: repository != nil)
     }
 
-    /// The repository's list for `tab`. Entering the section loads it within
-    /// its throttle (U1 Ruling 8); switching to Open or Closed loads it only
-    /// if it never loaded or shows an error, and otherwise just changes the
-    /// scope, as the scope bar did (U1 Ruling L). Closed is read once either
-    /// way: the scope is set before a load, which then reads Closed too
-    /// (`PullRequestStore.load`), and `setScope` after it reads Closed the
-    /// first time it's shown, if nothing did.
+    /// The repository's list for `tab`: on Open and Closed, what
+    /// `PullRequestStore.show` reads (U1 Ruling L); entering the section on
+    /// Team or Mine, the open list within its throttle, for the open
+    /// repository's group (U1 Ruling 8).
     private func loadRepository(for tab: PullsTab, entering: Bool) async {
         guard let store = repository?.store else { return }
-        let scope = tab.listScope
-        if entering || store.lastLoadedAt == nil || store.error != nil {
-            if let scope { store.scope = scope }
+        if let scope = tab.listScope {
+            await store.show(scope, entering: entering)
+        } else if entering {
             await store.load()
         }
-        if let scope { await store.setScope(scope) }
     }
 
     /// "Merge requests" on Open and Closed of a GitLab repository; "Pull

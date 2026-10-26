@@ -279,6 +279,23 @@ final class PullRequestStore {
         }
     }
 
+    /// Shows the list of `newScope`, as the Pull requests section's Open and
+    /// Closed tabs do (U1 Ruling L). `entering` the section loads the list
+    /// within its throttle; switching to the tab loads it only if it never
+    /// loaded or shows an error, and otherwise only changes the scope, as the
+    /// scope bar did. An error reads it again even within the throttle: the
+    /// list shows nothing else, a failed Closed read included. Closed is read
+    /// once either way: the scope is set before a load, which then reads
+    /// Closed too, and `setScope` after it reads Closed the first time it's
+    /// shown, if nothing did.
+    func show(_ newScope: PullListScope, entering: Bool) async {
+        if entering || lastLoadedAt == nil || error != nil {
+            scope = newScope
+            await load(force: error != nil)
+        }
+        await setScope(newScope)
+    }
+
     /// Switches the list; Closed is fetched the first time it's shown.
     func setScope(_ newScope: PullListScope) async {
         scope = newScope
