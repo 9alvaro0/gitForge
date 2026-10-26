@@ -303,10 +303,11 @@ final class ReviewsHarness {
     /// The store of the repository open in gitForge, as its own screen has it
     /// loaded: `path` on `instance`, with its own fake provider giving `pulls`
     /// as the open list and `user` as the token's owner (`nil`: not read yet).
+    /// Pass `provider` to watch what the store reads.
     func activeStore(_ path: String, pulls: [PullRequest], user: String?,
-                     on instance: HostingInstance = ReviewsHarness.instance) async -> ActiveRepositoryPulls {
+                     on instance: HostingInstance = ReviewsHarness.instance,
+                     provider: ReviewsFakeProvider = ReviewsFakeProvider()) async -> ActiveRepositoryPulls {
         let host = RemoteHost.make(fullName: path, on: instance)!
-        let provider = ReviewsFakeProvider()
         provider.state {
             $0.lists[host.slug] = pulls
             $0.user = user ?? ""

@@ -1321,16 +1321,27 @@ final class ReviewsStore {
     // MARK: Auto refresh
 
     /// Refreshes every `autoRefreshInterval` while `isOnline` and `isActive`
-    /// hold. Replaces a loop already running.
+    /// hold (`autoRefreshOnce`). Replaces a loop already running.
     func startAutoRefresh(isOnline: @escaping @MainActor () -> Bool, isActive: @escaping @MainActor () -> Bool) {
         autoRefreshTask?.cancel()
         autoRefreshTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.autoRefreshInterval)
                 guard !Task.isCancelled, let self else { return }
-                if isOnline(), isActive() { await self.refresh(force: true) }
+                if isOnline(), isActive() { await self.autoRefreshOnce() }
             }
         }
+    }
+
+    /// One turn of the auto refresh: the inbox and, at the same time, the
+    /// list of the repository open in gitForge while it isn't followed, which
+    /// its group in Team and Mine shows (`visitingRepo`, U1 Ruling 3). A
+    /// followed one's rows come with the inbox's own read.
+    func autoRefreshOnce() async {
+        let visiting = visitingRepo == nil ? nil : activeRepository?.store
+        async let inbox: Void = refresh(force: true)
+        async let repository: Void? = visiting?.load(force: true)
+        _ = await (inbox, repository)
     }
 
     func stopAutoRefresh() {

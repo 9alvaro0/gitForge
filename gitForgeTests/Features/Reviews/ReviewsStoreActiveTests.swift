@@ -507,4 +507,28 @@ struct ReviewsStoreActiveTests {
         #expect(detail.detailGen != gen)
         #expect(detail.selected?.number == 1)
     }
+
+    // MARK: Auto refresh
+
+    @Test("Each auto refresh also reads the open repo's list while it isn't followed, and only then")
+    func autoRefreshReadsVisiting() async {
+        let (store, harness) = await Self.loaded()
+        let visiting = ReviewsFakeProvider()
+        harness.active = await harness.activeStore("oss/lib", pulls: Self.libPulls, user: "marta", provider: visiting)
+        #expect(store.visitingRepo != nil)
+        let inboxReads = harness.provider.state { $0.reads.count }
+        #expect(visiting.state { $0.reads } == ["oss/lib"])
+
+        await store.autoRefreshOnce()
+
+        #expect(visiting.state { $0.reads } == ["oss/lib", "oss/lib"])
+        #expect(harness.provider.state { $0.reads.count } > inboxReads)
+
+        // Followed, the open repo's rows come with the inbox's read: its store isn't read.
+        let followed = ReviewsFakeProvider()
+        harness.active = await harness.activeStore("team/app", pulls: [], user: "marta", provider: followed)
+        #expect(store.visitingRepo == nil)
+        await store.autoRefreshOnce()
+        #expect(followed.state { $0.reads } == ["team/app"])
+    }
 }
