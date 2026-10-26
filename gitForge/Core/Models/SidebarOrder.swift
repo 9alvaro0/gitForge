@@ -52,14 +52,14 @@ struct SidebarOrder: Equatable {
     /// version takes the number it has by default. Nothing saved, an empty
     /// list or something that isn't a list is the default order.
     init(saved: [String]?) {
-        let defaults = WorkspaceSection.workspaceItems
+        let defaultOrder = WorkspaceSection.workspaceItems
         var restored: [WorkspaceSection] = []
         for value in saved ?? [] {
             guard let section = WorkspaceSection(rawValue: value),
-                  defaults.contains(section), !restored.contains(section) else { continue }
+                  defaultOrder.contains(section), !restored.contains(section) else { continue }
             restored.append(section)
         }
-        for (index, section) in defaults.enumerated() where !restored.contains(section) {
+        for (index, section) in defaultOrder.enumerated() where !restored.contains(section) {
             restored.insert(section, at: min(index, restored.count))
         }
         sections = restored

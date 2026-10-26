@@ -228,7 +228,8 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
 #Preview("Custom order") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .pulls
-    // Built from a list, so that editing it never touches `UserDefaults`.
+    // The preview's own `@State` value: it never goes through `WorkspaceUI`
+    // or `AppState`, so editing it never touches `UserDefaults`.
     @Previewable @State var order = SidebarOrder(saved: ["pulls", "conflict", "history", "changes", "branches", "stashes"])
     previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order)
         .appTheme(theme)

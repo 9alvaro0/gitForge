@@ -1,6 +1,9 @@
 import Foundation
 
 /// Top-level navigation sections shown in the redesigned Sidebar.
+///
+/// The raw values are saved (`sidebar.sectionOrder`), so renaming a case
+/// sends it back to its default place in saved orders.
 enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
     case history
     case changes
