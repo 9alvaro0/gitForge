@@ -21,7 +21,9 @@ final class AppState {
     let gitCredentials: AccountGitCredentials
     let accountChooser: AccountChooser
     let pullRequestAuth: AccountPullRequestAuth
-    /// The Reviews inbox: the open pull requests of the repos the user follows.
+    /// The Team and Mine tabs of Pull requests: the open pull requests of the
+    /// repos the user follows and of the repository open, and which tab the
+    /// section is on.
     let reviews: ReviewsStore
     /// The identity profile a repository (or a clone in progress) uses.
     let profileLookup: ActiveProfileLookup
@@ -39,12 +41,15 @@ final class AppState {
         network: NetworkMonitor? = nil,
         whatsNew: WhatsNewController? = nil,
         reviewsSnapshots: ReviewsSnapshotStore? = nil,
-        reviewsConfig: ReviewsConfigStore? = nil
+        reviewsConfig: ReviewsConfigStore? = nil,
+        defaults: UserDefaults? = nil
     ) {
         // Default-arg expressions evaluate at the call site's isolation, but
         // `RepositoryCatalog`/etc. are `@MainActor`. Defer construction to the
         // body so the init's own `@MainActor` context covers the calls.
-        self.catalog = catalog ?? RepositoryCatalog()
+        let catalog = catalog ?? RepositoryCatalog()
+        self.catalog = catalog
+        let defaults = defaults ?? .standard
         self.gitEnvironment = gitEnvironment ?? GitEnvironment()
         self.clone = clone ?? CloneController()
         self.ui = ui ?? WorkspaceUI()
@@ -84,14 +89,25 @@ final class AppState {
             makeActivity: { ReviewActivitySourceFactory.make(for: $0) },
             makeSearch: { HostSearchFactory.make(for: $0) },
             snapshots: reviewsSnapshots ?? ReviewsSnapshotStore(),
-            config: reviewsConfig ?? ReviewsConfigStore()
+            config: reviewsConfig ?? ReviewsConfigStore(),
+            loadTab: { defaults.string(forKey: Self.lastTabKey).flatMap(PullsTab.init(rawValue:)) },
+            saveTab: { defaults.set($0.rawValue, forKey: Self.lastTabKey) },
+            // Read from the catalog every time, so what watches it redraws
+            // when another repository opens.
+            activeRepository: {
+                guard let viewModel = catalog.activeViewModel else { return nil }
+                return ActiveRepositoryPulls(localURL: viewModel.repository.url, store: viewModel.pullRequests)
+            }
         ))
         self.catalog.gitCredentials = gitCredentials
         self.catalog.pullRequestAuth = pullRequestAuth
         owner.appState = self
     }
 
-    // MARK: - Reviews inbox
+    // MARK: - Pull requests: Team and Mine
+
+    /// Where the tab Pull requests was left on is saved.
+    private static let lastTabKey = "pulls.lastTab"
 
     /// A weak reference to the `AppState` still being built, for the closures
     /// of the Reviews environment.
@@ -238,15 +254,14 @@ final class AppState {
         }
     }
 
-    /// "Open in repository" from Reviews (R1 Ruling 13): activates the clone
-    /// at `url`, goes to its Pull requests and opens `number` there, now if
-    /// its list shows it, else once it does. The list goes to the scope that
-    /// lists a pull request in `state`: Closed for a merged or closed one (an
-    /// Other of the inbox, R2 Ruling 9), else Open. A repository already open
-    /// on another scope would otherwise keep its selection and jump to the
-    /// pull request only when that scope is picked later. A clone that can't
-    /// be opened shows why and leaves the section as it was.
-    func openPullRequest(number: Int, state: PullRequest.State, inRepositoryAt url: URL) async {
+    /// "Open in repository" from Team and Mine (U1 Ruling 7): activates the
+    /// clone at `url` and goes to Pull requests with `item` selected, on the
+    /// same half, now in the group of the repository open. Should the inbox no
+    /// longer have it (its list changed meanwhile), it goes to the repository's
+    /// own list: Closed for a merged or closed pull request, else Open, and
+    /// opens there now if the list shows it, else once it does. A clone that
+    /// can't be opened shows why and leaves the section as it was.
+    func openPullRequest(_ item: InboxPull, inRepositoryAt url: URL) async {
         do {
             try await openRepository(at: url)
         } catch {
@@ -254,10 +269,9 @@ final class AppState {
             return
         }
         ui.workspaceSection = .pulls
-        guard let pulls = catalog.activeViewModel?.pullRequests else { return }
-        let scope: PullListScope = state == .merged || state == .closed ? .closed : .open
-        if pulls.scope != scope { await pulls.setScope(scope) }
-        pulls.requestSelection(number: number)
+        guard !reviews.reveal(item.id) else { return }
+        reviews.tab = item.pull.state == .merged || item.pull.state == .closed ? .closed : .open
+        catalog.activeViewModel?.pullRequests.requestSelection(number: item.pull.number)
     }
 
     // MARK: - Clone (cross-cutting: clone + catalog + ui)

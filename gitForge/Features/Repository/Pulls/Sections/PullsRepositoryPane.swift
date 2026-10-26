@@ -107,9 +107,6 @@ struct PullsRepositoryPane: View {
         switch store.scope {
         case .open:
             isMergeRequest ? String(localized: "No open merge requests") : String(localized: "No open pull requests")
-        case .mine:
-            isMergeRequest ? String(localized: "None of the open merge requests are yours")
-                           : String(localized: "None of the open pull requests are yours")
         case .closed:
             isMergeRequest ? String(localized: "No closed merge requests") : String(localized: "No closed pull requests")
         }

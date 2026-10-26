@@ -247,102 +247,208 @@ struct AppStateReviewsTests {
 
     // MARK: Open in repository
 
-    @Test("Open in repository makes the clone active, goes to its Pull requests and asks for the pull request there")
-    func openInRepository() async throws {
-        let app = AppState.isolated()
-        let repo = try GitTestRepo()
-        defer { repo.remove() }
-        try repo.commit("first", files: ["a.txt": "a\n"])
-        app.ui.workspaceSection = .reviews
+    private static let instance = HostingInstance(kind: .gitlab, host: "gitlab.example.test")
 
-        await app.openPullRequest(number: 482, state: .open, inRepositoryAt: repo.url)
+    private static func teamApp(cloneAt url: URL?) throws -> ReviewRepo {
+        ReviewRepo(host: try #require(RemoteHost.make(fullName: "team/app", on: instance)),
+                   accountId: UUID(), sources: [], lastActivity: nil,
+                   cloneURL: "https://gitlab.example.test/team/app.git", localURL: url)
+    }
+
+    private static func pull(_ number: Int, by author: String, state: PullRequest.State = .open) -> PullRequest {
+        PullRequest(id: "iid:\(number)", number: number, title: "MR \(number)", state: state, authorLogin: author,
+                    authorAvatarURL: nil, sourceBranch: "f/\(number)", targetBranch: "main", webURL: nil,
+                    createdAt: nil, updatedAt: nil)
+    }
+
+    private static func save(_ repo: ReviewRepo, pulls: [PullRequest], in store: ReviewsSnapshotStore) {
+        store.save(ReviewsSnapshot(version: ReviewsSnapshot.currentVersion,
+                                   savedAt: Date(timeIntervalSince1970: 1_790_000_000),
+                                   repos: [repo], pulls: [repo.id: pulls], memberships: [:],
+                                   logins: [repo.accountId: "marta"]))
+    }
+
+    /// An app whose inbox follows `repo` with `pulls` read, marta being the user.
+    private static func appFollowing(_ repo: ReviewRepo, pulls: [PullRequest]) -> AppState {
+        let store = ReviewsSnapshotStore(directory: TemporaryDirectories.make("gitForge-app-reviews"))
+        save(repo, pulls: pulls, in: store)
+        let app = AppState.isolated(reviewsSnapshots: store)
+        app.reviews.loadSnapshot()
+        return app
+    }
+
+    @Test("Open in repository makes the clone active, goes to Pull requests and shows the pull request where the inbox has it",
+          arguments: [("marta", PullsTab.mine), ("lucia", PullsTab.team)])
+    func openInRepository(author: String, half: PullsTab) async throws {
+        let clone = try GitTestRepo()
+        defer { clone.remove() }
+        try clone.commit("first", files: ["a.txt": "a\n"])
+        let repo = try Self.teamApp(cloneAt: clone.url)
+        let app = Self.appFollowing(repo, pulls: [Self.pull(482, by: author)])
+        let item = try #require(app.reviews.inboxRows.first)
+        // The section was left on the repository's Closed list, on another half.
+        app.reviews.tab = .closed
+        app.ui.workspaceSection = .history
+
+        await app.openPullRequest(item, inRepositoryAt: clone.url)
         defer { app.catalog.close() }
 
         #expect(app.catalog.activeRepository?.url.resolvingSymlinksInPath().path
-                == repo.url.resolvingSymlinksInPath().path)
+                == clone.url.resolvingSymlinksInPath().path)
         #expect(app.ui.workspaceSection == .pulls)
-        // Its list hasn't loaded: the pull request opens once it does.
-        #expect(app.catalog.activeViewModel?.pullRequests.pendingSelectionNumber == 482)
+        #expect(app.reviews.selectedID == item.id)
+        #expect(app.reviews.tab == half)
         #expect(app.ui.presentedError == nil)
+        // The inbox had it: the repository's own list is left alone.
+        #expect(app.catalog.activeViewModel?.pullRequests.pendingSelectionNumber == nil)
     }
 
-    @Test("Open in repository brings an open repository's list back to Open and opens the pull request there",
-          arguments: [PullListScope.mine, .closed])
-    func openInRepositoryResetsScope(scope: PullListScope) async throws {
+    @Test("A pull request the inbox no longer has opens in the repository's own list: Closed for a merged or closed one, else Open",
+          arguments: [(PullRequest.State.open, PullsTab.open), (.draft, .open), (.merged, .closed), (.closed, .closed)])
+    func openInRepositoryFallsBack(state: PullRequest.State, tab: PullsTab) async throws {
+        let clone = try GitTestRepo()
+        defer { clone.remove() }
+        try clone.commit("first", files: ["a.txt": "a\n"])
         let app = AppState.isolated()
-        let repo = try GitTestRepo()
-        defer { repo.remove() }
-        try repo.commit("first", files: ["a.txt": "a\n"])
-        try await app.openRepository(at: repo.url)
+        // A row from a list that has since changed: no longer among the inbox's.
+        let item = InboxPull(repo: try Self.teamApp(cloneAt: clone.url), pull: Self.pull(482, by: "lucia", state: state))
+        app.ui.workspaceSection = .history
+
+        await app.openPullRequest(item, inRepositoryAt: clone.url)
+        defer { app.catalog.close() }
+
+        #expect(app.ui.workspaceSection == .pulls)
+        #expect(app.reviews.tab == tab)
+        // Its list hasn't loaded: the pull request opens once it does.
+        #expect(app.catalog.activeViewModel?.pullRequests.pendingSelectionNumber == 482)
+        #expect(app.reviews.selectedID == nil)
+    }
+
+    @Test("A pull request the inbox no longer has opens at once when the repository's list already shows it")
+    func openInRepositoryFallsBackToLoadedList() async throws {
+        let clone = try GitTestRepo()
+        defer { clone.remove() }
+        try clone.commit("first", files: ["a.txt": "a\n"])
+        let app = AppState.isolated()
+        try await app.openRepository(at: clone.url)
         defer { app.catalog.close() }
         let pulls = try #require(app.catalog.activeViewModel?.pullRequests)
-        func pull(_ number: Int, by author: String) -> PullRequest {
-            PullRequest(id: "\(number)", number: number, title: "MR \(number)", state: .open, authorLogin: author,
-                        authorAvatarURL: nil, sourceBranch: "f/\(number)", targetBranch: "main", webURL: nil,
-                        createdAt: nil, updatedAt: nil)
-        }
-        // The user left this repository's list on Mine (or Closed), on their own pull request.
-        pulls.items = [pull(470, by: "marta"), pull(482, by: "lucia")]
-        pulls.currentUser = "marta"
-        pulls.scope = scope
+        pulls.items = [Self.pull(470, by: "marta"), Self.pull(482, by: "lucia")]
         pulls.selected = pulls.items[0]
-        app.ui.workspaceSection = .reviews
+        let item = InboxPull(repo: try Self.teamApp(cloneAt: clone.url), pull: Self.pull(482, by: "lucia"))
 
-        await app.openPullRequest(number: 482, state: .open, inRepositoryAt: repo.url)
+        await app.openPullRequest(item, inRepositoryAt: clone.url)
 
-        #expect(app.catalog.activeViewModel?.pullRequests === pulls)
-        #expect(app.ui.workspaceSection == .pulls)
-        #expect(pulls.scope == .open)
+        #expect(app.reviews.tab == .open)
         #expect(pulls.selected?.number == 482)
         #expect(pulls.pendingSelectionNumber == nil)
     }
 
-    @Test("Open in repository of a merged or closed pull request goes to Closed and opens it there",
-          arguments: [PullRequest.State.merged, .closed])
-    func openClosedInRepository(state: PullRequest.State) async throws {
+    @Test("A clone that can't be opened says why and leaves the section where it was")
+    func openInMissingRepository() async throws {
         let app = AppState.isolated()
-        let repo = try GitTestRepo()
-        defer { repo.remove() }
-        try repo.commit("first", files: ["a.txt": "a\n"])
-        try await app.openRepository(at: repo.url)
-        defer { app.catalog.close() }
-        let pulls = try #require(app.catalog.activeViewModel?.pullRequests)
-        // An Other of the inbox (R2 Ruling 9): its list on Open, the pull request among the closed ones.
-        pulls.items = [PullRequest(id: "470", number: 470, title: "MR 470", state: .open, authorLogin: "lucia",
-                                   authorAvatarURL: nil, sourceBranch: "f/470", targetBranch: "main", webURL: nil,
-                                   createdAt: nil, updatedAt: nil)]
-        pulls.closedItems = [PullRequest(id: "466", number: 466, title: "MR 466", state: state, authorLogin: "marta",
-                                         authorAvatarURL: nil, sourceBranch: "f/466", targetBranch: "main",
-                                         webURL: nil, createdAt: nil, updatedAt: nil)]
-        pulls.closedLoaded = true
-        #expect(pulls.scope == .open)
-        app.ui.workspaceSection = .reviews
+        app.ui.workspaceSection = .pulls
+        app.reviews.tab = .mine
+        let missing = URL(fileURLWithPath: "/nonexistent/gitforge-tests/ledger")
+        let item = InboxPull(repo: try Self.teamApp(cloneAt: missing), pull: Self.pull(1, by: "lucia"))
 
-        await app.openPullRequest(number: 466, state: state, inRepositoryAt: repo.url)
+        await app.openPullRequest(item, inRepositoryAt: missing)
 
         #expect(app.ui.workspaceSection == .pulls)
-        #expect(pulls.scope == .closed)
-        #expect(pulls.selected?.number == 466)
-        #expect(pulls.pendingSelectionNumber == nil)
-    }
-
-    @Test("A clone that can't be opened says why and stays in Reviews")
-    func openInMissingRepository() async {
-        let app = AppState.isolated()
-        app.ui.workspaceSection = .reviews
-
-        await app.openPullRequest(number: 1, state: .open, inRepositoryAt: URL(fileURLWithPath: "/nonexistent/gitforge-tests/ledger"))
-
-        #expect(app.ui.workspaceSection == .reviews)
+        #expect(app.reviews.tab == .mine)
         #expect(app.ui.presentedError != nil)
         #expect(app.catalog.activeRepository == nil)
     }
 
-    // MARK: Section
+    // MARK: The open repository
 
-    @Test("Reviews is a global section, not one of the repository's workspace items")
-    func section() {
-        #expect(!WorkspaceSection.workspaceItems.contains(.reviews))
-        #expect(WorkspaceSection.reviews.symbol == "tray.2")
+    /// Counts the changes `withObservationTracking` reports.
+    private final class ChangeCounter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var count = 0
+        var value: Int { lock.withLock { count } }
+        func bump() { lock.withLock { count += 1 } }
+    }
+
+    @Test("The inbox reads the open repository from the catalog: its folder and its own pull requests store")
+    func activeRepositoryIsTheCatalogs() async throws {
+        let clone = try GitTestRepo()
+        defer { clone.remove() }
+        try clone.commit("first", files: ["a.txt": "a\n"])
+        let store = ReviewsSnapshotStore(directory: TemporaryDirectories.make("gitForge-app-active"))
+        let app = AppState.isolated(reviewsSnapshots: store)
+        #expect(app.reviews.activeRepository == nil)
+        #expect(app.reviews.activeRepoKey == nil)
+
+        try await app.openRepository(at: clone.url)
+        defer { app.catalog.close() }
+        let viewModel = try #require(app.catalog.activeViewModel)
+
+        let active = try #require(app.reviews.activeRepository)
+        #expect(active.localURL == viewModel.repository.url)
+        // The same instance the section's view is given (`ContentRouter`).
+        #expect(active.store === viewModel.pullRequests)
+
+        // Followed by its clone, it is the open repository and its store opens its detail.
+        let repo = try Self.teamApp(cloneAt: viewModel.repository.url)
+        Self.save(repo, pulls: [Self.pull(482, by: "lucia")], in: store)
+        app.reviews.loadSnapshot()
+        #expect(app.reviews.activeRepoKey == repo.id)
+        #expect(app.reviews.detailStore(for: repo.id) === viewModel.pullRequests)
+
+        app.catalog.close()
+        #expect(app.reviews.activeRepository == nil)
+    }
+
+    @Test("Opening another repository changes what the inbox reads, so the views watching it redraw")
+    func activeRepositoryIsObserved() async throws {
+        let first = try GitTestRepo()
+        let second = try GitTestRepo()
+        defer { first.remove(); second.remove() }
+        try first.commit("first", files: ["a.txt": "a\n"])
+        try second.commit("first", files: ["b.txt": "b\n"])
+        let app = AppState.isolated()
+        try await app.openRepository(at: first.url)
+        defer { app.catalog.close() }
+        let before = app.reviews.activeRepository?.store
+
+        let changes = ChangeCounter()
+        withObservationTracking { _ = app.reviews.activeRepository?.localURL } onChange: { changes.bump() }
+        try await app.openRepository(at: second.url)
+
+        #expect(changes.value == 1)
+        #expect(app.reviews.activeRepository?.store !== before)
+        #expect(app.reviews.activeRepository?.store === app.catalog.activeViewModel?.pullRequests)
+    }
+
+    // MARK: The tab
+
+    @Test("The tab the section was left on comes back with the next launch")
+    func tabPersists() {
+        let defaults = TestDefaults(prefix: "gitForge-app-tab").defaults
+        let first = AppState.isolated(defaults: defaults)
+        #expect(first.reviews.tab == .team)
+
+        first.reviews.tab = .closed
+
+        #expect(AppState.isolated(defaults: defaults).reviews.tab == .closed)
+        first.reviews.tab = .mine
+        #expect(AppState.isolated(defaults: defaults).reviews.tab == .mine)
+    }
+
+    @Test("A saved tab that doesn't exist or can't be read starts on Team", arguments: ["reviews", "", "x", "Team"])
+    func unreadableTab(saved: String) {
+        let defaults = TestDefaults(prefix: "gitForge-app-tab").defaults
+        defaults.set(saved, forKey: "pulls.lastTab")
+
+        #expect(AppState.isolated(defaults: defaults).reviews.tab == .team)
+    }
+
+    @Test("A stored value that isn't text starts on Team")
+    func tabOfAnotherType() {
+        let defaults = TestDefaults(prefix: "gitForge-app-tab").defaults
+        defaults.set(3, forKey: "pulls.lastTab")
+
+        #expect(AppState.isolated(defaults: defaults).reviews.tab == .team)
     }
 }

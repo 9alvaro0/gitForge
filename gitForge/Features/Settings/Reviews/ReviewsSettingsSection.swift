@@ -29,8 +29,8 @@ struct ReviewsSettingsSection: View {
     }
 
     var body: some View {
-        SettingsSection(title: String(localized: "Reviews"),
-                        subtitle: String(localized: "Repositories whose pull requests appear in Reviews.")) {
+        SettingsSection(title: String(localized: "Pull requests"),
+                        subtitle: String(localized: "Repositories whose pull requests appear in Team and Mine.")) {
             if store.hasAccounts {
                 followedBlock
                 if !store.config.patterns.isEmpty || store.proposal != nil {

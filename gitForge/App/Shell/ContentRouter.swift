@@ -13,9 +13,7 @@ struct ContentRouter: View {
         case .changes:  StagingView(viewModel: viewModel)
         case .branches: BranchesView(viewModel: viewModel)
         case .stashes:  StashesView(viewModel: viewModel)
-        // Reviews is Pull requests' Team and Mine now (U1 Ruling 8), until
-        // the section goes from the sidebar.
-        case .pulls, .reviews:
+        case .pulls:
             PullsView(reviews: appState.reviews,
                       repository: PullsRepository(
                           store: viewModel.pullRequests,

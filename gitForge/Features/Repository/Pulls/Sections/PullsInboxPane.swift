@@ -155,10 +155,7 @@ struct PullsInboxPane: View {
             }
         case .openInRepository(let localURL):
             .remote(title: String(localized: "Open in repository"), systemImage: "arrow.right.circle") {
-                Task {
-                    await appState.openPullRequest(number: item.pull.number, state: item.pull.state,
-                                                   inRepositoryAt: localURL)
-                }
+                Task { await appState.openPullRequest(item, inRepositoryAt: localURL) }
             }
         }
     }

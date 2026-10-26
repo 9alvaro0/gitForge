@@ -151,9 +151,12 @@ struct ShellView: View {
     }
 
     /// Branch and ahead/behind (the old status bar's left half), or the
-    /// section's own context. Empty without an active repository.
+    /// section's own context. Empty without an active repository. On Pull
+    /// requests, Team and Mine show none; Open and Closed, the host.
     private var subtitle: String {
-        appState.catalog.activeViewModel?.toolbarSubtitle(for: appState.ui.workspaceSection) ?? ""
+        appState.catalog.activeViewModel?.toolbarSubtitle(
+            for: appState.ui.workspaceSection,
+            pullsTab: PullsTab.shown(appState.reviews.tab, hasRepository: true)) ?? ""
     }
 
     @ViewBuilder
@@ -165,7 +168,7 @@ struct ShellView: View {
             switch appState.ui.workspaceSection {
             case .settings: SettingsView()
             // Team and Mine need no repository (U1 Ruling 9).
-            case .pulls, .reviews: PullsView(reviews: appState.reviews, repository: nil)
+            case .pulls:    PullsView(reviews: appState.reviews, repository: nil)
             default:        WelcomeView()
             }
         }

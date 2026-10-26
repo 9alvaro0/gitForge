@@ -267,17 +267,14 @@ final class PullRequestStore {
     var visibleItems: [PullRequest] {
         switch scope {
         case .open: items
-        case .mine: items.filter { $0.authorLogin != nil && $0.authorLogin == currentUser }
         case .closed: closedItems
         }
     }
 
-    /// Count for a scope's segment; `nil` while unknown (Closed not loaded,
-    /// Mine before the user is known).
+    /// Count for a scope's tab; `nil` while unknown (Closed not loaded).
     func count(for scope: PullListScope) -> Int? {
         switch scope {
         case .open: items.count
-        case .mine: currentUser == nil ? nil : items.filter { $0.authorLogin == currentUser }.count
         case .closed: closedLoaded ? closedItems.count : nil
         }
     }

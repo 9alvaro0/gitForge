@@ -46,7 +46,7 @@ struct ReviewGroupHeader: View {
 
         func body(content: Content) -> some View {
             if let onHide {
-                content.contextMenu { Button(String(localized: "Hide from Reviews"), action: onHide) }
+                content.contextMenu { Button(String(localized: "Hide from Pull requests"), action: onHide) }
             } else {
                 content
             }

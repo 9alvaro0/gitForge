@@ -59,18 +59,6 @@ struct PullRequestStoreScopeTests {
         for _ in 0..<100 where !condition() { try? await Task.sleep(for: .milliseconds(10)) }
     }
 
-    @Test("Mine shows the open PRs authored by the token's user")
-    func mine() async {
-        let provider = FakeProvider()
-        provider.open = [Self.pr(1, author: "me", sha: "a"), Self.pr(2, author: "lucia", sha: "b")]
-        let store = Self.makeStore(provider)
-        await store.load(force: true)
-        await store.setScope(.mine)
-        #expect(store.visibleItems.map(\.number) == [1])
-        #expect(store.count(for: .mine) == 1)
-        #expect(store.count(for: .open) == 2)
-    }
-
     @Test("Closed is fetched the first time it's shown, and only then")
     func closedLazily() async {
         let provider = FakeProvider()
