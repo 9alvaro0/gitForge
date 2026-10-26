@@ -26,16 +26,16 @@ extension ReviewsStore {
 
     /// The Others the list shows (Ruling 9, U1 Ruling 5): those that aren't
     /// rows of the list, under the half of their author as a row is (Team's
-    /// are someone else's, Mine's the user's), and the selected one while the
-    /// current half hides its row, so the selection doesn't vanish. With
+    /// are someone else's, Mine's the user's), and the selected one in either
+    /// half unless the current half lists it as a row, so the selection
+    /// doesn't vanish: neither when the other half lists its row, nor when
+    /// the login, read after it was opened, makes it the user's. With
     /// `repoFilter`, none shows.
     var visibleOthers: [InboxPull] {
         guard repoFilter == nil else { return [] }
         return others.filter { item in
-            guard isListed(repoKey: item.repo.id, number: item.pull.number) else {
-                return isMine(item) == (filter == .mine)
-            }
-            return item.id == selectedID && !groups.contains { $0.pulls.contains { $0.id == item.id } }
+            if item.id == selectedID { return !groups.contains { $0.pulls.contains { $0.id == item.id } } }
+            return !isListed(repoKey: item.repo.id, number: item.pull.number) && isMine(item) == (filter == .mine)
         }
     }
 
