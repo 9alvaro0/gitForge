@@ -41,6 +41,9 @@ struct Sidebar: View {
     /// "Hosting account" sections for the active repo (P4 spec §5.4).
     var hostingSections: [RepoAccountSection] = []
     var onHostingEntry: (RepoAccountSection, RepoAccountSection.Entry) -> Void = { _, _ in }
+    /// A change to the order of the workspace sections, from a drag or from
+    /// a section's context menu (pulls-unified §4.7).
+    var onReorder: (SidebarOrder.Edit) -> Void = { _ in }
 
     @State private var collapsedFolders: Set<String> = []
 
@@ -71,13 +74,13 @@ struct Sidebar: View {
         List {
             Section {
                 ForEach(order.visible(hasRepository: activeRepository != nil)) { section in
-                    SidebarNavItem(
-                        section: section,
-                        badge: badge(for: section),
-                        isActive: section == activeSection,
-                        onSelect: { onSelectSection(section) }
-                    )
+                    navItem(for: section)
                 }
+                // Without a repository the list is Pull requests alone and
+                // the saved order doesn't change (pulls-unified §4.7).
+                .onMove(perform: activeRepository == nil ? nil : { offsets, destination in
+                    onReorder(.move(fromOffsets: offsets, toOffset: destination))
+                })
             }
             if activeRepository != nil {
                 Section("Branches") {
@@ -119,6 +122,24 @@ struct Sidebar: View {
         }
     }
 
+    /// A section's row, with the menu and accessibility actions that move it
+    /// when a repository is open. The row is identified by its section, so
+    /// the active one stays marked wherever it ends up.
+    @ViewBuilder
+    private func navItem(for section: WorkspaceSection) -> some View {
+        let item = SidebarNavItem(
+            section: section,
+            badge: badge(for: section),
+            isActive: section == activeSection,
+            onSelect: { onSelectSection(section) }
+        )
+        if activeRepository != nil {
+            item.sectionReordering(section, in: order, onEdit: onReorder)
+        } else {
+            item
+        }
+    }
+
     private var remotesDetail: String {
         let names = BranchTree.remoteNames(in: refs)
         return names.isEmpty ? String(localized: "none") : names.joined(separator: ", ")
@@ -144,13 +165,17 @@ struct Sidebar: View {
 }
 
 /// The sidebar as the previews show it: with `active` open, or with none.
+/// The order is the preview's own, so editing it never reaches the saved
+/// settings.
 @MainActor
-private func previewSidebar(active: Repository?, section: Binding<WorkspaceSection>) -> some View {
+private func previewSidebar(active: Repository?, section: Binding<WorkspaceSection>,
+                            order: Binding<SidebarOrder>) -> some View {
     Sidebar(
         repositories: Repository.previewSamples,
         activeRepository: active,
         statusFor: RepoStatusSnapshot.previewStatusFor(active: active),
         activeSection: section.wrappedValue,
+        order: order.wrappedValue,
         unstagedBadge: 3, stashesBadge: 1, pullsBadge: 4, conflictsBadge: 0,
         refs: active == nil ? [] : [
             GitRef(name: "main", kind: .localBranch, targetSha: "a", isHead: true),
@@ -175,7 +200,8 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
         onCheckoutBranch: { _ in },
         onApplyProfile: { _ in },
         onResetToGlobal: {},
-        onManageProfiles: {}
+        onManageProfiles: {},
+        onReorder: { order.wrappedValue.apply($0) }
     )
     .frame(width: 240, height: 640)
 }
@@ -183,13 +209,24 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
 #Preview("Repository open") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .history
-    previewSidebar(active: Repository.previewSamples.first, section: $section)
+    @Previewable @State var order = SidebarOrder()
+    previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order)
         .appTheme(theme)
 }
 
 #Preview("No repository") {
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .pulls
-    previewSidebar(active: nil, section: $section)
+    @Previewable @State var order = SidebarOrder()
+    previewSidebar(active: nil, section: $section, order: $order)
+        .appTheme(theme)
+}
+
+#Preview("Custom order") {
+    @Previewable @State var theme = AppTheme()
+    @Previewable @State var section: WorkspaceSection = .pulls
+    // Built from a list, so that editing it never touches `UserDefaults`.
+    @Previewable @State var order = SidebarOrder(saved: ["pulls", "conflict", "history", "changes", "branches", "stashes"])
+    previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order)
         .appTheme(theme)
 }

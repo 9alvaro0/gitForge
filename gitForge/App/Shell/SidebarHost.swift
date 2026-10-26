@@ -78,7 +78,8 @@ struct SidebarHost: View {
                 appState.ui.workspaceSection = .settings
             },
             hostingSections: hostingSections(identitySnapshot.activeProfileId),
-            onHostingEntry: handleHostingEntry
+            onHostingEntry: handleHostingEntry,
+            onReorder: { appState.ui.sidebarOrder.apply($0) }
         )
         // Remotes live in `.git/config`, which the watcher doesn't follow:
         // read them again when a new remote's branches show up, and when the
