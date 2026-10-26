@@ -251,6 +251,10 @@ final class ReviewsHarness {
     var answer: (String?) -> PullRequestAuthResult = { _ in .token("t") }
     /// The tokens the store asked to renew.
     private(set) var renewals: [String] = []
+    /// The tab `loadTab` gives a store made from here, as if saved by an earlier launch.
+    var savedTab: PullsTab?
+    /// The tabs the store saved, in order.
+    private(set) var savedTabs: [PullsTab] = []
     let directory = TemporaryDirectories.make("gitForge-reviews-store")
 
     init(login: String? = "marta") {
@@ -288,7 +292,9 @@ final class ReviewsHarness {
             snapshots: ReviewsSnapshotStore(directory: directory),
             config: ReviewsConfigStore(directory: directory),
             now: { [self] in now },
-            makeReviewProvider: { [provider] _ in provider }))
+            makeReviewProvider: { [provider] _ in provider },
+            loadTab: { [self] in savedTab },
+            saveTab: { [self] in savedTabs.append($0) }))
     }
 
     private func syncClones() {

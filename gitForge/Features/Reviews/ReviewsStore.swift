@@ -43,6 +43,11 @@ struct ReviewsEnvironment {
     var makeReviewProvider: @MainActor (RemoteHost) -> PullRequestReviewProvider = {
         PullRequestReviewProviderFactory.make(for: $0)
     }
+    /// The tab the Pull requests section was left on, read once when the
+    /// store is made (U1 Ruling 2); `nil` when none was saved or it can't be read.
+    var loadTab: @MainActor () -> PullsTab? = { nil }
+    /// Saves the tab each time it changes.
+    var saveTab: @MainActor (PullsTab) -> Void = { _ in }
 }
 
 // MARK: - Store
@@ -91,7 +96,19 @@ final class ReviewsStore {
     private(set) var lastRefreshedAt: Date?
     /// The last refresh reached no repo, for lack of network.
     private(set) var lastRefreshFailed = false
-    var filter: ReviewsFilter = .team
+    /// Which half of the inbox shows. Under a `repositoryList` it's the half
+    /// the inbox goes back to; it is what `tab` reads while that is `nil`.
+    var filter: ReviewsFilter = .team {
+        didSet { saveTabIfChanged() }
+    }
+    /// The open repository's list the section shows instead of the inbox
+    /// (U1 Ruling 2); `nil` shows the inbox, by `filter`. Set through `tab`;
+    /// `reveal(_:)`, `showRepo(_:)` and `showAllRepos()` take the section
+    /// back to the inbox, though closing a repo filter with nothing selected
+    /// brings the list back.
+    private(set) var repositoryList: PullListState? {
+        didSet { saveTabIfChanged() }
+    }
     /// The repo the inbox is narrowed to (`ReviewRepo.id`), with the pull
     /// requests of both halves; `nil` shows every repo, by `filter` (R2
     /// Ruling 7). `showRepo(_:)` sets it; `showAllRepos()`, `reveal(_:)` and
@@ -176,10 +193,22 @@ final class ReviewsStore {
     @ObservationIgnored private var latestSearch: [UUID: UInt64] = [:]
     @ObservationIgnored private var searchCounter: UInt64 = 0
     @ObservationIgnored private var autoRefreshTask: Task<Void, Never>?
+    /// The tab as it was last saved, or read at launch: a change of `filter`
+    /// or `repositoryList` saves only if it moves `tab` off this.
+    @ObservationIgnored private var lastTab: PullsTab = .team
+    /// The `repositoryList` narrowing the inbox to a repo took off the
+    /// section, for `showAllRepos()` to bring back (U1 Ruling 2).
+    @ObservationIgnored private var listSetAside: PullListState?
 
     init(environment: ReviewsEnvironment) {
         self.environment = environment
         self.config = environment.config.load()
+        // What was read is not a change to save: `lastTab` is already it when
+        // the setter, which moves the tab in one step, runs.
+        if let saved = environment.loadTab() {
+            lastTab = saved
+            tab = saved
+        }
     }
 
     // MARK: Reading
@@ -309,6 +338,30 @@ final class ReviewsStore {
         repos.flatMap { repo in (pulls[repo.id] ?? []).map { InboxPull(repo: repo, pull: $0) } }
     }
 
+    // MARK: Tab
+
+    /// The tab the section is on: `repositoryList` when it shows one, else
+    /// the inbox's `filter` (U1 Ruling 2). Writing it sets both, the half only
+    /// for Team and Mine, and is saved once; so is any other change of `filter`
+    /// that moves it. The saved tab isn't what the view shows without a
+    /// repository open: that's `PullsTab.shown(_:hasRepository:)`.
+    var tab: PullsTab {
+        get { PullsTab(half: filter, repositoryList: repositoryList) }
+        set {
+            // The half first: while a list shows, a half doesn't move the tab,
+            // and the list's change is then the only one that does.
+            if let half = newValue.half { filter = half }
+            repositoryList = newValue.repositoryList
+        }
+    }
+
+    private func saveTabIfChanged() {
+        let current = tab
+        guard current != lastTab else { return }
+        lastTab = current
+        environment.saveTab(current)
+    }
+
     // MARK: Selection and repo filter
 
     /// Selects `id` from outside the list (R2 Ruling 8) and asks the list to
@@ -329,6 +382,8 @@ final class ReviewsStore {
         } else {
             return false
         }
+        // After the half, so the tab moves once.
+        repositoryList = nil
         selectedID = id
         requestReveal(id)
         return true
@@ -344,8 +399,12 @@ final class ReviewsStore {
 
     /// Narrows the inbox to `repoKey`, followed or browsed: the selection
     /// stays, scrolled into view, if it's one of that repo's pull requests,
-    /// and goes if not.
+    /// and goes if not. The section leaves the repository's list for the
+    /// inbox; the first narrowing sets the list aside, for `showAllRepos()`
+    /// to bring back, and moving to another repo keeps what it set aside.
     private func narrow(to repoKey: String) {
+        if repoFilter == nil { listSetAside = repositoryList }
+        repositoryList = nil
         repoFilter = repoKey
         guard let selectedID else { return }
         if selectedID.hasPrefix(repoKey + "#") {
@@ -358,13 +417,22 @@ final class ReviewsStore {
     /// Shows every repo again, the × of the filter bar (R2 Ruling 7). The
     /// repo's view showed both halves, so a row picked there stays selected:
     /// the inbox moves to the half that shows it, as `reveal` does, and the
-    /// list scrolls to it.
+    /// list scrolls to it. With nothing selected the section goes back to the
+    /// tab it had before the filter, a repository's list included (U1
+    /// Ruling 2); with a selection it stays on the inbox.
     func showAllRepos() {
+        let setAside = listSetAside
+        listSetAside = nil
         repoFilter = nil
-        if let selectedID, let item = followedRows.first(where: { $0.id == selectedID }) {
+        guard let selectedID else {
+            if let setAside { repositoryList = setAside }
+            return
+        }
+        if let item = followedRows.first(where: { $0.id == selectedID }) {
             filter = half(showing: item)
             requestReveal(selectedID)
         }
+        repositoryList = nil
     }
 
     /// Mine for the user's own pull request, Team for anyone else's.
