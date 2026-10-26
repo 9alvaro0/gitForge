@@ -20,7 +20,7 @@ struct ReviewsList: View {
                 // In place of Team and Mine, which the tab bar no longer
                 // offers: a row of its own, the column's whole width, where
                 // the path and its button fit (R2 Ruling 7).
-                ReviewsRepoFilterBar(repo: repo, onShowAll: { store.showAllRepos() },
+                ReviewsRepoFilterBar(repo: repo, reviews: store, onShowAll: { store.showAllRepos() },
                                      onFollow: followable(repo).map { found in { follow(found) } })
                     .padding(.horizontal, Spacing.s12)
                     .padding(.vertical, Spacing.s8)
@@ -160,17 +160,17 @@ struct ReviewsList: View {
                             HStack(spacing: Spacing.s8) {
                                 followButton(found)
                                     .fixedSize()
-                                ReviewRepoActionButton(repo: repo)
+                                ReviewRepoActionButton(repo: repo, reviews: store)
                                     .fixedSize()
                             }
                             VStack(spacing: Spacing.s8) {
                                 followButton(found, fullWidth: true)
-                                ReviewRepoActionButton(repo: repo, fullWidth: true)
+                                ReviewRepoActionButton(repo: repo, reviews: store, fullWidth: true)
                             }
                             .fixedSize(horizontal: true, vertical: false)
                         }
                     } else {
-                        ReviewRepoActionButton(repo: repo)
+                        ReviewRepoActionButton(repo: repo, reviews: store)
                     }
                 }
             } else {
