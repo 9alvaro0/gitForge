@@ -58,6 +58,13 @@ extension ReviewsStore {
         return Self.isAuthor(item.pull, login: visiting.store.currentUser)
     }
 
+    /// The visiting repo's rows when `repoKey` is the visiting repo; none
+    /// otherwise.
+    func visitingRows(of repoKey: String) -> [InboxPull] {
+        guard let visiting, visiting.repo.id == repoKey else { return [] }
+        return visitingRows
+    }
+
     /// Whether pull request `number` is a row of the visiting repo `repoKey`.
     func isVisitingRow(repoKey: String, number: Int) -> Bool {
         guard repoKey == activeRepoKey, let visiting else { return false }

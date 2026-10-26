@@ -35,6 +35,12 @@ struct ReviewsStoreActiveTests {
     private static let libPulls = [ReviewsHarness.pr(5, by: "lucia", updated: 50),
                                    ReviewsHarness.pr(6, by: "marta", updated: 60)]
 
+    /// `path` as "Search all" finds it.
+    private static func found(_ path: String) -> FoundRepo {
+        FoundRepo(host: ReviewsHarness.host(path), instanceId: ReviewsHarness.instance.id,
+                  cloneURL: "https://gitlab.example.test/\(path).git")
+    }
+
     /// A repository open with no remote: its store resolves no host.
     private static func withoutRemote() async -> ActiveRepositoryPulls {
         let store = PullRequestStore(cli: nil, auth: { _, _ in .token("t") }, resolveHost: { nil },
@@ -361,6 +367,41 @@ struct ReviewsStoreActiveTests {
 
         #expect(store.groups.map(\.repo.id) == [Self.api])
         #expect(store.searchablePulls.contains { $0.repo.id == Self.lib })
+    }
+
+    @Test("Browsing the open repo that isn't followed, from Search all, shows its rows, both halves, newest first")
+    func browsingVisitingShowsItsRows() async {
+        let (store, harness) = await Self.loaded()
+        harness.provider.state { $0.lists["oss/lib"] = Self.libPulls }
+        harness.active = await harness.activeStore("oss/lib", pulls: Self.libPulls, user: "marta")
+
+        #expect(await store.openFoundRepo(Self.found("oss/lib")) == .shown(repoKey: Self.lib))
+
+        #expect(store.repoFilter == Self.lib)
+        #expect(store.filteredBrowsedRepo?.id == Self.lib)
+        // Its pull requests are the open repo's rows, so none is an Other (Ruling C).
+        #expect(store.others.isEmpty)
+        #expect(store.groups.map(\.repo.id) == [Self.lib])
+        #expect(store.groups.first?.pulls.map(\.id) == [Self.id(Self.lib, 6), Self.id(Self.lib, 5)])
+        #expect(store.listContent == .groups(store.groups, others: []))
+        store.selectedID = Self.id(Self.lib, 5)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 5))
+    }
+
+    @Test("Browsing the open repo lists an Other it had before it was open once, as its row")
+    func browsingVisitingWithOtherOnce() async {
+        let (store, harness) = await Self.loaded()
+        harness.provider.state { $0.lists["oss/lib"] = Self.libPulls }
+        let link = PullRequestLink(host: ReviewsHarness.host("oss/lib"), number: 5,
+                                   instanceId: ReviewsHarness.instance.id)
+        #expect(await store.openLink(link) == .opened(Self.id(Self.lib, 5)))
+        harness.active = await harness.activeStore("oss/lib", pulls: Self.libPulls, user: "marta")
+
+        #expect(await store.openFoundRepo(Self.found("oss/lib")) == .shown(repoKey: Self.lib))
+
+        #expect(store.others.map(\.id) == [Self.id(Self.lib, 5)])
+        #expect(store.groups.map(\.repo.id) == [Self.lib])
+        #expect(store.groups.first?.pulls.map(\.id) == [Self.id(Self.lib, 6), Self.id(Self.lib, 5)])
     }
 
     @Test("Closing the repo filter with a row of the open repo selected goes to the half that shows it")

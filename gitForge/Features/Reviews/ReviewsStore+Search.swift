@@ -69,9 +69,15 @@ extension ReviewsStore {
     }
 
     /// What the inbox shows narrowed to the browsed `repo` (Ruling 13): one
-    /// group with its Others, both halves, newest first; none without them.
+    /// group with its Others and, when it's the repository open in gitForge
+    /// without being followed, its rows, which `openFoundRepo` doesn't make
+    /// Others (U1 Ruling C); both halves, newest first, each pull request
+    /// once; none without them.
     func browsedGroups(_ repo: ReviewRepo) -> [ReviewGroup] {
-        let rows = others.filter { $0.repo.id == repo.id }.sorted { Self.newerFirst($0.pull, $1.pull) }
+        let visiting = visitingRows(of: repo.id)
+        let numbers = Set(visiting.map(\.pull.number))
+        let opened = others.filter { $0.repo.id == repo.id && !numbers.contains($0.pull.number) }
+        let rows = (visiting + opened).sorted { Self.newerFirst($0.pull, $1.pull) }
         return rows.isEmpty ? [] : [ReviewGroup(repo: repo, pulls: rows, error: nil)]
     }
 }
