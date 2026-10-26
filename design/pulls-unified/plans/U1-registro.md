@@ -69,14 +69,23 @@ La segunda revisión (Sonnet) dio 9 de 9 resueltos, y encontró en los propios a
 
 ## Pendiente
 
-### Primer seguimiento: el refresco automático y el repo abierto sin seguir
+### Primer seguimiento: el refresco automático y el repo abierto sin seguir (arreglado)
 
-Lo encontró la segunda revisión y sigue abierto. `autoRefreshOnce()` (hallazgo 5, `7e2f590`) relee a la fuerza, cada cinco minutos, el store del repo abierto cuando no se sigue, y esa lectura pasa por la autenticación interactiva. Dos efectos:
+Lo encontró la segunda revisión. `autoRefreshOnce()` (hallazgo 5, `7e2f590`) releía a la fuerza, cada cinco minutos, el store del repo abierto cuando no se sigue, y esa lectura pasaba por la autenticación interactiva. Dos efectos:
 
-- **La hoja "Choose an account" puede salir sola:** con una cuenta ambigua (varias podrían servir al host) y el selector cancelado antes, el temporizador vuelve a pedirla sin que hayas hecho nada.
-- **Parpadeo en Cerradas:** estando en Cerradas, esa lectura forzada vacía la lista y la relee cada cinco minutos.
+- **La hoja "Choose an account" podía salir sola:** con una cuenta ambigua (varias podrían servir al host) y el selector cancelado antes, el temporizador volvía a pedirla sin que hubieras hecho nada.
+- **Parpadeo en Cerradas:** estando en Cerradas, esa lectura forzada vaciaba la lista y la releía cada cinco minutos.
 
-Arreglo propuesto: una lectura no interactiva del repo de paso, que deje Cerradas en paz y que se salte cuando no se eligió cuenta (`accountNotChosen`) o el repo no llegó a cargar nunca. Con tests del turno `autoRefreshOnce()` para cada caso.
+Arreglado después del cierre, a petición de Alvaro, con `PullRequestStore.refreshOpenListQuietly()`, que `autoRefreshOnce()` usa en lugar de `load(force: true)`:
+
+- relee solo la lista de abiertas con el token de la última carga;
+- tras un 401 lo renueva con `silentAuth`, que nunca pregunta;
+- no enseña spinner, error ni estado de "conectar";
+- si falla, se queda la lista que había;
+- no toca Cerradas ni el detalle;
+- no hace nada si no hubo antes una carga buena (por ejemplo, tras cancelar el selector), mientras corre otra carga o si una empieza antes de que llegue.
+
+Tests en `PullRequestStoreQuietRefreshTests`: 6 tests y 8 casos (`keepsClosed`, `renewsSilently`, `unrenewableLeavesAlone` con tres respuestas, `failureKeepsList`, `neverLoaded`, `chooserCancelled`). Fallaron primero con error de compilación. Suite completa: 2520 casos, 0 fallan, 1 fallo esperado. `autoRefreshReadsVisiting` sigue en verde.
 
 ### Novedades de la versión que lleve U1
 
