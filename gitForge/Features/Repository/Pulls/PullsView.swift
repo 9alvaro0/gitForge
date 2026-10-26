@@ -1,205 +1,279 @@
 import SwiftUI
 
-/// Pull/merge request list. Reads from GitHub or GitLab based on the active
-/// repository's `origin` remote, authenticated with the repo's hosting
-/// account.
-struct PullsView: View {
+/// The open repository's own list and local actions, for Open and Closed
+/// and for its rows in Team and Mine.
+struct PullsRepository {
     let store: PullRequestStore
     /// What the detail does on disk: integrates the selected PR locally
     /// ("Resolve locally") and checks out its branch; session-wide work owned
     /// by `RepositoryViewModel`.
     let localActions: PullRequestLocalActions
+}
 
-    @Environment(AppState.self) private var appState
+/// The Pull requests section (pulls-unified spec §4.2): Team and Mine, the
+/// open pull requests of the repos the user follows, and, with a repository
+/// open, Open and Closed, that repository's own lists. The tab is the inbox's
+/// (`ReviewsStore.tab`), kept between launches; without a repository, Open
+/// and Closed fall back to Team.
+struct PullsView: View {
+    let reviews: ReviewsStore
+    /// The repository open in gitForge; `nil` with none.
+    let repository: PullsRepository?
+
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        Group {
-            if listReady {
-                splitLayout
+        VStack(spacing: 0) {
+            PullsTabBar(reviews: reviews, repositoryStore: repository?.store, tab: tab)
+            Rectangle().fill(theme.colors.separator).frame(height: 1)
+            if let repository, tab.half == nil {
+                PullsRepositoryPane(repository: repository)
             } else {
-                PullsContentSection(
-                    store: store,
-                    nounPlural: nounPlural,
-                    onConnect: {
-                        appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: store.connectInstanceId,
-                                                                                replacing: store.reconnectAccountId)
-                    },
-                    onAddInstance: { suggestion in
-                        appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind, url: "https://\(suggestion.host)")
-                    },
-                    onOpenSettings: { appState.ui.openSettings(at: .accounts) }
-                )
+                PullsInboxPane(store: reviews, repository: repository)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(theme.colors.bgContent)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { Task { await store.refresh() } } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .labelStyle(.iconOnly)
-                .help(refreshHelp)
-                .disabled(store.isLoading)
-            }
-        }
-        .navigationTitle(headerTitle)
-        .task { await store.load() }
-        .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
-            // Also from an error: the right account may have just been connected.
-            if closed, store.requiresToken || store.error != nil { Task { await store.load(force: true) } }
-        }
-        .onChange(of: appState.ui.addInstanceRequest == nil) { _, closed in
-            if closed, store.host == nil { Task { await store.load(force: true) } }
-        }
-    }
-
-    /// The list (and its detail) shows once the host, the token and a first
-    /// load are in; before that the full-width states take over.
-    private var listReady: Bool {
-        store.host != nil && !store.requiresToken && !store.accountNotChosen && store.error == nil
-            && !(store.isLoading && store.items.isEmpty)
-    }
-
-    private var splitLayout: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    scopeBar
-                    list
-                }
-                .frame(width: geo.size.width >= 1000 ? 380 : 320)
-                Rectangle().fill(theme.colors.separator).frame(width: 1)
-                Group {
-                    if store.selected != nil {
-                        PullRequestDetailView(store: store, localActions: localActions)
-                    } else {
-                        EmptyState(symbol: "arrow.triangle.pull", title: selectTitle)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.bgElevated)
-            }
-        }
-        // Open the first PR so the detail isn't blank on arrival (a PR just
-        // merged here stays open though it left the list).
-        .task(id: store.visibleItems.map(\.id)) {
-            if let next = store.pullToAutoSelect() { store.select(next) }
-        }
-    }
-
-    /// Above the list rather than in the toolbar, where it fell into `»`.
-    private var scopeBar: some View {
-        HStack {
-            SegmentedControl<PullListScope>(
-                PullListScope.allCases.map { scope in
-                    (scope, store.count(for: scope).map { "\(scope.title) \($0)" } ?? scope.title)
-                },
-                selection: Binding(get: { store.scope }, set: { scope in Task { await store.setScope(scope) } })
-            )
-            .fixedSize()
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Spacing.s12)
-        .frame(height: 44)
-    }
-
-    @ViewBuilder
-    private var list: some View {
-        let items = store.visibleItems
-        if items.isEmpty {
-            if store.scope == .closed && !store.closedLoaded {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                EmptyState(symbol: "arrow.triangle.pull", title: emptyTitle)
-            }
-        } else {
-            ScrollView {
-                LazyVStack(spacing: Spacing.s2) {
-                    ForEach(items) { pr in
-                        PullRequestRow(
-                            pullRequest: pr,
-                            hostLabel: store.host?.provider.label,
-                            reference: store.host?.provider.reference(pr.number),
-                            ci: store.ciStatus(for: pr),
-                            isSelected: store.selected?.id == pr.id,
-                            onSelect: { store.select(pr) }
-                        )
-                    }
-                }
-                .padding(.horizontal, Spacing.s8)
-                .padding(.bottom, Spacing.s8)
+        .navigationTitle(title)
+        // Entering the section reads both, each within its own throttle, so
+        // the open repository's group has rows whichever tab shows first (U1
+        // Ruling 8).
+        .task { await reviews.refresh() }
+        .task { await loadRepository(for: tab) }
+        // Switching back to a tab reads it again if it's stale, as showing
+        // Reviews or Pull requests did. Unstructured, as the scope bar was:
+        // another switch mustn't cancel a read halfway.
+        .onChange(of: tab) { old, new in
+            if new.half == nil {
+                Task { await loadRepository(for: new) }
+            } else if old.half == nil {
+                Task { await reviews.refresh() }
             }
         }
     }
 
-    // Whole phrases per provider ("pull request" on GitHub and by default,
-    // "merge request" on GitLab) so translations needn't splice nouns.
-
-    private var isMergeRequest: Bool { store.host?.provider == .gitlab }
-
-    private var emptyTitle: String {
-        switch store.scope {
-        case .open:
-            isMergeRequest ? String(localized: "No open merge requests") : String(localized: "No open pull requests")
-        case .mine:
-            isMergeRequest ? String(localized: "None of the open merge requests are yours")
-                           : String(localized: "None of the open pull requests are yours")
-        case .closed:
-            isMergeRequest ? String(localized: "No closed merge requests") : String(localized: "No closed pull requests")
-        }
+    /// The tab shown: the one saved, but Team for Open and Closed with no
+    /// repository open (U1 Ruling 1).
+    private var tab: PullsTab {
+        PullsTab.shown(reviews.tab, hasRepository: repository != nil)
     }
 
-    private var selectTitle: String {
-        isMergeRequest ? String(localized: "Select a merge request") : String(localized: "Select a pull request")
+    /// The repository's list for `tab`, read once at most: the scope is set
+    /// before the load, which then reads Closed too when that's the tab
+    /// (`PullRequestStore.load`); `setScope` after it reads Closed only if
+    /// the load had nothing to do (within its throttle, or already running).
+    private func loadRepository(for tab: PullsTab) async {
+        guard let store = repository?.store else { return }
+        if let scope = tab.listScope { store.scope = scope }
+        await store.load()
+        if let scope = tab.listScope { await store.setScope(scope) }
     }
 
-    private var refreshHelp: String {
-        isMergeRequest ? String(localized: "Refresh merge requests") : String(localized: "Refresh pull requests")
-    }
-
-    /// Lowercase plural noun spliced into the full-width states' sentences.
-    private var nounPlural: String {
-        isMergeRequest ? String(localized: "merge requests") : String(localized: "pull requests")
-    }
-
-    private var headerTitle: String {
-        isMergeRequest ? String(localized: "Merge requests") : String(localized: "Pull requests")
+    /// "Merge requests" on Open and Closed of a GitLab repository; "Pull
+    /// requests" everywhere else, Team and Mine mixing both.
+    private var title: String {
+        tab.half == nil && repository?.store.host?.provider == .gitlab
+            ? String(localized: "Merge requests") : String(localized: "Pull requests")
     }
 }
+
+// MARK: - Team and Mine, with payments-app open
 
 #Preview("Loaded") {
     @Previewable @State var theme = AppTheme()
-    PullsView(store: .previewWithPullRequests, localActions: .preview)
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.loaded, open: open), repository: open.pulls)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
 
-#Preview("Loading") {
+#Preview("Selected, not cloned") {
     @Previewable @State var theme = AppTheme()
-    let store: PullRequestStore = {
-        let s = PullRequestStore.previewWithPullRequests
-        s.items = []
-        s.isLoading = true
-        return s
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews: ReviewsStore = {
+        let store = ReviewsStore.preview(.loaded, open: open)
+        store.selectedID = "gitlab.example.test/apps/payments/backend/ledger#1203"
+        return store
     }()
-    PullsView(store: store, localActions: .preview)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1240, height: 760)
+        .appTheme(theme)
+}
+
+#Preview("Empty") {
+    @Previewable @State var theme = AppTheme()
+    // A repo with no open pull request: it brings no group of its own.
+    let open = PreviewOpenRepository(PreviewReviewsWorld.releaseTools)
+    PullsView(reviews: .preview(.empty, open: open), repository: open.pulls)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
 
-#Preview("Token missing") {
+#Preview("No accounts") {
     @Previewable @State var theme = AppTheme()
-    let store: PullRequestStore = {
-        let s = PullRequestStore.preview
-        s.host = .previewGitLab
-        s.requiresToken = true
-        return s
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.noAccounts, open: open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Over the limit") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.overLimit, open: open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Account to reconnect") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.attention, open: open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Others") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.openPreviewOthers() }
+        .previewAppState(.preview)
+        .frame(width: 1240, height: 760)
+        .appTheme(theme)
+}
+
+#Preview("Filtered by repo") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        // A repo that isn't cloned, as ⌘K narrows to one.
+        .task { await reviews.showPreviewRepo(PreviewReviewsWorld.ledger) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Filtered, empty") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.showPreviewRepo(PreviewReviewsWorld.releaseTools) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Opening a link") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.openPreviewSlowLink() }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Pattern proposal") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.proposal, open: open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Pattern proposal over the limit") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.proposalOverLimit, open: open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Browsed repository") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.openPreviewFoundRepo(PreviewReviewsWorld.ossLib) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Browsed repository, empty") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.openPreviewFoundRepo(PreviewReviewsWorld.ossCli) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+// MARK: - Open
+
+#Preview("Open") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    PullsView(reviews: .preview(.loaded, open: open, tab: .open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Open, loading") {
+    @Previewable @State var theme = AppTheme()
+    let open: PreviewOpenRepository = {
+        let open = PreviewOpenRepository.paymentsApp
+        // A load that never lands: the store's own is skipped while one runs.
+        open.pulls.store.items = []
+        open.pulls.store.isLoading = true
+        return open
     }()
-    PullsView(store: store, localActions: .preview)
+    PullsView(reviews: .preview(.loaded, open: open, tab: .open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Open, token missing") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository(PreviewReviewsWorld.paymentsApp, connected: false)
+    PullsView(reviews: .preview(.loaded, open: open, tab: .open), repository: open.pulls)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+// MARK: - Without a repository, and with one nobody follows
+
+#Preview("No repository open") {
+    @Previewable @State var theme = AppTheme()
+    // Saved on Open: with no repository, the section shows Team.
+    PullsView(reviews: .preview(.loaded, open: nil, tab: .open), repository: nil)
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Team, the open repository first") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.ossLib
+    PullsView(reviews: .preview(.loaded, open: open), repository: open.pulls)
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)

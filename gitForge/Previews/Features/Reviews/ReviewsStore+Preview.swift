@@ -33,9 +33,20 @@ extension ReviewsStore {
     }
 
     /// A store on `PreviewReviewsWorld`. Empty until it refreshes, which
-    /// `ReviewsView` does when it appears.
+    /// `PullsView` does when it appears.
     static func preview(_ inbox: PreviewInbox = .loaded) -> ReviewsStore {
         ReviewsStore(environment: PreviewReviewsWorld(inbox).environment)
+    }
+
+    /// `preview(inbox)` with `repository` open in gitForge, as `AppState`
+    /// hands it over (U1 Ruling 3), and on `tab`, as if it was the one saved.
+    static func preview(_ inbox: PreviewInbox = .loaded, open repository: PreviewOpenRepository?,
+                        tab: PullsTab = .team) -> ReviewsStore {
+        var environment = PreviewReviewsWorld(inbox).environment
+        let active = repository?.active
+        environment.activeRepository = { active }
+        environment.loadTab = { tab }
+        return ReviewsStore(environment: environment)
     }
 
     /// Reads the preview world to the end, even when the view's own read
@@ -172,14 +183,14 @@ struct PreviewReviewsWorld {
 
         var local = populated
             ? [LocalRemote(host: RemoteHost.make(fullName: Self.paymentsApp, on: Self.gitLab)!,
-                           repository: Repository(url: URL(fileURLWithPath: "/Users/preview/Developer/payments-app"),
+                           repository: Repository(url: Self.cloneURL(of: Self.paymentsApp),
                                                   lastOpenedAt: now.addingTimeInterval(-3600)),
                            assignedAccountId: Self.marta.id)]
             : []
         if settings != .absent {
             // Its repo moved: the inbox follows it as `ledger`.
             local.append(LocalRemote(host: RemoteHost.make(fullName: Self.ledgerOldPath, on: Self.gitLab)!,
-                                     repository: Repository(url: URL(fileURLWithPath: "/Users/preview/Developer/ledger-api"),
+                                     repository: Repository(url: Self.cloneURL(of: Self.ledgerOldPath),
                                                             lastOpenedAt: now.addingTimeInterval(-3 * 86_400)),
                                      assignedAccountId: Self.marta.id))
         }
@@ -217,6 +228,36 @@ struct PreviewReviewsWorld {
             snapshots: ReviewsSnapshotStore(directory: snapshots),
             config: config,
             makeReviewProvider: { _ in host })
+    }
+
+    /// Where the clone of the repo at `path` is on this Mac.
+    static func cloneURL(of path: String) -> URL {
+        URL(fileURLWithPath: "/Users/preview/Developer/\(path.split(separator: "/").last ?? "")")
+    }
+
+    /// The Pull requests store of the clone of `path`, as its repository
+    /// reads it: the preview hosts' open pull requests, marta's login and no
+    /// closed one. Already read, so it shows before its own load lands, which
+    /// reads the same. `connected: false` has no account to read it with: it
+    /// asks to connect one.
+    static func repositoryStore(_ path: String, on instance: HostingInstance,
+                                connected: Bool = true) -> PullRequestStore {
+        let host = RemoteHost.make(fullName: path, on: instance)!
+        let provider = PreviewReviewsHost(lists: lists(now: .now), failures: [:])
+        let auth: @MainActor (RemoteHost, String?) async -> PullRequestAuthResult = { _, _ in
+            connected ? .token("preview-token") : .connectAccount(instanceId: instance.id, replacing: nil)
+        }
+        let store = PullRequestStore(cli: nil, auth: auth, silentAuth: auth, resolveHost: { host },
+                                     makeProvider: { _ in provider }, makeReviewProvider: { _ in provider })
+        store.host = host
+        if connected {
+            store.items = provider.lists[path] ?? []
+            store.currentUser = "marta"
+        } else {
+            store.requiresToken = true
+            store.connectInstanceId = instance.id
+        }
+        return store
     }
 
     // MARK: Data

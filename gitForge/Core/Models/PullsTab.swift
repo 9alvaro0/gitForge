@@ -35,6 +35,16 @@ nonisolated enum PullsTab: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// The scope of the repository's store this tab shows
+    /// (`PullRequestStore.scope`); `nil` for the inbox's halves.
+    var listScope: PullListScope? {
+        switch self {
+        case .team, .mine: nil
+        case .open: .open
+        case .closed: .closed
+        }
+    }
+
     /// The tab for an inbox `half` and the repository list shown over it, if
     /// any: the list wins, the half is only the one the inbox keeps under it.
     init(half: ReviewsFilter, repositoryList: PullListState?) {

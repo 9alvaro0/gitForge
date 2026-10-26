@@ -13,16 +13,17 @@ struct ContentRouter: View {
         case .changes:  StagingView(viewModel: viewModel)
         case .branches: BranchesView(viewModel: viewModel)
         case .stashes:  StashesView(viewModel: viewModel)
-        case .pulls:
-            PullsView(store: viewModel.pullRequests,
-                      localActions: .repository(
-                          integrate: { await viewModel.attemptLocalMergeForPullRequest() },
-                          checkout: { await viewModel.checkoutPullRequestBranch() }))
+        // Reviews is Pull requests' Team and Mine now (U1 Ruling 8), until
+        // the section goes from the sidebar.
+        case .pulls, .reviews:
+            PullsView(reviews: appState.reviews,
+                      repository: PullsRepository(
+                          store: viewModel.pullRequests,
+                          localActions: .repository(
+                              integrate: { await viewModel.attemptLocalMergeForPullRequest() },
+                              checkout: { await viewModel.checkoutPullRequestBranch() })))
         case .conflict: ConflictView(viewModel: viewModel)
         case .settings: SettingsView()
-        // Inside a repository so going to Reviews and back does not mount
-        // the repository again.
-        case .reviews:  ReviewsView(store: appState.reviews)
         }
     }
 }

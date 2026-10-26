@@ -164,7 +164,8 @@ struct ShellView: View {
         } else {
             switch appState.ui.workspaceSection {
             case .settings: SettingsView()
-            case .reviews:  ReviewsView(store: appState.reviews)
+            // Team and Mine need no repository (U1 Ruling 9).
+            case .pulls, .reviews: PullsView(reviews: appState.reviews, repository: nil)
             default:        WelcomeView()
             }
         }
