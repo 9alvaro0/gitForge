@@ -71,6 +71,16 @@ struct SidebarOrderTests {
         #expect(order.sections == Self.defaultSections)
     }
 
+    @Test("A section outside the order can't move, and an edit naming it changes nothing")
+    func sectionOutsideOrderIgnored() {
+        var order = SidebarOrder()
+        #expect(order.canMoveUp(.settings) == false)
+        #expect(order.canMoveDown(.settings) == false)
+        order.apply(.moveUp(.settings))
+        order.apply(.moveDown(.settings))
+        #expect(order.sections == Self.defaultSections)
+    }
+
     @Test("A drag moves the section to the offset the list gives")
     func dragMoves() {
         var toTop = SidebarOrder()

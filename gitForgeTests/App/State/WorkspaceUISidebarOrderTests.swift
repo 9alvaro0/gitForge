@@ -56,6 +56,19 @@ struct WorkspaceUISidebarOrderTests {
         }
     }
 
+    @Test("An edit that changes nothing leaves a saved incomplete order as it was")
+    func noChangeKeepsSavedValue() {
+        TestDefaults.with { suite in
+            // Not the default, and one section short: completing it would
+            // show up as a six-item list if the no-op edit wrote anything.
+            let saved = ["conflict", "pulls", "history", "changes", "branches"]
+            suite.defaults.set(saved, forKey: Self.key)
+            let ui = WorkspaceUI(defaults: suite.defaults)
+            ui.sidebarOrder.apply(.moveUp(.conflict))
+            #expect(suite.defaults.stringArray(forKey: Self.key) == saved)
+        }
+    }
+
     @Test("A saved value that isn't a list of sections starts on the default", arguments: [
         "history", [1, 2], ["pulls", "pulls"], [String](),
     ] as [any Sendable])
