@@ -72,5 +72,17 @@
                        type="application/octet-stream"
                        sparkle:edSignature="F+NHFkES7Gcr3Z4vk4PDyo8qsJZdpJewnuyV6U6UhUsRGZVNDngQaqkr7XdoFdWFEJg5/JKc0eqQ7Hl42ipFBA==" />
         </item>
+        <item>
+            <title>gitForge 1.5.0</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.5.0.html</sparkle:releaseNotesLink>
+            <pubDate>Mon, 26 Oct 2026 13:52:06 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.5.0/gitForge-1.5.0.dmg"
+                       sparkle:version="1.5.0"
+                       sparkle:shortVersionString="1.5.0"
+                       length="17952286"
+                       type="application/octet-stream"
+                       sparkle:edSignature="Dl1zzSkyZc5kIh7qk+/KjISQ77OxOQg1Jbsf4E78TgndBx/xHaelekBlGoa7HTfOz2eR5XPYaPJCChnSOzTKBA==" />
+        </item>
     </channel>
 </rss>
