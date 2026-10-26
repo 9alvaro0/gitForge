@@ -36,15 +36,11 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Sections shown in the workspace block (top group).
+    /// Sections shown in the workspace block (top group), in their default
+    /// order. Pull requests is fourth so that ⌘4 keeps opening it for whoever
+    /// uses it today (pulls-unified §4.7); the order a person keeps lives in
+    /// `SidebarOrder`.
     static let workspaceItems: [WorkspaceSection] = [
-        .history, .changes, .branches, .stashes, .pulls, .conflict,
+        .history, .changes, .branches, .pulls, .stashes, .conflict,
     ]
-
-    /// What the sidebar lists: every workspace item with a repository open;
-    /// without one, Pull requests alone, whose Team and Mine need none
-    /// (pulls-unified §4.1).
-    static func sidebarItems(hasRepository: Bool) -> [WorkspaceSection] {
-        hasRepository ? workspaceItems : [.pulls]
-    }
 }

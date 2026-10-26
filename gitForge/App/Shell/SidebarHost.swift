@@ -16,6 +16,7 @@ struct SidebarHost: View {
             activeRepository: appState.catalog.activeRepository,
             statusFor: statusFor,
             activeSection: appState.ui.workspaceSection,
+            order: appState.ui.sidebarOrder,
             unstagedBadge: appState.catalog.activeViewModel?.workingCopy.status.unstagedFiles.count ?? 0,
             stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
             pullsBadge: appState.reviews.badgeCount,

@@ -1,24 +1,22 @@
 import Testing
 @testable import gitForge
 
-/// The sections of the sidebar (U1 Ruling 9): Pull requests is the only one
-/// there when no repository is open, and Reviews is not a section any more.
+/// The sections of the sidebar (U1 Ruling 9): Pull requests is one of them
+/// (what the list shows with and without a repository is `SidebarOrder`'s),
+/// and Reviews is not a section any more.
 @Suite("Workspace sections")
 @MainActor
 struct WorkspaceSectionTests {
-    @Test("With a repository open the sidebar lists every workspace item")
-    func withRepository() {
-        #expect(WorkspaceSection.sidebarItems(hasRepository: true) == WorkspaceSection.workspaceItems)
-    }
-
-    @Test("Without a repository the sidebar lists Pull requests alone")
-    func withoutRepository() {
-        #expect(WorkspaceSection.sidebarItems(hasRepository: false) == [.pulls])
-    }
-
     @Test("Pull requests is one of the workspace items")
     func pullsIsAWorkspaceItem() {
         #expect(WorkspaceSection.workspaceItems.contains(.pulls))
+    }
+
+    @Test("The workspace items are every section but Settings, each once")
+    func workspaceItemsAreAllButSettings() {
+        let items = WorkspaceSection.workspaceItems
+        #expect(items.count == 6)
+        #expect(Set(items) == Set(WorkspaceSection.allCases).subtracting([.settings]))
     }
 
     @Test("No section is called Reviews")

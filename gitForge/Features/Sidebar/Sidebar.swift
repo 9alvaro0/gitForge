@@ -10,6 +10,8 @@ struct Sidebar: View {
     /// background-polled snapshot.
     let statusFor: (Repository) -> RepoStatusSnapshot
     let activeSection: WorkspaceSection
+    /// The order of the workspace sections (pulls-unified §4.7).
+    var order: SidebarOrder = SidebarOrder()
     let unstagedBadge: Int
     let stashesBadge: Int
     /// Open pull requests waiting on the user, across every followed repo.
@@ -68,7 +70,7 @@ struct Sidebar: View {
     private var list: some View {
         List {
             Section {
-                ForEach(WorkspaceSection.sidebarItems(hasRepository: activeRepository != nil)) { section in
+                ForEach(order.visible(hasRepository: activeRepository != nil)) { section in
                     SidebarNavItem(
                         section: section,
                         badge: badge(for: section),
