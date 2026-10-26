@@ -47,6 +47,11 @@ struct Sidebar: View {
 
     @State private var collapsedFolders: Set<String> = []
 
+    /// Whether a repository is open. The list then shows every section and
+    /// they can be reordered; without one it is Pull requests alone and the
+    /// saved order doesn't change (pulls-unified §4.7, Ruling 6).
+    private var hasRepository: Bool { activeRepository != nil }
+
     var body: some View {
         // The profile card sits under the list rather than in a bottom
         // safe-area inset: the inset let the last rows (Tags) scroll behind
@@ -73,14 +78,12 @@ struct Sidebar: View {
     private var list: some View {
         List {
             Section {
-                ForEach(order.visible(hasRepository: activeRepository != nil)) { section in
+                ForEach(order.visible(hasRepository: hasRepository)) { section in
                     navItem(for: section)
                 }
-                // Without a repository the list is Pull requests alone and
-                // the saved order doesn't change (pulls-unified §4.7).
-                .onMove(perform: activeRepository == nil ? nil : { offsets, destination in
+                .onMove(perform: hasRepository ? { offsets, destination in
                     onReorder(.move(fromOffsets: offsets, toOffset: destination))
-                })
+                } : nil)
             }
             if activeRepository != nil {
                 Section("Branches") {
@@ -133,7 +136,7 @@ struct Sidebar: View {
             isActive: section == activeSection,
             onSelect: { onSelectSection(section) }
         )
-        if activeRepository != nil {
+        if hasRepository {
             item.sectionReordering(section, in: order, onEdit: onReorder)
         } else {
             item

@@ -79,7 +79,13 @@ struct SidebarHost: View {
             },
             hostingSections: hostingSections(identitySnapshot.activeProfileId),
             onHostingEntry: handleHostingEntry,
-            onReorder: { appState.ui.sidebarOrder.apply($0) }
+            onReorder: { edit in
+                // Without a repository the list is Pull requests alone, so
+                // an edit that lands as the repository closes does nothing
+                // (pulls-unified §4.7, Ruling 6).
+                guard appState.catalog.activeRepository != nil else { return }
+                appState.ui.sidebarOrder.apply(edit)
+            }
         )
         // Remotes live in `.git/config`, which the watcher doesn't follow:
         // read them again when a new remote's branches show up, and when the
