@@ -10,8 +10,10 @@ struct PreviewOpenRepository {
 
     /// The clone of the repo at `path` on `instance`, reading the preview
     /// hosts (`PreviewReviewsWorld.repositoryStore`).
-    init(_ path: String, on instance: HostingInstance = PreviewReviewsWorld.gitLab, connected: Bool = true) {
-        let store = PreviewReviewsWorld.repositoryStore(path, on: instance, connected: connected)
+    init(_ path: String, on instance: HostingInstance = PreviewReviewsWorld.gitLab, connected: Bool = true,
+         accountChosen: Bool = true) {
+        let store = PreviewReviewsWorld.repositoryStore(path, on: instance, connected: connected,
+                                                        accountChosen: accountChosen)
         pulls = PullsRepository(store: store, localActions: .preview)
         active = ActiveRepositoryPulls(localURL: PreviewReviewsWorld.cloneURL(of: path), store: store)
     }

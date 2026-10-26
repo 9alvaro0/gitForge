@@ -94,14 +94,24 @@ struct PullsView: View {
 #Preview("Selected, not cloned") {
     @Previewable @State var theme = AppTheme()
     let open = PreviewOpenRepository.paymentsApp
-    let reviews: ReviewsStore = {
-        let store = ReviewsStore.preview(.loaded, open: open)
-        store.selectedID = "gitlab.example.test/apps/payments/backend/ledger#1203"
-        return store
-    }()
+    let reviews = ReviewsStore.preview(.loaded, open: open)
     PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.selectPreviewRow("gitlab.example.test/apps/payments/backend/ledger#1203") }
         .previewAppState(.preview)
         .frame(width: 1240, height: 760)
+        .appTheme(theme)
+}
+
+#Preview("Selected, account not chosen") {
+    @Previewable @State var theme = AppTheme()
+    // payments-app is open, and its account chooser was closed without a pick:
+    // its pull request's detail says so instead of waiting for a token.
+    let open = PreviewOpenRepository(PreviewReviewsWorld.paymentsApp, accountChosen: false)
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        .task { await reviews.selectPreviewRow("gitlab.example.test/apps/payments/android/payments-app#482") }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
         .appTheme(theme)
 }
 
@@ -160,6 +170,18 @@ struct PullsView: View {
     PullsView(reviews: reviews, repository: open.pulls)
         // A repo that isn't cloned, as ⌘K narrows to one.
         .task { await reviews.showPreviewRepo(PreviewReviewsWorld.ledger) }
+        .previewAppState(.preview)
+        .frame(width: 1100, height: 700)
+        .appTheme(theme)
+}
+
+#Preview("Filtered to the open repository") {
+    @Previewable @State var theme = AppTheme()
+    let open = PreviewOpenRepository.paymentsApp
+    let reviews = ReviewsStore.preview(.loaded, open: open)
+    PullsView(reviews: reviews, repository: open.pulls)
+        // No "Open in repository": it's the one open.
+        .task { await reviews.showPreviewRepo(PreviewReviewsWorld.paymentsApp) }
         .previewAppState(.preview)
         .frame(width: 1100, height: 700)
         .appTheme(theme)

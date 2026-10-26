@@ -64,6 +64,13 @@ extension ReviewsStore {
         for link in PreviewReviewsWorld.otherLinks { _ = await openLink(link) }
     }
 
+    /// Selects the row `id` once the preview world is read, as a click on it
+    /// does: a selection the list doesn't show when it appears is dropped.
+    func selectPreviewRow(_ id: InboxPull.ID) async {
+        await refreshForPreview()
+        selectedID = id
+    }
+
     /// Narrows the inbox to the followed repo at `path` on the GitLab instance.
     func showPreviewRepo(_ path: String) async {
         await refreshForPreview()
@@ -239,18 +246,22 @@ struct PreviewReviewsWorld {
     /// reads it: the preview hosts' open pull requests, marta's login and no
     /// closed one. Already read, so it shows before its own load lands, which
     /// reads the same. `connected: false` has no account to read it with: it
-    /// asks to connect one.
+    /// asks to connect one. `accountChosen: false` has several, and the
+    /// chooser is closed without picking one each time it's asked.
     static func repositoryStore(_ path: String, on instance: HostingInstance,
-                                connected: Bool = true) -> PullRequestStore {
+                                connected: Bool = true, accountChosen: Bool = true) -> PullRequestStore {
         let host = RemoteHost.make(fullName: path, on: instance)!
         let provider = PreviewReviewsHost(lists: lists(now: .now), failures: [:])
         let auth: @MainActor (RemoteHost, String?) async -> PullRequestAuthResult = { _, _ in
-            connected ? .token("preview-token") : .connectAccount(instanceId: instance.id, replacing: nil)
+            guard accountChosen else { return .cancelled }
+            return connected ? .token("preview-token") : .connectAccount(instanceId: instance.id, replacing: nil)
         }
         let store = PullRequestStore(cli: nil, auth: auth, silentAuth: auth, resolveHost: { host },
                                      makeProvider: { _ in provider }, makeReviewProvider: { _ in provider })
         store.host = host
-        if connected {
+        if !accountChosen {
+            store.accountNotChosen = true
+        } else if connected {
             store.items = provider.lists[path] ?? []
             store.currentUser = "marta"
         } else {
