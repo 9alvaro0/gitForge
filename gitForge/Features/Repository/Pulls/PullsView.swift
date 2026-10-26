@@ -39,13 +39,14 @@ struct PullsView: View {
         // the open repository's group has rows whichever tab shows first (U1
         // Ruling 8).
         .task { await reviews.refresh() }
-        .task { await loadRepository(for: tab) }
-        // Switching back to a tab reads it again if it's stale, as showing
-        // Reviews or Pull requests did. Unstructured, as the scope bar was:
-        // another switch mustn't cancel a read halfway.
+        .task { await loadRepository(for: tab, entering: true) }
+        // Switching to Open or Closed reads only what the list lacks (U1
+        // Ruling L); back to Team or Mine, the inbox within its throttle, as
+        // showing Reviews did. Unstructured, as the scope bar was: another
+        // switch mustn't cancel a read halfway.
         .onChange(of: tab) { old, new in
             if new.half == nil {
-                Task { await loadRepository(for: new) }
+                Task { await loadRepository(for: new, entering: false) }
             } else if old.half == nil {
                 Task { await reviews.refresh() }
             }
@@ -58,15 +59,21 @@ struct PullsView: View {
         PullsTab.shown(reviews.tab, hasRepository: repository != nil)
     }
 
-    /// The repository's list for `tab`, read once at most: the scope is set
-    /// before the load, which then reads Closed too when that's the tab
-    /// (`PullRequestStore.load`); `setScope` after it reads Closed only if
-    /// the load had nothing to do (within its throttle, or already running).
-    private func loadRepository(for tab: PullsTab) async {
+    /// The repository's list for `tab`. Entering the section loads it within
+    /// its throttle (U1 Ruling 8); switching to Open or Closed loads it only
+    /// if it never loaded or shows an error, and otherwise just changes the
+    /// scope, as the scope bar did (U1 Ruling L). Closed is read once either
+    /// way: the scope is set before a load, which then reads Closed too
+    /// (`PullRequestStore.load`), and `setScope` after it reads Closed the
+    /// first time it's shown, if nothing did.
+    private func loadRepository(for tab: PullsTab, entering: Bool) async {
         guard let store = repository?.store else { return }
-        if let scope = tab.listScope { store.scope = scope }
-        await store.load()
-        if let scope = tab.listScope { await store.setScope(scope) }
+        let scope = tab.listScope
+        if entering || store.lastLoadedAt == nil || store.error != nil {
+            if let scope { store.scope = scope }
+            await store.load()
+        }
+        if let scope { await store.setScope(scope) }
     }
 
     /// "Merge requests" on Open and Closed of a GitLab repository; "Pull

@@ -40,9 +40,9 @@ struct PullsTabBar: View {
                             .truncationMode(.head)
                     }
                 }
-                refreshButton(isBusy: reviews.isRefreshing, help: String(localized: "Refresh")) {
-                    // Reads the memberships and rename lookups again too (R3 Ruling 9).
-                    Task { await reviews.refresh(force: true, rereadLists: true) }
+                refreshButton(isBusy: reviews.isRefreshing || repositoryStore?.isLoading == true,
+                              help: String(localized: "Refresh")) {
+                    Task { await refreshInbox() }
                 }
             }
         }
@@ -62,6 +62,16 @@ struct PullsTabBar: View {
         if let half = tab.half { return reviews.count(for: half) }
         guard let scope = tab.listScope, let repositoryStore, repositoryStore.isListReady else { return nil }
         return repositoryStore.count(for: scope)
+    }
+
+    /// Team and Mine's Refresh: the inbox, with its memberships and rename
+    /// lookups (R3 Ruling 9), and the open repository's list at the same
+    /// time, which the open repository's group shows when it isn't followed
+    /// (U1 Ruling K).
+    private func refreshInbox() async {
+        async let inbox: Void = reviews.refresh(force: true, rereadLists: true)
+        async let repository: Void? = repositoryStore?.load(force: true)
+        _ = await (inbox, repository)
     }
 
     /// A spinner in its place while what it would read is being read.
