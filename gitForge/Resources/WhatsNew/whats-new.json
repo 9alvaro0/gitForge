@@ -1,6 +1,73 @@
 {
   "releases": [
     {
+      "version": "1.5.0",
+      "highlights": [
+        {
+          "symbol": "arrow.triangle.pull",
+          "title": {
+            "en": "One place for pull requests",
+            "es": "Un solo sitio para las pull requests",
+            "pt-PT": "Um só lugar para os pull requests"
+          },
+          "body": {
+            "en": "Reviews is now the Team tab of Pull requests, next to Mine, Open and Closed, and the section works even with no repository open.",
+            "es": "Revisiones pasa a ser la pestaña Equipo de Pull requests, junto a Mías, Abiertas y Cerradas, y la sección funciona aunque no tengas ningún repositorio abierto.",
+            "pt-PT": "Revisões passa a ser o separador Equipa de Pull requests, junto de Meus, Abertos e Fechados, e a secção funciona mesmo sem nenhum repositório aberto."
+          }
+        },
+        {
+          "symbol": "person.crop.circle",
+          "title": {
+            "en": "Mine across your repos",
+            "es": "Mías en todos tus repos",
+            "pt-PT": "Meus em todos os repositórios"
+          },
+          "body": {
+            "en": "Mine lists your open pull requests in every repository you follow, and the repository you have open always comes first in Team and Mine.",
+            "es": "Mías reúne tus pull requests abiertas de todos los repos que sigues, y el repositorio que tienes abierto sale siempre el primero en Equipo y Mías.",
+            "pt-PT": "Meus reúne os seus pull requests abertos de todos os repositórios que segue, e o repositório que tem aberto aparece sempre primeiro em Equipa e Meus."
+          }
+        },
+        {
+          "symbol": "arrow.up.arrow.down",
+          "title": {
+            "en": "Sections in your order",
+            "es": "Secciones en tu orden",
+            "pt-PT": "Secções pela sua ordem"
+          },
+          "body": {
+            "en": "Drag the sidebar sections into any order, or use Move Up and Move Down from their menu; ⌘1 to ⌘6 follow the order you choose.",
+            "es": "Arrastra las secciones de la barra lateral para ordenarlas como quieras, o usa Mover arriba y Mover abajo en su menú; ⌘1 a ⌘6 siguen el orden que elijas.",
+            "pt-PT": "Arraste as secções da barra lateral para as ordenar como quiser, ou use Mover para cima e Mover para baixo no seu menu; ⌘1 a ⌘6 seguem a ordem que escolher."
+          }
+        }
+      ],
+      "fixes": [],
+      "improvements": [
+        {
+          "en": "The Pull requests count in the sidebar shows your team's open pull requests waiting for review, drafts left out.",
+          "es": "El número de Pull requests en la barra lateral cuenta las pull requests abiertas de tu equipo pendientes de revisar, sin borradores.",
+          "pt-PT": "O número de Pull requests na barra lateral conta os pull requests abertos da sua equipa à espera de revisão, sem rascunhos."
+        },
+        {
+          "en": "Settings › Reviews is now Settings › Pull requests, with the repositories you follow and hide kept as they were.",
+          "es": "Ajustes › Revisiones pasa a ser Ajustes › Pull requests, con los repos que sigues y ocultas tal como estaban.",
+          "pt-PT": "Definições › Revisões passa a ser Definições › Pull requests, com os repositórios que segue e oculta tal como estavam."
+        },
+        {
+          "en": "The command palette also finds the open repository's pull requests, even when you don't follow it.",
+          "es": "La paleta de comandos también encuentra las pull requests del repositorio abierto, aunque no lo sigas.",
+          "pt-PT": "A paleta de comandos também encontra os pull requests do repositório aberto, mesmo que não o siga."
+        },
+        {
+          "en": "By default Pull requests now sits above Stashes, so ⌘4 still opens it; Stashes is ⌘5 and Conflicts ⌘6.",
+          "es": "Por defecto, Pull requests va ahora encima de Stashes, así que ⌘4 la sigue abriendo; Stashes es ⌘5 y Conflictos ⌘6.",
+          "pt-PT": "Por omissão, Pull requests fica agora acima de Stashes, por isso ⌘4 continua a abri-lo; Stashes é ⌘5 e Conflitos ⌘6."
+        }
+      ]
+    },
+    {
       "version": "1.4.0",
       "highlights": [
         {
