@@ -40,6 +40,10 @@ struct PullsInboxPane: View {
         .onChange(of: store.selectedItem?.id) { _, id in
             if id == nil { store.dropHiddenSelection() }
         }
+        // Shown again, as after another repository opened, the pane is a new
+        // one: a selection the list lost meanwhile, a row of the repository
+        // open before, goes rather than coming back with it.
+        .onAppear { store.dropHiddenSelection() }
         // Merged or closed from here: its repo is read again so it leaves
         // the list (Ruling 14), and an Other's row takes its new state (R2
         // Ruling 9).
