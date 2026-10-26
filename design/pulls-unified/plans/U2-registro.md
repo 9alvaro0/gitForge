@@ -32,6 +32,8 @@ U1 se mergeó en `main` como `aa16ab8` (squash de la PR #36, con el mismo árbol
 
 Los cuatro commits de la revisión final (`7f30618`, `1f8cf2a`, `69e2851`, `58f97ae`) se hicieron ya sobre la rama rebasada, y el de este registro (`docs: log unified pull requests phase 2`) es el último: no puede nombrar su propio SHA.
 
+**Primera CI de la PR #37 (Xcode 26):** falló un solo test, `ReviewsStoreFollowTests/hideDuringRefreshReads()`, que U2 no toca: "`running` → 0, se esperaba 6". A los 15 s de espera de `waitUntil`, ninguna de las seis lecturas del refresco había empezado. En la CI la suite entera corre en paralelo y satura el runner. Ese test ya tardaba 45,8 s en la CI de `main` (que pasó), y en esta ejecución varios tests sin relación acabaron a la vez tras 38-46 s; en local pasa en 0,26 s. Arreglo: la espera por defecto de `waitUntil` sube de 15 s a 60 s, como ya se subió antes de 3 s a 15 s (`f612ea7`). Solo alarga un test que ya falla, porque vuelve en cuanto se cumple la condición; los que pasan un límite propio corto no cambian.
+
 ## Desviaciones del spec y del plan
 
 Del spec: ninguna conocida. Lo que no se pudo comprobar contra él (el arrastre con el indicador nativo, el menú contextual, las acciones de accesibilidad y el menú View con su atajo por posición) está en "Prueba real".
