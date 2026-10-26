@@ -269,12 +269,19 @@ final class ReviewsStore {
     /// Others (R3 Ruling 13).
     var groups: [ReviewGroup] {
         if let browsed = filteredBrowsedRepo { return browsedGroups(browsed) }
+        return groups(of: filter, narrowedTo: repoFilter)
+    }
+
+    /// The groups `half` lists, as `groups` has them, whatever the inbox
+    /// shows: `count(for:)` reads each half this way, without the repo filter.
+    /// With `repoKey`, only that repo's, with the pull requests of both halves.
+    private func groups(of half: ReviewsFilter, narrowedTo repoKey: String? = nil) -> [ReviewGroup] {
         var loaded: [(group: ReviewGroup, newest: Date)] = []
         var failed: [ReviewGroup] = []
-        let isOneRepo = repoFilter != nil
-        for repo in repos where !isOneRepo || repo.id == repoFilter {
+        let isOneRepo = repoKey != nil
+        for repo in repos where !isOneRepo || repo.id == repoKey {
             let rows = (pulls[repo.id] ?? [])
-                .filter { isOneRepo || isMine($0, accountId: repo.accountId) == (filter == .mine) }
+                .filter { isOneRepo || isMine($0, accountId: repo.accountId) == (half == .mine) }
                 .sorted(by: Self.newerFirst)
                 .map { InboxPull(repo: repo, pull: $0) }
             if let newest = rows.first {
@@ -287,7 +294,7 @@ final class ReviewsStore {
         let ordered = loaded.sorted { lhs, rhs in
             lhs.newest == rhs.newest ? lhs.group.id < rhs.group.id : lhs.newest > rhs.newest
         }
-        return placingActiveFirst(ordered.map(\.group)) + failed
+        return placingActiveFirst(ordered.map(\.group), of: half, narrowed: isOneRepo) + failed
     }
 
     /// The current filter's groups and the Others shown; with neither, the
@@ -328,6 +335,18 @@ final class ReviewsStore {
         repos.reduce(0) { total, repo in
             total + (pulls[repo.id] ?? []).count(where: { $0.state == .open && !isMine($0, accountId: repo.accountId) })
         }
+    }
+
+    /// The number the tab of `half` shows (U1 Ruling 6, spec §4.2): the rows
+    /// it lists in every repo, whatever the repo filter, drafts and the open
+    /// repository included, and its Others that aren't rows of the list. So it
+    /// can be more than `badgeCount`. `nil` without accounts, or while nothing
+    /// has been read yet: the tab then shows no number.
+    func count(for half: ReviewsFilter) -> Int? {
+        guard hasAccounts, lastRefreshedAt != nil else { return nil }
+        let rows = groups(of: half).reduce(0) { $0 + $1.pulls.count }
+        let unlisted = others.filter { !isListed(repoKey: $0.repo.id, number: $0.pull.number) }
+        return rows + unlisted.count(where: { isMine($0) == (half == .mine) })
     }
 
     // Not private: `ReviewsStore+Active.swift` reads this one.
@@ -387,18 +406,19 @@ final class ReviewsStore {
 
     /// Selects `id` from outside the list (R2 Ruling 8) and asks the list to
     /// scroll to it (`revealRequest`). For a row of a followed repo or of the
-    /// open repository, the inbox moves to the half that shows it, Mine if
-    /// it's the user's and Team if not, and drops the filter by a repo other
-    /// than its own; for an Other, which shows under either half, it drops
-    /// the filter by repo, which hides the Others, unless it's on the Other's
-    /// own browsed repo, which shows them (R3 Ruling 13). `false`, with
-    /// nothing changed, when `id` is neither.
+    /// open repository, or an Other, the inbox moves to the half that shows
+    /// it, Mine if it's the user's and Team if not, and drops the filter by a
+    /// repo other than its own; the filter by repo hides the Others, so for
+    /// an Other it is dropped unless it's on the Other's own browsed repo,
+    /// which shows them (R3 Ruling 13). `false`, with nothing changed, when
+    /// `id` is none of them.
     @discardableResult
     func reveal(_ id: InboxPull.ID) -> Bool {
         if let item = inboxRows.first(where: { $0.id == id }) {
             filter = half(showing: item)
             if let repoFilter, repoFilter != item.repo.id { self.repoFilter = nil }
         } else if let item = others.first(where: { $0.id == id }) {
+            filter = half(showing: item)
             if filteredBrowsedRepo?.id != item.repo.id { repoFilter = nil }
         } else {
             return false
@@ -449,14 +469,15 @@ final class ReviewsStore {
             if let setAside { repositoryList = setAside }
             return
         }
-        if let item = inboxRows.first(where: { $0.id == selectedID }) {
+        if let item = inboxRows.first(where: { $0.id == selectedID }) ?? others.first(where: { $0.id == selectedID }) {
             filter = half(showing: item)
             requestReveal(selectedID)
         }
         repositoryList = nil
     }
 
-    /// Mine for the user's own pull request, Team for anyone else's.
+    /// Mine for the user's own pull request, Team for anyone else's: the half
+    /// of the list that shows it, an Other included.
     private func half(showing item: InboxPull) -> ReviewsFilter {
         isMine(item) ? .mine : .team
     }

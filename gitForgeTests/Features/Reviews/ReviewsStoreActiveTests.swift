@@ -227,6 +227,109 @@ struct ReviewsStoreActiveTests {
         #expect(store.detailStore(for: renamedKey) === active.store)
     }
 
+    // MARK: Counts of the halves
+
+    /// team/app has !1 by `lucia` and !2, a draft, by `lucia`; team/api has !3
+    /// by `marta`. oss/lib is open without being followed, with !5 by `lucia`,
+    /// and `oss/kit`, which is neither followed nor open, has !7 by `lucia`
+    /// among the Others. Team lists 4 rows and Mine 1; the sidebar counts the
+    /// one that can be asked of the user.
+    private static func withCounts() async -> (store: ReviewsStore, harness: ReviewsHarness) {
+        let harness = ReviewsHarness.twoRepos()
+        harness.provider.state {
+            $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "lucia", updated: 100),
+                                    ReviewsHarness.pr(2, by: "lucia", state: .draft, updated: 110)]
+            $0.lists["team/api"] = [ReviewsHarness.pr(3, by: "marta", updated: 300)]
+            $0.lists["oss/kit"] = [ReviewsHarness.pr(7, by: "lucia", updated: 70)]
+        }
+        let store = harness.makeStore()
+        await store.refresh(force: true)
+        let link = PullRequestLink(host: ReviewsHarness.host("oss/kit"), number: 7,
+                                   instanceId: ReviewsHarness.instance.id)
+        let kit = Self.id(ReviewsHarness.key("oss/kit"), 7)
+        #expect(await store.openLink(link) == .opened(kit))
+        harness.active = await harness.activeStore("oss/lib", pulls: [ReviewsHarness.pr(5, by: "lucia", updated: 50)],
+                                                   user: "marta")
+        return (store, harness)
+    }
+
+    @Test("Each half counts its rows in every repo, drafts, the open repo and the Others included; the sidebar doesn't")
+    func countsPerHalf() async {
+        let (store, _) = await Self.withCounts()
+
+        #expect(store.count(for: .team) == 4)
+        #expect(store.count(for: .mine) == 1)
+        #expect(store.badgeCount == 1)
+        // What each half lists, apart from the Others.
+        #expect(store.groups.reduce(0) { $0 + $1.pulls.count } == 3)
+        #expect(store.visibleOthers.count == 1)
+    }
+
+    @Test("The counts of the halves don't change with the inbox narrowed to a repo")
+    func countsIgnoreRepoFilter() async {
+        let (store, _) = await Self.withCounts()
+
+        store.showRepo(Self.api)
+
+        #expect(store.repoFilter == Self.api)
+        #expect(store.groups.map(\.repo.id) == [Self.api])
+        #expect(store.count(for: .team) == 4)
+        #expect(store.count(for: .mine) == 1)
+        #expect(store.badgeCount == 1)
+    }
+
+    @Test("The open repo's rows count in their halves while it isn't followed; hidden, or followed, it adds none")
+    func countsFollowTheOpenRepo() async {
+        let (store, harness) = await Self.withCounts()
+
+        // oss/lib is hidden in Settings: neither half lists it.
+        await store.hide(ReviewsHarness.host("oss/lib"))
+        #expect(store.count(for: .team) == 3)
+        #expect(store.count(for: .mine) == 1)
+
+        // Another repo open: its rows join the halves they belong to.
+        harness.active = await harness.activeStore("oss/other", pulls: Self.libPulls, user: "marta")
+        #expect(store.count(for: .team) == 4)
+        #expect(store.count(for: .mine) == 2)
+
+        // A followed repo open adds nothing of its own.
+        harness.active = await harness.activeStore("team/app", pulls: [], user: "marta")
+        #expect(store.count(for: .team) == 3)
+        #expect(store.count(for: .mine) == 1)
+    }
+
+    @Test("The counts are unknown without accounts or before the first read")
+    func countsUnknown() async {
+        let harness = ReviewsHarness.twoRepos()
+        harness.provider.state { $0.lists["team/app"] = [ReviewsHarness.pr(1, by: "lucia", updated: 100)] }
+        let store = harness.makeStore()
+        #expect(store.count(for: .team) == nil)
+        #expect(store.count(for: .mine) == nil)
+
+        await store.refresh(force: true)
+        #expect(store.count(for: .team) == 1)
+        #expect(store.count(for: .mine) == 0)
+
+        harness.accounts = []
+        #expect(store.count(for: .team) == nil)
+        #expect(store.count(for: .mine) == nil)
+        await store.refresh(force: true)
+        #expect(store.count(for: .team) == nil)
+        #expect(store.count(for: .mine) == nil)
+    }
+
+    @Test("The counts are known from the last read at launch, before the network answers")
+    func countsFromSnapshot() async {
+        let (_, harness) = await Self.loaded()
+
+        let relaunched = harness.makeStore()
+        #expect(relaunched.count(for: .team) == nil)
+        relaunched.loadSnapshot()
+
+        #expect(relaunched.count(for: .team) == 2)
+        #expect(relaunched.count(for: .mine) == 2)
+    }
+
     // MARK: ⌘K and the inbox's actions
 
     @Test("The open repo's pull requests are searched and revealed, in the half that shows them")

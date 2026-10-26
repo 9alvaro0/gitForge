@@ -24,14 +24,17 @@ extension ReviewsStore {
             + inboxRows.sorted { Self.newerFirst($0.pull, $1.pull) }
     }
 
-    /// The Others the list shows (Ruling 9): those that aren't rows of the
-    /// list, and the selected one while Team or Mine hides its row,
-    /// so the selection doesn't vanish. Team and Mine don't filter them;
-    /// with `repoFilter`, none shows.
+    /// The Others the list shows (Ruling 9, U1 Ruling 5): those that aren't
+    /// rows of the list, under the half of their author as a row is (Team's
+    /// are someone else's, Mine's the user's), and the selected one while the
+    /// current half hides its row, so the selection doesn't vanish. With
+    /// `repoFilter`, none shows.
     var visibleOthers: [InboxPull] {
         guard repoFilter == nil else { return [] }
         return others.filter { item in
-            guard isListed(repoKey: item.repo.id, number: item.pull.number) else { return true }
+            guard isListed(repoKey: item.repo.id, number: item.pull.number) else {
+                return isMine(item) == (filter == .mine)
+            }
             return item.id == selectedID && !groups.contains { $0.pulls.contains { $0.id == item.id } }
         }
     }

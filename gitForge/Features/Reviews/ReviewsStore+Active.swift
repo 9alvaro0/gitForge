@@ -64,11 +64,12 @@ extension ReviewsStore {
         return visiting.store.items.contains { $0.number == number }
     }
 
-    /// `groups` with the open repository's first. A followed one is moved up;
-    /// the visiting one, if it has rows in the current half, is put in front.
-    /// Not when the inbox is narrowed to a repo, which shows just that one.
-    func placingActiveFirst(_ groups: [ReviewGroup]) -> [ReviewGroup] {
-        if repoFilter == nil, let group = visitingGroup { return [group] + groups }
+    /// `groups`, the ones `half` lists, with the open repository's first. A
+    /// followed one is moved up; the visiting one, if it has rows in `half`,
+    /// is put in front. Not when the inbox is `narrowed` to a repo, which
+    /// shows just that one.
+    func placingActiveFirst(_ groups: [ReviewGroup], of half: ReviewsFilter, narrowed: Bool) -> [ReviewGroup] {
+        if !narrowed, let group = visitingGroup(of: half) { return [group] + groups }
         guard let key = activeRepoKey, let index = groups.firstIndex(where: { $0.id == key }), index > 0 else {
             return groups
         }
@@ -111,12 +112,12 @@ extension ReviewsStore {
         return visiting.store.items.map { InboxPull(repo: visiting.repo, pull: $0) }
     }
 
-    /// The visiting repo's group for the current half, newest first; `nil`
-    /// with no rows in it.
-    private var visitingGroup: ReviewGroup? {
+    /// The visiting repo's group for `half`, newest first; `nil` with no rows
+    /// in it.
+    private func visitingGroup(of half: ReviewsFilter) -> ReviewGroup? {
         guard let visiting else { return nil }
         let rows = visitingRows
-            .filter { Self.isAuthor($0.pull, login: visiting.store.currentUser) == (filter == .mine) }
+            .filter { Self.isAuthor($0.pull, login: visiting.store.currentUser) == (half == .mine) }
             .sorted { Self.newerFirst($0.pull, $1.pull) }
         return rows.isEmpty ? nil : ReviewGroup(repo: visiting.repo, pulls: rows, error: nil)
     }

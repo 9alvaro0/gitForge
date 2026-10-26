@@ -330,9 +330,28 @@ struct ReviewsStoreSearchTests {
         #expect(browsed.cloneURL == "https://gitlab.example.test/found/oss/lib.git")
         #expect(store.others.allSatisfy { $0.repo == browsed })
 
-        // Shown again, every repo: its pull requests stay among the Others.
+        // Shown again, every repo: its pull requests stay among the Others,
+        // each under the half of its author.
         store.showAllRepos()
-        #expect(store.visibleOthers.map(\.id) == both)
+        #expect(store.filter == .mine)
+        #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 6)])
+        store.filter = .team
+        #expect(store.visibleOthers.map(\.id) == [Self.id(Self.lib, 5)])
+    }
+
+    @Test("Closing the repo filter with an Other of the browsed repo selected goes to the half that shows it")
+    func closingFilterOnOther() async {
+        let (store, _) = await Self.loaded()
+        _ = await store.openFoundRepo(Self.found("oss/lib"))
+        store.filter = .team
+        store.selectedID = Self.id(Self.lib, 6)
+
+        store.showAllRepos()
+
+        #expect(store.repoFilter == nil)
+        #expect(store.filter == .mine)
+        #expect(store.selectedItem?.id == Self.id(Self.lib, 6))
+        #expect(store.revealRequest?.id == Self.id(Self.lib, 6))
     }
 
     @Test("A link to a pull request of the browsed repo selects it and keeps the inbox narrowed to the repo")
