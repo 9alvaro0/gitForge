@@ -14,8 +14,12 @@ struct ViewCommands: Commands {
                 Button(shortcut.section.showCommandTitle) {
                     appState.ui.workspaceSection = shortcut.section
                 }
-                .keyboardShortcut(KeyEquivalent(Character(String(shortcut.number))), modifiers: .command)
+                .keyboardShortcut(shortcut.keyCharacter.map { KeyboardShortcut(KeyEquivalent($0), modifiers: .command) })
                 .disabled(!shortcut.isEnabled)
+                // The number is part of the item's identity: a section that
+                // moves gets a fresh menu item with its new key equivalent
+                // instead of relying on the old one being updated in place.
+                .id(shortcut.number)
             }
 
             Divider()

@@ -10,6 +10,12 @@ struct SectionShortcut: Equatable, Identifiable {
     let isEnabled: Bool
 
     var id: WorkspaceSection { section }
+
+    /// The digit that, with ⌘, opens the section: `number` for 1 to 9, and
+    /// none from 10 on, which has no single-key shortcut.
+    var keyCharacter: Character? {
+        (1...9).contains(number) ? Character(String(number)) : nil
+    }
 }
 
 /// The order of the sidebar's sections, one for the whole app

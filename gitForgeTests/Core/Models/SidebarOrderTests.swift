@@ -120,6 +120,19 @@ struct SidebarOrderTests {
         #expect(shortcuts.map(\.id) == Self.defaultSections)
     }
 
+    @Test("A shortcut has a digit key for the numbers 1 to 9 and none from 10 on")
+    func shortcutKeyCharacters() {
+        #expect(SidebarOrder().shortcuts(hasRepository: true).map(\.keyCharacter) == ["1", "2", "3", "4", "5", "6"])
+
+        func keyCharacter(of number: Int) -> Character? {
+            SectionShortcut(section: .history, number: number, isEnabled: true).keyCharacter
+        }
+        #expect(keyCharacter(of: 9) == "9")
+        #expect(keyCharacter(of: 10) == nil)
+        #expect(keyCharacter(of: 11) == nil)
+        #expect(keyCharacter(of: 0) == nil)
+    }
+
     @Test("Moving a section moves its number with it")
     func shortcutsAfterReorder() {
         var order = SidebarOrder()
