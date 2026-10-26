@@ -22,7 +22,7 @@ final class AppState {
     let accountChooser: AccountChooser
     let pullRequestAuth: AccountPullRequestAuth
     /// The Team and Mine tabs of Pull requests: the open pull requests of the
-    /// repos the user follows and of the repository open, and which tab the
+    /// repos the user follows and of the open repository, and which tab the
     /// section is on.
     let reviews: ReviewsStore
     /// The identity profile a repository (or a clone in progress) uses.
@@ -106,11 +106,12 @@ final class AppState {
 
     // MARK: - Pull requests: Team and Mine
 
-    /// Where the tab Pull requests was left on is saved.
+    /// The defaults key the Pull requests section's tab is saved under, to
+    /// open on it again at the next launch.
     private static let lastTabKey = "pulls.lastTab"
 
     /// A weak reference to the `AppState` still being built, for the closures
-    /// of the Reviews environment.
+    /// of the inbox's `ReviewsEnvironment`.
     @MainActor
     private final class WeakAppState {
         weak var appState: AppState?
@@ -256,11 +257,14 @@ final class AppState {
 
     /// "Open in repository" from Team and Mine (U1 Ruling 7): activates the
     /// clone at `url` and goes to Pull requests with `item` selected, on the
-    /// same half, now in the group of the repository open. Should the inbox no
+    /// same half, now in the open repository's group. Should the inbox no
     /// longer have it (its list changed meanwhile), it goes to the repository's
-    /// own list: Closed for a merged or closed pull request, else Open, and
-    /// opens there now if the list shows it, else once it does. A clone that
-    /// can't be opened shows why and leaves the section as it was.
+    /// own list, Closed for a merged or closed pull request, else Open, and
+    /// asks the repository's store for it (`requestSelection`): opened at once
+    /// if the list the store shows has it, else recorded until a list that has
+    /// it shows, which the section's switch to that tab brings about (for
+    /// Closed, once the closed list is read). A clone that can't be opened
+    /// shows why and leaves the section as it was.
     func openPullRequest(_ item: InboxPull, inRepositoryAt url: URL) async {
         do {
             try await openRepository(at: url)

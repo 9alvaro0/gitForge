@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Team and Mine (U1 Ruling 8): the open pull requests of the repos the user
 /// follows, and of the repository open in gitForge, grouped by repo, with the
-/// selected one's detail on the right. One of the open repository opens in its
-/// own store, with its local actions; one of another repo offers to open that
-/// repo's clone or to clone it (spec §4.3).
+/// selected one's detail on the right. A pull request of the open repository
+/// opens in that repository's own store, with its local actions; one of
+/// another repo offers to open that repo's clone or to clone it (spec §4.3).
 struct PullsInboxPane: View {
     let store: ReviewsStore
     /// The repository open in gitForge, whose local actions its pull requests'
