@@ -113,15 +113,23 @@ struct ReviewsStoreTabTests {
         #expect(harness.savedTabs == [.open])
     }
 
-    @Test("Open and Closed keep the half the inbox was on, so going back to it finds it there")
-    func listsKeepTheHalf() {
-        let store = ReviewsHarness.twoRepos().makeStore()
-        store.tab = .mine
+    @Test("Picking Open or Closed puts the inbox back on Team, so without a repository the section falls back to Team")
+    func listsResetTheHalf() {
+        let harness = ReviewsHarness.twoRepos()
+        let store = harness.makeStore()
 
-        store.tab = .open
-        #expect(store.filter == .mine)
+        store.tab = .mine
         store.tab = .closed
-        #expect(store.filter == .mine)
+        #expect(store.filter == .team)
+        #expect(store.tab == .closed)
+        // The half moved under the list, not the tab: saved once.
+        #expect(harness.savedTabs == [.mine, .closed])
+
+        store.tab = .mine
+        store.tab = .open
+        #expect(store.filter == .team)
+        #expect(harness.savedTabs == [.mine, .closed, .mine, .open])
+
         store.tab = .team
         #expect(store.filter == .team)
         #expect(store.repositoryList == nil)
@@ -173,6 +181,26 @@ struct ReviewsStoreTabTests {
 
         #expect(store.repositoryList == nil)
         #expect(store.repoFilter == Self.api)
+    }
+
+    @Test("Picking Open or Closed while the inbox is narrowed to a repo leaves the filter, and what it set aside")
+    func listsLeaveTheRepoFilter() async {
+        let (store, _) = await Self.loaded()
+        store.showRepo(Self.api)
+        #expect(store.repoFilter == Self.api)
+
+        store.tab = .closed
+
+        #expect(store.repoFilter == nil)
+        #expect(store.tab == .closed)
+
+        store.tab = .open
+        store.showRepo(Self.api)
+        store.tab = .closed
+        store.showAllRepos()
+
+        #expect(store.repoFilter == nil)
+        #expect(store.tab == .closed)
     }
 
     @Test("Showing a repo that isn't followed changes nothing")

@@ -68,6 +68,14 @@ nonisolated enum ReviewRepoAction: Equatable, Sendable {
     }
 }
 
+/// What the detail of an inbox row offers for its local work (spec §4.3).
+nonisolated enum PullsDetailAction: Equatable, Sendable {
+    /// The row is in the repository open in gitForge: its own local actions.
+    case local
+    /// Another repository: open its clone, or clone it, as the Reviews detail did.
+    case repo(ReviewRepoAction)
+}
+
 /// The open detail's pull request, as the inbox watches it for a merge or a
 /// close made from Reviews (Ruling 14).
 nonisolated struct ReviewDetailState: Equatable, Sendable {

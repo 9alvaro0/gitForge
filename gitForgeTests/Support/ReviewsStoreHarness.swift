@@ -255,6 +255,8 @@ final class ReviewsHarness {
     var savedTab: PullsTab?
     /// The tabs the store saved, in order.
     private(set) var savedTabs: [PullsTab] = []
+    /// The repository open in gitForge, as the store reads it; `nil` when none is.
+    var active: ActiveRepositoryPulls?
     let directory = TemporaryDirectories.make("gitForge-reviews-store")
 
     init(login: String? = "marta") {
@@ -294,7 +296,26 @@ final class ReviewsHarness {
             now: { [self] in now },
             makeReviewProvider: { [provider] _ in provider },
             loadTab: { [self] in savedTab },
-            saveTab: { [self] in savedTabs.append($0) }))
+            saveTab: { [self] in savedTabs.append($0) },
+            activeRepository: { [self] in active }))
+    }
+
+    /// The store of the repository open in gitForge, as its own screen has it
+    /// loaded: `path` on `instance`, with its own fake provider giving `pulls`
+    /// as the open list and `user` as the token's owner (`nil`: not read yet).
+    func activeStore(_ path: String, pulls: [PullRequest], user: String?,
+                     on instance: HostingInstance = ReviewsHarness.instance) async -> ActiveRepositoryPulls {
+        let host = RemoteHost.make(fullName: path, on: instance)!
+        let provider = ReviewsFakeProvider()
+        provider.state {
+            $0.lists[host.slug] = pulls
+            $0.user = user ?? ""
+        }
+        let store = PullRequestStore(cli: nil, auth: { _, _ in .token("t") }, resolveHost: { host },
+                                     makeProvider: { _ in provider })
+        await store.load()
+        if user == nil { store.currentUser = nil }
+        return ActiveRepositoryPulls(localURL: URL(fileURLWithPath: "/r/\(path)"), store: store)
     }
 
     private func syncClones() {
