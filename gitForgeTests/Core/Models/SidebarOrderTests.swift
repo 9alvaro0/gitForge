@@ -109,4 +109,39 @@ struct SidebarOrderTests {
             #expect(order.visible(hasRepository: false) == [.pulls])
         }
     }
+
+    @Test("The shortcuts follow the order, numbered from 1, all enabled with a repository")
+    func shortcutsFollowOrder() {
+        let shortcuts = SidebarOrder().shortcuts(hasRepository: true)
+        #expect(shortcuts.map(\.section) == Self.defaultSections)
+        #expect(shortcuts.map(\.number) == Array(1...6))
+        #expect(shortcuts.map(\.isEnabled) == Array(repeating: true, count: 6))
+        #expect(shortcuts.first { $0.section == .pulls }?.number == 4)
+        #expect(shortcuts.map(\.id) == Self.defaultSections)
+    }
+
+    @Test("Moving a section moves its number with it")
+    func shortcutsAfterReorder() {
+        var order = SidebarOrder()
+        order.apply(.moveUp(.pulls))
+        let shortcuts = order.shortcuts(hasRepository: true)
+        #expect(shortcuts.first { $0.section == .pulls }?.number == 3)
+        #expect(shortcuts.first { $0.section == .branches }?.number == 4)
+        #expect(shortcuts.map(\.section) == order.sections)
+        #expect(shortcuts.map(\.number) == Array(1...6))
+    }
+
+    @Test("Without a repository the numbers stay and only Pull requests answers")
+    func shortcutsWithoutRepository() {
+        let byDefault = SidebarOrder().shortcuts(hasRepository: false)
+        #expect(byDefault.map(\.section) == Self.defaultSections)
+        #expect(byDefault.map(\.number) == Array(1...6))
+        #expect(byDefault.filter(\.isEnabled).map(\.section) == [.pulls])
+
+        let pullsFirst = SidebarOrder(saved: ["pulls", "history", "changes", "branches", "stashes", "conflict"])
+            .shortcuts(hasRepository: false)
+        #expect(pullsFirst.first { $0.section == .pulls } == SectionShortcut(section: .pulls, number: 1, isEnabled: true))
+        #expect(pullsFirst.first { $0.section == .history } == SectionShortcut(section: .history, number: 2, isEnabled: false))
+        #expect(pullsFirst.filter(\.isEnabled).map(\.section) == [.pulls])
+    }
 }

@@ -7,25 +7,16 @@ struct ViewCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
-            Button("Show History") {
-                appState.ui.workspaceSection = .history
+            // One entry per section, in the order of the sidebar: ⌘ and the
+            // number of its place, which stays put without a repository.
+            let hasRepository = appState.catalog.activeRepository != nil
+            ForEach(appState.ui.sidebarOrder.shortcuts(hasRepository: hasRepository)) { shortcut in
+                Button(shortcut.section.showCommandTitle) {
+                    appState.ui.workspaceSection = shortcut.section
+                }
+                .keyboardShortcut(KeyEquivalent(Character(String(shortcut.number))), modifiers: .command)
+                .disabled(!shortcut.isEnabled)
             }
-            .keyboardShortcut("1", modifiers: .command)
-
-            Button("Show Changes") {
-                appState.ui.workspaceSection = .changes
-            }
-            .keyboardShortcut("2", modifiers: .command)
-
-            Button("Show Branches") {
-                appState.ui.workspaceSection = .branches
-            }
-            .keyboardShortcut("3", modifiers: .command)
-
-            Button("Show Pull Requests") {
-                appState.ui.workspaceSection = .pulls
-            }
-            .keyboardShortcut("4", modifiers: .command)
 
             Divider()
 

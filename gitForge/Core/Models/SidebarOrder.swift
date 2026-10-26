@@ -1,5 +1,17 @@
 import Foundation
 
+/// A View menu entry: a section, its ⌘ number and whether it answers now
+/// (pulls-unified §4.8).
+struct SectionShortcut: Equatable, Identifiable {
+    let section: WorkspaceSection
+    /// 1-based place in the whole order, with or without a repository.
+    let number: Int
+    /// Whether the section is shown in the sidebar now.
+    let isEnabled: Bool
+
+    var id: WorkspaceSection { section }
+}
+
 /// The order of the sidebar's sections, one for the whole app
 /// (pulls-unified §4.7).
 ///
@@ -93,6 +105,17 @@ struct SidebarOrder: Equatable {
     /// order puts it (pulls-unified §4.1).
     func visible(hasRepository: Bool) -> [WorkspaceSection] {
         hasRepository ? sections : [.pulls]
+    }
+
+    /// The View menu: every section in the order, each with the ⌘ number of
+    /// its place in the whole order, so the numbers don't move without a
+    /// repository. One answers only if the sidebar shows it, which without a
+    /// repository is Pull requests alone (pulls-unified §4.8).
+    func shortcuts(hasRepository: Bool) -> [SectionShortcut] {
+        let shown = visible(hasRepository: hasRepository)
+        return sections.enumerated().map { index, section in
+            SectionShortcut(section: section, number: index + 1, isEnabled: shown.contains(section))
+        }
     }
 
     /// The `onMove` semantics: the sections at `offsets` go before the one

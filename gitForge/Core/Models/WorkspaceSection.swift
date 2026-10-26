@@ -24,6 +24,21 @@ enum WorkspaceSection: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// The title of the View menu entry that opens the section. Settings is
+    /// not one of the numbered entries: it has the ⌘, slot, whose title this
+    /// is, and so it is never listed.
+    var showCommandTitle: String {
+        switch self {
+        case .history:  return String(localized: "Show History")
+        case .changes:  return String(localized: "Show Changes")
+        case .branches: return String(localized: "Show Branches")
+        case .stashes:  return String(localized: "Show Stashes")
+        case .pulls:    return String(localized: "Show Pull Requests")
+        case .conflict: return String(localized: "Show Conflicts")
+        case .settings: return String(localized: "Settings…")
+        }
+    }
+
     var symbol: String {
         switch self {
         case .history:  return "clock.arrow.circlepath"

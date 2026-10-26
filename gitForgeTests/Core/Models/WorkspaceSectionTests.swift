@@ -19,6 +19,13 @@ struct WorkspaceSectionTests {
         #expect(Set(items) == Set(WorkspaceSection.allCases).subtracting([.settings]))
     }
 
+    @Test("The View menu entries are Show <section>, in the order of the sidebar")
+    func showCommandTitles() {
+        #expect(SidebarOrder().sections.map(\.showCommandTitle) == [
+            "Show History", "Show Changes", "Show Branches", "Show Pull Requests", "Show Stashes", "Show Conflicts",
+        ])
+    }
+
     @Test("No section is called Reviews")
     func noReviews() {
         for section in WorkspaceSection.allCases {

@@ -14792,6 +14792,22 @@
         }
       }
     },
+    "Show Conflicts" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar conflictos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar conflitos"
+          }
+        }
+      }
+    },
     "Show History" : {
       "localizations" : {
         "es" : {
@@ -14820,6 +14836,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostrar pull requests"
+          }
+        }
+      }
+    },
+    "Show Stashes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar stashes"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar stashes"
           }
         }
       }
