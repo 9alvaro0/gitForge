@@ -1349,11 +1349,13 @@ final class ReviewsStore {
     /// One turn of the auto refresh: the inbox and, at the same time, the
     /// list of the repository open in gitForge while it isn't followed, which
     /// its group in Team and Mine shows (`visitingRepo`, U1 Ruling 3). A
-    /// followed one's rows come with the inbox's own read.
+    /// followed one's rows come with the inbox's own read. The open
+    /// repository's list is re-read quietly: a timer never asks for an
+    /// account nor reloads Closed (`refreshOpenListQuietly`).
     func autoRefreshOnce() async {
         let visiting = visitingRepo == nil ? nil : activeRepository?.store
         async let inbox: Void = refresh(force: true)
-        async let repository: Void? = visiting?.load(force: true)
+        async let repository: Void? = visiting?.refreshOpenListQuietly()
         _ = await (inbox, repository)
     }
 

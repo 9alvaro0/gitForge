@@ -682,6 +682,40 @@ final class PullRequestStore {
         if selected != nil { await loadDetail() }
     }
 
+    /// Re-reads the open list in the background, for a read the user didn't
+    /// start (the inbox's auto refresh of the open repository, which Team and
+    /// Mine show). It uses the token of the last load and, after a 401,
+    /// renews it with `silentAuth`, so it never asks for an account. It shows
+    /// no spinner, error or connect state: a failure keeps the list as it
+    /// was. Closed and the detail are left alone. Nothing happens until a
+    /// load has succeeded (so not after a cancelled account chooser), while a
+    /// load runs, or when one starts before this read lands.
+    func refreshOpenListQuietly() async {
+        guard !isLoading, lastLoadedAt != nil, let host, let token = currentToken else { return }
+        let gen = listGen
+        let provider = makeProvider(host)
+        var used = token
+        let fetched: [PullRequest]
+        do {
+            fetched = try await provider.fetchPulls(host: host, state: .open, token: token)
+        } catch PullRequestFetchError.unauthorized {
+            guard case .token(let fresh) = await silentAuth(host, token),
+                  let retried = try? await provider.fetchPulls(host: host, state: .open, token: fresh) else { return }
+            used = fresh
+            fetched = retried
+        } catch {
+            return
+        }
+        guard gen == listGen, !isLoading else { return }
+        items = fetched
+        currentToken = used
+        lastLoadedAt = .now
+        ciTask?.cancel()
+        ciTask = Task { [weak self] in
+            await self?.loadCI(for: fetched, host: host, token: used, gen: gen)
+        }
+    }
+
     /// CI of one commit for History's detail, `nil` when there's nothing to
     /// show: no recognised host, no token without asking, a commit the host
     /// doesn't have, or the request failed. Never touches the list's state
