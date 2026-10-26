@@ -489,6 +489,43 @@ struct ReviewsStoreActiveTests {
         #expect(store.detailStore(for: Self.lib) == nil)
     }
 
+    @Test("A detail store that can't get ready leaves the selection unprepared; opened again with an account, it isn't")
+    func unpreparedWithoutAccount() async throws {
+        let (store, harness) = await Self.loaded()
+        let item = try #require(store.inboxRows.first { $0.id == Self.id(Self.app, 1) })
+        let detail = try #require(store.detailStore(for: Self.app))
+        #expect(store.unpreparedDetail == nil)
+
+        // The account chooser closed without picking one.
+        harness.tokenFor[harness.account.id] = .cancelled
+        await store.open(item)
+        #expect(detail.accountNotChosen)
+        #expect(detail.selected == nil)
+        #expect(store.unpreparedDetail == item.id)
+
+        harness.tokenFor = [:]
+        await store.open(item)
+        #expect(store.unpreparedDetail == nil)
+        #expect(detail.selected?.number == 1)
+    }
+
+    @Test("The open repository's store whose origin isn't on a declared instance leaves its rows unprepared")
+    func unpreparedWithoutHost() async throws {
+        let (store, harness) = await Self.loaded()
+        // Followed team/app is cloned in the open folder, whose `origin` doesn't resolve.
+        let detail = PullRequestStore(cli: nil, auth: { _, _ in .token("t") }, resolveHost: { nil },
+                                      makeProvider: { _ in ReviewsFakeProvider() })
+        harness.active = ActiveRepositoryPulls(localURL: URL(fileURLWithPath: "/r/team/app"), store: detail)
+        let item = try #require(store.inboxRows.first { $0.id == Self.id(Self.app, 1) })
+        #expect(store.detailStore(for: Self.app) === detail)
+
+        await store.open(item)
+
+        #expect(detail.host == nil)
+        #expect(detail.selected == nil)
+        #expect(store.unpreparedDetail == item.id)
+    }
+
     @Test("A store of the inbox's own selects the pull request again each time it's opened")
     func inboxStoresSelectAgain() async throws {
         let (store, harness) = await Self.loaded()

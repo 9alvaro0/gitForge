@@ -53,6 +53,11 @@ struct PullsInboxPane: View {
                 Task { await store.reload(repoKey: item.repo.id) }
             }
         }
+        .onChange(of: appState.ui.addInstanceRequest == nil) { _, closed in
+            // The open repository's `origin` may be on the instance just added.
+            guard closed, let item = store.selectedItem, store.unpreparedDetail == item.id else { return }
+            Task { await store.open(item) }
+        }
         .onChange(of: appState.ui.connectAccountRequest == nil) { _, closed in
             guard closed else { return }
             // An account may have just been connected again.
@@ -103,6 +108,8 @@ struct PullsInboxPane: View {
                            subtitle: message) {
                     GFButton(title: String(localized: "Retry")) { Task { await store.open(item) } }
                 }
+            } else if store.unpreparedDetail == item.id {
+                unpreparedState(detail, item: item)
             } else {
                 // Getting the account's token before the detail can load.
                 ProgressView().controlSize(.small)
@@ -111,6 +118,56 @@ struct PullsInboxPane: View {
             openingPlaceholder(link)
         } else {
             EmptyState(symbol: "arrow.triangle.pull", title: String(localized: "Select a pull request"))
+        }
+    }
+
+    /// Why the selection's detail store couldn't get ready
+    /// (`ReviewsStore.unpreparedDetail`), as the repository's own list says it
+    /// (`PullsContentSection`), with a way to open the pull request again: the
+    /// open repository's `origin` isn't on a declared instance, or the
+    /// account chooser was closed without picking one.
+    @ViewBuilder
+    private func unpreparedState(_ detail: PullRequestStore, item: InboxPull) -> some View {
+        let nounPlural = nounPlural(item.repo.host.provider)
+        if detail.host == nil {
+            if let suggestion = detail.suggestedInstance {
+                EmptyState(
+                    symbol: "arrow.triangle.pull",
+                    title: String(localized: "\(suggestion.host) isn't added yet"),
+                    subtitle: String(localized: "It looks like a \(suggestion.kind.label) server. Add it as an instance to see its \(nounPlural).")
+                ) {
+                    HStack(spacing: Spacing.s8) {
+                        GFButton(title: String(localized: "Add as \(suggestion.kind.label) instance…"), style: .primary) {
+                            appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind,
+                                                                                url: "https://\(suggestion.host)")
+                        }
+                        GFButton(title: String(localized: "Try again")) { Task { await store.open(item) } }
+                    }
+                }
+            } else {
+                EmptyState(
+                    symbol: "arrow.triangle.pull",
+                    title: String(localized: "No supported remote detected"),
+                    subtitle: String(localized: "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts.")
+                ) {
+                    GFButton(title: String(localized: "Try again")) { Task { await store.open(item) } }
+                }
+            }
+        } else if detail.accountNotChosen {
+            let host = detail.host ?? item.repo.host
+            EmptyState(
+                symbol: "person.crop.circle.badge.questionmark",
+                title: String(localized: "No account chosen"),
+                subtitle: String(localized: "Several \(host.provider.label) accounts can read \(host.host). Choose the one this repository uses to list its \(nounPlural).")
+            ) {
+                GFButton(title: String(localized: "Choose account…"), style: .primary) {
+                    Task { await store.open(item) }
+                }
+            }
+        } else {
+            EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Couldn't load detail")) {
+                GFButton(title: String(localized: "Retry")) { Task { await store.open(item) } }
+            }
         }
     }
 

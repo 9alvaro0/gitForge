@@ -131,6 +131,12 @@ final class ReviewsStore {
     private(set) var others: [InboxPull] = []
     /// The link `openLink` is reading, while it does (R2 Ruling 11).
     private(set) var openingLink: PendingLink?
+    /// The row whose detail store couldn't get ready the last time `open`
+    /// opened it: no host (the open repository's `origin` isn't on a declared
+    /// instance), no token, no account chosen or an error, as the store says.
+    /// The detail then shows why, with a way to try again, instead of waiting.
+    /// The next `open` clears it.
+    private(set) var unpreparedDetail: InboxPull.ID?
     /// The user's patterns, repos followed by hand, hidden repos and
     /// answered proposals (R3 Ruling 8), as `reviews-settings.json` keeps
     /// them. Only `applyConfig` and `storeConfig` change it; the follow API
@@ -971,15 +977,22 @@ final class ReviewsStore {
         return store
     }
 
-    /// Opens `item` in its repo's detail store once that has a token. The
-    /// open repository's own store may have it open already, from its Open
-    /// tab: selecting it again would only read the detail over, so it's left
-    /// (U1 Ruling F). The inbox's own stores select every time.
+    /// Opens `item` in its repo's detail store once that has a token; one
+    /// that can't get ready marks it `unpreparedDetail`. The open
+    /// repository's own store may have it open already, from its Open tab:
+    /// selecting it again would only read the detail over, so it's left (U1
+    /// Ruling F). The inbox's own stores select every time.
     func open(_ item: InboxPull) async {
         guard let store = detailStore(for: item.repo.id) else { return }
         openGen &+= 1
         let gen = openGen
-        guard await store.prepareForDetail(), gen == openGen else { return }
+        if unpreparedDetail != nil { unpreparedDetail = nil }
+        let prepared = await store.prepareForDetail()
+        guard gen == openGen else { return }
+        guard prepared else {
+            unpreparedDetail = item.id
+            return
+        }
         guard store !== activeRepository?.store || store.selected?.number != item.pull.number else { return }
         store.select(item.pull)
     }
