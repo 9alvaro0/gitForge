@@ -5,6 +5,9 @@ import SwiftUI
 struct ViewCommands: Commands {
     let appState: AppState
 
+    /// History's inspector, `nil` unless History shows it next to the table.
+    @FocusedBinding(\.historyInspectorVisible) private var historyInspectorVisible: Bool?
+
     var body: some Commands {
         CommandGroup(after: .toolbar) {
             // One entry per section, in the order of the sidebar: ⌘ and the
@@ -21,6 +24,16 @@ struct ViewCommands: Commands {
                 // instead of relying on the old one being updated in place.
                 .id(shortcut.number)
             }
+
+            Divider()
+
+            // The custom split's counterpart of `InspectorCommands`, whose
+            // item macOS titles "Inspector de Show" in Spanish.
+            Button(historyInspectorVisible == true ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")) {
+                historyInspectorVisible?.toggle()
+            }
+            .keyboardShortcut("i", modifiers: [.command, .control])
+            .disabled(historyInspectorVisible == nil)
 
             Divider()
 

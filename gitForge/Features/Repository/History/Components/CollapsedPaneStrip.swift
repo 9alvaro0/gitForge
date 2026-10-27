@@ -1,16 +1,9 @@
 import SwiftUI
 
-/// Strip shown when the diff pane or the detail column has been collapsed.
-/// Click anywhere to expand. Two flavours:
-///   • `.diff`   — horizontal strip pinned to the bottom of the inspector
-///   • `.detail` — vertical strip pinned to the right edge of the workspace
+/// Strip pinned to the bottom of the inspector while the diff pane is
+/// collapsed. Click anywhere to show the pane again. (The inspector itself
+/// comes back with the toolbar button or ⌃⌘I.)
 struct CollapsedPaneStrip: View {
-    enum Kind {
-        case diff
-        case detail
-    }
-
-    let kind: Kind
     let action: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -18,27 +11,6 @@ struct CollapsedPaneStrip: View {
 
     var body: some View {
         Button(action: action) {
-            content
-                .background {
-                    theme.colors.bgElevated
-                    if hovering { theme.colors.fillHover }
-                }
-                .overlay(alignment: edge) {
-                    Rectangle()
-                        .fill(theme.colors.strokeControl)
-                        .frame(width: edgeWidth, height: edgeHeight)
-                }
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help(helpText)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch kind {
-        case .diff:
             HStack(spacing: Spacing.s8) {
                 SymbolGlyph("plus.forwardslash.minus", size: 12)
                     .foregroundStyle(theme.colors.textSecondary)
@@ -52,48 +24,26 @@ struct CollapsedPaneStrip: View {
             .padding(.horizontal, Spacing.s12)
             .frame(height: 30)
             .frame(maxWidth: .infinity)
-        case .detail:
-            VStack(spacing: 0) {
-                SymbolGlyph("sidebar.trailing", size: 13)
-                    .foregroundStyle(theme.colors.textSecondary)
-                    .padding(.top, Spacing.s12)
-                Spacer(minLength: 0)
+            .background {
+                theme.colors.bgElevated
+                if hovering { theme.colors.fillHover }
             }
-            .frame(width: 32)
-            .frame(maxHeight: .infinity)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(theme.colors.strokeControl)
+                    .frame(height: 1)
+            }
+            .contentShape(.rect)
         }
-    }
-
-    private var edge: Alignment {
-        switch kind {
-        case .diff:   return .top
-        case .detail: return .leading
-        }
-    }
-    private var edgeWidth: CGFloat? {
-        kind == .detail ? 1 : nil
-    }
-    private var edgeHeight: CGFloat? {
-        kind == .diff ? 1 : nil
-    }
-    private var helpText: String {
-        switch kind {
-        case .diff:   return String(localized: "Show the diff pane")
-        case .detail: return String(localized: "Show commit detail")
-        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Show the diff pane")
     }
 }
 
-#Preview("Diff strip") {
+#Preview {
     @Previewable @State var theme = AppTheme()
-    CollapsedPaneStrip(kind: .diff, action: {})
+    CollapsedPaneStrip(action: {})
         .frame(width: 720)
-        .appTheme(theme)
-}
-
-#Preview("Detail strip") {
-    @Previewable @State var theme = AppTheme()
-    CollapsedPaneStrip(kind: .detail, action: {})
-        .frame(height: 360)
         .appTheme(theme)
 }

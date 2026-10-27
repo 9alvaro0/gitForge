@@ -14,6 +14,11 @@ import SwiftUI
 /// (UserDefaults writes) until the user lets go, instead of paying that cost
 /// on every frame of the drag. `onDoubleClick` (e.g. fit or reset the column)
 /// is also offered to VoiceOver as an action named `doubleClickActionName`.
+///
+/// With `collapseBelow`, dragging the column under that width collapses it,
+/// like `NSSplitView` (`PaneResize`): `onCollapsingChange` reports when the
+/// drag crosses that point either way, the width stays where the drag began,
+/// and the caller hides the pane on `onCommit` if it was still collapsing.
 struct ColumnDragHandle: View {
     @Binding var width: CGFloat
     var minWidth: CGFloat = 40
@@ -23,8 +28,11 @@ struct ColumnDragHandle: View {
     var onCommit: () -> Void = {}
     var onDoubleClick: (() -> Void)? = nil
     var doubleClickActionName: String = String(localized: "Reset width")
+    var collapseBelow: CGFloat? = nil
+    var onCollapsingChange: ((Bool) -> Void)? = nil
 
     @State private var startWidth: CGFloat?
+    @State private var collapsing = false
     @Environment(\.appTheme) private var theme
 
     var body: some View {
@@ -52,7 +60,16 @@ struct ColumnDragHandle: View {
                         let base = startWidth ?? width
                         if startWidth == nil { startWidth = width }
                         let delta = inverted ? -value.translation.width : value.translation.width
-                        let new = Self.clamped(base + delta, min: minWidth, max: maxWidth)
+                        let new: CGFloat
+                        switch PaneResize.resolve(proposed: base + delta, min: minWidth, max: maxWidth,
+                                                  collapseBelow: collapseBelow) {
+                        case .collapse:
+                            setCollapsing(true)
+                            new = base
+                        case .size(let size):
+                            setCollapsing(false)
+                            new = size
+                        }
                         guard new != width else { return }
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
@@ -62,6 +79,7 @@ struct ColumnDragHandle: View {
                     }
                     .onEnded { _ in
                         startWidth = nil
+                        collapsing = false
                         onCommit()
                     }
             )
@@ -88,10 +106,10 @@ struct ColumnDragHandle: View {
             }
     }
 
-    /// `value` within `min...max`; `min` wins when the bounds cross (a cap
-    /// that shrank below the column's minimum).
-    nonisolated static func clamped(_ value: CGFloat, min lower: CGFloat, max upper: CGFloat) -> CGFloat {
-        Swift.max(lower, Swift.min(value, upper))
+    private func setCollapsing(_ value: Bool) {
+        guard collapsing != value else { return }
+        collapsing = value
+        onCollapsingChange?(value)
     }
 }
 

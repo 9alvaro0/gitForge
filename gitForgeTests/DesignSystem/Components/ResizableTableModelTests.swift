@@ -111,12 +111,4 @@ struct ResizableTableModelTests {
         #expect(model.hiddenHistoryColumns == [.date, .commit])
         #expect(model.isAutoWidth("graph"))
     }
-
-    @Test("A drag handle clamps within its bounds, the minimum winning when they cross")
-    func handleClamp() {
-        #expect(ColumnDragHandle.clamped(50, min: 60, max: 200) == 60)
-        #expect(ColumnDragHandle.clamped(300, min: 60, max: 200) == 200)
-        #expect(ColumnDragHandle.clamped(120, min: 60, max: 200) == 120)
-        #expect(ColumnDragHandle.clamped(120, min: 60, max: 40) == 60)
-    }
 }

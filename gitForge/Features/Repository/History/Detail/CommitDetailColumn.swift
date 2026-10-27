@@ -1,56 +1,41 @@
 import SwiftUI
 import AppKit
 
-/// Right-side commit detail in the History view.
+/// The commit in History's inspector, in sections (audit M5, phase 2.3): a
+/// header that stays put (subject, author and date, SHA, the "…" actions
+/// menu), the details that fold away (parents, signature and CI, message),
+/// and the changed files, which scroll on their own. The diff under it gets
+/// the height without anything falling out of reach.
 struct CommitDetailColumn: View {
     let commit: Commit
     @Bindable var viewModel: RepositoryViewModel
-    /// Optional handler for the close icon at the panel top. When `nil` the
-    /// button is hidden — used by History to collapse the panel.
-    var onClose: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
 
+    /// Details unfolded; one choice for every commit, kept across launches.
+    @AppStorage(HistoryInspectorMetrics.detailsExpandedKey) private var detailsExpanded = true
     /// The selected commit's CI, `nil` until known or when the host has none.
     @State private var checks: [CICheck]?
+    /// The column's height, which the unfolded details take a share of.
+    @State private var columnHeight: CGFloat = 0
 
     private var detail: CommitDetail? { viewModel.history.detailCache[commit.sha] }
 
-    /// Inspector header (redesign spec §6.2, History artboard): title,
-    /// author and date, SHA, parents, message; then files and actions.
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s16) {
-            VStack(alignment: .leading, spacing: Spacing.s8) {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.s8) {
-                    Text(commit.subject)
-                        .textRole(.title)
-                        .foregroundStyle(theme.colors.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if let onClose {
-                        IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide commit detail"), action: onClose)
-                            .help("Hide commit detail")
-                    }
-                }
-                authorLine
-                parentLine
-                if CommitTrustLine.hasContent(signature: detail?.signature, checks: checks) {
-                    CommitTrustLine(signature: detail?.signature, checks: checks)
-                }
-                if let detail, !detail.bodyText.isEmpty {
-                    Text(CommitMessage.reflow(detail.bodyText))
-                        .textRole(.callout)
-                        .foregroundStyle(theme.colors.textSecondary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, Spacing.s4)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            header
+                .padding(.horizontal, Spacing.s16)
+                .padding(.top, Spacing.s12)
+                .padding(.bottom, Spacing.s8)
+            if hasDetails {
+                details
             }
             CommitFilesSection(commit: commit, viewModel: viewModel)
-            CommitActionsSection(commit: commit, viewModel: viewModel)
+                .padding(.top, Spacing.s8)
+                .frame(maxHeight: .infinity)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { columnHeight = $0 }
         .task(id: commit.sha) {
             _ = await viewModel.history.detail(for: commit)
         }
@@ -62,6 +47,25 @@ struct CommitDetailColumn: View {
             let loaded = await viewModel.pullRequests.commitChecks(sha: commit.sha)
             guard !Task.isCancelled else { return }
             checks = loaded
+        }
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.s8) {
+                Text(commit.subject)
+                    .textRole(.title)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                    .help(commit.subject)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                CommitActionsMenu(commit: commit, viewModel: viewModel)
+            }
+            authorLine
         }
     }
 
@@ -93,9 +97,80 @@ struct CommitDetailColumn: View {
                 .background(RoundedRectangle(cornerRadius: Radius.controlSmall).fill(theme.colors.fillControl))
             }
             .buttonStyle(.plain)
+            .fixedSize()
             .help("Copy full SHA")
             .accessibilityLabel("Copy full SHA \(commit.shortSha)")
         }
+    }
+
+    // MARK: Details
+
+    private var hasTrust: Bool {
+        CommitTrustLine.hasContent(signature: detail?.signature, checks: checks)
+    }
+
+    private var bodyText: String? {
+        guard let text = detail?.bodyText, !text.isEmpty else { return nil }
+        return text
+    }
+
+    private var hasDetails: Bool {
+        !commit.parentShas.isEmpty || hasTrust || bodyText != nil
+    }
+
+    /// A disclosure row, then (unfolded) the details, scrolling within a
+    /// share of the column when the message is long.
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(Motion.fast) { detailsExpanded.toggle() }
+            } label: {
+                HStack(spacing: Spacing.s6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .rotationEffect(.degrees(detailsExpanded ? 90 : 0))
+                        .accessibilityHidden(true)
+                    Text("Details")
+                        .textRole(.caption, weight: .semibold)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(theme.colors.textTertiary)
+                .padding(.horizontal, Spacing.s16)
+                .frame(height: 24)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .help("Parents, signature, CI and message")
+            .accessibilityValue(detailsExpanded ? String(localized: "Expanded") : String(localized: "Collapsed"))
+            if detailsExpanded {
+                ViewThatFits(in: .vertical) {
+                    detailsContent
+                    InspectorScrollArea(horizontalMargin: 0) { detailsContent }
+                        .frame(minHeight: HistoryInspectorMetrics.minDetailsScrollHeight)
+                }
+                .frame(maxHeight: HistoryInspectorMetrics.detailsCap(columnHeight: columnHeight), alignment: .top)
+            }
+        }
+    }
+
+    private var detailsContent: some View {
+        VStack(alignment: .leading, spacing: Spacing.s8) {
+            parentLine
+            if hasTrust {
+                CommitTrustLine(signature: detail?.signature, checks: checks)
+            }
+            if let bodyText {
+                Text(CommitMessage.reflow(bodyText))
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textSecondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, Spacing.s16)
+        .padding(.top, Spacing.s4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -127,8 +202,7 @@ struct CommitDetailColumn: View {
     @Previewable @State var theme = AppTheme()
     CommitDetailColumn(commit: .preview, viewModel: .preview)
         .previewAppState(.preview)
-        .padding()
-        .frame(width: 480, height: 720)
+        .frame(width: 480, height: 520)
         .background(theme.colors.bgElevated)
         .appTheme(theme)
 }
