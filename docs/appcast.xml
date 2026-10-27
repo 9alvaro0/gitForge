@@ -84,5 +84,17 @@
                        type="application/octet-stream"
                        sparkle:edSignature="Dl1zzSkyZc5kIh7qk+/KjISQ77OxOQg1Jbsf4E78TgndBx/xHaelekBlGoa7HTfOz2eR5XPYaPJCChnSOzTKBA==" />
         </item>
+        <item>
+            <title>gitForge 1.6.0</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.6.0.html</sparkle:releaseNotesLink>
+            <pubDate>Tue, 27 Oct 2026 10:40:12 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.6.0/gitForge-1.6.0.dmg"
+                       sparkle:version="1.6.0"
+                       sparkle:shortVersionString="1.6.0"
+                       length="18218212"
+                       type="application/octet-stream"
+                       sparkle:edSignature="kNIggQnaPZgbKYZjOX+3m3EuKXtmI5LOU9jjdK/OgpjICnnRQjo0KlKwOrSxe2RbsyX9ssJ1BGCJtoeRZ321Ag==" />
+        </item>
     </channel>
 </rss>
