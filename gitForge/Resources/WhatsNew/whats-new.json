@@ -1,6 +1,73 @@
 {
   "releases": [
     {
+      "version": "1.6.0",
+      "highlights": [
+        {
+          "symbol": "checklist",
+          "title": {
+            "en": "Pull requests at a glance",
+            "es": "Pull requests de un vistazo",
+            "pt-PT": "Pull requests num relance"
+          },
+          "body": {
+            "en": "Team and Mine group pull requests by project, each row says where it stands (ready to merge, CI failed, conflicts…), and you can approve, merge or open one in the browser right from the list.",
+            "es": "Equipo y Mías agrupan las pull requests por proyecto, cada fila dice cómo está (lista para fusionar, CI fallido, conflictos…) y puedes aprobarla, fusionarla o abrirla en el navegador desde la propia lista.",
+            "pt-PT": "Equipa e Meus agrupam os pull requests por projeto, cada linha indica o estado (pronto para integrar, CI falhou, conflitos…) e pode aprová-lo, integrá-lo ou abri-lo no navegador a partir da própria lista."
+          }
+        },
+        {
+          "symbol": "arrow.up.left.and.arrow.down.right",
+          "title": {
+            "en": "Room for the diff",
+            "es": "Espacio para el diff",
+            "pt-PT": "Espaço para o diff"
+          },
+          "body": {
+            "en": "In History, Expand diff (⇧⌘↩) makes the diff take the whole view, and ⌥⌘↑ / ⌥⌘↓ step through the commit's files.",
+            "es": "En Historial, Ampliar diff (⇧⌘↩) hace que el diff ocupe toda la vista, y ⌥⌘↑ / ⌥⌘↓ pasan por los archivos del commit.",
+            "pt-PT": "No Histórico, Ampliar diff (⇧⌘↩) faz o diff ocupar toda a vista, e ⌥⌘↑ / ⌥⌘↓ percorrem os ficheiros do commit."
+          }
+        },
+        {
+          "symbol": "rectangle.split.3x1",
+          "title": {
+            "en": "History your way",
+            "es": "Historial a tu medida",
+            "pt-PT": "Histórico à sua medida"
+          },
+          "body": {
+            "en": "Column dividers follow the pointer, the header's menu shows or hides Graph, Author, Date and Commit, and the inspector opens and closes from the toolbar or with ⌃⌘I.",
+            "es": "Los divisores de las columnas siguen al puntero, el menú de la cabecera muestra u oculta Grafo, Autor, Fecha y Commit, y el inspector se abre y se cierra desde la barra de herramientas o con ⌃⌘I.",
+            "pt-PT": "Os divisores das colunas seguem o ponteiro, o menu do cabeçalho mostra ou oculta Grafo, Autor, Data e Commit, e o inspetor abre-se e fecha-se a partir da barra de ferramentas ou com ⌃⌘I."
+          }
+        }
+      ],
+      "fixes": [],
+      "improvements": [
+        {
+          "en": "The commit detail keeps its title and author in place while the files scroll, folds the message away under Details and moves the commit actions into a … menu, so the diff gets more room.",
+          "es": "El detalle del commit mantiene fijos el título y el autor mientras los archivos se desplazan, pliega el mensaje en Detalles y pasa las acciones del commit a un menú «…», así el diff gana espacio.",
+          "pt-PT": "O detalhe do commit mantém fixos o título e o autor enquanto os ficheiros se deslocam, recolhe a mensagem em Detalhes e passa as ações do commit para um menu «…», para o diff ganhar espaço."
+        },
+        {
+          "en": "The inspector can grow as wide as the window allows, and dragging the inspector's or the diff's divider all the way closes that pane.",
+          "es": "El inspector puede ensancharse tanto como deje la ventana, y arrastrar del todo el divisor del inspector o del diff cierra ese panel.",
+          "pt-PT": "O inspetor pode alargar até onde a janela permitir, e arrastar até ao fim o divisor do inspetor ou do diff fecha esse painel."
+        },
+        {
+          "en": "The Graph column keeps the width you give it; lanes that don't fit fade out at its edge, and a double-click on its divider fits it again.",
+          "es": "La columna Grafo conserva el ancho que le das; los carriles que no caben se desvanecen en el borde, y un doble clic en su divisor la vuelve a ajustar.",
+          "pt-PT": "A coluna Grafo mantém a largura que lhe der; as faixas que não cabem desvanecem-se na margem, e um duplo clique no divisor volta a ajustá-la."
+        },
+        {
+          "en": "A diff pane you close stays closed when you pick another commit.",
+          "es": "Si cierras el panel del diff, sigue cerrado al elegir otro commit.",
+          "pt-PT": "Se fechar o painel do diff, continua fechado ao escolher outro commit."
+        }
+      ]
+    },
+    {
       "version": "1.5.0",
       "highlights": [
         {
