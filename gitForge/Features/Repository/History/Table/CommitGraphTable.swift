@@ -7,10 +7,8 @@ import SwiftUI
 /// at the top during vertical scroll and slides with content during horizontal
 /// scroll (so the labels never desync from the columns below).
 ///
-/// Drag-handle convention: each handle sits on the RIGHT (trailing) edge of
-/// the column it controls — Excel-style. Drag right = that column widens, the
-/// next column slides over. Every visible column has a handle including GRAPH
-/// and WHEN, so any boundary the eye lands on is draggable.
+/// Drag handles (`CommitTableHeader`) sit on the edge that moves when their
+/// column resizes, so every divider the eye lands on follows the pointer.
 struct CommitGraphTable: View {
     let commits: [Commit]
     /// `HistoryStore.logRevision` of `commits`: a log published again while
@@ -75,6 +73,9 @@ struct CommitGraphTable: View {
     /// are already on screen, so only selections from elsewhere (sidebar,
     /// palette, reveal) scroll.
     @State private var localSelection: String?
+    /// Last layout pass's `HistoryTableLayout.authorFits`, so Author comes
+    /// back only with some room to spare.
+    @State private var authorFits = true
 
     private var rowHeight: CGFloat { theme.density.metrics.rowList }
 
@@ -86,24 +87,26 @@ struct CommitGraphTable: View {
             ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
             : 0
     }
-    /// Share of the table the lanes alone can claim. With many parallel
-    /// branches the full gutter pushed Description to its floor and the
-    /// table into horizontal scrolling; past this the outer lanes clip, and
-    /// dragging the handle still widens the column.
+    /// Share of the table the lanes alone can claim while the graph sizes
+    /// itself. With many parallel branches the full gutter pushed Description
+    /// to its floor and the table into horizontal scrolling; past this the
+    /// outer lanes clip.
     nonisolated static let maxAutomaticGraphShare: CGFloat = 0.35
 
-    /// Smallest the GRAPH gutter can shrink to. Grows with the number of
-    /// simultaneously alive lanes, up to `maxAutomaticGraphShare` of
-    /// `viewport`, and floors at the column's static minimum so the user can
-    /// still drag it tighter than 110 when the history is single-lane.
-    private func dynamicGraphMin(viewport: CGFloat) -> CGFloat {
-        let metricsOnly = GraphStyle(metrics: theme.density.metrics.graph)
-        return Self.graphMinWidth(lanesWidth: metricsOnly.gutterWidth(lanes: maxLanes),
-                                  viewport: viewport, columnMin: columns.minWidth("graph"))
+    /// Width of the GRAPH column until the user drags it: the lanes' width,
+    /// up to `maxAutomaticGraphShare` of `viewport`, never under the
+    /// column's own minimum.
+    nonisolated static func autoGraphWidth(lanesWidth: CGFloat, viewport: CGFloat, columnMin: CGFloat) -> CGFloat {
+        max(columnMin, min(lanesWidth, viewport * maxAutomaticGraphShare))
     }
 
-    nonisolated static func graphMinWidth(lanesWidth: CGFloat, viewport: CGFloat, columnMin: CGFloat) -> CGFloat {
-        max(columnMin, min(lanesWidth, viewport * maxAutomaticGraphShare))
+    /// Width of the GRAPH column as rendered: fitted to the lanes while it's
+    /// auto-sized, else the user's. Lanes that don't fit clip (`CommitRow`).
+    nonisolated static func graphWidth(isAuto: Bool, userWidth: CGFloat, lanesWidth: CGFloat,
+                                       viewport: CGFloat, columnMin: CGFloat) -> CGFloat {
+        isAuto
+            ? autoGraphWidth(lanesWidth: lanesWidth, viewport: viewport, columnMin: columnMin)
+            : max(columnMin, userWidth)
     }
 
     /// Graph look (graph v3 spec §5). Built once per render in `body`, which
@@ -120,23 +123,24 @@ struct CommitGraphTable: View {
         )
     }
 
-    /// Effective rendered width of the GRAPH gutter. Honors the user's stored
-    /// preference but bumps up to `dynamicGraphMin` so lanes don't get cut
-    /// when commits arrive.
+    /// Rendered width of the GRAPH column (`graphWidth`).
     private func graphGutterWidth(viewport: CGFloat) -> CGFloat {
-        max(columns.width("graph"), dynamicGraphMin(viewport: viewport))
+        let metricsOnly = GraphStyle(metrics: theme.density.metrics.graph)
+        return Self.graphWidth(isAuto: columns.isAutoWidth("graph"),
+                               userWidth: columns.width("graph"),
+                               lanesWidth: metricsOnly.gutterWidth(lanes: maxLanes),
+                               viewport: viewport,
+                               columnMin: columns.minWidth("graph"))
     }
 
-    /// Custom binding for the GRAPH handle that mirrors `graphGutterWidth` —
-    /// reads the effective (clamped) value so the handle visually starts where
-    /// the gutter actually is, and writes back through the same clamp so a
-    /// drag-left below `dynamicGraphMin` snaps the stored value to the floor
-    /// instead of silently sliding under it.
-    private func graphHandleBinding(dynMin: CGFloat) -> Binding<CGFloat> {
+    /// Binding for the GRAPH handle: reads the rendered width, so a drag
+    /// starts where the column is even while it fits its lanes, and writes
+    /// the user's width (from then on the column is theirs).
+    private func graphHandleBinding(rendered: CGFloat) -> Binding<CGFloat> {
         let stored = columns.binding(for: "graph")
         return Binding(
-            get: { max(stored.wrappedValue, dynMin) },
-            set: { stored.wrappedValue = max($0, dynMin) }
+            get: { rendered },
+            set: { stored.wrappedValue = $0 }
         )
     }
 
@@ -145,14 +149,15 @@ struct CommitGraphTable: View {
         return GeometryReader { geo in
             // Resolve the derived widths once per render, not once per row.
             let viewport = geo.size.width - Self.legacyScrollerWidth
-            let graphMin = dynamicGraphMin(viewport: viewport)
             let gutterWidth = graphGutterWidth(viewport: viewport)
             let layout = HistoryTableLayout(
                 viewport: viewport,
                 graph: gutterWidth,
                 author: columns.width("author"),
                 date: columns.width("when"),
-                commit: columns.width("sha")
+                commit: columns.width("sha"),
+                hidden: columns.hiddenHistoryColumns,
+                authorFitted: authorFits
             )
             ScrollViewReader { proxy in
                 ScrollView([.vertical, .horizontal], showsIndicators: true) {
@@ -197,8 +202,9 @@ struct CommitGraphTable: View {
                         } header: {
                             CommitTableHeader(
                                 layout: layout,
-                                graphHandle: graphHandleBinding(dynMin: graphMin),
-                                graphMinWidth: graphMin,
+                                graphHandle: graphHandleBinding(rendered: gutterWidth),
+                                graphMinWidth: columns.minWidth("graph"),
+                                onFitGraph: { columns.resetWidth("graph") },
                                 columns: columns
                             )
                         }
@@ -209,6 +215,7 @@ struct CommitGraphTable: View {
                 .focusable()
                 .focusEffectDisabled()
                 .focused($tableFocused)
+                .onChange(of: layout.authorFits) { _, fits in authorFits = fits }
                 .onKeyPress(.downArrow) { moveSelection(by: 1, proxy: proxy) }
                 .onKeyPress(.upArrow) { moveSelection(by: -1, proxy: proxy) }
                 .onChange(of: selectedSha, initial: true) { _, sha in

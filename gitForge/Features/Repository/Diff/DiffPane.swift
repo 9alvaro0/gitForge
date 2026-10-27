@@ -28,6 +28,10 @@ struct DiffPane: View {
     /// Review threads under lines and the "+" to comment (pull requests).
     /// When `nil` rows carry nothing extra and track no hover.
     var lineAnnotations: DiffLineAnnotations? = nil
+    /// The pane fills its screen (History's expanded diff).
+    var isExpanded: Bool = false
+    /// Expands or restores the pane. When `nil` there's no expand button.
+    var onToggleExpand: (() -> Void)? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split
@@ -71,6 +75,8 @@ struct DiffPane: View {
                 stats: loading || hunks.isEmpty ? nil : DiffStats(hunks: hunks),
                 viewMode: $viewMode,
                 canHideWhitespace: onWhitespaceChange != nil,
+                isExpanded: isExpanded,
+                onToggleExpand: onToggleExpand,
                 onOpenInEditor: onOpenInEditor,
                 onClose: onClose
             )

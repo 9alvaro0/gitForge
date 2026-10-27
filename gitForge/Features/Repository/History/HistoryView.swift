@@ -2,10 +2,11 @@ import SwiftUI
 
 /// Top-level History pane: the commit table on the left, the inspector
 /// (commit detail over the selected file's diff) on the right (redesign
-/// spec §6.2). Owns the resizable layout state (panel widths / collapsed
-/// flags / column widths) and routes drag-drop / double-click events into
-/// the right confirmation dialogs (action runners live in
-/// `HistoryView+Actions.swift`).
+/// spec §6.2), or the diff alone when expanded. The split and the
+/// inspector own their sizes (`HistorySplitLayout`, `HistoryInspector`);
+/// this view owns the selection, search and focus, the table's column
+/// widths, and routes drag-drop / double-click events into the right
+/// confirmation dialogs (action runners live in `HistoryView+Actions.swift`).
 struct HistoryView: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) var theme
@@ -32,36 +33,12 @@ struct HistoryView: View {
     /// Drives both the right detail panel (working-copy file list) and the
     /// bottom diff pane (working-copy diff for the selected file).
     @State private var isUncommittedSelected: Bool = false
+    /// The diff fills the pane instead of sitting under the detail.
+    @State private var isDiffExpanded = false
     /// Drop target under a dragged branch chip, shown in the intent HUD.
     @State var dropTracker = BranchDropTracker()
 
     @State private var columns = ResizableTableModel.historyColumns()
-
-    private static let diffHeightKey = "gitForge.history.diffPaneHeight"
-    private static let detailWidthKey = "gitForge.history.detailPanelWidth"
-    private static let diffCollapsedKey = "gitForge.history.diffPaneCollapsed"
-    private static let detailCollapsedKey = "gitForge.history.detailPanelCollapsed"
-    private static let collapsedThreshold: CGFloat = 80
-    private static let defaultDiffHeight: CGFloat = 340
-    private static let minDetailWidth: CGFloat = 320
-    private static let maxDetailWidth: CGFloat = 760
-    /// Spec §4.6: inspector 480; the table keeps at least this much.
-    private static let defaultDetailWidth: CGFloat = 480
-    private static let minTableWidth: CGFloat = 520
-
-    @State private var diffPaneHeight: CGFloat = {
-        let stored = UserDefaults.standard.double(forKey: HistoryView.diffHeightKey)
-        return stored > 0 ? CGFloat(stored) : HistoryView.defaultDiffHeight
-    }()
-
-    @State private var detailColumnWidth: CGFloat = {
-        let stored = UserDefaults.standard.double(forKey: HistoryView.detailWidthKey)
-        let resolved = stored > 0 ? CGFloat(stored) : HistoryView.defaultDetailWidth
-        return min(max(HistoryView.minDetailWidth, resolved), HistoryView.maxDetailWidth)
-    }()
-
-    @State private var diffPaneCollapsed: Bool = UserDefaults.standard.bool(forKey: HistoryView.diffCollapsedKey)
-    @State private var detailColumnCollapsed: Bool = UserDefaults.standard.bool(forKey: HistoryView.detailCollapsedKey)
 
     private var diffMode: Binding<DiffPane.ViewMode> {
         Binding(
@@ -71,47 +48,16 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        // Build the search matcher once so the count below and the filter
-        // pass to the table share the same closure (and the same single
-        // O(n) walk over commits when search is active).
-        let matcher = combinedMatcher
-        let matchCount = matcher.map { fn in viewModel.history.commits.lazy.filter(fn).count }
-            ?? viewModel.history.commits.count
-
-        return VStack(spacing: 0) {
-            HistoryFiltersBar(
-                search: $search,
-                totalCount: viewModel.history.commits.count,
-                matchCount: matchCount,
-                focusLabel: focus?.label,
-                canFocus: viewModel.history.selectedCommit != nil,
-                onToggleFocus: toggleFocus,
-                showsRemoteBranches: viewModel.history.showsRemoteBranches,
-                onToggleRemoteBranches: toggleRemoteBranches
-            )
-            GeometryReader { geo in
-                HStack(spacing: 0) {
-                    tableColumn(matcher: matcher)
-                    if detailColumnCollapsed {
-                        CollapsedPaneStrip(kind: .detail) { setDetailColumnCollapsed(false) }
-                    } else {
-                        let cap = inspectorCap(available: geo.size.width)
-                        ColumnDragHandle(
-                            // Reads and writes the width actually shown, so a
-                            // drag past the cap can't bank invisible width.
-                            width: Binding(
-                                get: { min(detailColumnWidth, cap) },
-                                set: { detailColumnWidth = min($0, cap) }
-                            ),
-                            minWidth: Self.minDetailWidth,
-                            maxWidth: cap,
-                            inverted: true,
-                            dividerColor: theme.colors.separator,
-                            onCommit: { persistDetailWidth() }
-                        )
-                        detailColumn(width: min(detailColumnWidth, cap))
-                    }
-                }
+        Group {
+            if isDiffExpanded {
+                HistoryExpandedDiff(
+                    viewModel: viewModel,
+                    isUncommittedSelected: isUncommittedSelected,
+                    diffMode: diffMode,
+                    onExit: { setDiffExpanded(false) }
+                )
+            } else {
+                browser
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -155,6 +101,10 @@ struct HistoryView: View {
             // is no longer visible.
             if clean { isUncommittedSelected = false }
         }
+        // Nothing left to show expanded (the selection went away).
+        .onChange(of: hasSelection) { _, has in
+            if !has { isDiffExpanded = false }
+        }
         .modifier(BranchDropDialogs(
             moveRequest: $moveBranchRequest,
             resetRequest: $resetHeadRequest,
@@ -164,6 +114,38 @@ struct HistoryView: View {
             onMerge: { runMerge($0) },
             onRebase: { runRebase($0) }
         ))
+    }
+
+    /// Filters over the table and the inspector.
+    private var browser: some View {
+        // Build the search matcher once so the count below and the filter
+        // pass to the table share the same closure (and the same single
+        // O(n) walk over commits when search is active).
+        let matcher = combinedMatcher
+        let matchCount = matcher.map { fn in viewModel.history.commits.lazy.filter(fn).count }
+            ?? viewModel.history.commits.count
+
+        return VStack(spacing: 0) {
+            HistoryFiltersBar(
+                search: $search,
+                totalCount: viewModel.history.commits.count,
+                matchCount: matchCount,
+                focusLabel: focus?.label,
+                canFocus: viewModel.history.selectedCommit != nil,
+                onToggleFocus: toggleFocus,
+                showsRemoteBranches: viewModel.history.showsRemoteBranches,
+                onToggleRemoteBranches: toggleRemoteBranches
+            )
+            HistorySplitLayout(table: tableColumn(matcher: matcher)) { collapse in
+                HistoryInspector(
+                    viewModel: viewModel,
+                    isUncommittedSelected: isUncommittedSelected,
+                    diffMode: diffMode,
+                    onClose: collapse,
+                    onExpandDiff: { setDiffExpanded(true) }
+                )
+            }
+        }
     }
 
     private func tableColumn(matcher: ((Commit) -> Bool)?) -> some View {
@@ -203,142 +185,19 @@ struct HistoryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Widest the inspector may be so the table keeps `minTableWidth`
-    /// (the handle's own width included).
-    private func inspectorCap(available: CGFloat) -> CGFloat {
-        let handle = Spacing.s8
-        return min(Self.maxDetailWidth, max(Self.minDetailWidth, available - Self.minTableWidth - handle))
-    }
-
-    /// Routes the bottom pane between commit-mode and uncommitted-mode so a
-    /// single `DiffPane` instance keeps its tokenisation cache across selection
-    /// changes within each mode.
-    @ViewBuilder
-    private var diffPaneContent: some View {
-        if isUncommittedSelected {
-            DiffPane(
-                file: viewModel.workingCopy.selectedWorkingCopyFile?.path,
-                status: viewModel.workingCopy.selectedWorkingCopyFile.map { StatusTag.Kind(workingFile: $0.displayStatus) },
-                hunks: viewModel.workingCopy.workingCopyDiff,
-                loading: viewModel.workingCopy.loadingWorkingCopyDiff,
-                emptyState: viewModel.workingCopy.workingCopyDiffEmptyState,
-                onClose: { setDiffPaneCollapsed(true) },
-                onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
-                hunkActions: viewModel.workingCopy.selectedWorkingCopyFile.flatMap {
-                    DiffHunkActions.workingCopy(viewModel, file: $0)
-                },
-                loadNewSide: viewModel.workingCopy.selectedWorkingCopyFile.map { file -> () async -> [String]? in
-                    { await viewModel.workingCopy.newSideLines(for: file) }
-                },
-                viewMode: diffMode
-            )
-        } else {
-            DiffPane(
-                file: viewModel.history.selectedCommitFile,
-                status: selectedCommitFileStatus,
-                hunks: viewModel.history.commitFileDiff,
-                loading: viewModel.history.loadingCommitFileDiff,
-                emptyState: viewModel.history.commitFileDiffEmptyState,
-                onClose: { setDiffPaneCollapsed(true) },
-                onWhitespaceChange: { Task { await viewModel.history.reloadCommitFileDiff() } },
-                loadNewSide: commitFileLoader,
-                viewMode: diffMode
-            )
-        }
-    }
-
-    /// The selected commit file's content at that commit, for hidden lines.
-    private var commitFileLoader: (() async -> [String]?)? {
-        guard let sha = viewModel.history.selectedCommit?.sha,
-              let path = viewModel.history.selectedCommitFile else { return nil }
-        let cli = viewModel.cli
-        return { await cli.fileLines(revision: sha, path: path) }
-    }
-
-    /// Badge for the commit file in the diff header, once the detail is loaded.
-    private var selectedCommitFileStatus: StatusTag.Kind? {
-        guard let sha = viewModel.history.selectedCommit?.sha,
-              let path = viewModel.history.selectedCommitFile,
-              let file = viewModel.history.detailCache[sha]?.files.first(where: { $0.path == path }) else { return nil }
-        return StatusTag.Kind(commitFile: file.status)
-    }
-
-    /// Inspector: commit (or working-copy) detail over the selected file's
-    /// diff, with the same resizable / collapsible diff as before.
-    private func detailColumn(width: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            detailContent
-                .frame(maxHeight: .infinity)
-            if hasInspectorSelection {
-                if diffPaneCollapsed {
-                    CollapsedPaneStrip(kind: .diff) { setDiffPaneCollapsed(false) }
-                } else {
-                    RowDragHandle(
-                        height: $diffPaneHeight,
-                        minHeight: 36,
-                        maxHeight: 800,
-                        onCommit: { persistDiffPaneHeight() }
-                    )
-                    diffPaneContent
-                        .frame(height: diffPaneHeight)
-                }
-            }
-        }
-        .frame(width: width)
-        .background(theme.colors.bgElevated)
-    }
-
-    private var hasInspectorSelection: Bool {
-        isUncommittedSelected || viewModel.history.selectedCommit != nil
-    }
-
-    @ViewBuilder
-    private var detailContent: some View {
-        if isUncommittedSelected {
-            ScrollView {
-                UncommittedDetailColumn(
-                    viewModel: viewModel,
-                    onClose: { setDetailColumnCollapsed(true) }
-                )
-                .padding(Spacing.s16)
-            }
-        } else if let commit = viewModel.history.selectedCommit {
-            ScrollView {
-                CommitDetailColumn(
-                    commit: commit,
-                    viewModel: viewModel,
-                    onClose: { setDetailColumnCollapsed(true) }
-                )
-                .padding(Spacing.s16)
-            }
-        } else {
-            EmptyState(symbol: "clock.arrow.circlepath", title: String(localized: "Select a commit"),
-                       subtitle: String(localized: "Its detail and changes appear here.")) { EmptyView() }
-                .overlay(alignment: .topTrailing) {
-                    IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide commit detail")) {
-                        setDetailColumnCollapsed(true)
-                    }
-                    .help("Hide commit detail")
-                    .padding(Spacing.s8)
-                }
-        }
-    }
-
     // MARK: Selection
 
-    /// Routes a commit-row click through a single funnel so every selection
-    /// also lifts the diff pane out of its collapsed / sliver state — clicking
-    /// any row should always reveal its diff without a second action.
+    /// Routes a commit-row click through a single funnel, leaving the
+    /// "Uncommitted changes" selection. The inspector reveals the diff.
     private func selectCommit(_ sha: String) {
         if isUncommittedSelected { isUncommittedSelected = false }
         viewModel.history.selectedCommitId = sha
-        revealDiffPane()
     }
 
     /// Counterpart to `selectCommit(_:)` for the pinned "Uncommitted changes"
     /// row. Clears the commit selection so the right detail panel and the
-    /// bottom diff pane switch to working-copy mode, picks the first
-    /// changed file when nothing is selected yet, and reveals the diff pane.
+    /// bottom diff pane switch to working-copy mode, and picks the first
+    /// changed file when nothing is selected yet.
     private func selectUncommitted() {
         viewModel.history.selectedCommitId = nil
         isUncommittedSelected = true
@@ -350,57 +209,15 @@ struct HistoryView: View {
                 viewModel.workingCopy.select(status.unstagedFiles.first, side: .unstaged)
             }
         }
-        revealDiffPane()
     }
 
-    /// Expands the bottom diff pane on every row click — fully collapsed state
-    /// gets toggled back open, and a sliver gets bumped up to the default
-    /// height so the diff is actually visible.
-    private func revealDiffPane() {
-        if diffPaneCollapsed {
-            setDiffPaneCollapsed(false)
-        }
-        let revealed = Self.revealedDiffPaneHeight(
-            current: diffPaneHeight,
-            threshold: Self.collapsedThreshold,
-            defaultHeight: Self.defaultDiffHeight
-        )
-        if revealed != diffPaneHeight {
-            withAnimation(Motion.standard) {
-                diffPaneHeight = revealed
-            }
-        }
+    private var hasSelection: Bool {
+        isUncommittedSelected || viewModel.history.selectedCommit != nil
     }
 
-    /// Pure decision for `revealDiffPane`: a sliver shorter than `threshold`
-    /// bumps up to `defaultHeight`; anything taller stays put. Extracted so
-    /// the reveal rule is unit-testable without spinning up the view.
-    static func revealedDiffPaneHeight(
-        current: CGFloat,
-        threshold: CGFloat,
-        defaultHeight: CGFloat
-    ) -> CGFloat {
-        current < threshold ? defaultHeight : current
-    }
-
-    // MARK: Persistence + collapse helpers
-
-    private func persistDiffPaneHeight() {
-        UserDefaults.standard.set(Double(diffPaneHeight), forKey: Self.diffHeightKey)
-    }
-
-    private func persistDetailWidth() {
-        UserDefaults.standard.set(Double(detailColumnWidth), forKey: Self.detailWidthKey)
-    }
-
-    private func setDiffPaneCollapsed(_ collapsed: Bool) {
-        withAnimation(Motion.standard) { diffPaneCollapsed = collapsed }
-        UserDefaults.standard.set(collapsed, forKey: Self.diffCollapsedKey)
-    }
-
-    private func setDetailColumnCollapsed(_ collapsed: Bool) {
-        withAnimation(Motion.standard) { detailColumnCollapsed = collapsed }
-        UserDefaults.standard.set(collapsed, forKey: Self.detailCollapsedKey)
+    private func setDiffExpanded(_ expanded: Bool) {
+        guard !expanded || hasSelection else { return }
+        withAnimation(Motion.fast) { isDiffExpanded = expanded }
     }
 
     // MARK: Search

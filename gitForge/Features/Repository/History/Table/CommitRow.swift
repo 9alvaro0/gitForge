@@ -59,13 +59,17 @@ struct CommitRow: View, Equatable {
 
     var body: some View {
         HStack(spacing: 0) {
-            graphGutter
-                .frame(width: tableLayout.graph, alignment: .leading)
-                // Lanes past a capped gutter clip instead of drawing over
-                // Description; top and bottom stay open for the lines that
-                // cross the gaps between rows.
-                .clipShape(SideClip())
-            gap
+            if tableLayout.showsGraph {
+                graphGutter
+                    .frame(width: tableLayout.graph, alignment: .leading)
+                    // Lanes past a narrow gutter clip instead of drawing over
+                    // Description, fading out so the cut reads as "more to
+                    // the right"; top and bottom stay open for the lines that
+                    // cross the gaps between rows.
+                    .clipShape(SideClip())
+                    .mask { GraphClipFade(fades: lanesClipped, rowHeight: rowHeight) }
+                gap
+            }
             HStack(spacing: Spacing.s6) {
                 CommitRowChips(
                     commitSha: commit.sha,
@@ -90,23 +94,27 @@ struct CommitRow: View, Equatable {
             }
             .frame(width: tableLayout.description, alignment: .leading)
             .clipped()
-            gap
             if tableLayout.showsAuthor {
+                gap
                 authorCell
                     .frame(width: tableLayout.author, alignment: .leading)
-                gap
             }
-            Text(preferences.dateDisplayMode.format(commit.authorDate))
-                .textRole(.callout)
-                .monospacedDigit()
-                .foregroundStyle(theme.colors.textTertiary)
-                .lineLimit(1)
-                .frame(width: tableLayout.date, alignment: .leading)
-            gap
-            Text(commit.shortSha)
-                .textRole(.monoSmall)
-                .foregroundStyle(theme.colors.textTertiary)
-                .frame(width: tableLayout.commit, alignment: .trailing)
+            if tableLayout.showsDate {
+                gap
+                Text(preferences.dateDisplayMode.format(commit.authorDate))
+                    .textRole(.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .lineLimit(1)
+                    .frame(width: tableLayout.date, alignment: .leading)
+            }
+            if tableLayout.showsCommit {
+                gap
+                Text(commit.shortSha)
+                    .textRole(.monoSmall)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: tableLayout.commit, alignment: .trailing)
+            }
             Spacer(minLength: 0)
         }
         .padding(.leading, HistoryTableLayout.leadingPadding)
@@ -217,11 +225,35 @@ struct CommitRow: View, Equatable {
         Color.clear.frame(width: HistoryTableLayout.gap)
     }
 
+    /// The graph's lanes need more room than the column gives them.
+    private var lanesClipped: Bool {
+        graphStyle.gutterWidth(lanes: maxLanes) > tableLayout.graph
+    }
+
     /// Redesign spec §5 list row: accent-soft selected, hover fill otherwise.
     private var rowBackground: Color {
         if rowDropTargeted { return theme.colors.accentSoft }
         if isSelected { return theme.colors.accentSoft }
         return hovering ? theme.colors.fillHover : .clear
+    }
+}
+
+/// Mask for the graph cell: opaque, with a fade at the trailing edge when the
+/// lanes don't fit. It reaches past the row's top and bottom like `SideClip`,
+/// so the lines crossing the gaps between rows aren't cut.
+struct GraphClipFade: View {
+    let fades: Bool
+    let rowHeight: CGFloat
+
+    static let fadeWidth: CGFloat = 16
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.black
+            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(width: fades ? Self.fadeWidth : 0)
+        }
+        .padding(.vertical, -rowHeight)
     }
 }
 

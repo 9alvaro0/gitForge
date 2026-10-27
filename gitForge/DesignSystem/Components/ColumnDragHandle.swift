@@ -4,13 +4,16 @@ import SwiftUI
 /// the standard column-resize cursor; the bound `width` is clamped between
 /// `minWidth` and `maxWidth` while dragging.
 ///
-/// By default each handle controls the column to its LEFT — neighbours stay
-/// put, like every native table on macOS. Set `inverted: true` when the
-/// handle sits at the LEADING edge of the column it resizes (e.g. the right
-/// detail panel in History): drag right then shrinks it instead of growing it.
+/// By default the handle controls the column to its LEFT: put it on that
+/// column's trailing edge. Set `inverted: true` when it sits at the LEADING
+/// edge of the column it resizes — a column anchored to the right, like the
+/// History columns after Description or the inspector — and dragging left
+/// then widens it. Either way, put the handle on the edge that moves when the
+/// column resizes, so the divider follows the pointer.
 /// `onCommit` fires on drag-end so callers can defer expensive work
 /// (UserDefaults writes) until the user lets go, instead of paying that cost
-/// on every frame of the drag.
+/// on every frame of the drag. `onDoubleClick` (e.g. fit or reset the column)
+/// is also offered to VoiceOver as an action named `doubleClickActionName`.
 struct ColumnDragHandle: View {
     @Binding var width: CGFloat
     var minWidth: CGFloat = 40
@@ -18,6 +21,8 @@ struct ColumnDragHandle: View {
     var inverted: Bool = false
     var dividerColor: Color?
     var onCommit: () -> Void = {}
+    var onDoubleClick: (() -> Void)? = nil
+    var doubleClickActionName: String = String(localized: "Reset width")
 
     @State private var startWidth: CGFloat?
     @Environment(\.appTheme) private var theme
@@ -40,17 +45,19 @@ struct ColumnDragHandle: View {
                 // moves during the drag (which it does, because the column it
                 // controls is growing). `.local` produced a feedback loop
                 // where the cursor "caught up" with the handle and the gesture
-                // appeared reversed.
-                DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                // appeared reversed. A 1pt minimum leaves plain clicks (and
+                // double-clicks) alone instead of rewriting the width.
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
                     .onChanged { value in
                         let base = startWidth ?? width
                         if startWidth == nil { startWidth = width }
                         let delta = inverted ? -value.translation.width : value.translation.width
-                        let new = base + delta
+                        let new = Self.clamped(base + delta, min: minWidth, max: maxWidth)
+                        guard new != width else { return }
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
-                            width = min(max(minWidth, new), maxWidth)
+                            width = new
                         }
                     }
                     .onEnded { _ in
@@ -58,6 +65,7 @@ struct ColumnDragHandle: View {
                         onCommit()
                     }
             )
+            .simultaneousGesture(TapGesture(count: 2).onEnded { onDoubleClick?() })
             .pointerStyle(.columnResize)
             // Dragging is mouse-only; VoiceOver users resize with the
             // adjustable action (VO-↑ / VO-↓) instead. Increment always means
@@ -73,6 +81,17 @@ struct ColumnDragHandle: View {
                 }
                 onCommit()
             }
+            .accessibilityActions {
+                if let onDoubleClick {
+                    Button(doubleClickActionName, action: onDoubleClick)
+                }
+            }
+    }
+
+    /// `value` within `min...max`; `min` wins when the bounds cross (a cap
+    /// that shrank below the column's minimum).
+    nonisolated static func clamped(_ value: CGFloat, min lower: CGFloat, max upper: CGFloat) -> CGFloat {
+        Swift.max(lower, Swift.min(value, upper))
     }
 }
 

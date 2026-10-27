@@ -12,11 +12,23 @@ struct DiffHeader: View {
     @Binding var viewMode: DiffPane.ViewMode
     /// Offer Hide whitespace (only diffs that come from git can honour it).
     var canHideWhitespace: Bool = false
+    var isExpanded: Bool = false
+    /// Expands or restores the diff; also on a double-click on the path.
+    var onToggleExpand: (() -> Void)? = nil
     let onOpenInEditor: (() -> Void)?
     let onClose: (() -> Void)?
 
     @Environment(\.appTheme) private var theme
     @Environment(\.appPreferences) private var preferences
+
+    /// The strip's own width: narrow, the Unified/Split switch moves into the
+    /// options menu so the path keeps room (History's inspector can be 320).
+    @State private var width: CGFloat = 0
+
+    /// Below this the switch would squeeze the path out.
+    static let compactWidth: CGFloat = 460
+
+    private var isCompact: Bool { width > 0 && width < Self.compactWidth }
 
     var body: some View {
         HStack(spacing: Spacing.s8) {
@@ -27,15 +39,23 @@ struct DiffHeader: View {
             if let stats, !stats.isEmpty {
                 statsView(stats)
             }
-            SegmentedControl<DiffPane.ViewMode>(
-                [(.unified, String(localized: "Unified")), (.split, String(localized: "Split"))],
-                selection: $viewMode
-            )
-            .fixedSize()
+            if !isCompact {
+                SegmentedControl<DiffPane.ViewMode>(
+                    [(.unified, String(localized: "Unified")), (.split, String(localized: "Split"))],
+                    selection: $viewMode
+                )
+                .fixedSize()
+            }
             optionsMenu
             if let onOpenInEditor {
                 IconButton(symbol: "arrow.up.right.square", accessibilityLabel: String(localized: "Open in editor"), action: onOpenInEditor)
                     .help("Open in editor")
+            }
+            if let onToggleExpand {
+                IconButton(symbol: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                           accessibilityLabel: expandLabel, action: onToggleExpand)
+                    .keyboardShortcut(.return, modifiers: [.command, .shift])
+                    .help(Text(verbatim: "\(expandLabel) (⇧⌘↩)"))
             }
             if let onClose {
                 IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide diff pane"), action: onClose)
@@ -44,19 +64,35 @@ struct DiffHeader: View {
         }
         .padding(.horizontal, Spacing.s12)
         .frame(height: 40)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(theme.colors.bgElevated)
         .overlay(alignment: .bottom) {
             Rectangle().fill(theme.colors.separator).frame(height: 1)
         }
     }
 
-    /// Wrap lines and Hide whitespace. Both are app-wide preferences (wrap is
-    /// also in Settings), so every diff follows the last choice. The icon
-    /// takes the accent while whitespace is hidden, since lines are missing.
+    private var expandLabel: String {
+        isExpanded ? String(localized: "Restore diff size") : String(localized: "Expand diff")
+    }
+
+    /// Wrap lines and Hide whitespace, plus Unified/Split while the strip is
+    /// compact. Wrap and whitespace are app-wide preferences (wrap is also in
+    /// Settings), so every diff follows the last choice. The icon takes the
+    /// accent while whitespace is hidden, since lines are missing.
     private var optionsMenu: some View {
         @Bindable var preferences = preferences
         let hiding = canHideWhitespace && preferences.diffIgnoreWhitespace
         return Menu {
+            if isCompact {
+                Picker("", selection: $viewMode) {
+                    ForEach(DiffPane.ViewMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+                Divider()
+            }
             Toggle("Wrap lines", isOn: $preferences.diffWrapLongLines)
             if canHideWhitespace {
                 Toggle("Hide whitespace", isOn: $preferences.diffIgnoreWhitespace)
@@ -86,6 +122,10 @@ struct DiffHeader: View {
             .lineLimit(1)
             .truncationMode(.head)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            // Double-click the strip to expand or restore, like a window's
+            // title bar zooms it.
+            .onTapGesture(count: 2) { onToggleExpand?() }
             .accessibilityLabel(full)
     }
 
