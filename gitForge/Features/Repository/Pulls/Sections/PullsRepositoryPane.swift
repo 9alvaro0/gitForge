@@ -82,10 +82,11 @@ struct PullsRepositoryPane: View {
                     ForEach(items) { pr in
                         PullRequestRow(
                             pullRequest: pr,
-                            hostLabel: store.host?.provider.label,
+                            hostLabel: nil,
                             reference: store.host?.provider.reference(pr.number),
                             ci: store.ciStatus(for: pr),
                             isSelected: store.selected?.id == pr.id,
+                            actions: actions(for: pr),
                             onSelect: { store.select(pr) }
                         )
                     }
@@ -96,6 +97,17 @@ struct PullsRepositoryPane: View {
                 .padding(.vertical, Spacing.s8)
             }
         }
+    }
+
+    /// A row's shortcuts: Approve on someone else's pull request, Merge on
+    /// one the host says is ready.
+    private func actions(for pr: PullRequest) -> PullRowActions {
+        let reviewable = (pr.state == .open || pr.state == .draft)
+            && (store.currentUser == nil || pr.authorLogin != store.currentUser)
+        return PullRowActions(
+            approve: reviewable ? { store.requestQuickAction(.approve, on: pr) } : nil,
+            merge: pr.isReadyToMerge ? { store.requestQuickAction(.merge, on: pr) } : nil
+        )
     }
 
     // Whole phrases per provider ("pull request" on GitHub and by default,

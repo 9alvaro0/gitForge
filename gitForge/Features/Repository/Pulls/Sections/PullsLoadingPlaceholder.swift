@@ -34,7 +34,7 @@ struct PullsLoadingPlaceholder: View {
                             state: .open, authorLogin: "author", authorAvatarURL: nil,
                             sourceBranch: Self.branches[index % Self.branches.count], targetBranch: "main",
                             webURL: nil, createdAt: nil, updatedAt: nil),
-                        hostLabel: "GitHub", ci: nil, isSelected: false, onSelect: {})
+                        hostLabel: nil, ci: nil, isSelected: false, onSelect: {})
                 }
             }
             .padding(Spacing.s8)

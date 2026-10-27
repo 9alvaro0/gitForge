@@ -1438,6 +1438,38 @@
         }
       }
     },
+    "A review is already being sent." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya se está enviando una revisión."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já está a ser enviada uma revisão."
+          }
+        }
+      }
+    },
+    "A reviewer requested changes." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un revisor ha pedido cambios."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um revisor pediu alterações."
+          }
+        }
+      }
+    },
     "ACTIONS" : {
       "localizations" : {
         "es" : {
@@ -1947,6 +1979,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Avançado — chave de assinatura"
+          }
+        }
+      }
+    },
+    "All threads must be resolved before merging." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay que resolver todos los hilos antes de fusionar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "É preciso resolver todas as conversas antes de integrar."
           }
         }
       }
@@ -2639,6 +2687,38 @@
         }
       }
     },
+    "Blocked" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueado"
+          }
+        }
+      }
+    },
+    "Blocked or failing: %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueadas o con fallos: %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueados ou com falhas: %lld"
+          }
+        }
+      }
+    },
     "Blue" : {
       "localizations" : {
         "es" : {
@@ -2943,6 +3023,38 @@
         }
       }
     },
+    "CI failed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI fallido"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI falhou"
+          }
+        }
+      }
+    },
+    "CI running" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI en curso"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI em curso"
+          }
+        }
+      }
+    },
     "Can only merge into a local branch." : {
       "localizations" : {
         "es" : {
@@ -2955,6 +3067,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Só é possível integrar num ramo local."
+          }
+        }
+      }
+    },
+    "Can't be merged yet: %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no se puede fusionar: %@."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não pode ser integrado: %@."
+          }
+        }
+      }
+    },
+    "Can't merge yet. %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no se puede fusionar. %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não é possível integrar. %@"
           }
         }
       }
@@ -3135,6 +3279,22 @@
         }
       }
     },
+    "Changes requested" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios pedidos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterações pedidas"
+          }
+        }
+      }
+    },
     "Check Out" : {
       "localizations" : {
         "es" : {
@@ -3247,6 +3407,22 @@
         }
       }
     },
+    "Checking" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A verificar"
+          }
+        }
+      }
+    },
     "Checking for git…" : {
       "localizations" : {
         "es" : {
@@ -3355,6 +3531,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Verificações"
+          }
+        }
+      }
+    },
+    "Checks running: %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI en curso: %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI em curso: %lld"
           }
         }
       }
@@ -3867,6 +4059,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tipo de letra do código"
+          }
+        }
+      }
+    },
+    "Collapsed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plegado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recolhido"
           }
         }
       }
@@ -6625,6 +6833,22 @@
         }
       }
     },
+    "Drafts or no status: %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borradores o sin estado: %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rascunhos ou sem estado: %lld"
+          }
+        }
+      }
+    },
     "Drop" : {
       "localizations" : {
         "es" : {
@@ -6910,6 +7134,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tudo isto fica depois nas Definições."
+          }
+        }
+      }
+    },
+    "Expanded" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desplegado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expandido"
           }
         }
       }
@@ -8541,6 +8781,22 @@
         }
       }
     },
+    "It conflicts with the target branch." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiene conflictos con la rama de destino."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tem conflitos com o ramo de destino."
+          }
+        }
+      }
+    },
     "It looks like a %@ server. Add it as an instance to see its %@." : {
       "localizations" : {
         "es" : {
@@ -8557,6 +8813,70 @@
         }
       }
     },
+    "It needs approval before merging." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Necesita aprobación antes de fusionar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Precisa de aprovação antes de integrar."
+          }
+        }
+      }
+    },
+    "It's already being merged." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya se está fusionando."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já está a ser integrado."
+          }
+        }
+      }
+    },
+    "It's behind the target branch and needs a rebase." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Va por detrás de la rama de destino y necesita un rebase."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Está atrás do ramo de destino e precisa de um rebase."
+          }
+        }
+      }
+    },
+    "It's no longer open." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya no está abierta."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já não está aberto."
+          }
+        }
+      }
+    },
     "Its %lld account(s) are disconnected too." : {
       "localizations" : {
         "es" : {
@@ -8569,6 +8889,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "As respetivas %lld conta(s) também são desligadas."
+          }
+        }
+      }
+    },
+    "Its CI failed, or has to pass before merging." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su CI ha fallado, o tiene que pasar antes de fusionar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CI falhou, ou tem de passar antes de integrar."
+          }
+        }
+      }
+    },
+    "Its CI is still running." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su CI todavía está en curso."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CI ainda está em curso."
           }
         }
       }
@@ -9809,6 +10161,22 @@
         }
       }
     },
+    "Needs approval" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta aprobación"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta aprovação"
+          }
+        }
+      }
+    },
     "Network error: %@" : {
       "localizations" : {
         "es" : {
@@ -10769,6 +11137,22 @@
         }
       }
     },
+    "Nothing stands in the way of merging it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada impide fusionarla."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada impede a integração."
+          }
+        }
+      }
+    },
     "Nothing unstaged" : {
       "localizations" : {
         "es" : {
@@ -11282,6 +11666,22 @@
         }
       }
     },
+    "Open threads" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilos abiertos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversas por resolver"
+          }
+        }
+      }
+    },
     "Opening %@ %@…" : {
       "localizations" : {
         "es" : {
@@ -11454,6 +11854,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nossa, %lld linhas"
+          }
+        }
+      }
+    },
+    "Out of date" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactualizada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desatualizado"
           }
         }
       }
@@ -12367,6 +12783,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pronto para integrar"
+          }
+        }
+      }
+    },
+    "Ready to merge: %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listas para fusionar: %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prontos para integrar: %lld"
           }
         }
       }
@@ -16505,6 +16937,38 @@
         }
       }
     },
+    "The host doesn't allow merging it yet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La forja todavía no permite fusionarla."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor ainda não permite integrá-lo."
+          }
+        }
+      }
+    },
+    "The host is still checking whether it can be merged." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La forja todavía está comprobando si se puede fusionar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor ainda está a verificar se pode ser integrado."
+          }
+        }
+      }
+    },
     "The host refused your SSH key. Run `ssh-add -l` to confirm it's loaded, or `ssh -T git@<host>` to test it. If the key has a passphrase, the agent needs it unlocked before the app can use it." : {
       "localizations" : {
         "es" : {
@@ -17994,6 +18458,22 @@
         }
       }
     },
+    "Waiting on review: %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendientes de revisión: %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À espera de revisão: %lld"
+          }
+        }
+      }
+    },
     "Welcome" : {
       "localizations" : {
         "es" : {
@@ -18404,6 +18884,22 @@
         }
       }
     },
+    "You can't approve it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No puedes aprobarla."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não pode aprová-lo."
+          }
+        }
+      }
+    },
     "You have a pending review started on GitHub. Submit or discard it there first." : {
       "localizations" : {
         "es" : {
@@ -18432,6 +18928,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tem alterações sem commit. Faça commit, stash ou descarte-as antes de fazer rebase."
+          }
+        }
+      }
+    },
+    "You've already approved it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya la has aprobado."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já o aprovou."
           }
         }
       }

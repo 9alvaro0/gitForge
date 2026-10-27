@@ -35,7 +35,15 @@ struct PullsInboxPane: View {
         // again. And on whether it's the open repository's: its own store
         // takes over its detail once the inbox knows it (U1 Ruling 4).
         .task(id: store.selectedItem.map { "\($0.id)|\($0.repo.accountId)|\(store.isActive($0.repo))" }) {
-            if let item = store.selectedItem { await store.open(item) }
+            if let item = store.selectedItem {
+                await store.open(item)
+                store.forwardQuickAction()
+            }
+        }
+        // A row's Approve or Merge on the row already open: its detail store
+        // has it, so it goes over at once.
+        .onChange(of: store.pendingQuickAction) { _, pending in
+            if pending != nil { store.forwardQuickAction() }
         }
         .onChange(of: store.selectedItem?.id) { _, id in
             if id == nil { store.dropHiddenSelection() }

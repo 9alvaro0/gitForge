@@ -22,6 +22,8 @@ struct ReviewOtherRow: View {
             reference: reference,
             ci: nil,
             isSelected: isSelected,
+            // The × holds the corner the shortcuts would take.
+            offersShortcuts: false,
             // The first line stops short of the ×, with a gap: a long repo
             // name and a state pill never run under it.
             firstLineTrailingClearance: Self.closeInset + Self.closeSide + Spacing.s4,

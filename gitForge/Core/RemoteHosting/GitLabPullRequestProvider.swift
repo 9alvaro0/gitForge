@@ -29,6 +29,11 @@ struct GitLabPullRequestProvider: PullRequestProvider {
             URLQueryItem(name: "order_by", value: "updated_at"),
             URLQueryItem(name: "sort", value: "desc"),
         ]
+        if state == "opened" {
+            // Asks GitLab to work the merge status out again (it may still
+            // say `unchecked` on this read): the rows' verdict comes from it.
+            components.queryItems?.append(URLQueryItem(name: "with_merge_status_recheck", value: "true"))
+        }
         let request = Self.makeRequest(url: components.url, token: token)
         let data = try await RemoteAPI.send(request)
         return try Self.parseList(data)
@@ -183,6 +188,12 @@ extension GitLabPullRequestProvider {
     }
 
     nonisolated private static func blockedReason(_ status: String) -> String {
+        knownBlockedReason(status) ?? HostMergeStatus.notAllowedYet
+    }
+
+    /// What blocks a merge request whose `detailed_merge_status` is
+    /// `status`, in gitForge's words; `nil` for a status it doesn't know.
+    nonisolated static func knownBlockedReason(_ status: String) -> String? {
         switch status {
         case "not_approved": String(localized: "needs approval")
         case "ci_must_pass": String(localized: "the pipeline must pass")
@@ -200,7 +211,7 @@ extension GitLabPullRequestProvider {
         case "title_regex": String(localized: "the title doesn't match the project's rule")
         case "commits_status": String(localized: "commits don't meet the project's rules")
         case "locked_paths", "locked_lfs_files": String(localized: "touches locked files")
-        default: HostMergeStatus.notAllowedYet
+        default: nil
         }
     }
 
@@ -272,6 +283,9 @@ private struct GitLabMRDTO: Decodable {
     let target_branch: String
     let author: Author?
     let sha: String?
+    let detailed_merge_status: String?
+    let merge_status: String?
+    let has_conflicts: Bool?
 
     struct Author: Decodable {
         let username: String?
@@ -302,7 +316,10 @@ private struct GitLabMRDTO: Decodable {
             createdAt: RemoteAPI.parseDate(created_at),
             updatedAt: RemoteAPI.parseDate(updated_at),
             headSha: sha,
-            authorName: author?.name
+            authorName: author?.name,
+            listStatus: mappedState == .open
+                ? PullListStatus.gitLab(detailed: detailed_merge_status, legacy: merge_status, hasConflicts: has_conflicts)
+                : nil
         )
     }
 }
