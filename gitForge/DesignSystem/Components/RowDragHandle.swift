@@ -3,13 +3,22 @@ import SwiftUI
 /// Horizontal divider you drag vertically to resize the height of the pane
 /// BELOW the handle (e.g. the diff pane below the History table). Drag up =
 /// pane grows, drag down = pane shrinks.
+///
+/// With `collapseBelow`, dragging the pane under that height collapses it,
+/// like `NSSplitView` (`PaneResize`): `onCollapsingChange` reports when the
+/// drag crosses that point either way, the height stays where the drag
+/// began, and the caller hides the pane on `onCommit` if it was still
+/// collapsing.
 struct RowDragHandle: View {
     @Binding var height: CGFloat
     var minHeight: CGFloat = 60
     var maxHeight: CGFloat = 800
+    var collapseBelow: CGFloat? = nil
+    var onCollapsingChange: ((Bool) -> Void)? = nil
     var onCommit: () -> Void = {}
 
     @State private var startHeight: CGFloat?
+    @State private var collapsing = false
     @Environment(\.appTheme) private var theme
 
     var body: some View {
@@ -29,15 +38,26 @@ struct RowDragHandle: View {
                         if startHeight == nil { startHeight = height }
                         // Handle is at the TOP of the resizable pane: drag up
                         // (negative dy) = pane gets taller.
-                        let new = base - value.translation.height
+                        let new: CGFloat
+                        switch PaneResize.resolve(proposed: base - value.translation.height,
+                                                  min: minHeight, max: maxHeight, collapseBelow: collapseBelow) {
+                        case .collapse:
+                            setCollapsing(true)
+                            new = base
+                        case .size(let size):
+                            setCollapsing(false)
+                            new = size
+                        }
+                        guard new != height else { return }
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
-                            height = min(max(minHeight, new), maxHeight)
+                            height = new
                         }
                     }
                     .onEnded { _ in
                         startHeight = nil
+                        collapsing = false
                         onCommit()
                     }
             )
@@ -55,6 +75,12 @@ struct RowDragHandle: View {
                 }
                 onCommit()
             }
+    }
+
+    private func setCollapsing(_ value: Bool) {
+        guard collapsing != value else { return }
+        collapsing = value
+        onCollapsingChange?(value)
     }
 }
 

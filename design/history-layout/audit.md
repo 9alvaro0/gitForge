@@ -1,7 +1,7 @@
 # Auditoría UI/UX — History: columnas y paneles
 
 **Fecha:** 2026-10-27 · **Versión revisada:** 1.5.0 (la rama `feat/pulls-list-redesign` no toca History).
-**Estado (2026-10-27):** fase 1 y "Ampliar diff" (fase 2.1) implementadas en `feat/history-layout`, con tests; falta revisarlas en la app. También se han cambiado los iconos de las tiras colapsadas (parte de M2). El doble clic en los tiradores de Autor, Fecha y Commit restablece el ancho por defecto; solo el del Grafo autoajusta.
+**Estado (2026-10-27):** fase 1 y fase 2 completas, con tests y revisadas en la app (oscuro y claro, ventana de 1100 pt y a pantalla completa). Fase 1 y "Ampliar diff" (2.1) en `feat/history-layout`; 2.2-2.4 en `claude/history-inspector-68c104`. El inspector nativo se descartó (ver "Fase 2: decisiones"): el inspector sigue siendo un split propio, ahora con botón en la toolbar y Visualización › Mostrar inspector (⌃⌘I). El doble clic en los tiradores de Autor, Fecha y Commit restablece el ancho por defecto; solo el del Grafo autoajusta. Pendiente: decidir la fase 3.
 **Método:** lectura del código de layout y capturas de la app real a 1920×1080 en oscuro, con los paneles abiertos y colapsados. No se han arrastrado tiradores en la app para no mover el layout guardado: H1, H3 y M3 salen de la geometría del código (en H1 va la cuenta), no de reproducirlos.
 
 ## Cómo está montado hoy
@@ -95,6 +95,18 @@ Con 135 ficheros, las acciones quedan al final y al recorrer la lista el título
 2. **Inspector nativo** con `.inspector(isPresented:)` (el target es macOS 26.1): botón en la toolbar, ⌃⌘I con `InspectorCommands` y arrastre nativo con `.inspectorColumnWidth(min:ideal:max:)`. Sustituye la tira del rombo y la X del detalle (M1, M2). Antes de decidir hay que comprobar que el ancho se recuerda y cómo convive con la barra de filtros.
 3. **Inspector por secciones:** cabecera compacta fija (título, autor, SHA); mensaje y verificación plegables; ficheros con su propio scroll; acciones en un menú "…" de la cabecera (M5). Con eso el diff gana alto sin tener que cerrar nada.
 4. Límites relativos: inspector hasta ventana − 520 y diff hasta alto − 120 (B2). Arrastrar por debajo del mínimo colapsa el panel (B3).
+
+### Fase 2: decisiones
+
+- **Inspector nativo descartado (2.2).** Se probó `.inspector(isPresented:)` con `.inspectorColumnWidth` e `InspectorCommands` en una copia de la app:
+  - Cierra la app al arrancar. Si el mínimo de la tabla (o el ancho natural de la barra de filtros) más el inspector no caben en la ventana, AppKit lanza "The window has been marked as needing another Update Constraints in Window pass…". Pasa incluso con `Color.blue.frame(minWidth: 520)` como contenido. Solo aguanta con contenido de mínimo 0, así que la tabla no podría reservarse sus 520 pt.
+  - No recuerda el ancho. No hay autosave para esa columna: tras salir y volver a abrir, vuelve al `ideal`. Solo lo conservaría la restauración de ventanas, que macOS no hace con "Cerrar ventanas al salir de una app" activado.
+  - En español, el ítem de `InspectorCommands` se titula "Inspector de Show" y no se puede cambiar.
+  - La columna ocupa todo el alto bajo la toolbar, así que la barra de filtros quedaría solo sobre la tabla.
+
+  En su lugar, `HistorySplitLayout` se queda. Se quitan la tira vertical del rombo y las X del detalle. El inspector se muestra y oculta con un botón en la toolbar (`sidebar.trailing`) y con Visualización › Mostrar inspector / Ocultar inspector (⌃⌘I), llevado con un `focusedSceneValue`. Los dos se desactivan con el diff ampliado. También se oculta con doble clic en el divisor o arrastrándolo hasta pasar la mitad de su mínimo. Se guarda en la misma clave de antes (`detailPanelCollapsed`).
+- **Inspector por secciones (2.3).** Cabecera fija: asunto (2 líneas, completo en el tooltip), autor, fecha, SHA y el menú "…" con Nueva rama, Nueva etiqueta, Cherry-pick, Revertir y Hacer reset aquí. Debajo, "Detalles" plegable (padres, firma, CI y mensaje): se recuerda, y si el mensaje es largo hace scroll dentro del 40 % del detalle. Los archivos tienen su propio scroll, con línea arriba al desplazarse y desvanecido abajo. "Cambios sin confirmar" sigue el mismo esquema.
+- **Límites relativos (2.4).** El inspector llega hasta ventana − 520 − divisor (antes, 760 fijos). El diff baja como mínimo a 96 pt; arrastrado por debajo de la mitad, se colapsa (como `NSSplitView`) y vuelve con la altura que tenía. Así desaparece el caso de la franja que crecía sola al cambiar de commit. El detalle conserva 248 pt cuando el diff está al máximo: cabecera, unas líneas de detalles y un par de archivos.
 
 ### Fase 3 (opcional) — disposición "diff abajo"
 

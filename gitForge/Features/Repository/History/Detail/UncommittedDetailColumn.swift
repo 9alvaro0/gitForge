@@ -5,12 +5,10 @@ import AppKit
 /// the pinned "Uncommitted changes" row. Lists the working-copy files and
 /// drives `viewModel.workingCopy.selectedWorkingCopyFile`, which the bottom diff pane
 /// already consumes — so click-to-diff lights up automatically without a
-/// parallel selection model.
+/// parallel selection model. Like `CommitDetailColumn`, the header stays put
+/// and the files scroll on their own.
 struct UncommittedDetailColumn: View {
     @Bindable var viewModel: RepositoryViewModel
-    /// Optional close handler so the host can collapse the panel. Matches the
-    /// `CommitDetailColumn` contract for the shared `HistoryView` layout.
-    var onClose: (() -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     @FocusState private var listFocused: Bool
@@ -20,34 +18,43 @@ struct UncommittedDetailColumn: View {
     private var totalCount: Int { staged.count + unstaged.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s12) {
-            header
-            Text("Working tree changes not yet committed.")
-                .textRole(.body)
-                .foregroundStyle(theme.colors.textTertiary)
+        VStack(alignment: .leading, spacing: Spacing.s8) {
+            VStack(alignment: .leading, spacing: Spacing.s8) {
+                header
+                Text("Working tree changes not yet committed.")
+                    .textRole(.body)
+                    .foregroundStyle(theme.colors.textTertiary)
+            }
+            .padding(.horizontal, Spacing.s16)
+            .padding(.top, Spacing.s12)
             if totalCount == 0 {
                 Text("No changes")
                     .textRole(.callout)
                     .italic()
                     .foregroundStyle(theme.colors.textTertiary)
+                    .padding(.horizontal, Spacing.s16)
+                Spacer(minLength: 0)
             } else {
-                // Inside the inspector's scroll view: the reader scrolls it.
-                ScrollViewReader { proxy in
-                    VStack(alignment: .leading, spacing: Spacing.s12) {
-                        fileSection(title: String(localized: "STAGED"), emptyText: String(localized: "Nothing staged"), count: staged.count, files: staged, side: .staged)
-                        fileSection(title: String(localized: "UNSTAGED"), emptyText: String(localized: "Nothing unstaged"), count: unstaged.count, files: unstaged, side: .unstaged)
-                    }
-                    .listKeyboardNavigation(
-                        ids: rowIDs,
-                        selection: viewModel.workingCopy.selectedRowID,
-                        isFocused: $listFocused,
-                        scrollProxy: proxy
-                    ) { id in
-                        viewModel.workingCopy.select(id, in: id.side == .staged ? staged : unstaged)
+                InspectorScrollArea {
+                    ScrollViewReader { proxy in
+                        VStack(alignment: .leading, spacing: Spacing.s12) {
+                            fileSection(title: String(localized: "STAGED"), emptyText: String(localized: "Nothing staged"), count: staged.count, files: staged, side: .staged)
+                            fileSection(title: String(localized: "UNSTAGED"), emptyText: String(localized: "Nothing unstaged"), count: unstaged.count, files: unstaged, side: .unstaged)
+                        }
+                        .padding(.top, Spacing.s4)
+                        .listKeyboardNavigation(
+                            ids: rowIDs,
+                            selection: viewModel.workingCopy.selectedRowID,
+                            isFocused: $listFocused,
+                            scrollProxy: proxy
+                        ) { id in
+                            viewModel.workingCopy.select(id, in: id.side == .staged ? staged : unstaged)
+                        }
                     }
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     /// Staged then Unstaged, the order ↑↓ walks them in.
@@ -64,10 +71,6 @@ struct UncommittedDetailColumn: View {
                 .textRole(.body)
                 .foregroundStyle(theme.colors.textPrimary)
             Spacer()
-            if let onClose {
-                IconButton(symbol: "xmark", accessibilityLabel: String(localized: "Hide uncommitted detail"), action: onClose)
-                    .help("Hide uncommitted detail")
-            }
         }
     }
 
@@ -156,7 +159,6 @@ private struct WorkingCopyMiniRow: View {
     @Previewable @State var theme = AppTheme()
     UncommittedDetailColumn(viewModel: .preview)
         .previewAppState(.preview)
-        .padding()
         .frame(width: 360, height: 720)
         .background(theme.colors.bgElevated)
         .appTheme(theme)

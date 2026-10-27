@@ -5,8 +5,9 @@ import SwiftUI
 /// spec §6.2), or the diff alone when expanded. The split and the
 /// inspector own their sizes (`HistorySplitLayout`, `HistoryInspector`);
 /// this view owns the selection, search and focus, the table's column
-/// widths, and routes drag-drop / double-click events into the right
-/// confirmation dialogs (action runners live in `HistoryView+Actions.swift`).
+/// widths, whether the inspector shows (toolbar button and View › Show
+/// Inspector, ⌃⌘I), and routes drag-drop / double-click events into the
+/// right confirmation dialogs (action runners live in `HistoryView+Actions.swift`).
 struct HistoryView: View {
     @Bindable var viewModel: RepositoryViewModel
     @Environment(\.appTheme) var theme
@@ -35,6 +36,8 @@ struct HistoryView: View {
     @State private var isUncommittedSelected: Bool = false
     /// The diff fills the pane instead of sitting under the detail.
     @State private var isDiffExpanded = false
+    /// The inspector shows next to the table (persisted).
+    @State private var isInspectorVisible = HistorySplitMetrics.storedInspectorVisible()
     /// Drop target under a dragged branch chip, shown in the intent HUD.
     @State var dropTracker = BranchDropTracker()
 
@@ -73,6 +76,15 @@ struct HistoryView: View {
         }
         .animation(Motion.fast, value: dropTracker.intent)
         .environment(\.branchDropTracker, dropTracker)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { inspectorToggle }
+        }
+        // View › Show Inspector (⌃⌘I); off while the diff fills the pane.
+        .focusedSceneValue(\.historyInspectorVisible,
+                           isDiffExpanded ? nil : $isInspectorVisible.animation(Motion.standard))
+        .onChange(of: isInspectorVisible) { _, visible in
+            HistorySplitMetrics.storeInspectorVisible(visible)
+        }
         // The engine spreads lines over the accent's pool; a new accent with a
         // different pool size recolours the graph.
         .task(id: theme.accentSwatch) {
@@ -136,16 +148,29 @@ struct HistoryView: View {
                 showsRemoteBranches: viewModel.history.showsRemoteBranches,
                 onToggleRemoteBranches: toggleRemoteBranches
             )
-            HistorySplitLayout(table: tableColumn(matcher: matcher)) { collapse in
+            HistorySplitLayout(table: tableColumn(matcher: matcher), isInspectorVisible: $isInspectorVisible) {
                 HistoryInspector(
                     viewModel: viewModel,
                     isUncommittedSelected: isUncommittedSelected,
                     diffMode: diffMode,
-                    onClose: collapse,
                     onExpandDiff: { setDiffExpanded(true) }
                 )
             }
         }
+    }
+
+    /// Shows or hides the inspector, icon only so it fits the toolbar at the
+    /// window's minimum width.
+    private var inspectorToggle: some View {
+        let title = isInspectorVisible ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")
+        return Button {
+            withAnimation(Motion.standard) { isInspectorVisible.toggle() }
+        } label: {
+            Label(title, systemImage: "sidebar.trailing")
+        }
+        .labelStyle(.iconOnly)
+        .help(Text(verbatim: "\(title) (⌃⌘I)"))
+        .disabled(isDiffExpanded)
     }
 
     private func tableColumn(matcher: ((Commit) -> Bool)?) -> some View {
@@ -291,6 +316,12 @@ struct HistoryView: View {
         let shortSha = commit.shortSha
         return String(localized: "Checkout \(shortSha)?")
     }
+}
+
+extension FocusedValues {
+    /// Whether History's inspector shows, while History is on screen with
+    /// the inspector next to the table (`ViewCommands`' Show Inspector).
+    @Entry var historyInspectorVisible: Binding<Bool>?
 }
 
 /// The commit History is focused on and its loaded history.

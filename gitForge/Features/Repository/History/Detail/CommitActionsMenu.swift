@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// Action grid (Branch / Tag / Cherry-pick / Revert) plus Reset menu under
-/// the commit detail panel. Owns its own sheet/dialog state — the runners
-/// emit toasts via `AppState.ui.activeToast` and route conflicts to the
-/// Conflicts view through `appState.ui.workspaceSection`.
-struct CommitActionsSection: View {
+/// The "…" menu in the commit inspector's header: new branch or tag here,
+/// cherry-pick, revert, and reset to here. A menu instead of a grid of
+/// buttons, so the inspector's height goes to the files and the diff (audit
+/// M5). Owns its own sheet/dialog state — the runners emit toasts via
+/// `AppState.ui.activeToast` and route conflicts to the Conflicts view
+/// through `appState.ui.workspaceSection`.
+struct CommitActionsMenu: View {
     let commit: Commit
     @Bindable var viewModel: RepositoryViewModel
 
     @Environment(AppState.self) private var appState
-    @Environment(\.appTheme) private var theme
 
     @State private var newBranchSheet = false
     @State private var newBranchName: String = ""
@@ -21,14 +22,32 @@ struct CommitActionsSection: View {
     @State private var newTagMessage: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s8) {
-            Text("ACTIONS")
-                .textRole(.caption, weight: .semibold)
-                .tracking(0.8)
-                .foregroundStyle(theme.colors.textTertiary)
-            actionGrid
-            resetMenu
+        OverflowMenu(accessibilityLabel: String(localized: "Commit actions")) {
+            Button("New branch…") {
+                newBranchName = ""
+                newBranchSheet = true
+            }
+            .help("Create a new branch starting at \(commit.shortSha).")
+            Button("New tag…") {
+                newTagName = ""
+                newTagMessage = ""
+                newTagSheet = true
+            }
+            .help("Create a tag pointing at \(commit.shortSha).")
+            Divider()
+            Button("Cherry-pick…") { cherryPickConfirm = true }
+                .help("Replay this commit on top of the current branch.")
+            Button("Revert…") { revertConfirm = true }
+                .help("Create a new commit that undoes the changes from \(commit.shortSha).")
+            Divider()
+            Menu("Reset to here") {
+                ForEach(GitCLI.ResetMode.allCases) { mode in
+                    Button(mode.label) { resetMode = mode }
+                }
+            }
+            .help("Move HEAD of the current branch to \(commit.shortSha). Soft / mixed / hard control how the working tree is affected — hard discards uncommitted changes.")
         }
+        .help("Commit actions")
         .sheet(isPresented: $newBranchSheet) {
             CommitBranchSheet(
                 commitShortSha: commit.shortSha,
@@ -85,62 +104,6 @@ struct CommitActionsSection: View {
         case .hard:
             return String(localized: "Moves HEAD to \(shortSha) and DISCARDS every commit and uncommitted change after it. Recoverable only via `git reflog` for a limited time. This cannot be undone from the UI.")
         }
-    }
-
-    private var actionGrid: some View {
-        LazyVGrid(
-            columns: [
-                GridItem(.flexible(), spacing: Spacing.s6),
-                GridItem(.flexible(), spacing: Spacing.s6)
-            ],
-            spacing: Spacing.s6
-        ) {
-            CommitActionButton(
-                icon: "arrow.triangle.branch", title: String(localized: "Branch"),
-                tooltip: String(localized: "Create a new branch starting at \(commit.shortSha).")
-            ) {
-                newBranchName = ""
-                newBranchSheet = true
-            }
-            CommitActionButton(
-                icon: "tag", title: String(localized: "Tag"),
-                tooltip: String(localized: "Create a tag pointing at \(commit.shortSha).")
-            ) {
-                newTagName = ""
-                newTagMessage = ""
-                newTagSheet = true
-            }
-            CommitActionButton(
-                icon: "plus", title: String(localized: "Cherry-pick"),
-                tooltip: String(localized: "Replay this commit on top of the current branch.")
-            ) {
-                cherryPickConfirm = true
-            }
-            CommitActionButton(
-                icon: "arrow.up", title: String(localized: "Revert"),
-                tooltip: String(localized: "Create a new commit that undoes the changes from \(commit.shortSha).")
-            ) {
-                revertConfirm = true
-            }
-        }
-    }
-
-    private var resetMenu: some View {
-        Menu {
-            ForEach(GitCLI.ResetMode.allCases) { mode in
-                Button(mode.label) { resetMode = mode }
-            }
-        } label: {
-            CommitActionButtonLabel(
-                icon: "exclamationmark.triangle",
-                title: String(localized: "Reset to here"),
-                destructive: true,
-                trailingChevron: true
-            )
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .help("Move HEAD of the current branch to \(commit.shortSha). Soft / mixed / hard control how the working tree is affected — hard discards uncommitted changes.")
     }
 
     private var resetConfirmBinding: Binding<Bool> {
@@ -206,10 +169,9 @@ struct CommitActionsSection: View {
 
 #Preview {
     @Previewable @State var theme = AppTheme()
-    CommitActionsSection(commit: .preview, viewModel: .preview)
+    CommitActionsMenu(commit: .preview, viewModel: .preview)
         .previewAppState(.preview)
         .padding()
-        .frame(width: 380)
         .background(theme.colors.bgElevated)
         .appTheme(theme)
 }

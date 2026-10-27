@@ -1470,22 +1470,6 @@
         }
       }
     },
-    "ACTIONS" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ACCIONES"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AÇÕES"
-          }
-        }
-      }
-    },
     "API URL" : {
       "localizations" : {
         "es" : {
@@ -3631,6 +3615,22 @@
         }
       }
     },
+    "Cherry-pick…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cherry-pick…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cherry-pick…"
+          }
+        }
+      }
+    },
     "Choose" : {
       "localizations" : {
         "es" : {
@@ -4283,6 +4283,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fazer commit de 1 ficheiro em %@"
+          }
+        }
+      }
+    },
+    "Commit actions" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acciones del commit"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ações do commit"
           }
         }
       }
@@ -6189,6 +6205,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "HEAD desanexado em %@"
+          }
+        }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detalles"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detalhes"
           }
         }
       }
@@ -8445,18 +8477,18 @@
         }
       }
     },
-    "Hide commit detail" : {
+    "Hide Inspector" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ocultar detalle del commit"
+            "value" : "Ocultar inspector"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ocultar detalhe do commit"
+            "value" : "Ocultar inspetor"
           }
         }
       }
@@ -8505,22 +8537,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oculte repositórios ou restrinja os seus padrões nas Definições."
-          }
-        }
-      }
-    },
-    "Hide uncommitted detail" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ocultar detalle de cambios sin confirmar"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ocultar detalhe das alterações sem commit"
           }
         }
       }
@@ -10449,6 +10465,22 @@
         }
       }
     },
+    "New tag…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva etiqueta…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nova etiqueta…"
+          }
+        }
+      }
+    },
     "Next conflict" : {
       "localizations" : {
         "es" : {
@@ -12078,6 +12110,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pais"
+          }
+        }
+      }
+    },
+    "Parents, signature, CI and message" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Padres, firma, CI y mensaje"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pais, assinatura, CI e mensagem"
           }
         }
       }
@@ -14551,6 +14599,22 @@
         }
       }
     },
+    "Revert…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revertir…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reverter…"
+          }
+        }
+      }
+    },
     "Review" : {
       "localizations" : {
         "es" : {
@@ -15384,6 +15448,22 @@
         }
       }
     },
+    "Show Inspector" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar inspector"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar inspetor"
+          }
+        }
+      }
+    },
     "Show Pull Requests" : {
       "localizations" : {
         "es" : {
@@ -15460,22 +15540,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ver todos os repositórios"
-          }
-        }
-      }
-    },
-    "Show commit detail" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar detalle del commit"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar detalhe do commit"
           }
         }
       }
