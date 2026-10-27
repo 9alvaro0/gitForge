@@ -88,6 +88,16 @@ struct PullRequestDetailView: View {
         // While its CI runs, the open PR's checks and merge status are read
         // again; only while the detail is on screen.
         .task(id: store.selected?.id) { await store.pollWhileRunning() }
+        // A row's Approve or Merge, once the detail is in: the same panel
+        // and sheet as the header's buttons.
+        .onChange(of: store.quickActionCheckpoint, initial: true) {
+            switch store.takeQuickAction() {
+            case .perform(.approve): store.reviewPanel = .approve
+            case .perform(.merge): showMergeSheet = true
+            case .refused(let reason): appState.ui.activeToast = ToastMessage(message: reason, kind: .warn)
+            case nil: break
+            }
+        }
         // Each opening reads the options afresh: nothing is remembered.
         .sheet(isPresented: $showMergeSheet, onDismiss: store.discardMergeOptions) {
             MergeSheet(store: store)

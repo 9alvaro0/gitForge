@@ -367,14 +367,16 @@ struct PreviewReviewsWorld {
     }
 
     private static func pull(_ number: Int, _ title: String, by author: String, from branch: String,
-                             into target: String = "main", state: PullRequest.State = .open, minutesAgo: Double,
+                             into target: String = "main", state: PullRequest.State = .open,
+                             status: PullListStatus.Kind? = nil, minutesAgo: Double,
                              on path: String, instance: HostingInstance, now: Date) -> PullRequest {
         let segment = instance.kind == .gitlab ? "-/merge_requests" : "pull"
         return PullRequest(id: "\(path)#\(number)", number: number, title: title, state: state,
                            authorLogin: author, authorAvatarURL: nil, sourceBranch: branch, targetBranch: target,
                            webURL: URL(string: "https://\(instance.host)/\(path)/\(segment)/\(number)"),
                            createdAt: now.addingTimeInterval(-minutesAgo * 60 - 86_400),
-                           updatedAt: now.addingTimeInterval(-minutesAgo * 60), headSha: "a1b2c3d\(number)")
+                           updatedAt: now.addingTimeInterval(-minutesAgo * 60), headSha: "a1b2c3d\(number)",
+                           listStatus: status.map { PullListStatus(kind: $0) })
     }
 
     /// Pull requests no open list has: merged ones.
@@ -391,30 +393,30 @@ struct PreviewReviewsWorld {
         [
             paymentsApp: [
                 pull(482, "Retry card authorisation after a gateway timeout", by: "lucia",
-                     from: "fix/card-auth-gateway-timeout-retry", into: "develop", minutesAgo: 25,
+                     from: "fix/card-auth-gateway-timeout-retry", into: "develop", status: .ready, minutesAgo: 25,
                      on: paymentsApp, instance: gitLab, now: now),
                 pull(479, "Split the checkout screen into steps", by: "jon", from: "feat/checkout-steps",
                      into: "develop", state: .draft, minutesAgo: 190, on: paymentsApp, instance: gitLab, now: now),
                 pull(470, "Show the refund reason on the receipt", by: "marta", from: "feat/refund-reason",
-                     into: "develop", minutesAgo: 1500, on: paymentsApp, instance: gitLab, now: now),
+                     into: "develop", status: .needsApproval, minutesAgo: 1500, on: paymentsApp, instance: gitLab, now: now),
             ],
             ledger: [
                 pull(1203, "Round half-even in the monthly statement", by: "pablo", from: "fix/statement-rounding",
-                     minutesAgo: 130, on: ledger, instance: gitLab, now: now),
+                     status: .failing, minutesAgo: 130, on: ledger, instance: gitLab, now: now),
             ],
             designTokens: [
                 pull(88, "Add elevated surface colours for dark mode", by: "sam", from: "feat/dark-elevated",
-                     minutesAgo: 50, on: designTokens, instance: gitHub, now: now),
+                     status: .running, minutesAgo: 50, on: designTokens, instance: gitHub, now: now),
                 pull(85, "Build the tokens with Node 22", by: "octo", from: "chore/node-22",
-                     minutesAgo: 2900, on: designTokens, instance: gitHub, now: now),
+                     status: .conflicts, minutesAgo: 2900, on: designTokens, instance: gitHub, now: now),
             ],
             // Not followed: its pull requests come in from a link or when
             // "Search all" opens the repo.
             ossLib: [
                 pull(12, "Parse dates in the server's time zone", by: "octo", from: "fix/server-time-zone",
-                     minutesAgo: 70, on: ossLib, instance: gitHub, now: now),
+                     status: .changesRequested, minutesAgo: 70, on: ossLib, instance: gitHub, now: now),
                 pull(9, "Drop the deprecated date formatter", by: "ana", from: "chore/drop-old-formatter",
-                     minutesAgo: 3100, on: ossLib, instance: gitHub, now: now),
+                     status: .blocked, minutesAgo: 3100, on: ossLib, instance: gitHub, now: now),
             ],
         ]
     }

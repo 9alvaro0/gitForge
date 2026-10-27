@@ -120,6 +120,9 @@ final class ReviewsStore {
     /// a refresh that stops following the repo clear it.
     private(set) var repoFilter: String?
     var selectedID: InboxPull.ID?
+    /// A row's Approve or Merge, waiting for its repo's detail store to open
+    /// the pull request (`requestQuickAction`, `forwardQuickAction`).
+    var pendingQuickAction: PendingInboxQuickAction?
     /// The row the list scrolls into view, set each time the inbox selects or
     /// keeps a row from outside the list: `reveal` (a ⌘K pick, a link that
     /// lands), `showRepo` and `showAllRepos`. A click on a row only sets

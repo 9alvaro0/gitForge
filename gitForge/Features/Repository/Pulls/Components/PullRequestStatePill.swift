@@ -3,6 +3,8 @@ import SwiftUI
 /// State of a PR as a capsule with glyph and word (spec §5 status badge).
 struct PullRequestStatePill: View {
     let state: PullRequest.State
+    /// A list row's size, level with its verdict chip (`PullStatusChip`).
+    var compact = false
 
     @Environment(\.appTheme) private var theme
 
@@ -10,13 +12,14 @@ struct PullRequestStatePill: View {
         let (label, symbol, fg, bg) = style
         HStack(spacing: Spacing.s4) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: compact ? 10 : 11, weight: .semibold))
             Text(label)
                 .textRole(.caption, weight: .semibold)
         }
         .foregroundStyle(fg)
-        .padding(.horizontal, Spacing.s8)
-        .frame(height: 20)
+        .padding(.horizontal, compact ? Spacing.s6 : Spacing.s8)
+        .frame(height: compact ? 18 : 20)
+        .fixedSize()
         .background(Capsule().fill(bg))
         .accessibilityElement(children: .combine)
     }

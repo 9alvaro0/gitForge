@@ -28,6 +28,10 @@ nonisolated struct PullRequest: Sendable, Equatable, Identifiable, Codable {
     /// does; GitHub's list only has the login). Optional so a snapshot saved
     /// before this existed still decodes.
     var authorName: String? = nil
+    /// What the host's list says stands between the open pull request and
+    /// its merge, for its row (`PullListStatus`). Optional so a snapshot
+    /// saved before this existed still decodes.
+    var listStatus: PullListStatus? = nil
 
     var label: String {
         switch state {

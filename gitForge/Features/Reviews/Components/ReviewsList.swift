@@ -13,6 +13,8 @@ struct ReviewsList: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    /// The repos folded under their heading (`CollapsedRepos`), kept between launches.
+    @AppStorage("pulls.collapsedRepos") private var collapsedRaw = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -186,7 +188,14 @@ struct ReviewsList: View {
                 // the repo filter) may be far down, or in the half just
                 // switched to. A click leaves the list where it is.
                 .onChange(of: store.revealRequest) { _, request in
-                    if let request { bringIntoView(request.id, groups: groups, others: others, proxy: proxy) }
+                    guard let request else { return }
+                    // A row folded away comes out first, then into view.
+                    if let group = groups.first(where: { $0.pulls.contains { $0.id == request.id } }),
+                       expand(group.id) {
+                        Task { bringIntoView(request.id, groups: groups, others: others, proxy: proxy) }
+                    } else {
+                        bringIntoView(request.id, groups: groups, others: others, proxy: proxy)
+                    }
                 }
                 // The list shows up with a selection made elsewhere (a ⌘K
                 // pick opens Reviews) or kept from before: that row in view,
@@ -228,38 +237,48 @@ struct ReviewsList: View {
     private func rows(groups: [ReviewGroup], others: [InboxPull]) -> some View {
         var hideable = store.followedKeys
         if let visiting = store.visitingRepo { hideable.insert(visiting.id) }
-        return LazyVStack(alignment: .leading, spacing: Spacing.s2, pinnedViews: [.sectionHeaders]) {
+        let collapsed = CollapsedRepos(raw: collapsedRaw)
+        return LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             ForEach(groups) { group in
+                let isCollapsed = collapsed.contains(group.id)
                 Section {
-                    ForEach(group.pulls) { item in
-                        PullRequestRow(
-                            pullRequest: item.pull,
-                            hostLabel: nil,
-                            reference: item.repo.host.provider.reference(item.pull.number),
-                            ci: nil,
-                            isSelected: store.selectedID == item.id,
-                            onSelect: { onSelect(item) }
-                        )
-                        .id(item.id)
-                    }
-                    if let error = group.error {
-                        errorRow(error)
+                    if !isCollapsed {
+                        ForEach(Array(group.pulls.enumerated()), id: \.element.id) { index, item in
+                            PullRequestRow(
+                                pullRequest: item.pull,
+                                hostLabel: nil,
+                                reference: item.repo.host.provider.reference(item.pull.number),
+                                ci: nil,
+                                isSelected: store.selectedID == item.id,
+                                placement: Self.placement(index, of: group.pulls.count),
+                                actions: actions(for: item),
+                                onSelect: { onSelect(item) }
+                            )
+                            .id(item.id)
+                        }
+                        if let error = group.error {
+                            errorRow(error)
+                        }
                     }
                 } header: {
-                    ReviewGroupHeader(repo: group.repo, onHide: hideAction(group.repo, hideable: hideable))
+                    ReviewGroupHeader(repo: group.repo, pulls: group.pulls.map(\.pull), isCollapsed: isCollapsed,
+                                      onToggle: group.pulls.isEmpty ? nil : { toggle(group.id) },
+                                      onHide: hideAction(group.repo, hideable: hideable))
                         .id(ReviewsHeading.group(group.id))
                 }
             }
             if !others.isEmpty {
                 Section {
-                    ForEach(others) { item in
-                        ReviewOtherRow(
-                            item: item,
-                            isSelected: store.selectedID == item.id,
-                            onSelect: { onSelect(item) },
-                            onClose: { store.closeOther(item.id) }
-                        )
-                        .id(item.id)
+                    VStack(spacing: Spacing.s2) {
+                        ForEach(others) { item in
+                            ReviewOtherRow(
+                                item: item,
+                                isSelected: store.selectedID == item.id,
+                                onSelect: { onSelect(item) },
+                                onClose: { store.closeOther(item.id) }
+                            )
+                            .id(item.id)
+                        }
                     }
                 } header: {
                     ReviewOthersHeader()
@@ -269,6 +288,41 @@ struct ReviewsList: View {
         }
         .padding(.horizontal, Spacing.s8)
         .padding(.bottom, Spacing.s8)
+    }
+
+    /// Where row `index` of `count` sits in its repo's card.
+    static func placement(_ index: Int, of count: Int) -> PullRowPlacement {
+        if count == 1 { return .only }
+        if index == 0 { return .first }
+        return index == count - 1 ? .last : .middle
+    }
+
+    /// A row's shortcuts: Approve on someone else's pull request, Merge on
+    /// one the host says is ready.
+    private func actions(for item: InboxPull) -> PullRowActions {
+        let pull = item.pull
+        let reviewable = (pull.state == .open || pull.state == .draft)
+            && !store.isMine(pull, accountId: item.repo.accountId)
+        return PullRowActions(
+            approve: reviewable ? { store.requestQuickAction(.approve, for: item) } : nil,
+            merge: pull.isReadyToMerge ? { store.requestQuickAction(.merge, for: item) } : nil
+        )
+    }
+
+    private func toggle(_ key: String) {
+        var collapsed = CollapsedRepos(raw: collapsedRaw)
+        withAnimation(.easeInOut(duration: 0.15)) {
+            collapsed.toggle(key)
+            collapsedRaw = collapsed.raw
+        }
+    }
+
+    /// Unfolds `key`'s rows; `false` when they weren't folded.
+    private func expand(_ key: String) -> Bool {
+        var collapsed = CollapsedRepos(raw: collapsedRaw)
+        guard collapsed.expand(key) else { return false }
+        collapsedRaw = collapsed.raw
+        return true
     }
 
     /// Why the repo's pull requests couldn't be read, in place of its rows.

@@ -70,6 +70,9 @@ final class PullRequestStore {
     /// The PR to open once the list has it (`selectWhenLoaded`): another
     /// screen asked for it before the list was there.
     private(set) var pendingSelectionNumber: Int?
+    /// A row's Approve or Merge, waiting for the detail to load
+    /// (`requestQuickAction`, `takeQuickAction`).
+    var pendingQuickAction: PendingPullQuickAction?
 
     // MARK: Review
     /// Whether the host takes "Request changes" (GitLab varies by version);

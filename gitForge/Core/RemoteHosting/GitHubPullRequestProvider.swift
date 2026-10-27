@@ -18,14 +18,41 @@ struct GitHubPullRequestProvider: PullRequestProvider {
             URLQueryItem(name: "sort", value: "updated"),
             URLQueryItem(name: "direction", value: "desc"),
         ]
+        // The rows' verdicts, read alongside: the REST list doesn't carry
+        // them. A read that fails leaves the rows without one.
+        async let statuses = listStatuses(for: state, host: host, token: token)
         let request = Self.makeRequest(url: components.url, token: token)
         let data = try await RemoteAPI.send(request)
+        let pulls: [PullRequest]
         do {
-            let decoded = try JSONDecoder().decode([GitHubPullDTO].self, from: data)
-            return decoded.map { $0.toModel() }
+            pulls = try JSONDecoder().decode([GitHubPullDTO].self, from: data).map { $0.toModel() }
         } catch {
             throw PullRequestFetchError.decoding(error.localizedDescription)
         }
+        guard let statuses = await statuses else { return pulls }
+        return Self.applying(statuses, to: pulls)
+    }
+
+    /// The open list's verdicts; `nil` for the closed list, or when the read fails.
+    private func listStatuses(for state: PullListState, host: RemoteHost, token: String) async -> [Int: PullListStatus]? {
+        guard state == .open else { return nil }
+        return try? await fetchListStatuses(host: host, token: token)
+    }
+
+    /// Each open pull request's verdict, by number, from one GraphQL read
+    /// (`listStatusQuery`).
+    private func fetchListStatuses(host: RemoteHost, token: String) async throws -> [Int: PullListStatus] {
+        guard let url = Self.graphQLURL(for: host) else { return [:] }
+        var request = Self.makeRequest(url: url, token: token, method: "POST")
+        // `mergeStateStatus` is behind this preview on older servers; where
+        // it's no longer a preview the header changes nothing.
+        request.setValue("application/vnd.github.merge-info-preview+json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "query": Self.listStatusQuery,
+            "variables": ["owner": host.owner, "name": host.repo],
+        ])
+        return try Self.parseListStatuses(try await RemoteAPI.send(request))
     }
 
     func fetchDetail(host: RemoteHost, number: Int, token: String) async throws -> PullRequestDetail {
@@ -168,6 +195,80 @@ struct GitHubPullRequestProvider: PullRequestProvider {
 // MARK: - Parsers (static so the tests can feed them fixtures)
 
 extension GitHubPullRequestProvider {
+    /// The open pull requests' merge fields, newest first as the REST list
+    /// reads them.
+    static let listStatusQuery = """
+        query($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            pullRequests(states: OPEN, first: 50, orderBy: {field: UPDATED_AT, direction: DESC}) {
+              nodes {
+                number
+                isDraft
+                mergeable
+                mergeStateStatus
+                reviewDecision
+                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+              }
+            }
+          }
+        }
+        """
+
+    /// The GraphQL endpoint next to the REST one: `api.github.com/graphql`,
+    /// or `/api/graphql` on a GitHub Enterprise server.
+    nonisolated static func graphQLURL(for host: RemoteHost) -> URL? {
+        let rest = base(for: host)
+        if rest.hasSuffix("/api/v3") { return URL(string: String(rest.dropLast("/v3".count)) + "/graphql") }
+        return URL(string: rest + "/graphql")
+    }
+
+    /// The verdict of each pull request `listStatusQuery` returned, by
+    /// number. Errors in the answer (a field the server lacks) leave out
+    /// what they hit; no data at all is an empty map.
+    static func parseListStatuses(_ data: Data) throws -> [Int: PullListStatus] {
+        struct Answer: Decodable {
+            let data: DataBlock?
+            struct DataBlock: Decodable { let repository: Repository? }
+            struct Repository: Decodable { let pullRequests: Connection }
+            struct Connection: Decodable { let nodes: [Node?] }
+            struct Node: Decodable {
+                let number: Int
+                let isDraft: Bool?
+                let mergeable: String?
+                let mergeStateStatus: String?
+                let reviewDecision: String?
+                let commits: Commits?
+            }
+            struct Commits: Decodable { let nodes: [CommitNode?] }
+            struct CommitNode: Decodable { let commit: Commit }
+            struct Commit: Decodable { let statusCheckRollup: Rollup? }
+            struct Rollup: Decodable { let state: String? }
+        }
+        let answer: Answer
+        do { answer = try JSONDecoder().decode(Answer.self, from: data) } catch {
+            throw PullRequestFetchError.decoding(error.localizedDescription)
+        }
+        var out: [Int: PullListStatus] = [:]
+        for node in answer.data?.repository?.pullRequests.nodes ?? [] {
+            guard let node, node.isDraft != true else { continue }
+            let checks = node.commits?.nodes.compactMap { $0 }.last?.commit.statusCheckRollup?.state
+            out[node.number] = PullListStatus.gitHub(mergeable: node.mergeable, mergeState: node.mergeStateStatus,
+                                                     reviewDecision: node.reviewDecision, checks: checks)
+        }
+        return out
+    }
+
+    /// `pulls` with the verdicts read for them: only open ones (a draft
+    /// shows as one) take theirs.
+    static func applying(_ statuses: [Int: PullListStatus], to pulls: [PullRequest]) -> [PullRequest] {
+        pulls.map { pull in
+            guard pull.state == .open, let status = statuses[pull.number] else { return pull }
+            var pull = pull
+            pull.listStatus = status
+            return pull
+        }
+    }
+
     /// The PR object alone: no CI status, reviewers as requested.
     static func parseDetail(_ data: Data) throws -> PullRequestDetail {
         try decodeDetail(data).toModel(ciStatus: nil)
