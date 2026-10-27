@@ -2607,6 +2607,22 @@
         }
       }
     },
+    "Back to History (Esc)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver al historial (Esc)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar ao histórico (Esc)"
+          }
+        }
+      }
+    },
     "Bad signature" : {
       "localizations" : {
         "es" : {
@@ -7138,6 +7154,22 @@
         }
       }
     },
+    "Expand diff" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ampliar diff"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ampliar diff"
+          }
+        }
+      }
+    },
     "Expanded" : {
       "localizations" : {
         "es" : {
@@ -7475,6 +7507,22 @@
         }
       }
     },
+    "File %lld of %lld" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo %lld de %lld"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ficheiro %lld de %lld"
+          }
+        }
+      }
+    },
     "File mode changed" : {
       "localizations" : {
         "es" : {
@@ -7679,6 +7727,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vista detalhada para ambos — sem idas ao terminal."
+          }
+        }
+      }
+    },
+    "Fit to graph" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustar al grafo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustar ao grafo"
           }
         }
       }
@@ -10401,6 +10465,22 @@
         }
       }
     },
+    "Next file" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo siguiente"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ficheiro seguinte"
+          }
+        }
+      }
+    },
     "Next unpicked hunk, or the next file with conflicts" : {
       "localizations" : {
         "es" : {
@@ -12259,6 +12339,22 @@
         }
       }
     },
+    "Previous file" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo anterior"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ficheiro anterior"
+          }
+        }
+      }
+    },
     "Private" : {
       "localizations" : {
         "es" : {
@@ -13943,6 +14039,22 @@
         }
       }
     },
+    "Reset width" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer ancho"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repor largura"
+          }
+        }
+      }
+    },
     "Resize column" : {
       "localizations" : {
         "es" : {
@@ -14259,6 +14371,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reiniciar para atualizar para %@"
+          }
+        }
+      }
+    },
+    "Restore diff size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar tamaño del diff"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repor tamanho do diff"
           }
         }
       }

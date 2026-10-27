@@ -30,37 +30,47 @@ struct UncommittedRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ZStack(alignment: .leading) {
-                if let connector {
-                    UncommittedConnectorView(step: connector, maxLanes: maxLanes, style: graphStyle,
-                                             rowSpacing: HistoryTableLayout.rowSpacing,
-                                             squareSide: Self.squareSide)
+            if layout.showsGraph {
+                ZStack(alignment: .leading) {
+                    if let connector {
+                        UncommittedConnectorView(step: connector, maxLanes: maxLanes, style: graphStyle,
+                                                 rowSpacing: HistoryTableLayout.rowSpacing,
+                                                 squareSide: Self.squareSide)
+                    }
+                    RoundedRectangle(cornerRadius: GraphMetrics.squareMarkRadius)
+                        .strokeBorder(theme.colors.mod, style: StrokeStyle(lineWidth: 1.5, dash: [2.5, 2]))
+                        .frame(width: Self.squareSide, height: Self.squareSide)
+                        .padding(.leading, theme.density.metrics.graph.firstLaneX - Self.squareSide / 2)
                 }
-                RoundedRectangle(cornerRadius: GraphMetrics.squareMarkRadius)
-                    .strokeBorder(theme.colors.mod, style: StrokeStyle(lineWidth: 1.5, dash: [2.5, 2]))
-                    .frame(width: Self.squareSide, height: Self.squareSide)
-                    .padding(.leading, theme.density.metrics.graph.firstLaneX - Self.squareSide / 2)
+                .frame(width: layout.graph, alignment: .leading)
+                // Like `CommitRow`'s gutter: the connector's canvas, as wide as the whole graph,
+                // clips at a narrow column's sides and runs on past the top and bottom.
+                .clipShape(SideClip())
+                gap
             }
-            .frame(width: layout.graph, alignment: .leading)
-            // Like `CommitRow`'s gutter: the connector's canvas, as wide as the whole graph,
-            // clips at a capped column's sides and runs on past the top and bottom.
-            .clipShape(SideClip())
-            Color.clear.frame(width: HistoryTableLayout.gap)
             Text("Uncommitted changes")
                 .textRole(.body)
                 .italic()
                 .foregroundStyle(theme.colors.mod)
                 .frame(width: layout.description, alignment: .leading)
-            Color.clear.frame(width: HistoryTableLayout.gap + (layout.showsAuthor ? layout.author + HistoryTableLayout.gap : 0))
-            Text("now")
-                .textRole(.callout)
-                .foregroundStyle(theme.colors.textTertiary)
-                .frame(width: layout.date, alignment: .leading)
-            Color.clear.frame(width: HistoryTableLayout.gap)
-            Text(verbatim: "–")
-                .textRole(.monoSmall)
-                .foregroundStyle(theme.colors.textTertiary)
-                .frame(width: layout.commit, alignment: .trailing)
+            if layout.showsAuthor {
+                gap
+                Color.clear.frame(width: layout.author)
+            }
+            if layout.showsDate {
+                gap
+                Text("now")
+                    .textRole(.callout)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: layout.date, alignment: .leading)
+            }
+            if layout.showsCommit {
+                gap
+                Text(verbatim: "–")
+                    .textRole(.monoSmall)
+                    .foregroundStyle(theme.colors.textTertiary)
+                    .frame(width: layout.commit, alignment: .trailing)
+            }
             Spacer(minLength: 0)
         }
         .padding(.leading, HistoryTableLayout.leadingPadding)
@@ -76,6 +86,10 @@ struct UncommittedRow: View {
         .accessibilityLabel("Uncommitted changes")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction { onSelect() }
+    }
+
+    private var gap: some View {
+        Color.clear.frame(width: HistoryTableLayout.gap)
     }
 
     private var rowBackground: Color {

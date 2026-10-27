@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Strip shown when the diff pane or the detail column has been collapsed.
 /// Click anywhere to expand. Two flavours:
-///   • `.diff`   — horizontal strip pinned to the bottom of the graph column
+///   • `.diff`   — horizontal strip pinned to the bottom of the inspector
 ///   • `.detail` — vertical strip pinned to the right edge of the workspace
 struct CollapsedPaneStrip: View {
     enum Kind {
@@ -14,11 +14,15 @@ struct CollapsedPaneStrip: View {
     let action: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             content
-                .background(theme.colors.bgElevated)
+                .background {
+                    theme.colors.bgElevated
+                    if hovering { theme.colors.fillHover }
+                }
                 .overlay(alignment: edge) {
                     Rectangle()
                         .fill(theme.colors.strokeControl)
@@ -27,6 +31,7 @@ struct CollapsedPaneStrip: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
         .help(helpText)
     }
 
@@ -35,7 +40,7 @@ struct CollapsedPaneStrip: View {
         switch kind {
         case .diff:
             HStack(spacing: Spacing.s8) {
-                SymbolGlyph("square.and.pencil", size: 12)
+                SymbolGlyph("plus.forwardslash.minus", size: 12)
                     .foregroundStyle(theme.colors.textSecondary)
                 Text("Show diff pane")
                     .textRole(.callout)
@@ -49,7 +54,7 @@ struct CollapsedPaneStrip: View {
             .frame(maxWidth: .infinity)
         case .detail:
             VStack(spacing: 0) {
-                SymbolGlyph("diamond", size: 13)
+                SymbolGlyph("sidebar.trailing", size: 13)
                     .foregroundStyle(theme.colors.textSecondary)
                     .padding(.top, Spacing.s12)
                 Spacer(minLength: 0)
