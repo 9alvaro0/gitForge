@@ -1,7 +1,7 @@
 import Foundation
 
 /// What a checkout started from the UI moves HEAD to, kept so a refused
-/// checkout can run again once the changes in its way are discarded.
+/// checkout can run again once the changes in its way are out of it.
 nonisolated enum CheckoutTarget: Sendable, Equatable {
     /// A local branch, or a remote one git turns into a local tracking branch.
     case branch(GitRef)
@@ -33,8 +33,8 @@ nonisolated enum CheckoutTarget: Sendable, Equatable {
 
 /// A checkout git refused because local changes were in the way. The view
 /// model publishes it instead of a failure; `ShellView` asks whether to
-/// discard `files` and check `target` out again.
-nonisolated struct CheckoutDiscardRequest: Sendable, Equatable, Identifiable {
+/// stash or discard `files` and check `target` out again.
+nonisolated struct BlockedCheckout: Sendable, Equatable, Identifiable {
     let id = UUID()
     /// The files git named: tracked changes (staged or not) and untracked
     /// files the checkout would overwrite. Other changes aren't touched and
@@ -45,13 +45,18 @@ nonisolated struct CheckoutDiscardRequest: Sendable, Equatable, Identifiable {
     var title: String {
         let name = target.displayName
         return files.count == 1
-            ? String(localized: "Discard changes to 1 file and check out \(name)?")
-            : String(localized: "Discard changes to \(files.count) files and check out \(name)?")
+            ? String(localized: "Your changes to 1 file block checking out \(name)")
+            : String(localized: "Your changes to \(files.count) files block checking out \(name)")
     }
 
-    /// Why these files, then one per line.
+    /// The way out, then the files one per line.
     var message: String {
-        let intro = String(localized: "Checking out \(target.displayName) would overwrite these files. Their local changes will be lost:")
+        let intro = String(localized: "Checking out \(target.displayName) would overwrite them. Stash them to get them back later, or discard them:")
         return ([intro] + DiscardFileList.lines(files)).joined(separator: "\n")
+    }
+
+    /// The stash's message, so it can be told apart in Stashes.
+    var stashMessage: String {
+        String(localized: "Before checking out \(target.displayName)")
     }
 }

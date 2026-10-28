@@ -2639,6 +2639,22 @@
         }
       }
     },
+    "Before checking out %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes de hacer checkout de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes do checkout de %@"
+          }
+        }
+      }
+    },
     "Behavior" : {
       "localizations" : {
         "es" : {
@@ -2991,18 +3007,18 @@
         }
       }
     },
-    "Checking out %@ would overwrite these files. Their local changes will be lost:" : {
+    "Checking out %@ would overwrite them. Stash them to get them back later, or discard them:" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El checkout de %@ sobrescribiría estos archivos. Se perderán sus cambios locales:"
+            "value" : "El checkout de %@ los sobrescribiría. Guárdalos en un stash para recuperarlos después, o descártalos:"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O checkout de %@ substituiria estes ficheiros. As alterações locais serão perdidas:"
+            "value" : "O checkout de %@ iria substituí-las. Guarde-as num stash para as recuperar mais tarde, ou descarte-as:"
           }
         }
       }
@@ -6561,22 +6577,6 @@
         }
       }
     },
-    "Discard changes to %lld files and check out %@?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Descartar los cambios de %lld archivos y hacer checkout de %@?"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartar as alterações de %lld ficheiros e fazer checkout de %@?"
-          }
-        }
-      }
-    },
     "Discard changes to %lld files and pull?" : {
       "localizations" : {
         "es" : {
@@ -6621,22 +6621,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Descartar as alterações de %lld ficheiros…"
-          }
-        }
-      }
-    },
-    "Discard changes to 1 file and check out %@?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Descartar los cambios de 1 archivo y hacer checkout de %@?"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartar as alterações de 1 ficheiro e fazer checkout de %@?"
           }
         }
       }
@@ -16520,6 +16504,22 @@
         }
       }
     },
+    "Stash and Check Out" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar en stash y hacer checkout"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar no stash e fazer checkout"
+          }
+        }
+      }
+    },
     "Stash applied with conflicts — resolve to continue" : {
       "localizations" : {
         "es" : {
@@ -19424,6 +19424,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A sua conta (%1$@ em %2$@) não pode resolver conversas neste pull request."
+          }
+        }
+      }
+    },
+    "Your changes are in Stashes." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus cambios están en Stashes."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As suas alterações estão em Stashes."
+          }
+        }
+      }
+    },
+    "Your changes to %lld files block checking out %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus cambios en %lld archivos impiden hacer checkout de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As suas alterações em %lld ficheiros impedem o checkout de %@"
+          }
+        }
+      }
+    },
+    "Your changes to 1 file block checking out %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus cambios en 1 archivo impiden hacer checkout de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As suas alterações em 1 ficheiro impedem o checkout de %@"
           }
         }
       }

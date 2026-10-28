@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import gitForge
 
-@Suite("RepositoryViewModel — discard what blocks a checkout", .serialized)
+@Suite("RepositoryViewModel — stash or discard what blocks a checkout", .serialized)
 @MainActor
-struct RepositoryViewModelCheckoutDiscardTests {
+struct RepositoryViewModelBlockedCheckoutTests {
 
     /// `main` and `feature`, checked out on `main`. `feature` changes
     /// `a.txt` and `staged.txt` and adds `n.txt`; `keep.txt` is the same on
@@ -38,7 +38,7 @@ struct RepositoryViewModelCheckoutDiscardTests {
         try #require(vm.refs.first { $0.isLocalBranch && $0.name == name })
     }
 
-    @Test("A checkout blocked by local changes asks to discard exactly the files in the way")
+    @Test("A checkout blocked by local changes asks about exactly the files in the way")
     func blockedCheckoutAsks() async throws {
         let repo = try await Self.makeRepo()
         defer { repo.remove() }
@@ -46,33 +46,80 @@ struct RepositoryViewModelCheckoutDiscardTests {
         let vm = await Self.makeVM(repo)
         let feature = try Self.localBranch("feature", in: vm)
 
-        #expect(await vm.checkout(.branch(feature)) == .askingToDiscard)
+        #expect(await vm.checkout(.branch(feature)) == .blocked)
 
-        let request = try #require(vm.checkoutDiscardRequest)
+        let request = try #require(vm.blockedCheckout)
         #expect(request.files.map(\.path).sorted() == ["a.txt", "n.txt", "staged.txt"])
         #expect(request.target == .branch(feature))
         #expect(vm.currentBranchName == "main")
-        #expect(repo.read("a.txt") == "local\n", "nothing is discarded before the user confirms")
+        #expect(repo.read("a.txt") == "local\n", "nothing is touched before the user picks")
     }
 
-    @Test("Confirming discards only those files, checks out and carries the other changes along")
+    @Test("Discarding drops only those files' changes, checks out and carries the rest along")
     func confirmDiscardsAndChecksOut() async throws {
         let repo = try await Self.makeRepo()
         defer { repo.remove() }
         try await Self.dirty(repo)
         let vm = await Self.makeVM(repo)
         _ = await vm.checkout(.branch(try Self.localBranch("feature", in: vm)))
-        let request = try #require(vm.checkoutDiscardRequest)
+        let request = try #require(vm.blockedCheckout)
 
         #expect(await vm.discardBlockingChangesAndCheckout(request) == .done("Checked out feature"))
 
-        #expect(vm.checkoutDiscardRequest == nil)
+        #expect(vm.blockedCheckout == nil)
         #expect(vm.currentBranchName == "feature")
         #expect(repo.read("a.txt") == "feature\n")
         #expect(repo.read("staged.txt") == "s2\n")
         #expect(repo.read("n.txt") == "theirs\n")
         #expect(try repo.porcelain() == [" M keep.txt"], "a change that wasn't in the way comes along")
         #expect(repo.read("keep.txt") == "keep-local\n")
+    }
+
+    @Test("Stashing keeps only those files' changes in a stash, checks out and carries the rest along")
+    func stashAndCheckOut() async throws {
+        let repo = try await Self.makeRepo()
+        defer { repo.remove() }
+        try await Self.dirty(repo)
+        let vm = await Self.makeVM(repo)
+        _ = await vm.checkout(.branch(try Self.localBranch("feature", in: vm)))
+        let blocked = try #require(vm.blockedCheckout)
+
+        #expect(await vm.stashBlockingChangesAndCheckout(blocked)
+                == .done("Checked out feature. Your changes are in Stashes."))
+
+        #expect(vm.blockedCheckout == nil)
+        #expect(vm.currentBranchName == "feature")
+        #expect(repo.read("a.txt") == "feature\n")
+        #expect(repo.read("n.txt") == "theirs\n")
+        #expect(try repo.porcelain() == [" M keep.txt"], "a change that wasn't in the way comes along")
+        #expect(vm.stashes.count == 1)
+        #expect(try await repo.gitAsync("stash", "list", "--format=%gs") == "On main: Before checking out feature\n")
+        let stashed = try await repo.gitAsync("stash", "show", "--include-untracked", "--name-only", "stash@{0}")
+        #expect(stashed.split(separator: "\n").sorted() == ["a.txt", "n.txt", "staged.txt"])
+
+        // Back on main the stash gives every change back, staged ones staged.
+        try await repo.gitAsync("checkout", "-q", "main")
+        try await repo.gitAsync("stash", "pop", "-q", "--index")
+        #expect(repo.read("a.txt") == "local\n")
+        #expect(repo.read("n.txt") == "mine\n")
+        #expect(try repo.porcelain() == [" M a.txt", " M keep.txt", "?? n.txt", "M  staged.txt"])
+    }
+
+    @Test("Stashing is refused while another local operation runs")
+    func stashGuard() async throws {
+        let repo = try await Self.makeRepo()
+        defer { repo.remove() }
+        try await Self.dirty(repo)
+        let vm = await Self.makeVM(repo)
+        _ = await vm.checkout(.branch(try Self.localBranch("feature", in: vm)))
+        let blocked = try #require(vm.blockedCheckout)
+        vm.isMutating = true
+
+        #expect(await vm.stashBlockingChangesAndCheckout(blocked) == .failed(GitError.busy.userMessage))
+
+        vm.isMutating = false
+        #expect(try await repo.gitAsync("stash", "list").isEmpty, "nothing is stashed")
+        #expect(vm.currentBranchName == "main")
     }
 
     @Test("Changes that aren't in the way don't ask: git carries them to the branch")
@@ -84,7 +131,7 @@ struct RepositoryViewModelCheckoutDiscardTests {
 
         #expect(await vm.checkout(.branch(try Self.localBranch("feature", in: vm))) == .done("Checked out feature"))
 
-        #expect(vm.checkoutDiscardRequest == nil)
+        #expect(vm.blockedCheckout == nil)
         #expect(vm.currentBranchName == "feature")
         #expect(try repo.porcelain() == [" M keep.txt"])
     }
@@ -97,8 +144,8 @@ struct RepositoryViewModelCheckoutDiscardTests {
         try await repo.externalWriteAsync("local\n", to: "a.txt")
         let vm = await Self.makeVM(repo)
 
-        #expect(await vm.checkout(.commit(sha: sha)) == .askingToDiscard)
-        let request = try #require(vm.checkoutDiscardRequest)
+        #expect(await vm.checkout(.commit(sha: sha)) == .blocked)
+        let request = try #require(vm.blockedCheckout)
         #expect(request.files.map(\.path) == ["a.txt"])
 
         #expect(await vm.discardBlockingChangesAndCheckout(request) == .done("Detached HEAD at \(sha.prefix(7))"))
@@ -123,8 +170,8 @@ struct RepositoryViewModelCheckoutDiscardTests {
         try await repo.externalWriteAsync("local\n", to: "a.txt")
         let vm = await Self.makeVM(repo)
 
-        #expect(await vm.checkout(.pullRequestBranch("feature")) == .askingToDiscard)
-        let request = try #require(vm.checkoutDiscardRequest)
+        #expect(await vm.checkout(.pullRequestBranch("feature")) == .blocked)
+        let request = try #require(vm.blockedCheckout)
         #expect(request.files.map(\.path) == ["a.txt"])
 
         #expect(await vm.discardBlockingChangesAndCheckout(request) == .done("Checked out feature"))
@@ -145,7 +192,7 @@ struct RepositoryViewModelCheckoutDiscardTests {
             Issue.record("expected a failure")
             return
         }
-        #expect(vm.checkoutDiscardRequest == nil)
+        #expect(vm.blockedCheckout == nil)
     }
 
     @Test("A rebase by drop that has to check out first fails as before, without asking")
@@ -161,7 +208,7 @@ struct RepositoryViewModelCheckoutDiscardTests {
             Issue.record("expected the rebase to fail")
             return
         }
-        #expect(vm.checkoutDiscardRequest == nil, "discarding would only switch, not rebase")
+        #expect(vm.blockedCheckout == nil, "discarding would only switch, not rebase")
         #expect(repo.read("a.txt") == "local\n")
     }
 
@@ -172,7 +219,7 @@ struct RepositoryViewModelCheckoutDiscardTests {
         try await Self.dirty(repo)
         let vm = await Self.makeVM(repo)
         _ = await vm.checkout(.branch(try Self.localBranch("feature", in: vm)))
-        let request = try #require(vm.checkoutDiscardRequest)
+        let request = try #require(vm.blockedCheckout)
         vm.isMutating = true
 
         #expect(await vm.discardBlockingChangesAndCheckout(request) == .failed(GitError.busy.userMessage))
@@ -186,7 +233,7 @@ struct RepositoryViewModelCheckoutDiscardTests {
 @Suite("WorkspaceUI — checkout toasts")
 @MainActor
 struct WorkspaceUICheckoutToastTests {
-    @Test("Done and failed checkouts toast; asking to discard and cancelling stay quiet")
+    @Test("Done and failed checkouts toast; a blocked or cancelled one stays quiet")
     func toasts() {
         let ui = WorkspaceUI()
 
@@ -199,7 +246,7 @@ struct WorkspaceUICheckoutToastTests {
         #expect(ui.activeToast?.kind == .error)
 
         ui.activeToast = nil
-        ui.emitToast(for: .askingToDiscard)
+        ui.emitToast(for: .blocked)
         ui.emitToast(for: .cancelled)
         #expect(ui.activeToast == nil)
     }

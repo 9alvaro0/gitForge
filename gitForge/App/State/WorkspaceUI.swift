@@ -86,14 +86,14 @@ final class WorkspaceUI {
     }
 
     /// Toast for a checkout started from the UI. A refusal over local
-    /// changes shows nothing here: the shell asks whether to discard them.
+    /// changes shows nothing here: the shell asks what to do with them.
     func emitToast(for outcome: RepositoryViewModel.CheckoutOutcome) {
         switch outcome {
         case .done(let message):
             activeToast = ToastMessage(message: message, kind: .ok)
         case .failed(let message):
             activeToast = ToastMessage(message: message, kind: .error)
-        case .askingToDiscard, .cancelled:
+        case .blocked, .cancelled:
             break
         }
     }
