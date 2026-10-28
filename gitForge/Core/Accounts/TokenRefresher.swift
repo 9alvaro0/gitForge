@@ -79,6 +79,10 @@ actor TokenRefresher {
     /// replaced by another caller's refresh gets the current secret.
     private func refresh(_ id: UUID, on instance: HostingInstance, replacing stale: String) async throws -> AccountSecret {
         if let running = inFlight[id] { return try await running.value }
+        // From the Keychain, not the in-memory copy: another copy of the app
+        // (a Debug build next to the installed one) may have refreshed
+        // already and spent the single-use refresh token this one remembers.
+        secrets.forget(id)
         guard let current = read(id) else { throw HostingAuthError.missingSecret }
         if current.accessToken != stale, !Self.needsRefresh(current, now: now()) { return current }
         guard let refreshToken = current.refreshToken else { throw HostingAuthError.refreshRejected }
