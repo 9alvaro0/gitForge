@@ -20,4 +20,6 @@ final class InMemoryAccountSecretStore: AccountSecretStore, @unchecked Sendable 
     func delete(_ id: UUID) {
         _ = lock.withLock { secrets.removeValue(forKey: id) }
     }
+
+    func forget(_ id: UUID) {}
 }

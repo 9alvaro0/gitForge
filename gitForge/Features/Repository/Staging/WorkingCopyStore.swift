@@ -29,6 +29,8 @@ final class WorkingCopyStore {
     /// so the user can keep one file visible in the diff while ticking a
     /// disjoint set for staging.
     var selectedFilePaths: Set<String> = []
+    /// Anchor and current run of ⌘ / Shift ticking. Not drawn, so not observed.
+    @ObservationIgnored var ticking = StagingTicking()
     var isLoadingStatus = false
     /// Distinguishes "never loaded" from "loaded and clean" so the Changes
     /// view doesn't briefly flash "Working tree is clean" on first paint.
@@ -129,6 +131,7 @@ final class WorkingCopyStore {
         stagedLineCounts = [:]
         unstagedLineCounts = [:]
         selectedFilePaths = []
+        ticking = StagingTicking()
         workingCopyDiff = []
     }
 
@@ -225,6 +228,7 @@ final class WorkingCopyStore {
 
     /// Toggle a single file's membership in the batch-selection set.
     func toggleSelection(_ file: WorkingCopyFile) {
+        ticking.forgetRun()
         if selectedFilePaths.contains(file.path) {
             selectedFilePaths.remove(file.path)
         } else {
@@ -234,6 +238,7 @@ final class WorkingCopyStore {
 
     /// Tick or untick a whole section at once (the select-all checkbox).
     func setSelection(_ files: [WorkingCopyFile], selected: Bool) {
+        ticking.forgetRun()
         if selected {
             selectedFilePaths.formUnion(files.map(\.path))
         } else {
@@ -245,6 +250,7 @@ final class WorkingCopyStore {
     /// stage/unstage so the ticks don't reappear on a fresh section the rows
     /// just moved into.
     func deselect(_ files: [WorkingCopyFile]) {
+        ticking.forgetRun()
         for f in files { selectedFilePaths.remove(f.path) }
     }
 

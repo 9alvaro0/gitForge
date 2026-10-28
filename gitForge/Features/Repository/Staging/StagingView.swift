@@ -91,8 +91,10 @@ struct StagingView: View {
                 }
                 .labelStyle(.titleAndIcon)
                 .help("Stash all changes")
+                // No trailing ellipsis: at the capsule's edge it reads as a
+                // truncated title. The menu item keeps it, as menus should.
                 Button { ui.discardAllConfirmVisible = true } label: {
-                    Label("Discard all…", systemImage: "trash")
+                    Label("Discard all", systemImage: "trash")
                         .foregroundStyle(theme.colors.del)
                 }
                 .labelStyle(.titleAndIcon)

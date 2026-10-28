@@ -2,13 +2,17 @@ import Foundation
 import Security
 import os
 
-/// Where account secrets live. The app uses the Keychain; tests use an
-/// in-memory store. Nonisolated: the token refresher reads and writes
-/// secrets off the main actor.
+/// Where account secrets live. The app uses the Keychain behind an in-memory
+/// copy (`CachingAccountSecretStore`); tests use an in-memory store.
+/// Nonisolated: the token refresher reads and writes secrets off the main
+/// actor.
 nonisolated protocol AccountSecretStore: Sendable {
     func read(_ id: UUID) -> AccountSecret?
     func write(_ secret: AccountSecret, for id: UUID) throws
     func delete(_ id: UUID)
+    /// Drops any copy of `id`'s secret kept in memory, so the next read goes
+    /// to the Keychain. Stores that keep none do nothing.
+    func forget(_ id: UUID)
 }
 
 nonisolated enum AccountSecretStoreError: LocalizedError, Equatable {
@@ -78,4 +82,6 @@ nonisolated struct KeychainAccountSecretStore: AccountSecretStore {
     func delete(_ id: UUID) {
         _ = SecItemDelete(query(id) as CFDictionary)
     }
+
+    func forget(_ id: UUID) {}
 }

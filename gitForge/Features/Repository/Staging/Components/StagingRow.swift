@@ -9,8 +9,13 @@ struct StagingRow: View {
     var side: WorkingCopySide? = nil
     /// `+N −M` of this row's side (staged or unstaged), when git reports it.
     var lineCounts: DiffStats? = nil
-    /// Runs after a click opens the row — the list takes keyboard focus.
-    var onSelect: (() -> Void)? = nil
+    /// Runs on a click or checkbox toggle with what the held modifiers ask
+    /// for; the list opens, ticks or extends and takes keyboard focus.
+    /// Without it a click opens the row and the checkbox ticks it.
+    var onClick: ((StagingRowClick) -> Void)? = nil
+    /// Set while this row is one of several ticked in its section: the
+    /// context menu then acts on all of them, like the batch bar.
+    var batch: StagingRowBatch? = nil
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
     /// Drives a per-row confirmation when the user picks "Discard changes"
@@ -22,10 +27,9 @@ struct StagingRow: View {
         let isSelected = viewModel.workingCopy.selectedWorkingCopyFile?.id == file.id
             && (side == nil || viewModel.workingCopy.diffSide(for: file) == side)
         let isTicked = viewModel.workingCopy.selectedFilePaths.contains(file.path)
-        Button(action: {
-            viewModel.workingCopy.select(file, side: side)
-            onSelect?()
-        }) {
+        // The click's own event carries the modifiers it was made with; the
+        // global `NSEvent.modifierFlags` can lag behind it.
+        Button(action: { click(StagingRowClick(modifiers: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)) }) {
             HStack(spacing: Spacing.s8) {
                 // The checkbox is for *batch selection*, not stage/unstage —
                 // pairing it with the batch bar under the section. Stage /
@@ -33,7 +37,7 @@ struct StagingRow: View {
                 // and the context menu.
                 Toggle("", isOn: Binding(
                     get: { isTicked },
-                    set: { _ in viewModel.workingCopy.toggleSelection(file) }
+                    set: { _ in click(.toggleTick) }
                 ))
                 .toggleStyle(GFCheckboxStyle())
                 .accessibilityLabel("Select \(file.path)")
@@ -58,7 +62,7 @@ struct StagingRow: View {
         .simultaneousGesture(
             TapGesture(count: 2).onEnded { Task { await toggleStaged() } }
         )
-        .help(showsStagedSide ? String(localized: "Double-click to unstage · checkbox = select for batch") : String(localized: "Double-click to stage · checkbox = select for batch"))
+        .help(showsStagedSide ? String(localized: "Double-click to unstage · ⌘-click or Shift-click to select several") : String(localized: "Double-click to stage · ⌘-click or Shift-click to select several"))
         .contextMenu { contextMenu }
         .confirmationDialog(
             file.isUntracked ? String(localized: "Delete \(filename)?") : String(localized: "Discard changes to \(filename)?"),
@@ -76,21 +80,41 @@ struct StagingRow: View {
         }
     }
 
+    private func click(_ kind: StagingRowClick) {
+        if let onClick {
+            onClick(kind)
+        } else if kind == .open {
+            viewModel.workingCopy.select(file, side: side)
+        } else {
+            viewModel.workingCopy.toggleSelection(file)
+        }
+    }
+
     @ViewBuilder
     private var contextMenu: some View {
-        if showsStagedSide {
-            Button("Unstage") { Task { await viewModel.unstage([file]) } }
-        } else {
-            Button("Stage") { Task { await viewModel.stage([file]) } }
-        }
-        if file.isUntracked {
-            Button("Delete file", role: .destructive) {
-                pendingDiscard = true
+        if let batch {
+            Group {
+                Button(showsStagedSide ? String(localized: "Unstage \(batch.count) files") : String(localized: "Stage \(batch.count) files"),
+                       action: batch.move)
+                Button(String(localized: "Stash \(batch.count) files"), action: batch.stash)
+                Button(String(localized: "Discard changes to \(batch.count) files…"), role: .destructive, action: batch.discard)
             }
+            .disabled(viewModel.isMutating)
         } else {
-            Button(file.isUnmerged ? String(localized: "Discard conflict (revert to HEAD)") : String(localized: "Discard changes"),
-                   role: .destructive) {
-                pendingDiscard = true
+            if showsStagedSide {
+                Button("Unstage") { Task { await viewModel.unstage([file]) } }
+            } else {
+                Button("Stage") { Task { await viewModel.stage([file]) } }
+            }
+            if file.isUntracked {
+                Button("Delete file", role: .destructive) {
+                    pendingDiscard = true
+                }
+            } else {
+                Button(file.isUnmerged ? String(localized: "Discard conflict (revert to HEAD)") : String(localized: "Discard changes"),
+                       role: .destructive) {
+                    pendingDiscard = true
+                }
             }
         }
         Divider()
@@ -235,6 +259,17 @@ struct StagingRow: View {
             }
         }
     }
+}
+
+/// The ticked files of a row's section, for the context menu of a row that is
+/// one of them: the same three actions as the section's batch bar.
+struct StagingRowBatch {
+    let count: Int
+    /// Stage (Unstaged list) or Unstage (Staged list).
+    let move: () -> Void
+    let stash: () -> Void
+    /// Asks before discarding.
+    let discard: () -> Void
 }
 
 #Preview {

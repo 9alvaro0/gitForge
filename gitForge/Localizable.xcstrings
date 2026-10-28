@@ -6497,22 +6497,6 @@
         }
       }
     },
-    "Discard all…" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartar todo…"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartar tudo…"
-          }
-        }
-      }
-    },
     "Discard and Pull" : {
       "localizations" : {
         "es" : {
@@ -6589,6 +6573,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Descartar as alterações de %lld ficheiros?"
+          }
+        }
+      }
+    },
+    "Discard changes to %lld files…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar los cambios de %lld archivos…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar as alterações de %lld ficheiros…"
           }
         }
       }
@@ -6849,34 +6849,34 @@
         }
       }
     },
-    "Double-click to stage · checkbox = select for batch" : {
+    "Double-click to stage · ⌘-click or Shift-click to select several" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Doble clic para preparar · casilla = seleccionar para lote"
+            "value" : "Doble clic para preparar · ⌘-clic o Mayúsculas-clic para seleccionar varios"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Duplo clique para preparar · caixa = selecionar para lote"
+            "value" : "Duplo clique para preparar · ⌘-clique ou Shift-clique para selecionar vários"
           }
         }
       }
     },
-    "Double-click to unstage · checkbox = select for batch" : {
+    "Double-click to unstage · ⌘-click or Shift-click to select several" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Doble clic para quitar de preparados · casilla = seleccionar para lote"
+            "value" : "Doble clic para quitar de preparados · ⌘-clic o Mayúsculas-clic para seleccionar varios"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Duplo clique para retirar dos preparados · caixa = selecionar para lote"
+            "value" : "Duplo clique para retirar dos preparados · ⌘-clique ou Shift-clique para selecionar vários"
           }
         }
       }
@@ -14791,6 +14791,22 @@
         }
       }
     },
+    "Stage %lld files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparar %lld archivos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparar %lld ficheiros"
+          }
+        }
+      }
+    },
     "STAGED" : {
       "localizations" : {
         "es" : {
@@ -16488,6 +16504,22 @@
         }
       }
     },
+    "Stash %lld files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar %lld archivos en stash"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar %lld ficheiros no stash"
+          }
+        }
+      }
+    },
     "Stash All Changes" : {
       "localizations" : {
         "es" : {
@@ -18117,6 +18149,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tipo"
+          }
+        }
+      }
+    },
+    "Unstage %lld files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar %lld archivos de preparados"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover %lld ficheiros dos preparados"
           }
         }
       }
