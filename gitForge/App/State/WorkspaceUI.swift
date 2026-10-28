@@ -15,13 +15,17 @@ final class WorkspaceUI {
     /// The section on screen. Going into Settings from another section
     /// records it in `sectionBeforeSettings`, and leaving Settings forgets
     /// it, so every way in or out (the menus, ⌘1…⌘n, ⌘K, a repo change)
-    /// keeps "Back" right by only assigning this.
+    /// keeps "Back" right by only assigning this. Leaving also drops the
+    /// sheet requests no pane took (a pane that never mounted, a repo still
+    /// "Opening…"), or they would fire whenever that pane next appeared.
     var workspaceSection: WorkspaceSection = .history {
         didSet {
             if workspaceSection == .settings {
                 if oldValue != .settings { sectionBeforeSettings = oldValue }
             } else if oldValue == .settings {
                 sectionBeforeSettings = nil
+                newProfileRequest = nil
+                followRepositoryRequest = nil
             }
         }
     }

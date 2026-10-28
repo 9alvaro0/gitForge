@@ -168,4 +168,51 @@ struct WorkspaceUISettingsTests {
             #expect(ui.followRepositoryRequest != nil)
         }
     }
+
+    @Test("Leaving Settings drops a sheet request its pane never took, so it can't fire when that pane next appears")
+    func leavingDropsRequests() {
+        TestDefaults.with { suite in
+            let ui = WorkspaceUI(defaults: suite.defaults)
+            ui.workspaceSection = .history
+            ui.requestNewProfile()
+            ui.requestFollowRepository()
+            #expect(ui.newProfileRequest != nil)
+            #expect(ui.followRepositoryRequest != nil)
+
+            ui.closeSettings()
+
+            #expect(ui.newProfileRequest == nil)
+            #expect(ui.followRepositoryRequest == nil)
+            ui.openSettings(.identities)
+            #expect(ui.newProfileRequest == nil)
+        }
+    }
+
+    @Test("Any way out of Settings drops the requests, not only Back")
+    func anyWayOutDropsRequests() {
+        TestDefaults.with { suite in
+            let ui = WorkspaceUI(defaults: suite.defaults)
+            ui.workspaceSection = .branches
+            ui.requestNewProfile()
+            ui.workspaceSection = .changes
+            #expect(ui.newProfileRequest == nil)
+
+            ui.requestFollowRepository()
+            ui.workspaceSection = .history
+            #expect(ui.followRepositoryRequest == nil)
+        }
+    }
+
+    @Test("Moving between panes inside Settings keeps a request waiting for its pane")
+    func panesKeepRequests() {
+        TestDefaults.with { suite in
+            let ui = WorkspaceUI(defaults: suite.defaults)
+            ui.openSettings(.git)
+            ui.requestNewProfile()
+            let request = ui.newProfileRequest
+            ui.openSettings(.identities)
+            #expect(ui.newProfileRequest == request)
+            #expect(ui.newProfileRequest != nil)
+        }
+    }
 }
