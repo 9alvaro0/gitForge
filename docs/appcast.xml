@@ -96,5 +96,17 @@
                        type="application/octet-stream"
                        sparkle:edSignature="kNIggQnaPZgbKYZjOX+3m3EuKXtmI5LOU9jjdK/OgpjICnnRQjo0KlKwOrSxe2RbsyX9ssJ1BGCJtoeRZ321Ag==" />
         </item>
+        <item>
+            <title>gitForge 1.7.0</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.7.0.html</sparkle:releaseNotesLink>
+            <pubDate>Wed, 28 Oct 2026 11:31:35 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.7.0/gitForge-1.7.0.dmg"
+                       sparkle:version="1.7.0"
+                       sparkle:shortVersionString="1.7.0"
+                       length="18369404"
+                       type="application/octet-stream"
+                       sparkle:edSignature="2UYYXwj9wS6wBSD9CTWLXxfjQXfeDt9FKJ06QRjc3eFTf//6Rc19kTeMmPfY8gBac4OeLXP9DDIO6m9Won1OCA==" />
+        </item>
     </channel>
 </rss>
