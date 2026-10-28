@@ -75,7 +75,9 @@ struct AppStateCloneProfileTests {
         let destination = TemporaryDirectories.make("gitForge-runclone").appendingPathComponent("app")
         app.startClone(url: server.url("app.git"), path: destination.path(percentEncoded: false), branch: nil,
                        profileId: work.id)
-        await waitUntil(timeout: .seconds(20)) { app.ui.activeToast != nil || app.ui.presentedError != nil }
+        // The clone itself, not a deadline: a real clone over HTTP took over
+        // 20 s on a busy CI runner.
+        await app.clone.finished()
 
         #expect(app.ui.presentedError == nil)
         #expect(app.ui.activeToast?.message == "Cloned app")

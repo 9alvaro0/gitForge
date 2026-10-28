@@ -9,10 +9,17 @@ struct GitWatchdogTests {
 
     private static let logger = GitCLI.logger
 
+    /// A child that outlives any wait for the watchdog. With the whole suite
+    /// keeping a small CI runner's cooperative threads busy, the watchdog's
+    /// loop went 30 s without a thread and a `sleep 30` exited on its own
+    /// first, so the test failed on scheduling, not on the watchdog. The
+    /// child's lifetime only bounds a broken watchdog: it's longer than the
+    /// whole suite takes on CI, and it still ends by itself, so nothing is
+    /// left running.
     private func sleepProcess() throws -> (Process, ProcessExit) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sleep")
-        process.arguments = ["30"]
+        process.arguments = ["300"]
         return (process, try GitProcess.start(process))
     }
 
