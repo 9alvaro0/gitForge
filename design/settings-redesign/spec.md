@@ -86,9 +86,9 @@ Sobre `main` en `81aed82` (release 1.6.0).
 Entrar en Ajustes cambia la ventana entera de modo:
 
 - **Barra lateral.** La columna de la barra lateral deja de enseñar `Sidebar` (selector de repo, secciones, ramas, Remotes, Tags, tarjeta de usuario) y enseña `SettingsSidebar` (§4.2). Mismo ancho de columna. El cambio es una transición corta con los tokens de `Motion`, y sin desplazamiento si está activo Reducir movimiento.
-- **Columna principal.** Enseña el panel elegido. Se enruta desde `ShellView.mainColumn` antes de mirar si hay repo, así `RepositoryHost` no interviene **(decisión de Claude;** el constructor comprueba que no se pierde nada de lo que `RepositoryHost` aporta, como hojas o elementos de barra propios de cada pantalla). El `RepositoryViewModel` del repo abierto sigue vivo en el catálogo, así que volver es instantáneo.
+- **Columna principal.** Enseña el panel elegido. Sigue entrando como hoy: por `ContentRouter` con repo abierto y por `ShellView.mainColumn` sin él. `RepositoryHost` no se desmonta, porque su `.task(id:)` hace la carga inicial del repo y arranca la reactividad: sacar Ajustes de ahí recargaría el repo entero en cada vuelta **(decisión de Claude,** corregida al planificar S1). El `RepositoryViewModel` del repo abierto sigue vivo, así que volver es instantáneo.
 - **Barra de herramientas.** Título "Settings" y subtítulo con el nombre del panel. Sin el grupo remoto ni la rama. Se quedan el botón de ⌘K y, si hay una actualización descargada, "Restart to Update".
-- **Salir.** El botón "‹ Back to *repo*" de la barra lateral ("‹ Back" sin repo abierto), ⌘[ (hoy libre), cualquier ⌘1…⌘n de sección, o elegir una sección o un repo desde ⌘K. Volver deja la sección que había antes de entrar (`sectionBeforeSettings`). Si esa sección ya no está disponible (Conflictos sin conflictos), vuelve a la primera de la lista. Escape no sale, porque los campos lo usan para descartar **(decisión de Claude)**.
+- **Salir.** El botón "‹ Back to *repo*" de la barra lateral ("‹ Back" sin repo abierto), ⌘[ (hoy libre), cualquier ⌘1…⌘n de sección, o elegir una sección o un repo desde ⌘K. Volver deja la sección que había antes de entrar (`sectionBeforeSettings`), o Historial si no hay ninguna (sin repo, Historial es la Bienvenida). No hace falta más regla: con repo abierto las seis secciones están siempre en la lista, Conflictos incluida. Escape no sale, porque los campos lo usan para descartar **(decisión de Claude)**.
 - **Cambiar de repo estando en Ajustes** (⌘O, ⌘K, abrir una PR "en el repo") sale de Ajustes y abre ese repo en su sección **(decisión de Claude)**.
 - **Barra lateral oculta.** Si la barra lateral estaba plegada, entrar en Ajustes la despliega, y salir la deja como estaba **(decisión de Claude)**. Sin ella no se puede cambiar de panel.
 
@@ -98,7 +98,7 @@ De arriba abajo, como en la maqueta:
 
 1. **"‹ Back to *repo*"**: botón discreto (`textTertiary`, hover con `fillHover`) con el nombre del repo en mono pequeño. Muestra el atajo ⌘[ en la ayuda.
 2. **Título "Settings"**: `TypeRole.title`.
-3. **Lista de paneles**, con selección nativa de lista (flechas arriba y abajo). Cada fila lleva una baldosa de 22 pt con radio `Radius.controlSmall`: fondo suave del color del panel y glifo SF Symbol del color fuerte. Colores y símbolos **(decisión de Claude)**:
+3. **Lista de paneles**, con filas como las de `SidebarNavItem` (resaltado `accentSoft` en la elegida, hover y altura de la densidad). Cada fila lleva una baldosa de 22 pt con radio `Radius.controlSmall`: fondo suave del color del panel y glifo SF Symbol del color fuerte. Colores y símbolos **(decisión de Claude)**:
 
    | Panel | Símbolo | Color |
    |---|---|---|
@@ -276,7 +276,7 @@ Pedido por Alvaro (2026-10-28): una cuenta que ha dejado de funcionar tiene que 
 
 - Todas las cadenas nuevas, en `en`, `es` y `pt-PT`. Las que ya no se usan (por ejemplo "Open Settings", "Manage profiles…", "Default identity", "Behavior", "Edit" de las filas editables) se borran del catálogo si nadie más las usa.
 - Español, en la línea de la maqueta: "Ajustes", "Volver a *repo*", "General", "Apariencia", "Identidades", "Cuentas", "Git", "Pull requests", "Editar identidades…", "Abrir Cuentas", "Gestionar repos seguidos".
-- Mayúsculas de los botones y menús en inglés: Title Case, como el resto de la app ("Connect Account…", "Restart to Update").
+- Mayúsculas en inglés: la app mezcla los dos estilos ("Connect account…", "Restart to Update"). Un texto que ya existe con el mismo sentido se reutiliza tal cual, para no duplicar traducciones. Los textos nuevos de botones y menús van en Title Case.
 
 ### 4.9 Accesibilidad
 
