@@ -250,8 +250,7 @@ struct BranchesView: View {
     // MARK: Handlers
 
     private func handleCheckout(_ ref: GitRef) {
-        // A failed checkout (local changes in the way) used to say nothing.
-        Task { toast(await viewModel.checkoutBranch(ref), success: String(localized: "Checked out \(ref.displayName)")) }
+        Task { appState.ui.emitToast(for: await viewModel.checkout(.branch(ref))) }
     }
 
     /// Success and failure toasts come from `operationSuccess` /

@@ -2991,6 +2991,22 @@
         }
       }
     },
+    "Checking out %@ would overwrite these files. Their local changes will be lost:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El checkout de %@ sobrescribiría estos archivos. Se perderán sus cambios locales:"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O checkout de %@ substituiria estes ficheiros. As alterações locais serão perdidas:"
+          }
+        }
+      }
+    },
     "CI %@" : {
       "localizations" : {
         "es" : {
@@ -6481,6 +6497,22 @@
         }
       }
     },
+    "Discard and Check Out" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar y hacer checkout"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar e fazer checkout"
+          }
+        }
+      }
+    },
     "Discard and Pull" : {
       "localizations" : {
         "es" : {
@@ -6529,6 +6561,22 @@
         }
       }
     },
+    "Discard changes to %lld files and check out %@?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Descartar los cambios de %lld archivos y hacer checkout de %@?"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar as alterações de %lld ficheiros e fazer checkout de %@?"
+          }
+        }
+      }
+    },
     "Discard changes to %lld files and pull?" : {
       "localizations" : {
         "es" : {
@@ -6573,6 +6621,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Descartar as alterações de %lld ficheiros…"
+          }
+        }
+      }
+    },
+    "Discard changes to 1 file and check out %@?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Descartar los cambios de 1 archivo y hacer checkout de %@?"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar as alterações de 1 ficheiro e fazer checkout de %@?"
           }
         }
       }

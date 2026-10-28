@@ -58,25 +58,11 @@ extension HistoryView {
     }
 
     func runCheckoutBranch(_ ref: GitRef) async {
-        switch await viewModel.checkoutBranch(ref) {
-        case .success:
-            appState.ui.activeToast = ToastMessage(message: String(localized: "Checked out \(ref.displayName)"), kind: .ok)
-        case .failure(let err):
-            appState.ui.activeToast = ToastMessage(
-                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                kind: .error)
-        }
+        appState.ui.emitToast(for: await viewModel.checkout(.branch(ref)))
     }
 
     func runCheckoutCommit(_ commit: Commit) async {
-        switch await viewModel.checkoutCommit(commit.sha) {
-        case .success:
-            appState.ui.activeToast = ToastMessage(message: String(localized: "Detached HEAD at \(commit.shortSha)"), kind: .ok)
-        case .failure(let err):
-            appState.ui.activeToast = ToastMessage(
-                message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                kind: .error)
-        }
+        appState.ui.emitToast(for: await viewModel.checkout(.commit(sha: commit.sha)))
     }
 
     func runMove(_ request: MoveBranchRequest) {

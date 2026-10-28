@@ -7,7 +7,7 @@ import SwiftUI
 enum PullRequestLocalActions {
     /// The repository is open here: check out, resolve locally.
     case repository(integrate: () async -> RepositoryViewModel.IntegrationOutcome,
-                    checkout: () async -> Result<String, Error>)
+                    checkout: () async -> RepositoryViewModel.CheckoutOutcome)
     /// Reviews: no local work; one button in their place.
     case remote(title: String, systemImage: String, action: @MainActor () -> Void)
 }
@@ -210,15 +210,7 @@ struct PullRequestDetailView: View {
         guard case .repository(_, let checkoutBranch) = localActions else { return }
         checkingOut = true
         defer { checkingOut = false }
-        switch await checkoutBranch() {
-        case .success(let branch):
-            appState.ui.activeToast = ToastMessage(message: String(localized: "Checked out \(branch)"), kind: .ok)
-        case .failure(let error) where error is CancellationError:
-            break
-        case .failure(let error):
-            appState.ui.activeToast = ToastMessage(
-                message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription, kind: .error)
-        }
+        appState.ui.emitToast(for: await checkoutBranch())
     }
 
     private func runLocalMerge() async {

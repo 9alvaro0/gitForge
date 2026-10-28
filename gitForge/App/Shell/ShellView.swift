@@ -107,6 +107,8 @@ struct ShellView: View {
         }
         // A pull refused over local changes asks instead of failing.
         .pullDiscardPrompt()
+        // So does a checkout, from wherever it was started.
+        .checkoutDiscardPrompt()
         // Once the sheet to connect an account closes, ⌘K searches the hosts
         // that asked for one again and a pasted link that waited for one
         // opens (R3 Ruling 14).

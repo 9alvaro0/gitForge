@@ -130,7 +130,7 @@ extension RepositoryViewModel {
 
     /// Checkout `branch`, creating it from a matching remote tip if it doesn't
     /// exist locally. No-op when it's already the current branch.
-    private func ensureCheckedOut(branch: String) async throws {
+    func ensureCheckedOut(branch: String) async throws {
         if currentBranchName == branch { return }
         let hasLocal = refs.contains { $0.isLocalBranch && $0.name == branch }
         if hasLocal {

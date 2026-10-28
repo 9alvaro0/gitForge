@@ -84,6 +84,19 @@ final class WorkspaceUI {
             break
         }
     }
+
+    /// Toast for a checkout started from the UI. A refusal over local
+    /// changes shows nothing here: the shell asks whether to discard them.
+    func emitToast(for outcome: RepositoryViewModel.CheckoutOutcome) {
+        switch outcome {
+        case .done(let message):
+            activeToast = ToastMessage(message: message, kind: .ok)
+        case .failed(let message):
+            activeToast = ToastMessage(message: message, kind: .error)
+        case .askingToDiscard, .cancelled:
+            break
+        }
+    }
 }
 
 /// Opens "Connect account", optionally on an instance or reconnecting an account.
