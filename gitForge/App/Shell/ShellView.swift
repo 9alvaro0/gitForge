@@ -12,14 +12,17 @@ struct ShellView: View {
     @Environment(\.openURL) private var openURL
     /// The What's New sheet this window took from `appState.whatsNew`.
     @State private var whatsNewSheet: WhatsNewPresentation?
-    /// Bound to the split view so Settings can open the sidebar column.
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
-    /// The sidebar was folded when Settings opened and unfolded for it, so
-    /// leaving Settings folds it again.
-    @State private var collapsedBeforeSettings = false
+    /// The sidebar column's fold, bound to the split view so Settings can
+    /// open it (`SidebarFoldState`).
+    @State private var fold = SidebarFoldState()
+    /// Whether the user left the sidebar folded, saved with the window so a
+    /// relaunch restores it: an `.all` that every launch started from would
+    /// unfold it. Set from `fold.isFolded`, which says folded while Settings
+    /// holds a folded sidebar open.
+    @SceneStorage("sidebar.folded") private var sidebarFolded = false
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView(columnVisibility: $fold.visibility) {
             SidebarHost()
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } detail: {
@@ -47,14 +50,15 @@ struct ShellView: View {
         // with it meanwhile is theirs: the flag only records what we did.
         .onChange(of: appState.ui.workspaceSection) { old, new in
             if new == .settings, old != .settings {
-                guard columnVisibility == .detailOnly else { return }
-                columnVisibility = .all
-                collapsedBeforeSettings = true
-            } else if old == .settings, new != .settings, collapsedBeforeSettings {
-                columnVisibility = .detailOnly
-                collapsedBeforeSettings = false
+                fold.enterSettings()
+            } else if old == .settings, new != .settings {
+                fold.leaveSettings()
             }
         }
+        // The fold the user chose is the one that is saved, never the one
+        // Settings forced, and it comes back at launch.
+        .onChange(of: fold.isFolded) { _, folded in sidebarFolded = folded }
+        .onAppear { fold.restore(folded: sidebarFolded) }
         .overlay {
             if appState.ui.commandPaletteOpen {
                 paletteOverlay.transition(.opacity)
