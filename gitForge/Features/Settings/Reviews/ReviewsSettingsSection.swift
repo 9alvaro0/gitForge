@@ -50,10 +50,12 @@ struct ReviewsSettingsSection: View {
         // "Follow Repository…" from ⌘K. A task keyed by the request, not an
         // `onChange`, so it also reaches a section that mounts after the
         // request was made (Settings opened on another pane), and clearing
-        // it here ends the request: it opens the sheet once.
+        // it here ends the request: it opens the sheet once. Without accounts
+        // there is nothing to follow from: the request is still spent, and the
+        // pane's own "Connect account…" is what's on screen.
         .task(id: appState.ui.followRepositoryRequest) {
             guard appState.ui.followRepositoryRequest != nil else { return }
-            addingRepo = true
+            if store.hasAccounts { addingRepo = true }
             appState.ui.followRepositoryRequest = nil
         }
     }
