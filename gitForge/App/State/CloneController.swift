@@ -35,4 +35,11 @@ final class CloneController {
     func cancel() {
         cloneTask?.cancel()
     }
+
+    /// Returns once the clone started last has finished (its toast or error
+    /// is up by then), or at once if none is running. A stalled clone still
+    /// ends: the git watchdog kills it.
+    func finished() async {
+        await cloneTask?.value
+    }
 }
