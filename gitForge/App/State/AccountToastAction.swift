@@ -7,16 +7,16 @@ nonisolated enum AccountToastAction {
         switch failure {
         case .accountRejected(let account, let host):
             guard let instance = instances.first(where: { $0.host == host }) else {
-                return ToastAction(title: String(localized: "Open accounts"), route: .openAccounts)
+                return ToastAction(title: String(localized: "Open Accounts"), route: .openAccounts)
             }
             guard let match = rejectedAccount(named: account, on: instance, among: accounts) else {
                 // Reconnecting nobody in particular would add a duplicate.
-                return ToastAction(title: String(localized: "Open accounts"), route: .openAccounts)
+                return ToastAction(title: String(localized: "Open Accounts"), route: .openAccounts)
             }
             return ToastAction(title: String(localized: "Reconnect account"),
                                route: .reconnectAccount(instanceId: instance.id, accountId: match.id))
         case .missingScope:
-            return ToastAction(title: String(localized: "Open accounts"), route: .openAccounts)
+            return ToastAction(title: String(localized: "Open Accounts"), route: .openAccounts)
         default:
             return nil
         }

@@ -68,7 +68,7 @@ struct ShellView: View {
                     case .reconnectAccount(let instanceId, let accountId):
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: accountId)
                     case .openAccounts:
-                        appState.ui.openSettings(at: .accounts)
+                        appState.ui.openSettings(.accounts)
                     case .openURL(let url):
                         openURL(url)
                     case .copyText(let text):

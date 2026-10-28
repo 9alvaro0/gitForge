@@ -7,7 +7,7 @@ struct PullsTokenMissingSection: View {
     let nounPlural: String
     let reconnect: Bool
     let onConnect: () -> Void
-    let onOpenSettings: () -> Void
+    let onOpenAccounts: () -> Void
 
     var body: some View {
         let provider = host?.provider.label ?? String(localized: "hosting")
@@ -23,7 +23,7 @@ struct PullsTokenMissingSection: View {
             HStack(spacing: Spacing.s8) {
                 GFButton(title: reconnect ? String(localized: "Reconnect…") : String(localized: "Connect account…"),
                          style: .primary, action: onConnect)
-                GFButton(title: String(localized: "Open Settings"), action: onOpenSettings)
+                GFButton(title: String(localized: "Open Accounts"), action: onOpenAccounts)
             }
         }
     }
@@ -35,7 +35,7 @@ struct PullsTokenMissingSection: View {
         host: .previewGitHub,
         nounPlural: "pull requests",
         reconnect: false,
-        onConnect: {}, onOpenSettings: {}
+        onConnect: {}, onOpenAccounts: {}
     )
     .padding()
     .frame(width: 800, height: 400)

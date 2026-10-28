@@ -21,8 +21,8 @@ struct PullsInboxPane: View {
             } else {
                 EmptyState(symbol: WorkspaceSection.pulls.symbol,
                            title: String(localized: "Connect an account to see your team's pull requests.")) {
-                    GFButton(title: String(localized: "Open Settings"), style: .primary) {
-                        appState.ui.openSettings(at: .accounts)
+                    GFButton(title: String(localized: "Open Accounts"), style: .primary) {
+                        appState.ui.openSettings(.accounts)
                     }
                 }
             }
@@ -113,7 +113,7 @@ struct PullsInboxPane: View {
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: detail.connectInstanceId,
                                                                                 replacing: detail.reconnectAccountId)
                     },
-                    onOpenSettings: { appState.ui.openSettings(at: .accounts) }
+                    onOpenAccounts: { appState.ui.openSettings(.accounts) }
                 )
             } else if let message = detail.error {
                 EmptyState(symbol: "exclamationmark.triangle", title: String(localized: "Couldn't load detail"),

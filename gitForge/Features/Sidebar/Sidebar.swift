@@ -37,7 +37,8 @@ struct Sidebar: View {
     let onCheckoutBranch: (GitRef) -> Void
     let onApplyProfile: (GitProfile) -> Void
     let onResetToGlobal: () -> Void
-    let onManageProfiles: () -> Void
+    let onEditIdentities: () -> Void
+    let onManageAccounts: () -> Void
     /// "Hosting account" sections for the active repo (P4 spec §5.4).
     var hostingSections: [RepoAccountSection] = []
     var onHostingEntry: (RepoAccountSection, RepoAccountSection.Entry) -> Void = { _, _ in }
@@ -70,7 +71,8 @@ struct Sidebar: View {
                 menuEnabled: identityMenuEnabled,
                 onApplyProfile: onApplyProfile,
                 onResetToGlobal: onResetToGlobal,
-                onManageProfiles: onManageProfiles,
+                onEditIdentities: onEditIdentities,
+                onManageAccounts: onManageAccounts,
                 hostingSections: hostingSections,
                 onHostingEntry: onHostingEntry
             )
@@ -206,7 +208,8 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
         onCheckoutBranch: { _ in },
         onApplyProfile: { _ in },
         onResetToGlobal: {},
-        onManageProfiles: {},
+        onEditIdentities: {},
+        onManageAccounts: {},
         onReorder: { order.wrappedValue.apply($0) },
         collapsedFolders: collapsedFolders
     )

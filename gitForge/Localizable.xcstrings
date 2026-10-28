@@ -7042,6 +7042,38 @@
         }
       }
     },
+    "Edit Identities…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades…"
+          }
+        }
+      }
+    },
+    "Edit identities and accounts" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades y cuentas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades e contas"
+          }
+        }
+      }
+    },
     "Email" : {
       "localizations" : {
         "es" : {
@@ -8589,18 +8621,18 @@
         }
       }
     },
-    "Hide repositories or narrow your patterns in Settings." : {
+    "Hide repositories or narrow your patterns in Settings › Pull requests." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oculta repos o acota tus patrones en Ajustes."
+            "value" : "Oculta repos o acota tus patrones en Ajustes › Pull requests."
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oculte repositórios ou restrinja os seus padrões nas Definições."
+            "value" : "Oculte repositórios ou restrinja os seus padrões em Definições › Pull requests."
           }
         }
       }
@@ -9503,34 +9535,34 @@
         }
       }
     },
-    "Manage git profiles" : {
+    "Manage Accounts…" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gestionar perfiles de git"
+            "value" : "Gestionar cuentas…"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gerir perfis git"
+            "value" : "Gerir contas…"
           }
         }
       }
     },
-    "Manage profiles…" : {
+    "Manage Followed Repositories" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gestionar perfiles…"
+            "value" : "Gestionar repos seguidos"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gerir perfis…"
+            "value" : "Gerir repositórios seguidos"
           }
         }
       }
@@ -11570,6 +11602,22 @@
         }
       }
     },
+    "Open Accounts" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Cuentas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Contas"
+          }
+        }
+      }
+    },
     "Open Clone…" : {
       "localizations" : {
         "es" : {
@@ -11650,22 +11698,6 @@
         }
       }
     },
-    "Open Settings" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir Ajustes"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir Definições"
-          }
-        }
-      }
-    },
     "Open a folder" : {
       "localizations" : {
         "es" : {
@@ -11694,22 +11726,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abrir um repositório…"
-          }
-        }
-      }
-    },
-    "Open accounts" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir cuentas"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir contas"
           }
         }
       }

@@ -64,8 +64,8 @@ struct ReviewsList: View {
                         soft: theme.colors.infoSoft,
                         // `FollowedRepos.limit`, spelled out for the translations.
                         title: String(localized: "\(store.droppedByLimit) repositories left out (limit of 100)."),
-                        detail: String(localized: "Hide repositories or narrow your patterns in Settings."),
-                        action: (String(localized: "Open Settings"), { appState.ui.openSettings(at: .reviews) })
+                        detail: String(localized: "Hide repositories or narrow your patterns in Settings › Pull requests."),
+                        action: (String(localized: "Manage Followed Repositories"), { appState.ui.openSettings(.pullRequests) })
                     )
                 }
             }
@@ -87,7 +87,7 @@ struct ReviewsList: View {
         if overLimit {
             // `FollowedRepos.limit`, spelled out for the translations.
             detail = String(localized: "With them you'd follow \(proposal.total) repositories, over the limit of 100.")
-            action = (String(localized: "Open Settings"), { appState.ui.openSettings(at: .reviews) })
+            action = (String(localized: "Manage Followed Repositories"), { appState.ui.openSettings(.pullRequests) })
         } else {
             detail = String(localized: "Follow the other \(proposal.adds) that fit too?")
             action = (String(localized: "Follow"), { acceptProposal() })

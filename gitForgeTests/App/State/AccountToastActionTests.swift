@@ -24,7 +24,8 @@ struct AccountToastActionTests {
 
     @Test("A missing scope opens Accounts; other failures offer nothing")
     func others() {
-        #expect(AccountToastAction.action(for: .missingScope("workflow"), instances: [], accounts: [])?.route == .openAccounts)
+        let missing = AccountToastAction.action(for: .missingScope("workflow"), instances: [], accounts: [])
+        #expect(missing == ToastAction(title: "Open Accounts", route: .openAccounts))
         #expect(AccountToastAction.action(for: .network, instances: [], accounts: []) == nil)
     }
 
@@ -45,7 +46,7 @@ struct AccountToastActionTests {
         for accounts in [[], [first, second]] {
             let action = AccountToastAction.action(for: .accountRejected(account: "gone", host: "github.com"),
                                                    instances: HostingInstance.builtIns, accounts: accounts)
-            #expect(action?.route == .openAccounts)
+            #expect(action == ToastAction(title: "Open Accounts", route: .openAccounts))
         }
     }
 }

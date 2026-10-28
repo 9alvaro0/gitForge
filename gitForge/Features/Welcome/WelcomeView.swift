@@ -96,7 +96,7 @@ struct WelcomeView: View {
 
     private var footer: some View {
         HStack(spacing: Spacing.s16) {
-            Button("Settings") { appState.ui.workspaceSection = .settings }
+            Button("Settings") { appState.ui.openSettings() }
                 .buttonStyle(.link)
             Text(signedIn)
                 .foregroundStyle(theme.colors.textSecondary)

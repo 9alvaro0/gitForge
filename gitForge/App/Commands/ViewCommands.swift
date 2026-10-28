@@ -54,7 +54,7 @@ struct ViewCommands: Commands {
         // through our settings section instead of opening a separate window.
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") {
-                appState.ui.workspaceSection = .settings
+                appState.ui.openSettings()
             }
             .keyboardShortcut(",", modifiers: .command)
         }

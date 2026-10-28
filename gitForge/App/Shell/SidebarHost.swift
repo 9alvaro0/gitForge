@@ -98,7 +98,7 @@ struct SidebarHost: View {
             onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
             onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
             onCloneNew: { appState.ui.requestClone() },
-            onOpenSettings: { appState.ui.workspaceSection = .settings },
+            onOpenSettings: { appState.ui.openSettings() },
             onSelectSection: { appState.ui.workspaceSection = $0 },
             onRevealBranch: { ref in
                 guard let vm = appState.catalog.activeViewModel else { return }
@@ -138,9 +138,8 @@ struct SidebarHost: View {
                 guard let vm = appState.catalog.activeViewModel else { return }
                 Task { await vm.clearLocalIdentity() }
             },
-            onManageProfiles: {
-                appState.ui.workspaceSection = .settings
-            },
+            onEditIdentities: { appState.ui.openSettings(.identities) },
+            onManageAccounts: { appState.ui.openSettings(.accounts) },
             hostingSections: hostingSections(identitySnapshot.activeProfileId),
             onHostingEntry: handleHostingEntry,
             onReorder: { edit in
@@ -223,7 +222,7 @@ struct SidebarHost: View {
     /// in the menu and to label the chip.
     private func resolveIdentity() -> IdentitySnapshot {
         // No active repo → fall back to the global identity, no scope chip,
-        // no menu actions beyond "Manage profiles…".
+        // no menu actions beyond "Edit Identities…" and "Manage Accounts…".
         guard let vm = appState.catalog.activeViewModel else {
             let global = appState.gitEnvironment.globalConfig.identity
             return IdentitySnapshot(

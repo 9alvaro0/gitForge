@@ -68,8 +68,6 @@ final class WorkspaceUI {
     /// "Clone a repository" sheet; `ShellView` presents it.
     var cloneRequest: CloneRequest?
 
-    /// A Settings section to scroll to once Settings shows; cleared then.
-    var settingsAnchor: SettingsAnchor?
     /// "New Profile…" from ⌘K: the Identities pane opens its new-profile
     /// sheet and clears this. A fresh `UUID` each time, so asking again
     /// while the pane is up still reaches it.
@@ -91,16 +89,6 @@ final class WorkspaceUI {
     func openSettings(_ pane: SettingsPane? = nil) {
         if let pane { settingsPane = pane }
         workspaceSection = .settings
-    }
-
-    /// Shows Settings on the pane that holds `anchor`'s section, and still
-    /// sets the anchor for the Settings view that reads it.
-    func openSettings(at anchor: SettingsAnchor) {
-        switch anchor {
-        case .accounts: openSettings(.accounts)
-        case .reviews:  openSettings(.pullRequests)
-        }
-        settingsAnchor = anchor
     }
 
     /// Leaves Settings for the section it was opened from (History when
@@ -163,13 +151,6 @@ struct AddInstanceRequest: Identifiable, Equatable {
     let id = UUID()
     var kind: HostingInstance.Kind = .gitlab
     var url = ""
-}
-
-/// A Settings section other screens link to.
-enum SettingsAnchor: Hashable {
-    case accounts
-    /// What Reviews follows (R3 Ruling 15).
-    case reviews
 }
 
 /// Opens "Clone a repository", optionally with a URL already in or on a
