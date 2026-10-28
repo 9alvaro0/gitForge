@@ -2591,6 +2591,22 @@
         }
       }
     },
+    "Back to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar a %@"
+          }
+        }
+      }
+    },
     "Back to History (Esc)" : {
       "localizations" : {
         "es" : {
@@ -4059,6 +4075,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fechar repositório"
+          }
+        }
+      }
+    },
+    "Close Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar ajustes"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar definições"
           }
         }
       }

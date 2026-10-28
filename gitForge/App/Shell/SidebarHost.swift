@@ -6,12 +6,73 @@ import AppKit
 /// every store to wire it.
 struct SidebarHost: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pendingProfile: PendingProfileApply?
     @State private var remotes: [GitRemoteURL] = []
 
+    /// The column shows the workspace sidebar, or the one of the Settings
+    /// mode (settings-redesign §4.1). Both sit in a `Group` so the modifiers
+    /// below stay in place whichever is showing.
     var body: some View {
+        Group {
+            if isInSettings {
+                settingsSidebar.transition(.opacity)
+            } else {
+                workspaceSidebar.transition(.opacity)
+            }
+        }
+        // A fade, and none with Reduce Motion.
+        .animation(reduceMotion ? nil : Motion.standard, value: isInSettings)
+        // Remotes live in `.git/config`, which the watcher doesn't follow:
+        // read them again when a new remote's branches show up, and when the
+        // app comes back to the front (a remote added in a terminal).
+        .task(id: RemotesKey(repo: appState.catalog.activeRepository?.url,
+                             fetched: Self.remoteNames(appState.catalog.activeViewModel?.refs ?? []))) {
+            await reloadRemotes()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await reloadRemotes() }
+        }
+        .confirmationDialog(
+            pendingProfile.map { String(localized: "Apply profile “\($0.profile.name)”?") } ?? "",
+            isPresented: Binding(
+                get: { pendingProfile != nil },
+                set: { if !$0 { pendingProfile = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingProfile
+        ) { pending in
+            Button("Apply") {
+                guard let vm = appState.catalog.activeViewModel else { return }
+                let profile = pending.profile
+                Task {
+                    do { try await vm.applyProfile(profile) }
+                    catch { appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t switch identity")) }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { pending in
+            Text(pending.diff.message)
+        }
+    }
+
+    private var isInSettings: Bool { appState.ui.workspaceSection == .settings }
+
+    private var settingsSidebar: some View {
+        SettingsSidebar(
+            selection: appState.ui.settingsPane,
+            repositoryName: appState.catalog.activeRepository?.name,
+            version: WhatsNewController.bundleVersion,
+            canShowWhatsNew: appState.whatsNew.canShowFromMenu,
+            onSelect: { appState.ui.settingsPane = $0 },
+            onBack: { appState.ui.closeSettings() },
+            onWhatsNew: { appState.whatsNew.showFromMenu() }
+        )
+    }
+
+    private var workspaceSidebar: some View {
         let identitySnapshot = resolveIdentity()
-        Sidebar(
+        return Sidebar(
             repositories: appState.catalog.repositories,
             activeRepository: appState.catalog.activeRepository,
             statusFor: statusFor,
@@ -87,37 +148,6 @@ struct SidebarHost: View {
                 appState.ui.sidebarOrder.apply(edit)
             }
         )
-        // Remotes live in `.git/config`, which the watcher doesn't follow:
-        // read them again when a new remote's branches show up, and when the
-        // app comes back to the front (a remote added in a terminal).
-        .task(id: RemotesKey(repo: appState.catalog.activeRepository?.url,
-                             fetched: Self.remoteNames(appState.catalog.activeViewModel?.refs ?? []))) {
-            await reloadRemotes()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await reloadRemotes() }
-        }
-        .confirmationDialog(
-            pendingProfile.map { String(localized: "Apply profile “\($0.profile.name)”?") } ?? "",
-            isPresented: Binding(
-                get: { pendingProfile != nil },
-                set: { if !$0 { pendingProfile = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: pendingProfile
-        ) { pending in
-            Button("Apply") {
-                guard let vm = appState.catalog.activeViewModel else { return }
-                let profile = pending.profile
-                Task {
-                    do { try await vm.applyProfile(profile) }
-                    catch { appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t switch identity")) }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { pending in
-            Text(pending.diff.message)
-        }
     }
 
     private struct RemotesKey: Hashable {
@@ -273,4 +303,12 @@ struct SidebarHost: View {
     SidebarHost()
         .previewAppState(.preview)
         .frame(width: 280, height: 720)
+}
+
+#Preview("Sidebar — settings") {
+    @Previewable @State var state = AppState.previewWithActive
+    SidebarHost()
+        .previewAppState(state)
+        .frame(width: 280, height: 720)
+        .onAppear { state.ui.workspaceSection = .settings }
 }

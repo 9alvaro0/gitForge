@@ -27,6 +27,13 @@ struct ViewCommands: Commands {
 
             Divider()
 
+            // Back out of Settings, to the section it was opened from.
+            Button("Close Settings") {
+                appState.ui.closeSettings()
+            }
+            .keyboardShortcut("[", modifiers: .command)
+            .disabled(appState.ui.workspaceSection != .settings)
+
             // The custom split's counterpart of `InspectorCommands`, whose
             // item macOS titles "Inspector de Show" in Spanish.
             Button(historyInspectorVisible == true ? String(localized: "Hide Inspector") : String(localized: "Show Inspector")) {
