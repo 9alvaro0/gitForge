@@ -8141,6 +8141,22 @@
         }
       }
     },
+    "General" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geral"
+          }
+        }
+      }
+    },
     "Get sign-in code" : {
       "localizations" : {
         "es" : {
@@ -8665,6 +8681,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bloco %lld, resolvido com %@"
+          }
+        }
+      }
+    },
+    "Identities" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identidades"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identidades"
           }
         }
       }

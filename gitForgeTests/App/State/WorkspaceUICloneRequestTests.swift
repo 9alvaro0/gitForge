@@ -19,11 +19,25 @@ struct WorkspaceUICloneRequestTests {
         #expect(ui.cloneRequest?.source == .url)
     }
 
-    @Test("Open accounts lands on Settings with Accounts to scroll to")
+    @Test("Open accounts lands on Settings, on the Accounts pane")
     func openSettingsAtAccounts() {
-        let ui = WorkspaceUI()
-        ui.openSettings(at: .accounts)
-        #expect(ui.workspaceSection == .settings)
-        #expect(ui.settingsAnchor == .accounts)
+        TestDefaults.with { suite in
+            let ui = WorkspaceUI(defaults: suite.defaults)
+            ui.openSettings(at: .accounts)
+            #expect(ui.workspaceSection == .settings)
+            #expect(ui.settingsPane == .accounts)
+            #expect(ui.settingsAnchor == .accounts)
+        }
+    }
+
+    @Test("The Reviews link lands on Settings, on the Pull requests pane")
+    func openSettingsAtReviews() {
+        TestDefaults.with { suite in
+            let ui = WorkspaceUI(defaults: suite.defaults)
+            ui.openSettings(at: .reviews)
+            #expect(ui.workspaceSection == .settings)
+            #expect(ui.settingsPane == .pullRequests)
+            #expect(ui.settingsAnchor == .reviews)
+        }
     }
 }
