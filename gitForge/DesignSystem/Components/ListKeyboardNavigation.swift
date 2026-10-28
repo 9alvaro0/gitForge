@@ -6,11 +6,15 @@ import SwiftUI
 /// Rows must carry `.id(_:)` with the same values as `ids` for scrolling to
 /// work. Clicking a row doesn't move focus by itself (rows are plain
 /// buttons), so the list's row handlers set `isFocused` to `true`.
+///
+/// With `onShiftMove`, Shift-↑↓ goes to it instead (by +1 / −1) — a list
+/// that extends a multiple selection — and scrolls to the row it returns.
 struct ListKeyboardNavigation<ID: Hashable>: ViewModifier {
     let ids: [ID]
     let selection: ID?
     var isFocused: FocusState<Bool>.Binding
     var scrollProxy: ScrollViewProxy?
+    var onShiftMove: ((Int) -> ID?)?
     let onSelect: (ID) -> Void
 
     func body(content: Content) -> some View {
@@ -18,8 +22,16 @@ struct ListKeyboardNavigation<ID: Hashable>: ViewModifier {
             .focusable()
             .focusEffectDisabled()
             .focused(isFocused)
-            .onKeyPress(.downArrow) { move(by: 1) }
-            .onKeyPress(.upArrow) { move(by: -1) }
+            .onKeyPress(keys: [.downArrow, .upArrow]) { press in
+                let offset = press.key == .downArrow ? 1 : -1
+                if press.modifiers.contains(.shift), let onShiftMove {
+                    if let target = onShiftMove(offset) {
+                        scrollProxy?.scrollTo(target)
+                    }
+                    return .handled
+                }
+                return move(by: offset)
+            }
     }
 
     private func move(by offset: Int) -> KeyPress.Result {
@@ -48,6 +60,7 @@ extension View {
         selection: ID?,
         isFocused: FocusState<Bool>.Binding,
         scrollProxy: ScrollViewProxy? = nil,
+        onShiftMove: ((Int) -> ID?)? = nil,
         onSelect: @escaping (ID) -> Void
     ) -> some View {
         modifier(ListKeyboardNavigation(
@@ -55,6 +68,7 @@ extension View {
             selection: selection,
             isFocused: isFocused,
             scrollProxy: scrollProxy,
+            onShiftMove: onShiftMove,
             onSelect: onSelect
         ))
     }
