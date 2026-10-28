@@ -8,8 +8,13 @@
 # - VERSION defaults to MARKETING_VERSION in the Xcode project.
 # - DMG must exist at dist/gitForge-<VERSION>.dmg (run release.sh first).
 # - Optional release notes: docs/releases/v<VERSION>.html (else link omitted).
+# - SPARKLE_SIGN_UPDATE: path to Sparkle's sign_update, skipping the lookup.
 
-set -euo pipefail
+set -Eeuo pipefail
+
+# A failing command used to end the script with no output at all when its
+# error went to /dev/null; name the line and command instead.
+trap 'echo "update-appcast.sh: stopped at line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 # ---- Config ----------------------------------------------------------------
 PROJECT="gitForge.xcodeproj"
@@ -51,13 +56,48 @@ if grep -q "sparkle:version=\"${VERSION}\"" "${APPCAST}"; then
 fi
 
 # ---- Resolve sign_update path (DerivedData hash varies per machine) -------
-SIGN_UPDATE=$(find "${HOME}/Library/Developer/Xcode/DerivedData" \
-  -path "*Sparkle/bin/sign_update" -type f 2>/dev/null | head -1)
-if [[ -z "${SIGN_UPDATE}" ]]; then
-  echo "sign_update not found. Open the project in Xcode and build once " >&2
-  echo "to materialize Sparkle's CLI under DerivedData."  >&2
+# Sparkle's CLI sits in each DerivedData folder that resolved the package.
+# Prefer this checkout's folder (Xcode records its project in the folder's
+# info.plist), else the newest copy. A glob, not a recursive find over all of
+# DerivedData: a find that can't walk some folder (one Xcode removes mid-walk
+# right after release.sh archives, say) exits non-zero with its error sent to
+# /dev/null, the likely reason ship.sh stopped silently before the appcast in
+# 1.6.0 and 1.7.0.
+DERIVED_DATA="${DERIVED_DATA:-${HOME}/Library/Developer/Xcode/DerivedData}"
+
+resolve_sign_update() {
+  local project_path candidate workspace newest=""
+  local candidates=()
+  project_path="$(pwd -P)/${PROJECT}"
+
+  shopt -s nullglob
+  candidates=( "${DERIVED_DATA}"/*/SourcePackages/artifacts/*/Sparkle/bin/sign_update )
+  shopt -u nullglob
+  # bash 3.2 treats an empty array as unbound under set -u.
+  (( ${#candidates[@]} > 0 )) || return 0
+
+  for candidate in "${candidates[@]}"; do
+    [[ -x "${candidate}" ]] || continue
+    workspace=$(/usr/libexec/PlistBuddy -c 'Print :WorkspacePath' \
+      "${candidate%%/SourcePackages/*}/info.plist" 2>/dev/null || true)
+    if [[ "${workspace}" == "${project_path}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+    if [[ -z "${newest}" || "${candidate}" -nt "${newest}" ]]; then
+      newest="${candidate}"
+    fi
+  done
+  echo "${newest}"
+}
+
+SIGN_UPDATE="${SPARKLE_SIGN_UPDATE:-$(resolve_sign_update)}"
+if [[ -z "${SIGN_UPDATE}" || ! -x "${SIGN_UPDATE}" ]]; then
+  echo "sign_update not found under ${DERIVED_DATA}. Open the project in Xcode" >&2
+  echo "and build once to materialize Sparkle's CLI, or set SPARKLE_SIGN_UPDATE." >&2
   exit 1
 fi
+echo "Signing with ${SIGN_UPDATE}"
 
 # ---- Sign DMG and parse signature/length ----------------------------------
 SIGN_OUTPUT=$("${SIGN_UPDATE}" --account "${SPARKLE_ACCOUNT}" "${DMG_PATH}")
