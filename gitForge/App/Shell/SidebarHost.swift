@@ -9,6 +9,9 @@ struct SidebarHost: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pendingProfile: PendingProfileApply?
     @State private var remotes: [GitRemoteURL] = []
+    /// Folded branch folders. Here rather than in `Sidebar`, which the
+    /// Settings sidebar replaces and which would lose them.
+    @State private var collapsedFolders: Set<String> = []
 
     /// The column shows the workspace sidebar, or the one of the Settings
     /// mode (settings-redesign §4.1). Both sit in a `Group` so the modifiers
@@ -146,7 +149,8 @@ struct SidebarHost: View {
                 // (pulls-unified §4.7, Ruling 6).
                 guard appState.catalog.activeRepository != nil else { return }
                 appState.ui.sidebarOrder.apply(edit)
-            }
+            },
+            collapsedFolders: $collapsedFolders
         )
     }
 

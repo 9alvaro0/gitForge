@@ -44,8 +44,10 @@ struct Sidebar: View {
     /// A change to the order of the workspace sections, from a drag or from
     /// a section's context menu (pulls-unified §4.7).
     var onReorder: (SidebarOrder.Edit) -> Void = { _ in }
-
-    @State private var collapsedFolders: Set<String> = []
+    /// The branch folders the user folded. The host owns them: this view is
+    /// replaced by the Settings sidebar and comes back, and local state
+    /// wouldn't survive that.
+    @Binding var collapsedFolders: Set<String>
 
     /// Whether a repository is open. The list then shows every section and
     /// they can be reordered; without one it is Pull requests alone and the
@@ -172,7 +174,8 @@ struct Sidebar: View {
 /// settings.
 @MainActor
 private func previewSidebar(active: Repository?, section: Binding<WorkspaceSection>,
-                            order: Binding<SidebarOrder>) -> some View {
+                            order: Binding<SidebarOrder>,
+                            collapsedFolders: Binding<Set<String>>) -> some View {
     Sidebar(
         repositories: Repository.previewSamples,
         activeRepository: active,
@@ -204,7 +207,8 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
         onApplyProfile: { _ in },
         onResetToGlobal: {},
         onManageProfiles: {},
-        onReorder: { order.wrappedValue.apply($0) }
+        onReorder: { order.wrappedValue.apply($0) },
+        collapsedFolders: collapsedFolders
     )
     .frame(width: 240, height: 640)
 }
@@ -213,7 +217,9 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .history
     @Previewable @State var order = SidebarOrder()
-    previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order)
+    @Previewable @State var collapsedFolders: Set<String> = []
+    previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order,
+                   collapsedFolders: $collapsedFolders)
         .appTheme(theme)
 }
 
@@ -221,7 +227,8 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
     @Previewable @State var theme = AppTheme()
     @Previewable @State var section: WorkspaceSection = .pulls
     @Previewable @State var order = SidebarOrder()
-    previewSidebar(active: nil, section: $section, order: $order)
+    @Previewable @State var collapsedFolders: Set<String> = []
+    previewSidebar(active: nil, section: $section, order: $order, collapsedFolders: $collapsedFolders)
         .appTheme(theme)
 }
 
@@ -231,6 +238,8 @@ private func previewSidebar(active: Repository?, section: Binding<WorkspaceSecti
     // The preview's own `@State` value: it never goes through `WorkspaceUI`
     // or `AppState`, so editing it never touches `UserDefaults`.
     @Previewable @State var order = SidebarOrder(saved: ["pulls", "conflict", "history", "changes", "branches", "stashes"])
-    previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order)
+    @Previewable @State var collapsedFolders: Set<String> = []
+    previewSidebar(active: Repository.previewSamples.first, section: $section, order: $order,
+                   collapsedFolders: $collapsedFolders)
         .appTheme(theme)
 }
