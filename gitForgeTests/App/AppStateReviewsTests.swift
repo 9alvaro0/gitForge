@@ -280,9 +280,10 @@ struct AppStateReviewsTests {
     @Test("Open in repository makes the clone active, goes to Pull requests and shows the pull request where the inbox has it",
           arguments: [("marta", PullsTab.mine), ("lucia", PullsTab.team)])
     func openInRepository(author: String, half: PullsTab) async throws {
-        let clone = try GitTestRepo()
+        let clone = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { clone.remove() }
-        try clone.commit("first", files: ["a.txt": "a\n"])
         let repo = try Self.teamApp(cloneAt: clone.url)
         let app = Self.appFollowing(repo, pulls: [Self.pull(482, by: author)])
         let item = try #require(app.reviews.inboxRows.first)
@@ -306,9 +307,10 @@ struct AppStateReviewsTests {
     @Test("A pull request the inbox no longer has opens in the repository's own list: Closed for a merged or closed one, else Open",
           arguments: [(PullRequest.State.open, PullsTab.open), (.draft, .open), (.merged, .closed), (.closed, .closed)])
     func openInRepositoryFallsBack(state: PullRequest.State, tab: PullsTab) async throws {
-        let clone = try GitTestRepo()
+        let clone = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { clone.remove() }
-        try clone.commit("first", files: ["a.txt": "a\n"])
         let app = AppState.isolated()
         // A row from a list that has since changed: no longer among the inbox's.
         let item = InboxPull(repo: try Self.teamApp(cloneAt: clone.url), pull: Self.pull(482, by: "lucia", state: state))
@@ -326,9 +328,10 @@ struct AppStateReviewsTests {
 
     @Test("A pull request the inbox no longer has opens at once when the repository's list already shows it")
     func openInRepositoryFallsBackToLoadedList() async throws {
-        let clone = try GitTestRepo()
+        let clone = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { clone.remove() }
-        try clone.commit("first", files: ["a.txt": "a\n"])
         let app = AppState.isolated()
         try await app.openRepository(at: clone.url)
         defer { app.catalog.close() }
@@ -372,9 +375,10 @@ struct AppStateReviewsTests {
 
     @Test("The inbox reads the open repository from the catalog: its folder and its own pull requests store")
     func activeRepositoryIsTheCatalogs() async throws {
-        let clone = try GitTestRepo()
+        let clone = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { clone.remove() }
-        try clone.commit("first", files: ["a.txt": "a\n"])
         let store = ReviewsSnapshotStore(directory: TemporaryDirectories.make("gitForge-app-active"))
         let app = AppState.isolated(reviewsSnapshots: store)
         #expect(app.reviews.activeRepository == nil)
@@ -402,11 +406,13 @@ struct AppStateReviewsTests {
 
     @Test("Opening another repository changes what the inbox reads, so the views watching it redraw")
     func activeRepositoryIsObserved() async throws {
-        let first = try GitTestRepo()
-        let second = try GitTestRepo()
+        let first = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
+        let second = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["b.txt": "b\n"])
+        }
         defer { first.remove(); second.remove() }
-        try first.commit("first", files: ["a.txt": "a\n"])
-        try second.commit("first", files: ["b.txt": "b\n"])
         let app = AppState.isolated()
         try await app.openRepository(at: first.url)
         defer { app.catalog.close() }

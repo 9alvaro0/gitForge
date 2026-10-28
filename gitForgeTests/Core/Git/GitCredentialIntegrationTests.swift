@@ -25,11 +25,12 @@ struct GitCredentialIntegrationTests {
     private func makeServer() async throws -> GitHTTPTestServer {
         let server = try GitHTTPTestServer(username: Self.user, password: Self.token)
         try await server.start()
-        let bare = try server.makeBareRepo("app.git")
-        let seed = try GitTestRepo()
+        let bare = try await server.makeBareRepo("app.git")
+        let seed = try await GitTestRepo.make { seed in
+            try seed.commit("first", files: ["README.md": "hello\n"])
+            try seed.git("push", "-q", bare.path, "main")
+        }
         defer { seed.remove() }
-        try seed.commit("first", files: ["README.md": "hello\n"])
-        try seed.git("push", "-q", bare.path, "main")
         return server
     }
 
@@ -39,26 +40,30 @@ struct GitCredentialIntegrationTests {
         GitCredential(context: server.baseURL, username: Self.user, password: password, accountId: UUID())
     }
 
-    private func workRepo(_ server: GitHTTPTestServer) throws -> GitTestRepo {
-        let work = try GitTestRepo()
-        try work.git("remote", "add", "origin", server.url("app.git"))
-        return work
+    private func workRepo(_ server: GitHTTPTestServer) async throws -> GitTestRepo {
+        let remote = server.url("app.git")
+        return try await GitTestRepo.make { work in
+            try work.git("remote", "add", "origin", remote)
+        }
     }
 
     @Test("fetch and push go with the account's credential")
     func fetchAndPush() async throws {
         let server = try await makeServer()
         defer { server.stop() }
-        let work = try workRepo(server)
+        let work = try await workRepo(server)
         defer { work.remove() }
         let cli = GitCLI(workingDirectory: work.url, credentials: StaticCredentials(credential: credential(server)))
 
         try await cli.fetchAll()
-        try work.git("checkout", "-q", "-B", "main", "origin/main")
-        let sha = try work.commit("second", files: ["a.txt": "a\n"])
+        let sha = try await work.perform { work in
+            try work.git("checkout", "-q", "-B", "main", "origin/main")
+            return try work.commit("second", files: ["a.txt": "a\n"])
+        }
         try await cli.push(setUpstream: true, remote: "origin", branch: "main")
 
-        let remoteHead = try work.git("ls-remote", server.root.appendingPathComponent("app.git").path, "refs/heads/main")
+        let remoteHead = try await work.gitAsync("ls-remote", server.root.appendingPathComponent("app.git").path,
+                                                 "refs/heads/main")
         #expect(remoteHead.hasPrefix(sha))
         let expected = "Basic " + Data("\(Self.user):\(Self.token)".utf8).base64EncodedString()
         #expect(server.authorizations.contains(expected))
@@ -68,7 +73,7 @@ struct GitCredentialIntegrationTests {
     func wrongToken() async throws {
         let server = try await makeServer()
         defer { server.stop() }
-        let work = try workRepo(server)
+        let work = try await workRepo(server)
         defer { work.remove() }
         let cli = GitCLI(workingDirectory: work.url,
                          credentials: StaticCredentials(credential: credential(server, password: "test-wrong-token-1")))
@@ -83,11 +88,11 @@ struct GitCredentialIntegrationTests {
     func noAccount() async throws {
         let server = try await makeServer()
         defer { server.stop() }
-        let work = try workRepo(server)
+        let work = try await workRepo(server)
         defer { work.remove() }
         // An empty helper resets the list: the developer's own helpers
         // (osxkeychain, a GUI one like GCM) are never asked.
-        try work.git("config", "credential.helper", "")
+        try await work.gitAsync("config", "credential.helper", "")
         let cli = GitCLI(workingDirectory: work.url, credentials: StaticCredentials(credential: nil))
         await #expect(throws: GitError.self) { try await cli.fetchAll() }
         #expect(!server.authorizations.isEmpty)
@@ -109,12 +114,13 @@ struct GitCredentialIntegrationTests {
     func shallowClone() async throws {
         let server = try await makeServer()
         defer { server.stop() }
-        let bare = try server.makeBareRepo("deep.git")
-        let seed = try GitTestRepo()
+        let bare = try await server.makeBareRepo("deep.git")
+        let seed = try await GitTestRepo.make { seed in
+            try seed.commit("one", files: ["f.txt": "1\n"])
+            try seed.commit("two", files: ["f.txt": "2\n"])
+            try seed.git("push", "-q", bare.path, "main")
+        }
         defer { seed.remove() }
-        try seed.commit("one", files: ["f.txt": "1\n"])
-        try seed.commit("two", files: ["f.txt": "2\n"])
-        try seed.git("push", "-q", bare.path, "main")
         let destination = TemporaryDirectories.make("gitForge-clone")
         defer { try? FileManager.default.removeItem(at: destination) }
 

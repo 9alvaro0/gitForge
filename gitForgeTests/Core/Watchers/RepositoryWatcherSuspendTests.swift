@@ -204,8 +204,10 @@ private actor ChangeCounter {
     /// Waits (up to `timeout`) for the count to reach `target`, then keeps
     /// watching for one more debounce window so a duplicate refresh would
     /// still be caught by the caller's `== target` check. Fixed short sleeps
-    /// flaked whenever the main actor was busy with other suites.
-    func settle(at target: Int, timeout: Duration = .seconds(3)) async throws {
+    /// flaked whenever the main actor was busy with other suites, and so did
+    /// a 3 s deadline: the wait ends as soon as the count is reached, so the
+    /// long default only costs time when a test is failing anyway.
+    func settle(at target: Int, timeout: Duration = .seconds(60)) async throws {
         let clock = ContinuousClock()
         let deadline = clock.now + timeout
         while value < target, clock.now < deadline {

@@ -16,9 +16,10 @@ struct RecentsModelTests {
 
     @Test("A clean repo is ready and Clean; a missing folder is Missing")
     func realRepos() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { repo.remove() }
-        try repo.commit("first", files: ["a.txt": "a\n"])
         let gone = URL(fileURLWithPath: "/tmp/gitforge-missing-\(UUID().uuidString)")
         let model = RecentsModel()
         await model.load([Repository(url: repo.url), Repository(url: gone)])

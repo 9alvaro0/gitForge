@@ -9,19 +9,20 @@ struct AppStateCloneProfileTests {
     @Test("The chosen profile is pinned to the opened clone; none leaves the identity as it was")
     func appliesProfile() async throws {
         let app = AppState.isolated()
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { repo.remove() }
-        try repo.commit("first", files: ["a.txt": "a\n"])
         try await app.openRepository(at: repo.url)
 
-        let before = try repo.git(["config", "--local", "user.email"], allowFailure: true)
+        let before = try await repo.gitAsync(["config", "--local", "user.email"], allowFailure: true)
         await app.applyCloneProfile(nil)
-        #expect(try repo.git(["config", "--local", "user.email"], allowFailure: true) == before)
+        #expect(try await repo.gitAsync(["config", "--local", "user.email"], allowFailure: true) == before)
 
         let work = GitProfile(name: "Work", userName: "Test Worker", userEmail: "worker@example.test")
         app.profiles.add(work)
         await app.applyCloneProfile(work.id)
-        #expect(try repo.git("config", "--local", "user.email").trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(try await repo.gitAsync("config", "--local", "user.email").trimmingCharacters(in: .whitespacesAndNewlines)
                 == "worker@example.test")
         #expect(app.ui.activeToast == nil)
     }
@@ -29,12 +30,13 @@ struct AppStateCloneProfileTests {
     @Test("A profile that can't be applied says so, and reports failure so the clone toast doesn't hide it")
     func failure() async throws {
         let app = AppState.isolated()
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer {
             try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: repo.url.appendingPathComponent(".git").path)
             repo.remove()
         }
-        try repo.commit("first", files: ["a.txt": "a\n"])
         try await app.openRepository(at: repo.url)
         let work = GitProfile(name: "Work", userName: "Test Worker", userEmail: "worker@example.test")
         app.profiles.add(work)
@@ -49,9 +51,10 @@ struct AppStateCloneProfileTests {
     @Test("A profile deleted meanwhile isn't skipped silently")
     func deletedProfile() async throws {
         let app = AppState.isolated()
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("first", files: ["a.txt": "a\n"])
+        }
         defer { repo.remove() }
-        try repo.commit("first", files: ["a.txt": "a\n"])
         try await app.openRepository(at: repo.url)
         #expect(!(await app.applyCloneProfile(UUID())))
         #expect(app.ui.activeToast?.kind == .warn)
@@ -62,7 +65,7 @@ struct AppStateCloneProfileTests {
         let server = try GitHTTPTestServer()
         try await server.start()
         defer { server.stop() }
-        let bare = try server.makeBareRepo("app.git")
+        let bare = try await server.makeBareRepo("app.git")
         let seed = try await GitTestRepo.make { repo in
             try repo.commit("first", files: ["README.md": "hello\n"])
             try repo.git("push", "-q", bare.path, "main")

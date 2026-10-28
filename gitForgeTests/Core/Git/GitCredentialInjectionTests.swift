@@ -9,7 +9,15 @@ struct GitCredentialInjectionTests {
 
     /// `git credential fill` for `host` with `credential`'s config and
     /// environment, and no global or system config (so no osxkeychain).
-    private func credentialFill(host: String, credential: GitCredential) throws -> String {
+    /// Runs on a GCD thread, off the test's cooperative thread.
+    private func credentialFill(host: String, credential: GitCredential) async throws -> String {
+        let result: Result<String, Error> = await GitProcess.offPool {
+            Result { try Self.credentialFillBlocking(host: host, credential: credential) }
+        }
+        return try result.get()
+    }
+
+    private static func credentialFillBlocking(host: String, credential: GitCredential) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git"] + credential.configArguments + ["credential", "fill"]
@@ -26,11 +34,14 @@ struct GitCredentialInjectionTests {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
+        // Not `waitUntilExit()`; see `GitTestRepo.git(_:allowFailure:)`.
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         try process.run()
         input.fileHandleForWriting.write(Data("protocol=https\nhost=\(host)\n\n".utf8))
         try input.fileHandleForWriting.close()
         let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        exited.wait()
         return String(decoding: data, as: UTF8.self)
     }
 
@@ -76,11 +87,11 @@ struct GitCredentialInjectionTests {
     }
 
     @Test("Real git gets the credential for that host, and not for another one")
-    func helperIsScoped() throws {
-        let filled = try credentialFill(host: "example.test", credential: Self.credential)
+    func helperIsScoped() async throws {
+        let filled = try await credentialFill(host: "example.test", credential: Self.credential)
         #expect(filled.contains("username=x-access-token"))
         #expect(filled.contains("password=test-secret-value-1"))
-        let other = try credentialFill(host: "other.test", credential: Self.credential)
+        let other = try await credentialFill(host: "other.test", credential: Self.credential)
         #expect(!other.contains("test-secret-value-1"))
     }
 

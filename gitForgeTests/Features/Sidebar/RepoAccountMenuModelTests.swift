@@ -57,10 +57,11 @@ struct RepoAccountMenuModelTests {
 
     @Test("Remotes and their URLs, from git")
     func remotesFromGit() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.git("remote", "add", "origin", "https://github.com/me/app.git")
+            try repo.git("remote", "add", "upstream", "git@github.com:org/app.git")
+        }
         defer { repo.remove() }
-        try repo.git("remote", "add", "origin", "https://github.com/me/app.git")
-        try repo.git("remote", "add", "upstream", "git@github.com:org/app.git")
         #expect(await repo.cli.remotesWithURLs() == [
             GitRemoteURL(name: "origin", url: "https://github.com/me/app.git"),
             GitRemoteURL(name: "upstream", url: "git@github.com:org/app.git"),

@@ -60,13 +60,14 @@ struct GitErrorLocalChangesTests {
 
     @Test("A real checkout over local changes reads plainly")
     func realCheckout() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["a.txt": "a\n"])
+            try repo.git("checkout", "-q", "-b", "topic")
+            try repo.commit("topic", files: ["a.txt": "topic\n"])
+            try repo.git("checkout", "-q", "main")
+            try repo.write("local\n", to: "a.txt")
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["a.txt": "a\n"])
-        try repo.git("checkout", "-q", "-b", "topic")
-        try repo.commit("topic", files: ["a.txt": "topic\n"])
-        try repo.git("checkout", "-q", "main")
-        try repo.write("local\n", to: "a.txt")
 
         let error = await #expect(throws: GitError.self) {
             try await repo.cli.checkout(branch: "topic")

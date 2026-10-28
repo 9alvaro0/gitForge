@@ -18,12 +18,13 @@ struct GitCLILineCountsTests {
 
     @Test("Staged and unstaged counts come from their own side")
     func stagedAndUnstaged() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["a.txt": "1\n2\n3\n"])
+            try repo.write("1\n2\n3\n4\n", to: "a.txt")
+            try repo.git("add", "a.txt")
+            try repo.write("1\n3\n4\n5\n6\n", to: "a.txt")
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["a.txt": "1\n2\n3\n"])
-        try repo.write("1\n2\n3\n4\n", to: "a.txt")
-        try repo.git("add", "a.txt")
-        try repo.write("1\n3\n4\n5\n6\n", to: "a.txt")
 
         let staged = try await repo.cli.lineCounts(staged: true)
         let unstaged = try await repo.cli.lineCounts(staged: false)
@@ -33,12 +34,13 @@ struct GitCLILineCountsTests {
 
     @Test("A staged rename is keyed by its new path")
     func stagedRename() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["old.txt": "a\nb\nc\nd\ne\n"])
+            try repo.git("mv", "old.txt", "new.txt")
+            try repo.write("a\nb\nc\nd\ne\nf\n", to: "new.txt")
+            try repo.git("add", "new.txt")
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["old.txt": "a\nb\nc\nd\ne\n"])
-        try repo.git("mv", "old.txt", "new.txt")
-        try repo.write("a\nb\nc\nd\ne\nf\n", to: "new.txt")
-        try repo.git("add", "new.txt")
 
         let staged = try await repo.cli.lineCounts(staged: true)
         #expect(staged["new.txt"] == DiffStats(additions: 1, deletions: 0))

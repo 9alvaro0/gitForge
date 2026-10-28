@@ -30,11 +30,12 @@ struct RemoteProbeTests {
     private func makeServer() async throws -> GitHTTPTestServer {
         let server = try GitHTTPTestServer(username: Self.user, password: Self.token)
         try await server.start()
-        let bare = try server.makeBareRepo("app.git")
-        let seed = try GitTestRepo()
+        let bare = try await server.makeBareRepo("app.git")
+        let seed = try await GitTestRepo.make { seed in
+            try seed.commit("first", files: ["README.md": "hello\n"])
+            try seed.git("push", "-q", bare.path, "main")
+        }
         defer { seed.remove() }
-        try seed.commit("first", files: ["README.md": "hello\n"])
-        try seed.git("push", "-q", bare.path, "main")
         return server
     }
 

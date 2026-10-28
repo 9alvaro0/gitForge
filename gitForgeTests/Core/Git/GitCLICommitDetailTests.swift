@@ -14,9 +14,9 @@ struct GitCLICommitDetailTests {
 
     @Test("Root commit lists its files and has a diff")
     func rootCommit() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make()
         defer { repo.remove() }
-        let root = try repo.commit("root", files: ["a.txt": "a\n"])
+        let root = try await repo.commitAsync("root", files: ["a.txt": "a\n"])
 
         let detail = try await repo.cli.commitDetail(for: try await commit(repo, root))
         #expect(detail.files.map(\.path) == ["a.txt"])
@@ -27,15 +27,16 @@ struct GitCLICommitDetailTests {
 
     @Test("Merge commit lists what it brought in relative to its first parent")
     func mergeCommit() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("root", files: ["base.txt": "b\n"])
+            try repo.git("checkout", "-q", "-b", "feature")
+            try repo.commit("feature", files: ["feature.txt": "f\n"])
+            try repo.git("checkout", "-q", "main")
+            try repo.commit("main", files: ["main.txt": "m\n"])
+            try repo.git("merge", "-q", "--no-edit", "feature")
+        }
         defer { repo.remove() }
-        try repo.commit("root", files: ["base.txt": "b\n"])
-        try repo.git("checkout", "-q", "-b", "feature")
-        try repo.commit("feature", files: ["feature.txt": "f\n"])
-        try repo.git("checkout", "-q", "main")
-        try repo.commit("main", files: ["main.txt": "m\n"])
-        try repo.git("merge", "-q", "--no-edit", "feature")
-        let merge = try repo.git("rev-parse", "HEAD").trimmingCharacters(in: .whitespacesAndNewlines)
+        let merge = try await repo.gitAsync("rev-parse", "HEAD").trimmingCharacters(in: .whitespacesAndNewlines)
 
         let detail = try await repo.cli.commitDetail(for: try await commit(repo, merge))
         #expect(detail.files.map(\.path) == ["feature.txt"])
@@ -46,9 +47,9 @@ struct GitCLICommitDetailTests {
 
     @Test("An unsigned commit has no signature")
     func unsignedCommit() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make()
         defer { repo.remove() }
-        let sha = try repo.commit("root", files: ["a.txt": "a\n"])
+        let sha = try await repo.commitAsync("root", files: ["a.txt": "a\n"])
 
         let detail = try await repo.cli.commitDetail(for: try await commit(repo, sha))
         #expect(detail.signature == nil)
@@ -58,25 +59,26 @@ struct GitCLICommitDetailTests {
     @Test("An SSH signature is verified, or can't be verified when its tool won't start",
           .enabled(if: FileManager.default.isExecutableFile(atPath: "/usr/bin/ssh-keygen")))
     func sshSignature() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            let key = repo.url.appendingPathComponent(".signkey").path(percentEncoded: false)
+            try Self.run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "test@example.com", "-f", key])
+            let publicKey = try String(contentsOfFile: key + ".pub", encoding: .utf8)
+                .split(separator: " ").prefix(2).joined(separator: " ")
+            try repo.write("test@example.com \(publicKey)\n", to: ".allowed_signers")
+            try repo.git("config", "gpg.format", "ssh")
+            try repo.git("config", "gpg.ssh.program", "/usr/bin/ssh-keygen")
+            try repo.git("config", "gpg.ssh.allowedSignersFile", repo.url.appendingPathComponent(".allowed_signers").path(percentEncoded: false))
+            try repo.git("config", "user.signingkey", key + ".pub")
+            try repo.write("a\n", to: "a.txt")
+            try repo.git("add", "a.txt")
+            try repo.git("commit", "-q", "-S", "-m", "signed")
+        }
         defer { repo.remove() }
-        let key = repo.url.appendingPathComponent(".signkey").path(percentEncoded: false)
-        try Self.run("/usr/bin/ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "test@example.com", "-f", key])
-        let publicKey = try String(contentsOfFile: key + ".pub", encoding: .utf8)
-            .split(separator: " ").prefix(2).joined(separator: " ")
-        try repo.write("test@example.com \(publicKey)\n", to: ".allowed_signers")
-        try repo.git("config", "gpg.format", "ssh")
-        try repo.git("config", "gpg.ssh.program", "/usr/bin/ssh-keygen")
-        try repo.git("config", "gpg.ssh.allowedSignersFile", repo.url.appendingPathComponent(".allowed_signers").path(percentEncoded: false))
-        try repo.git("config", "user.signingkey", key + ".pub")
-        try repo.write("a\n", to: "a.txt")
-        try repo.git("add", "a.txt")
-        try repo.git("commit", "-q", "-S", "-m", "signed")
-        let sha = try repo.git("rev-parse", "HEAD").trimmingCharacters(in: .whitespacesAndNewlines)
+        let sha = try await repo.gitAsync("rev-parse", "HEAD").trimmingCharacters(in: .whitespacesAndNewlines)
 
         #expect(await repo.cli.signature(of: sha)?.status == .verified)
 
-        try repo.git("config", "gpg.ssh.program", "/nonexistent/ssh-keygen")
+        try await repo.gitAsync("config", "gpg.ssh.program", "/nonexistent/ssh-keygen")
         #expect(await repo.cli.signature(of: sha)?.status == .unverifiable)
     }
 

@@ -71,7 +71,7 @@ struct RepositoryViewModelBlockedCheckoutTests {
         #expect(repo.read("a.txt") == "feature\n")
         #expect(repo.read("staged.txt") == "s2\n")
         #expect(repo.read("n.txt") == "theirs\n")
-        #expect(try repo.porcelain() == [" M keep.txt"], "a change that wasn't in the way comes along")
+        #expect(try await repo.porcelainAsync() == [" M keep.txt"], "a change that wasn't in the way comes along")
         #expect(repo.read("keep.txt") == "keep-local\n")
     }
 
@@ -91,7 +91,7 @@ struct RepositoryViewModelBlockedCheckoutTests {
         #expect(vm.currentBranchName == "feature")
         #expect(repo.read("a.txt") == "feature\n")
         #expect(repo.read("n.txt") == "theirs\n")
-        #expect(try repo.porcelain() == [" M keep.txt"], "a change that wasn't in the way comes along")
+        #expect(try await repo.porcelainAsync() == [" M keep.txt"], "a change that wasn't in the way comes along")
         #expect(vm.stashes.count == 1)
         #expect(try await repo.gitAsync("stash", "list", "--format=%gs") == "On main: Before checking out feature\n")
         let stashed = try await repo.gitAsync("stash", "show", "--include-untracked", "--name-only", "stash@{0}")
@@ -102,7 +102,7 @@ struct RepositoryViewModelBlockedCheckoutTests {
         try await repo.gitAsync("stash", "pop", "-q", "--index")
         #expect(repo.read("a.txt") == "local\n")
         #expect(repo.read("n.txt") == "mine\n")
-        #expect(try repo.porcelain() == [" M a.txt", " M keep.txt", "?? n.txt", "M  staged.txt"])
+        #expect(try await repo.porcelainAsync() == [" M a.txt", " M keep.txt", "?? n.txt", "M  staged.txt"])
     }
 
     @Test("Stashing is refused while another local operation runs")
@@ -133,7 +133,7 @@ struct RepositoryViewModelBlockedCheckoutTests {
 
         #expect(vm.blockedCheckout == nil)
         #expect(vm.currentBranchName == "feature")
-        #expect(try repo.porcelain() == [" M keep.txt"])
+        #expect(try await repo.porcelainAsync() == [" M keep.txt"])
     }
 
     @Test("A commit checkout blocked by local changes asks, then detaches HEAD there")
@@ -152,7 +152,7 @@ struct RepositoryViewModelBlockedCheckoutTests {
 
         #expect(vm.currentBranchName == nil)
         #expect(vm.headSha == sha)
-        #expect(try repo.porcelain().isEmpty)
+        #expect(try await repo.porcelainAsync().isEmpty)
     }
 
     @Test("A pull request branch only on the remote is created tracking it once the changes are discarded")

@@ -6,9 +6,11 @@ import Foundation
 /// a personal `commit.gpgsign` or hook can't make fixtures flaky. `GitCLI`
 /// itself still runs with the normal environment — that's what's under test.
 ///
-/// The plain methods block the calling thread. `@MainActor` suites must use
-/// `make(setup:)` / `gitAsync` instead: blocking the main actor on git under
-/// full-suite load starved unrelated timing-sensitive tests.
+/// The methods that run a process block the calling thread, so they're
+/// `noasync`: async tests use `make(setup:)`, `perform(_:)` or an `…Async`
+/// variant, which run them on a GCD thread. Blocking Swift's cooperative
+/// threads (one per core) or the main actor on git under full-suite load
+/// starved unrelated timing-sensitive tests on CI runners.
 struct GitTestRepo: Sendable {
     struct CommandFailed: Error, CustomStringConvertible {
         let args: [String]
@@ -20,6 +22,7 @@ struct GitTestRepo: Sendable {
 
     var cli: GitCLI { GitCLI(workingDirectory: url) }
 
+    @available(*, noasync, message: "Blocks on git; use GitTestRepo.make(setup:) from async code")
     init(bare: Bool = false) throws {
         url = TemporaryDirectories.make("gitForge-repo")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -46,30 +49,54 @@ struct GitTestRepo: Sendable {
         return try result.get()
     }
 
+    /// Runs `work` against this repo on a GCD thread: several blocking
+    /// steps in a row, or one without its own `…Async` variant.
+    @discardableResult
+    func perform<T: Sendable>(_ work: @escaping @Sendable (GitTestRepo) throws -> T) async throws -> T {
+        let repo = self
+        let result: Result<T, Error> = await GitProcess.offPool { Result { try work(repo) } }
+        return try result.get()
+    }
+
     /// `git(_:)` on a GCD thread.
     @discardableResult
     func gitAsync(_ args: String...) async throws -> String {
-        let repo = self
-        let result: Result<String, Error> = await GitProcess.offPool { Result { try repo.git(args) } }
-        return try result.get()
+        try await perform { try $0.git(args) }
+    }
+
+    /// `git(_:allowFailure:)` on a GCD thread.
+    @discardableResult
+    func gitAsync(_ args: [String], allowFailure: Bool = false) async throws -> String {
+        try await perform { try $0.git(args, allowFailure: allowFailure) }
+    }
+
+    /// `commit(_:files:)` on a GCD thread.
+    @discardableResult
+    func commitAsync(_ message: String, files: [String: String] = [:]) async throws -> String {
+        try await perform { try $0.commit(message, files: files) }
+    }
+
+    /// `porcelain()` on a GCD thread.
+    func porcelainAsync() async throws -> [String] {
+        try await perform { try $0.porcelain() }
     }
 
     /// `externalWrite(_:to:)` on a GCD thread.
     func externalWriteAsync(_ text: String, to path: String) async throws {
-        let repo = self
-        let result: Result<Void, Error> = await GitProcess.offPool { Result { try repo.externalWrite(text, to: path) } }
-        try result.get()
+        try await perform { try $0.externalWrite(text, to: path) }
     }
 
     func remove() {
         try? FileManager.default.removeItem(at: url)
     }
 
+    @available(*, noasync, message: "Blocks on git; use gitAsync or perform from async code")
     @discardableResult
     func git(_ args: String...) throws -> String {
         try git(args)
     }
 
+    @available(*, noasync, message: "Blocks on git; use gitAsync or perform from async code")
     @discardableResult
     func git(_ args: [String], allowFailure: Bool = false) throws -> String {
         let process = Process()
@@ -113,6 +140,7 @@ struct GitTestRepo: Sendable {
     /// Writes from a separate process, like an editor would. FSEvents is
     /// created with `IgnoreSelf`, and the test host *is* the app process, so
     /// a plain `write` from the test is invisible to the watcher.
+    @available(*, noasync, message: "Blocks on a process; use externalWriteAsync from async code")
     func externalWrite(_ text: String, to path: String) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -133,6 +161,7 @@ struct GitTestRepo: Sendable {
     }
 
     /// Writes `files`, stages everything and commits. Returns the new SHA.
+    @available(*, noasync, message: "Blocks on git; use commitAsync or perform from async code")
     @discardableResult
     func commit(_ message: String, files: [String: String] = [:]) throws -> String {
         for (path, text) in files { try write(text, to: path) }
@@ -142,6 +171,7 @@ struct GitTestRepo: Sendable {
     }
 
     /// `git status --porcelain` lines, sorted, for compact assertions.
+    @available(*, noasync, message: "Blocks on git; use porcelainAsync from async code")
     func porcelain() throws -> [String] {
         try git("status", "--porcelain").split(separator: "\n").map(String.init).sorted()
     }

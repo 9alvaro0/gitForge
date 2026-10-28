@@ -29,7 +29,7 @@ struct GitProcessCredentialTests {
 
     @Test("GitCLI.run hands git the helper config and registers the token for redaction")
     func runPassesCredential() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make()
         defer { repo.remove() }
         let result = try await repo.cli.run(["config", "--get-all", "credential.https://example.test.helper"],
                                             credential: Self.credential)

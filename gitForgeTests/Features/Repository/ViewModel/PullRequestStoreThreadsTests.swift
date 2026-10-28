@@ -281,7 +281,10 @@ struct PullRequestStoreThreadsTests {
         // The list picks another file, then the box reports leaving with the focus.
         store.selectedFileChanged()
         store.composerLeft(key, hadFocus: true)
-        await waitUntil(timeout: .seconds(1)) { store.focusRequest == nil }
+        // `selectedFileChanged` drops the request from a task of its own,
+        // which isn't reachable from here: poll for it, with the default
+        // deadline (1 s can be too short on a busy CI runner).
+        await waitUntil { store.focusRequest == nil }
         #expect(!store.claimFocus(key))
     }
 

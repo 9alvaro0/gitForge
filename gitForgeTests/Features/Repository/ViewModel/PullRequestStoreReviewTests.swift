@@ -159,7 +159,8 @@ struct PullRequestStoreReviewTests {
             return result
         }
         await gate.waiting()
-        await waitUntil(timeout: .seconds(2)) { answered.value }
+        // The reload is held at the gate: the review answers all the same.
+        await finished(submit)
         #expect(answered.value)
         #expect(store.submittingReview == nil)
         #expect(store.isLoadingDetail)
@@ -182,7 +183,8 @@ struct PullRequestStoreReviewTests {
             return result
         }
         await gate.waiting()
-        await waitUntil(timeout: .seconds(2)) { answered.value }
+        // The reload is held at the gate: the review answers all the same.
+        await finished(submit)
         #expect(answered.value)
         gate.open()
         _ = await submit.value
@@ -230,6 +232,9 @@ struct PullRequestStoreReviewTests {
         gate.open()
         #expect(await submit.value == .submitted(warning: nil))
         // A reload of the wrong PR would run in the background: give it time.
+        // This waits for something that must NOT happen, so it has no event
+        // to wait on and the deadline stays short: on a slow runner it can
+        // only miss a regression, never fail a correct build.
         await waitUntil(timeout: .milliseconds(300)) { provider.detailFetches[1] != 1 || provider.detailFetches[2] != 1 }
         #expect(reviews.landed.map(\.number) == [1])
         #expect(provider.detailFetches[2] == 1)
@@ -316,7 +321,9 @@ struct PullRequestStoreReviewTests {
         auth.disconnected = true
         await store.refresh()
         gate.open()
-        await waitUntil(timeout: .seconds(2)) { !store.isLoadingDetail }
+        // The background reload's task isn't reachable from here: poll for
+        // its end, with the default deadline (2 s wasn't enough on CI).
+        await waitUntil { !store.isLoadingDetail }
         #expect(!store.isLoadingDetail)
     }
 
@@ -379,7 +386,8 @@ struct PullRequestStoreReviewTests {
             answered.value = true
         }
         await gate.waiting()
-        await waitUntil(timeout: .seconds(2)) { answered.value }
+        // The probe is held at the gate: the detail loads all the same.
+        await finished(load)
         #expect(answered.value)
         #expect(!store.isLoadingDetail)
         #expect(store.detail?.pull.number == 1)
@@ -400,6 +408,9 @@ struct PullRequestStoreReviewTests {
         store.reset()
         gate.open()
         await load.value
+        // The probe's answer must NOT land, so there's no event to wait on
+        // and the deadline stays short: on a slow runner it can only miss a
+        // regression, never fail a correct build.
         await waitUntil(timeout: .milliseconds(300)) { store.requestChangesSupport != nil }
         #expect(store.requestChangesSupport == nil)
     }

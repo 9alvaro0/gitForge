@@ -59,7 +59,7 @@ struct RepositoryViewModelFlowTests {
         await vm.continueMerge()
         #expect(vm.mergeState == .clean)
         #expect(repo.read("f.txt") == "theirs\n")
-        #expect(try repo.git("log", "-1", "--format=%P").split(separator: " ").count == 2)
+        #expect(try await repo.gitAsync("log", "-1", "--format=%P").split(separator: " ").count == 2)
     }
 
     @Test("Create, list and delete a tag")
