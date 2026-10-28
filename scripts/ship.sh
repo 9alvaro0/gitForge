@@ -278,7 +278,8 @@ fi
 
 # ---- 7. Appcast ------------------------------------------------------------
 log "Updating Sparkle appcast"
-run "./scripts/update-appcast.sh '${VERSION}'"
+run "./scripts/update-appcast.sh '${VERSION}'" \
+  || fail "update-appcast.sh failed. ${TAG} and its GitHub Release are already out; finish with ./scripts/update-appcast.sh ${VERSION}, then commit and push ${APPCAST}."
 
 # ---- 8. Commit appcast -----------------------------------------------------
 log "Committing appcast"
