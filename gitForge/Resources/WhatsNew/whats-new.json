@@ -1,6 +1,79 @@
 {
   "releases": [
     {
+      "version": "1.7.0",
+      "highlights": [
+        {
+          "symbol": "gearshape",
+          "title": {
+            "en": "Settings fill the window",
+            "es": "Ajustes a toda ventana",
+            "pt-PT": "Definições em toda a janela"
+          },
+          "body": {
+            "en": "Settings opens in the window itself with six panes (General, Appearance, Identities, Accounts, Git and Pull requests), Back returns you to the repository and section you left, and ⌘, reopens the last pane.",
+            "es": "Ajustes se abre en la propia ventana con seis paneles (General, Apariencia, Identidades, Cuentas, Git y Pull requests), Volver te devuelve al repositorio y la sección donde estabas, y ⌘, reabre el último panel.",
+            "pt-PT": "As Definições abrem-se na própria janela com seis painéis (Geral, Aspeto, Identidades, Contas, Git e Pull requests), Voltar leva-o de volta ao repositório e à secção onde estava, e ⌘, reabre o último painel."
+          }
+        },
+        {
+          "symbol": "checklist.checked",
+          "title": {
+            "en": "Tick several files at once",
+            "es": "Marca varios archivos a la vez",
+            "pt-PT": "Marque vários ficheiros de uma vez"
+          },
+          "body": {
+            "en": "In Changes, ⌘-click and Shift-click tick files like in Finder, Shift-↑↓, Space and ⌘A do it from the keyboard, and right-clicking a ticked file stages, stashes or discards them all.",
+            "es": "En Cambios, ⌘-clic y Mayús-clic marcan archivos como en el Finder, Mayús-↑↓, Espacio y ⌘A lo hacen desde el teclado, y el clic derecho sobre un archivo marcado los prepara, guarda en stash o descarta todos a la vez.",
+            "pt-PT": "Em Alterações, ⌘-clique e Shift-clique marcam ficheiros como no Finder, Shift-↑↓, Espaço e ⌘A fazem-no a partir do teclado, e o clique direito num ficheiro marcado prepara, guarda no stash ou descarta todos de uma vez."
+          }
+        },
+        {
+          "symbol": "arrow.triangle.branch",
+          "title": {
+            "en": "Switch branches with changes",
+            "es": "Cambia de rama con cambios",
+            "pt-PT": "Mude de ramo com alterações"
+          },
+          "body": {
+            "en": "When your changes block a checkout, gitForge offers to stash or discard just those files and then switches, instead of stopping with an error.",
+            "es": "Cuando tus cambios impiden un checkout, gitForge te ofrece guardar en stash o descartar solo esos archivos y después cambia de rama, en vez de pararse con un error.",
+            "pt-PT": "Quando as suas alterações impedem um checkout, o gitForge propõe guardar no stash ou descartar só esses ficheiros e depois muda de ramo, em vez de parar com um erro."
+          }
+        }
+      ],
+      "fixes": [
+        {
+          "en": "gitForge reads each account's token from the Keychain once per launch, so it no longer asks for your keychain password on every fetch and refresh.",
+          "es": "gitForge lee el token de cada cuenta del llavero una vez por arranque, así que ya no te pide la contraseña del llavero en cada fetch y cada actualización.",
+          "pt-PT": "O gitForge lê o token de cada conta do porta-chaves uma vez por arranque, por isso já não pede a palavra-passe do porta-chaves em cada fetch e cada atualização."
+        },
+        {
+          "en": "The Discard all button in the Changes toolbar no longer ends in an ellipsis that made it look cut off.",
+          "es": "El botón Descartar todo de la barra de herramientas de Cambios ya no termina en puntos suspensivos que lo hacían parecer cortado.",
+          "pt-PT": "O botão Descartar tudo da barra de ferramentas de Alterações já não termina em reticências que o faziam parecer cortado."
+        }
+      ],
+      "improvements": [
+        {
+          "en": "Every link to Settings names the pane it opens, such as Open Accounts, and the user card now offers Manage Accounts next to Edit Identities.",
+          "es": "Cada enlace a Ajustes dice qué panel abre, como Abrir Cuentas, y la tarjeta de usuario ofrece ahora Gestionar cuentas junto a Editar identidades.",
+          "pt-PT": "Cada ligação às Definições indica o painel que abre, como Abrir Contas, e o cartão do utilizador passa a oferecer Gerir contas junto de Editar identidades."
+        },
+        {
+          "en": "Searching in ⌘K finds each Settings pane and the actions Connect account, New Profile and Follow Repository.",
+          "es": "Al buscar en ⌘K aparecen cada panel de Ajustes y las acciones Conectar cuenta, Nuevo perfil y Seguir repositorio.",
+          "pt-PT": "A pesquisa no ⌘K encontra cada painel das Definições e as ações Ligar conta, Novo perfil e Seguir repositório."
+        },
+        {
+          "en": "A folded sidebar stays folded the next time you open gitForge.",
+          "es": "Si pliegas la barra lateral, sigue plegada la próxima vez que abras gitForge.",
+          "pt-PT": "Se recolher a barra lateral, continua recolhida da próxima vez que abrir o gitForge."
+        }
+      ]
+    },
+    {
       "version": "1.6.0",
       "highlights": [
         {
