@@ -18,16 +18,19 @@ struct GitCLIDiffOptionsTests {
 
     @Test("commit(signOff:) adds the Signed-off-by trailer")
     func signOff() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["f.txt": "0\n"])
+            try repo.write("1\n", to: "f.txt")
+            try repo.git("add", "f.txt")
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["f.txt": "0\n"])
-        try repo.write("1\n", to: "f.txt")
-        try repo.git("add", "f.txt")
 
         try await repo.cli.commit(subject: "signed", signOff: true)
 
-        let message = try repo.git("log", "-1", "--format=%B")
-        let email = try repo.git("config", "user.email").trimmingCharacters(in: .whitespacesAndNewlines)
+        let (message, email) = try await repo.perform { repo in
+            (try repo.git("log", "-1", "--format=%B"),
+             try repo.git("config", "user.email").trimmingCharacters(in: .whitespacesAndNewlines))
+        }
         #expect(message.contains("Signed-off-by:"))
         #expect(message.contains("<\(email)>"))
     }
@@ -56,14 +59,15 @@ struct WorkingCopySignOffTests {
 
     @Test("A conflicted file diffs against HEAD, conflict markers included")
     func conflictedFile() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["a.txt": "base\n"])
+            try repo.git("checkout", "-q", "-b", "other")
+            try repo.commit("other", files: ["a.txt": "theirs\n"])
+            try repo.git("checkout", "-q", "main")
+            try repo.commit("main", files: ["a.txt": "ours\n"])
+            _ = try repo.git(["merge", "other"], allowFailure: true)
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["a.txt": "base\n"])
-        try repo.git("checkout", "-q", "-b", "other")
-        try repo.commit("other", files: ["a.txt": "theirs\n"])
-        try repo.git("checkout", "-q", "main")
-        try repo.commit("main", files: ["a.txt": "ours\n"])
-        _ = try repo.git(["merge", "other"], allowFailure: true)
 
         // Plain diff is a combined one the parser can't read.
         #expect(DiffParser.parse(try await repo.cli.diffUnstaged(file: "a.txt")).isEmpty)
@@ -75,12 +79,13 @@ struct WorkingCopySignOffTests {
 
     @Test("A staged rename diffs against its old path, not as a new file")
     func stagedRename() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["old.txt": "a\nb\nc\n"])
+            try repo.git("mv", "old.txt", "new.txt")
+            try repo.write("a\nb\nc\nd\n", to: "new.txt")
+            try repo.git("add", "new.txt")
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["old.txt": "a\nb\nc\n"])
-        try repo.git("mv", "old.txt", "new.txt")
-        try repo.write("a\nb\nc\nd\n", to: "new.txt")
-        try repo.git("add", "new.txt")
 
         let hunks = DiffParser.parse(try await repo.cli.diffStaged(file: "new.txt", originalPath: "old.txt"))
         let added = hunks.flatMap(\.lines).filter { $0.kind == .added }.map(\.content)

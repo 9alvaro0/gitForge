@@ -17,10 +17,11 @@ struct GitCLIOutputRobustnessTests {
 
     @Test("A Latin-1 byte in file content still yields a parsed diff")
     func latin1DiffIsNotEmpty() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.commit("init", files: ["l.txt": "hola\n"])
+            try repo.write(Data("hola\ncaf".utf8) + Data([0xE9]) + Data("\n".utf8), to: "l.txt")
+        }
         defer { repo.remove() }
-        try repo.commit("init", files: ["l.txt": "hola\n"])
-        try repo.write(Data("hola\ncaf".utf8) + Data([0xE9]) + Data("\n".utf8), to: "l.txt")
 
         let raw = try await repo.cli.diffUnstaged(file: "l.txt")
         let hunks = DiffParser.parse(raw)
@@ -30,18 +31,21 @@ struct GitCLIOutputRobustnessTests {
 
     @Test("color.diff=always and diff.external in config don't leak into parsed diffs")
     func configDoesNotLeak() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make()
         defer { repo.remove() }
-        let sha = try repo.commit("init", files: ["f.txt": "one\n"])
-        try repo.git("config", "color.diff", "always")
-        try repo.git("config", "diff.external", "/bin/echo")
-        try repo.write("one\ntwo\n", to: "f.txt")
+        let sha = try await repo.perform { repo in
+            let sha = try repo.commit("init", files: ["f.txt": "one\n"])
+            try repo.git("config", "color.diff", "always")
+            try repo.git("config", "diff.external", "/bin/echo")
+            try repo.write("one\ntwo\n", to: "f.txt")
+            return sha
+        }
 
         let unstaged = try await repo.cli.diffUnstaged(file: "f.txt")
         #expect(!unstaged.contains("\u{1B}["))
         #expect(DiffParser.parse(unstaged).count == 1)
 
-        try repo.git("add", "f.txt")
+        try await repo.gitAsync("add", "f.txt")
         let staged = try await repo.cli.diffStaged(file: "f.txt")
         #expect(DiffParser.parse(staged).count == 1)
 

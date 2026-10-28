@@ -39,9 +39,10 @@ struct RemoteHostInstanceTests {
 
     @Test("The repo's origin is read and recognised against the instances")
     func gitRemote() async throws {
-        let repo = try GitTestRepo()
+        let repo = try await GitTestRepo.make { repo in
+            try repo.git("remote", "add", "origin", "https://git.empresa.com/group/app.git")
+        }
         defer { repo.remove() }
-        try repo.git("remote", "add", "origin", "https://git.empresa.com/group/app.git")
         let cli = GitCLI(workingDirectory: repo.url)
         #expect(await cli.remoteHost(instances: []) == nil)
         #expect(await cli.remoteHost(instances: [Self.empresa])?.owner == "group")

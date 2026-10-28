@@ -38,13 +38,10 @@ struct RepositoryViewModelPullDiscardTests {
             try repo.git("reset", "-q", "--hard", "origin/main")
             try repo.git("branch", "-q", "--set-upstream-to=origin/main")
         }
-        let pushed: Result<Void, Error> = await GitProcess.offPool {
-            Result {
-                try writer.commit("incoming", files: incoming)
-                try writer.git("push", "-q", "origin", "main")
-            }
+        try await writer.perform { writer in
+            try writer.commit("incoming", files: incoming)
+            try writer.git("push", "-q", "origin", "main")
         }
-        try pushed.get()
         return Repos(origin: origin, writer: writer, local: local)
     }
 
@@ -100,7 +97,7 @@ struct RepositoryViewModelPullDiscardTests {
         #expect(repos.local.read("a.txt") == "a2\n")
         #expect(repos.local.read("staged.txt") == "s2\n")
         #expect(repos.local.read("n.txt") == "theirs\n")
-        #expect(try repos.local.porcelain() == [" M keep.txt"], "a change that wasn't in the way survives")
+        #expect(try await repos.local.porcelainAsync() == [" M keep.txt"], "a change that wasn't in the way survives")
     }
 
     @Test("A staged new file that collides with an incoming one is discarded too")
@@ -117,7 +114,7 @@ struct RepositoryViewModelPullDiscardTests {
         #expect(await vm.discardBlockingChangesAndPull(request))
 
         #expect(repos.local.read("added.txt") == "theirs\n")
-        #expect(try repos.local.porcelain().isEmpty)
+        #expect(try await repos.local.porcelainAsync().isEmpty)
     }
 
     @Test("A rebase pull blocked by local changes lists every tracked change, not untracked files")
@@ -144,7 +141,7 @@ struct RepositoryViewModelPullDiscardTests {
 
         #expect(repos.local.read("a.txt") == "a2\n")
         #expect(repos.local.read("keep.txt") == "keep\n")
-        #expect(try repos.local.porcelain() == ["?? untracked.txt"], "untracked files never blocked the rebase")
+        #expect(try await repos.local.porcelainAsync() == ["?? untracked.txt"], "untracked files never blocked the rebase")
     }
 
     @Test("With pull.rebase set, a plain pull refused by the rebase is told apart and pulled the same way again")

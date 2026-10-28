@@ -1,5 +1,6 @@
 import Foundation
 import Network
+@testable import gitForge
 
 /// A git smart-HTTP server for tests: 127.0.0.1 only, Basic auth (or none), and each
 /// authorised request runs `git http-backend` (CGI) against the bare repos
@@ -60,19 +61,28 @@ final class GitHTTPTestServer: @unchecked Sendable {
         try? FileManager.default.removeItem(at: root)
     }
 
-    /// An empty bare repo at `root/<name>`.
+    /// An empty bare repo at `root/<name>`. `git init` runs on a GCD thread,
+    /// off the caller's cooperative thread (see `GitTestRepo`).
     @discardableResult
-    func makeBareRepo(_ name: String) throws -> URL {
+    func makeBareRepo(_ name: String) async throws -> URL {
         let path = root.appendingPathComponent(name)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git", "init", "-q", "--bare", "-b", "main", path.path]
-        var environment = ProcessInfo.processInfo.environment
-        environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
-        environment["GIT_CONFIG_NOSYSTEM"] = "1"
-        process.environment = environment
-        try process.run()
-        process.waitUntilExit()
+        let result: Result<Void, Error> = await GitProcess.offPool {
+            Result {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["git", "init", "-q", "--bare", "-b", "main", path.path]
+                var environment = ProcessInfo.processInfo.environment
+                environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
+                environment["GIT_CONFIG_NOSYSTEM"] = "1"
+                process.environment = environment
+                // Not `waitUntilExit()`; see `GitTestRepo.git(_:allowFailure:)`.
+                let exited = DispatchSemaphore(value: 0)
+                process.terminationHandler = { _ in exited.signal() }
+                try process.run()
+                exited.wait()
+            }
+        }
+        try result.get()
         return path
     }
 
