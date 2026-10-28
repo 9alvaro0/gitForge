@@ -6497,22 +6497,6 @@
         }
       }
     },
-    "Discard all…" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartar todo…"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartar tudo…"
-          }
-        }
-      }
-    },
     "Discard and Check Out" : {
       "localizations" : {
         "es" : {
