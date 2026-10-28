@@ -191,6 +191,25 @@ struct TokenRefresherTests {
         #expect(secrets.read(account.id)?.refreshToken == "refresh-2")
     }
 
+    @Test("A refresh starts from the Keychain, not memory: a pair another copy of the app rotated is used")
+    func refreshRereadsKeychain() async throws {
+        let keychain = InMemoryAccountSecretStore()
+        try keychain.write(AccountSecret(accessToken: "access-1", refreshToken: "refresh-1",
+                                         accessTokenExpiresAt: Self.now + 120), for: account.id)
+        let secrets = CachingAccountSecretStore(keychain)
+        #expect(secrets.read(account.id)?.accessToken == "access-1")
+        // Another copy (a Debug build next to the installed one) refreshes
+        // first and spends refresh-1, which works only once.
+        let rotated = AccountSecret(accessToken: "access-9", refreshToken: "refresh-9",
+                                    accessTokenExpiresAt: Self.now + 7200)
+        try keychain.write(rotated, for: account.id)
+        let client = FakeAuthClient(instance: Self.instance, refresh: { _ in Self.grant(2) })
+        let refresher = TokenRefresher(secrets: secrets, makeClient: { _ in client }, now: { Self.now })
+        #expect(try await refresher.accessToken(for: account, on: Self.instance) == "access-9")
+        #expect(client.refreshCalls.isEmpty)
+        #expect(secrets.read(account.id) == rotated)
+    }
+
     @Test("Reconnected while a refresh runs: the new connection is kept")
     func reconnectDuringRefresh() async throws {
         let gate = AsyncGate()

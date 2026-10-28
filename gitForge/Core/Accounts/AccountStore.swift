@@ -16,7 +16,8 @@ nonisolated enum AccountStoreError: LocalizedError, Equatable {
 
 /// Hosting instances, accounts and which account each repo remote uses.
 /// Metadata in `accounts.json` (Application Support); secrets in an
-/// `AccountSecretStore` (the Keychain in the app).
+/// `AccountSecretStore` (in the app, the Keychain behind an in-memory copy
+/// shared with the token refresher).
 @Observable
 @MainActor
 final class AccountStore {
@@ -78,7 +79,7 @@ final class AccountStore {
         let detachedLegacyHosts: [String]?
     }
 
-    init(directory: URL? = nil, secrets: AccountSecretStore = KeychainAccountSecretStore(),
+    init(directory: URL? = nil, secrets: AccountSecretStore = CachingAccountSecretStore(KeychainAccountSecretStore()),
          clientIds: OAuthClientIDs = .bundled) {
         let dir = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first!.appendingPathComponent("gitForge", isDirectory: true)
