@@ -20,6 +20,15 @@ struct ProfilesSection: View {
         ) {
             content
         }
+        // "New Profile…" from ⌘K. A task keyed by the request, not an
+        // `onChange`, so it also reaches a section that mounts after the
+        // request was made (Settings opened on another pane), and clearing
+        // it here ends the request: it opens the editor once.
+        .task(id: appState.ui.newProfileRequest) {
+            guard appState.ui.newProfileRequest != nil else { return }
+            draft = ProfileDraft.new()
+            appState.ui.newProfileRequest = nil
+        }
     }
 
     @ViewBuilder

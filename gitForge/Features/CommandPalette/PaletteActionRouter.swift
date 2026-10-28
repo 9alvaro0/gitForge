@@ -10,6 +10,9 @@ struct PaletteActionRouter {
     func route(_ action: PaletteAction) {
         switch action {
         case .openRepo(let url):
+            // Opening the repository that is already open changes no section,
+            // so Settings would stay: leave it first, whatever the open does.
+            if appState.ui.workspaceSection == .settings { appState.ui.closeSettings() }
             Task {
                 do {
                     try await appState.openRepository(at: url)
@@ -23,8 +26,21 @@ struct PaletteActionRouter {
             Task { await appState.presentOpenRepositoryPanel() }
         case .cloneRepository:
             appState.ui.requestClone()
+        case .selectSection(.settings):
+            // Settings is a mode with panes, not a section to select: no menu
+            // or palette item sends this any more, but one that did opens it
+            // on the last pane.
+            appState.ui.openSettings()
         case .selectSection(let section):
             appState.ui.workspaceSection = section
+        case .openSettings(let pane):
+            appState.ui.openSettings(pane)
+        case .newProfile:
+            appState.ui.requestNewProfile()
+        case .followRepository:
+            appState.ui.requestFollowRepository()
+        case .connectNewAccount:
+            appState.ui.connectAccountRequest = ConnectAccountRequest()
         case .revealCommit(let sha):
             appState.ui.workspaceSection = .history
             appState.catalog.activeViewModel?.history.selectedCommitId = sha

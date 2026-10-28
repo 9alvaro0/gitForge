@@ -90,14 +90,26 @@ enum PaletteAction: Hashable {
     case openFoundRepo(FoundRepo)
     /// The sheet that connects an account on this instance.
     case connectAccount(instanceId: UUID)
+    /// Settings, on this pane or, with `nil`, on the last one shown.
+    case openSettings(SettingsPane?)
+    /// Settings › Identities, with the new-profile editor open.
+    case newProfile
+    /// Settings › Pull requests, with the add-repository sheet open.
+    case followRepository
+    /// The sheet that connects an account, on no instance in particular.
+    case connectNewAccount
 
     /// Opens a panel or a sheet: ⌘↵ ("run without closing") still closes
     /// the palette for these, or it would sit on top of what they show. A
     /// link or a found repo may end in the connect sheet, and Reviews takes
-    /// the window anyway.
+    /// the window anyway. Opening a Settings pane doesn't: Settings takes
+    /// the window and the palette over it is the user's to keep or close,
+    /// as with the other sections; the two Settings actions that open an
+    /// editor or a sheet do.
     var presentsUI: Bool {
         switch self {
-        case .openRepository, .cloneRepository, .addInstance, .openPullLink, .openFoundRepo, .connectAccount: true
+        case .openRepository, .cloneRepository, .addInstance, .openPullLink, .openFoundRepo, .connectAccount,
+             .newProfile, .followRepository, .connectNewAccount: true
         default: false
         }
     }

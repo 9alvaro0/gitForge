@@ -48,6 +48,25 @@ struct CommandPaletteSectionsTests {
         #expect(actions.contains(.cloneRepository))
     }
 
+    @Test("Settings opens on the last pane, each pane has an action of its own, then the ones that open something inside a pane")
+    func settingsCommands() throws {
+        let commands = CommandPaletteBuilder.builtInCommands
+        let settings = try #require(commands.firstIndex { $0.hint == "⌘," })
+        #expect(commands[settings].action == .openSettings(nil))
+
+        let panes = commands.dropFirst(settings + 1).prefix(SettingsPane.allCases.count)
+        #expect(panes.map(\.action) == SettingsPane.allCases.map { PaletteAction.openSettings($0) })
+        #expect(panes.map(\.label) == SettingsPane.allCases.map { "Settings: \($0.label)" })
+        #expect(panes.allSatisfy { $0.kind == .command && $0.hint == nil })
+
+        let inPane = commands.dropFirst(settings + 1 + SettingsPane.allCases.count).prefix(3)
+        #expect(inPane.map(\.action) == [.connectNewAccount, .newProfile, .followRepository])
+        #expect(inPane.map(\.label) == ["Connect account…", "New Profile…", "Follow Repository…"])
+
+        // Settings is a mode now: nothing selects it as a section any more.
+        #expect(!commands.map(\.action).contains(.selectSection(.settings)))
+    }
+
     // MARK: Scopes
 
     @Test("A scope shows only its group, with up to 50 rows, browsing or searching")
@@ -163,6 +182,15 @@ struct CommandPaletteSectionsTests {
         #expect(PaletteAction.cloneRepository.presentsUI)
         #expect(!PaletteAction.fetch.presentsUI)
         #expect(!PaletteAction.selectSection(.history).presentsUI)
+    }
+
+    @Test("The sheets ⌘K opens inside Settings keep ⌘↵ from leaving the palette on top of them; opening a pane doesn't")
+    func presentsUISettings() {
+        #expect(PaletteAction.connectNewAccount.presentsUI)
+        #expect(PaletteAction.newProfile.presentsUI)
+        #expect(PaletteAction.followRepository.presentsUI)
+        #expect(!PaletteAction.openSettings(.git).presentsUI)
+        #expect(!PaletteAction.openSettings(nil).presentsUI)
     }
 
     // MARK: Search all

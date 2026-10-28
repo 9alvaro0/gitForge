@@ -7875,6 +7875,22 @@
         }
       }
     },
+    "Follow Repository…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir repositorio…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir repositório…"
+          }
+        }
+      }
+    },
     "Follow the other %lld that fit too?" : {
       "localizations" : {
         "en" : {
@@ -10365,6 +10381,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Novo ramo…"
+          }
+        }
+      }
+    },
+    "New Profile…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo perfil…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novo perfil…"
           }
         }
       }
@@ -15332,6 +15364,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Definições"
+          }
+        }
+      }
+    },
+    "Settings: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definições: %@"
           }
         }
       }

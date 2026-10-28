@@ -156,6 +156,10 @@ enum CommandPaletteBuilder {
                            action: .openFoundRepo(found), symbol: CommandPaletteItem.Kind.repo.symbol)
     }
 
+    /// The actions ⌘K always offers. Settings comes last: the item that
+    /// opens it on the last pane, one "Settings: <pane>" item per pane in
+    /// the sidebar's order, and the three actions that open something
+    /// inside one.
     static let builtInCommands: [CommandPaletteItem] = [
         CommandPaletteItem(kind: .command, label: String(localized: "Open repository…"),  hint: "⌘O",  action: .openRepository),
         CommandPaletteItem(kind: .command, label: String(localized: "Clone repository…"), hint: "⌥⌘C", action: .cloneRepository),
@@ -164,7 +168,14 @@ enum CommandPaletteBuilder {
         CommandPaletteItem(kind: .command, label: String(localized: "Push"),            hint: "⌘⇧P", action: .push),
         CommandPaletteItem(kind: .command, label: String(localized: "New branch…"),     hint: "⌘⇧B", action: .selectSection(.branches)),
         CommandPaletteItem(kind: .command, label: String(localized: "Stash changes"),   hint: nil,   action: .stash),
-        CommandPaletteItem(kind: .command, label: String(localized: "Settings"),        hint: "⌘,",  action: .selectSection(.settings)),
+        CommandPaletteItem(kind: .command, label: String(localized: "Settings"),        hint: "⌘,",  action: .openSettings(nil)),
+    ] + SettingsPane.allCases.map { pane in
+        CommandPaletteItem(kind: .command, label: String(localized: "Settings: \(pane.label)"), hint: nil,
+                           action: .openSettings(pane))
+    } + [
+        CommandPaletteItem(kind: .command, label: String(localized: "Connect account…"),    hint: nil, action: .connectNewAccount),
+        CommandPaletteItem(kind: .command, label: String(localized: "New Profile…"),        hint: nil, action: .newProfile),
+        CommandPaletteItem(kind: .command, label: String(localized: "Follow Repository…"),  hint: nil, action: .followRepository),
     ]
 
     /// A pull request by its title, found too by its repo path, branch,
