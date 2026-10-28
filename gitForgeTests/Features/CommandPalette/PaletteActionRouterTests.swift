@@ -48,6 +48,103 @@ struct PaletteActionRouterTests {
         #expect(vm.workingCopy.selectedWorkingCopyFile?.path == "a.txt")
     }
 
+    // MARK: Settings
+
+    @Test("A pane opens Settings on it, and Back goes to where Settings was opened from")
+    func openSettingsPane() {
+        let app = AppState.isolated()
+        app.ui.workspaceSection = .history
+
+        PaletteActionRouter(appState: app).route(.openSettings(.accounts))
+
+        #expect(app.ui.workspaceSection == .settings)
+        #expect(app.ui.settingsPane == .accounts)
+        #expect(app.ui.sectionBeforeSettings == .history)
+    }
+
+    @Test("Settings without a pane opens on the last one")
+    func openSettingsLast() {
+        let app = AppState.isolated()
+        app.ui.settingsPane = .git
+
+        PaletteActionRouter(appState: app).route(.openSettings(nil))
+
+        #expect(app.ui.workspaceSection == .settings)
+        #expect(app.ui.settingsPane == .git)
+    }
+
+    @Test("A section pick of Settings, should one still arrive, opens it on the last pane")
+    func legacySelectSettings() {
+        let app = AppState.isolated()
+        app.ui.workspaceSection = .changes
+        app.ui.settingsPane = .appearance
+
+        PaletteActionRouter(appState: app).route(.selectSection(.settings))
+
+        #expect(app.ui.workspaceSection == .settings)
+        #expect(app.ui.settingsPane == .appearance)
+        #expect(app.ui.sectionBeforeSettings == .changes)
+    }
+
+    @Test("New Profile… opens Identities and asks it for a new profile")
+    func newProfile() {
+        let app = AppState.isolated()
+
+        PaletteActionRouter(appState: app).route(.newProfile)
+
+        #expect(app.ui.workspaceSection == .settings)
+        #expect(app.ui.settingsPane == .identities)
+        #expect(app.ui.newProfileRequest != nil)
+        #expect(app.ui.followRepositoryRequest == nil)
+    }
+
+    @Test("Follow Repository… opens Pull requests and asks it to follow one")
+    func followRepository() {
+        let app = AppState.isolated()
+
+        PaletteActionRouter(appState: app).route(.followRepository)
+
+        #expect(app.ui.workspaceSection == .settings)
+        #expect(app.ui.settingsPane == .pullRequests)
+        #expect(app.ui.followRepositoryRequest != nil)
+        #expect(app.ui.newProfileRequest == nil)
+    }
+
+    @Test("Connect account… opens the sheet on no instance in particular, replacing no account")
+    func connectNewAccount() {
+        let app = AppState.isolated()
+
+        PaletteActionRouter(appState: app).route(.connectNewAccount)
+
+        #expect(app.ui.connectAccountRequest != nil)
+        #expect(app.ui.connectAccountRequest?.instanceId == nil)
+        #expect(app.ui.connectAccountRequest?.replacing == nil)
+    }
+
+    @Test("Picking a repository while Settings is up leaves Settings at once, even if it's the one already open")
+    func openRepoLeavesSettings() {
+        let app = AppState.isolated()
+        app.ui.workspaceSection = .changes
+        app.ui.openSettings(.git)
+        #expect(app.ui.workspaceSection == .settings)
+
+        PaletteActionRouter(appState: app).route(.openRepo(URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")))
+
+        // No suspension point since `route`: the open hasn't finished.
+        #expect(app.ui.workspaceSection == .changes)
+        #expect(app.ui.sectionBeforeSettings == nil)
+    }
+
+    @Test("Picking a repository outside Settings doesn't touch the section until the open says it switched")
+    func openRepoOutsideSettings() {
+        let app = AppState.isolated()
+        app.ui.workspaceSection = .changes
+
+        PaletteActionRouter(appState: app).route(.openRepo(URL(fileURLWithPath: "/var/empty/gitForge-tests-\(UUID().uuidString)")))
+
+        #expect(app.ui.workspaceSection == .changes)
+    }
+
     // MARK: Pull requests and links
 
     /// An app whose inbox loaded team/app, not cloned, with the user's !4 and

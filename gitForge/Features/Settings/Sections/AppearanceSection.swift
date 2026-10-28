@@ -93,11 +93,14 @@ struct AppearanceSection: View {
                           onChange: @escaping (String) -> Void) -> some View {
         VStack(alignment: .leading, spacing: Spacing.s6) {
             fieldLabel(label)
-            HStack(spacing: Spacing.s4) {
+            // Options that don't fit the column go on the next line rather
+            // than being cut ("Absolute (2026-05-09 14:32)" is wide).
+            FlowLayout(spacing: Spacing.s4, fitsWideItems: true) {
                 ForEach(values, id: \.0) { (raw, label) in
                     Button(action: { onChange(raw) }) {
                         Text(label.capitalized)
                             .textRole(.callout)
+                            .lineLimit(1)
                             .padding(.horizontal, Spacing.s12)
                             .frame(height: 24)
                             .foregroundStyle(raw == current ? theme.colors.accent : theme.colors.textSecondary)

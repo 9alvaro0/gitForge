@@ -121,8 +121,8 @@ struct QuietButton: View {
                       action: ("Reconnect…", {}))
         ReviewsNotice(symbol: "info.circle.fill", tint: theme.colors.info, soft: theme.colors.infoSoft,
                       title: "5 repositories left out (limit of 100).",
-                      detail: "Hide repositories or narrow your patterns in Settings.",
-                      action: ("Open Settings", {}))
+                      detail: "Hide repositories or narrow your patterns in Settings › Pull requests.",
+                      action: ("Manage Followed Repositories", {}))
     }
     .padding(Spacing.s8)
     .frame(width: 320)

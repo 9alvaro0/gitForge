@@ -2591,6 +2591,22 @@
         }
       }
     },
+    "Back to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar a %@"
+          }
+        }
+      }
+    },
     "Back to History (Esc)" : {
       "localizations" : {
         "es" : {
@@ -4091,6 +4107,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fechar repositório"
+          }
+        }
+      }
+    },
+    "Close Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar ajustes"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar definições"
           }
         }
       }
@@ -7058,6 +7090,38 @@
         }
       }
     },
+    "Edit Identities…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades…"
+          }
+        }
+      }
+    },
+    "Edit identities and accounts" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades y cuentas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar identidades e contas"
+          }
+        }
+      }
+    },
     "Email" : {
       "localizations" : {
         "es" : {
@@ -7891,6 +7955,22 @@
         }
       }
     },
+    "Follow Repository…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir repositorio…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguir repositório…"
+          }
+        }
+      }
+    },
     "Follow the other %lld that fit too?" : {
       "localizations" : {
         "en" : {
@@ -8185,6 +8265,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ID da chave GPG / SSH (opcional)"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geral"
           }
         }
       }
@@ -8573,18 +8669,18 @@
         }
       }
     },
-    "Hide repositories or narrow your patterns in Settings." : {
+    "Hide repositories or narrow your patterns in Settings › Pull requests." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oculta repos o acota tus patrones en Ajustes."
+            "value" : "Oculta repos o acota tus patrones en Ajustes › Pull requests."
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oculte repositórios ou restrinja os seus padrões nas Definições."
+            "value" : "Oculte repositórios ou restrinja os seus padrões em Definições › Pull requests."
           }
         }
       }
@@ -8713,6 +8809,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bloco %lld, resolvido com %@"
+          }
+        }
+      }
+    },
+    "Identities" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identidades"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identidades"
           }
         }
       }
@@ -9471,34 +9583,34 @@
         }
       }
     },
-    "Manage git profiles" : {
+    "Manage Accounts…" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gestionar perfiles de git"
+            "value" : "Gestionar cuentas…"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gerir perfis git"
+            "value" : "Gerir contas…"
           }
         }
       }
     },
-    "Manage profiles…" : {
+    "Manage Followed Repositories" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gestionar perfiles…"
+            "value" : "Gestionar repos seguidos"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gerir perfis…"
+            "value" : "Gerir repositórios seguidos"
           }
         }
       }
@@ -10349,6 +10461,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Novo ramo…"
+          }
+        }
+      }
+    },
+    "New Profile…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo perfil…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novo perfil…"
           }
         }
       }
@@ -11522,6 +11650,22 @@
         }
       }
     },
+    "Open Accounts" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Cuentas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Contas"
+          }
+        }
+      }
+    },
     "Open Clone…" : {
       "localizations" : {
         "es" : {
@@ -11602,22 +11746,6 @@
         }
       }
     },
-    "Open Settings" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir Ajustes"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir Definições"
-          }
-        }
-      }
-    },
     "Open a folder" : {
       "localizations" : {
         "es" : {
@@ -11646,22 +11774,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abrir um repositório…"
-          }
-        }
-      }
-    },
-    "Open accounts" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir cuentas"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir contas"
           }
         }
       }
@@ -15332,6 +15444,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Definições"
+          }
+        }
+      }
+    },
+    "Settings: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definições: %@"
           }
         }
       }

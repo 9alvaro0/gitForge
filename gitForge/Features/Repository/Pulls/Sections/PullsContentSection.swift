@@ -9,7 +9,7 @@ struct PullsContentSection: View {
     let nounPlural: String
     let onConnect: () -> Void
     let onAddInstance: (InstanceSuggestion) -> Void
-    let onOpenSettings: () -> Void
+    let onOpenAccounts: () -> Void
 
     @Environment(\.appTheme) private var theme
     @State private var trustHost: String?
@@ -61,7 +61,7 @@ struct PullsContentSection: View {
                 nounPlural: nounPlural,
                 reconnect: store.reconnectAccountId != nil,
                 onConnect: onConnect,
-                onOpenSettings: onOpenSettings
+                onOpenAccounts: onOpenAccounts
             )
         }
         // Loaded with a host and token: `PullsView` shows the list instead.
@@ -106,7 +106,7 @@ struct PullsContentSection: View {
     PullsContentSection(
         store: .previewWithPullRequests,
         nounPlural: "pull requests",
-        onConnect: {}, onAddInstance: { _ in }, onOpenSettings: {}
+        onConnect: {}, onAddInstance: { _ in }, onOpenAccounts: {}
     )
     .frame(width: 1100, height: 600)
     .background(theme.colors.bgContent)
@@ -123,7 +123,7 @@ struct PullsContentSection: View {
     PullsContentSection(
         store: store,
         nounPlural: "pull requests",
-        onConnect: {}, onAddInstance: { _ in }, onOpenSettings: {}
+        onConnect: {}, onAddInstance: { _ in }, onOpenAccounts: {}
     )
     .frame(width: 1100, height: 600)
     .background(theme.colors.bgContent)

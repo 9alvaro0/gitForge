@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings redesign</title>
+<style>
+:root{
+  --bg-window:#E8E8ED;--bg-content:#FFFFFF;--bg-elevated:#F6F6F9;--glass:rgba(248,248,251,.72);
+  --fill-control:rgba(0,0,0,.05);--fill-hover:rgba(0,0,0,.04);--separator:rgba(0,0,0,.08);--stroke:rgba(0,0,0,.10);
+  --t1:#1B1B22;--t2:#3F3F4A;--t3:#5A5A66;--t4:#63636E;
+  --accent:#1F7F5F;--accent-soft:rgba(86,180,151,.14);--accent-fill:#56B497;--on-accent:#101014;
+  --ok:#157A5F;--ok-soft:rgba(30,160,120,.12);--warn:#A35A00;--warn-soft:rgba(240,150,20,.14);
+  --del:#C8373D;--del-soft:rgba(220,60,70,.10);--info:#1F64C8;--info-soft:rgba(40,110,220,.12);
+  --violet:#5B3DF5;--violet-soft:rgba(124,92,255,.14);--coral:#C0452F;--coral-soft:rgba(255,126,107,.16);
+  --gray-soft:rgba(0,0,0,.06);--shadow:0 18px 50px rgba(20,20,40,.18);
+  --pink:#D6457F;--pink-soft:rgba(214,69,127,.14);
+  --page:#D9D9E0;
+}
+[data-mode=dark]{
+  --bg-window:#141418;--bg-content:#18181C;--bg-elevated:#1C1C21;--glass:rgba(40,40,48,.62);
+  --fill-control:rgba(255,255,255,.07);--fill-hover:rgba(255,255,255,.055);--separator:rgba(255,255,255,.07);--stroke:rgba(255,255,255,.10);
+  --t1:#ECECF1;--t2:#B9B9C4;--t3:#A3A3AE;--t4:#888893;
+  --accent:#5FCDA9;--accent-soft:rgba(86,180,151,.24);--accent-fill:#56B497;--on-accent:#101014;
+  --ok:#5FCDA9;--ok-soft:rgba(95,205,169,.16);--warn:#FFB547;--warn-soft:rgba(255,181,71,.16);
+  --del:#FF8A8A;--del-soft:rgba(255,95,95,.14);--info:#79B6FF;--info-soft:rgba(93,164,255,.16);
+  --violet:#A08CFF;--violet-soft:rgba(124,92,255,.24);--coral:#FF907F;--coral-soft:rgba(255,126,107,.22);
+  --gray-soft:rgba(255,255,255,.08);--shadow:0 18px 50px rgba(0,0,0,.45);
+  --pink:#F0729E;--pink-soft:rgba(240,114,158,.24);
+  --page:#0D0D10;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);font:13px/1.38 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;color:var(--t1);-webkit-font-smoothing:antialiased}
+.bar{display:flex;gap:10px;align-items:center;justify-content:center;padding:14px 16px 0;color:var(--t3);font-size:12px;flex-wrap:wrap}
+.bar button{font:inherit;border:1px solid var(--stroke);background:var(--bg-content);color:var(--t1);border-radius:6px;padding:4px 10px;cursor:pointer}
+.stage{padding:18px 16px 40px;display:flex;justify-content:center}
+.win{width:1120px;max-width:100%;height:720px;display:flex;border-radius:12px;overflow:hidden;background:var(--bg-window);box-shadow:var(--shadow);border:1px solid var(--stroke)}
+.side{width:236px;flex:none;background:var(--glass);border-right:1px solid var(--separator);display:flex;flex-direction:column;padding:10px 10px 10px}
+.lights{display:flex;gap:8px;padding:4px 6px 14px}.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.back{display:flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--t3);font:inherit;padding:5px 8px;border-radius:7px;cursor:pointer;width:100%;text-align:left}
+.back:hover{background:var(--fill-hover);color:var(--t1)}
+.back .repo{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--t2)}
+.sideTitle{font-size:20px;font-weight:600;letter-spacing:-.3px;padding:10px 8px 10px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.item{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:7px;cursor:pointer;color:var(--t1);border:0;background:transparent;font:inherit;text-align:left;width:100%}
+.item:hover{background:var(--fill-hover)}
+.item.sel{background:var(--accent-soft)}
+.item .lbl{flex:1}
+.tile{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:none}
+.tile svg{width:14px;height:14px}
+.badge{min-width:16px;height:16px;border-radius:8px;font-size:10px;font-weight:600;display:grid;place-items:center;padding:0 5px}
+.badge.warn{background:var(--warn);color:#fff}
+[data-mode=dark] .badge.warn{color:#141418}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent-fill)}
+.sideFoot{margin-top:auto;padding:10px 8px 2px;border-top:1px solid var(--separator);display:flex;align-items:center;justify-content:space-between;color:var(--t4);font-size:11px}
+.sideFoot a{color:var(--accent);text-decoration:none;cursor:pointer}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg-content)}
+.tool{height:52px;flex:none;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--separator);background:var(--bg-content)}
+.tool .t{display:flex;flex-direction:column;line-height:1.15}
+.tool .t b{font-size:13px;font-weight:600}.tool .t span{font-size:11px;color:var(--t3)}
+.search{margin-left:auto;width:230px;white-space:nowrap;overflow:hidden;height:28px;border-radius:8px;background:var(--fill-control);display:flex;align-items:center;gap:6px;padding:0 9px;color:var(--t4);font-size:12px}
+.kbd{margin-left:auto;font-size:10px;border:1px solid var(--stroke);border-radius:4px;padding:0 4px;color:var(--t4)}
+.scroll{flex:1;overflow:auto}
+.pane{max-width:680px;margin:0 auto;padding:26px 28px 48px}
+.ph{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.ph .tile{width:40px;height:40px;border-radius:10px}.ph .tile svg{width:22px;height:22px}
+.ph h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.3px}
+.ph p{margin:2px 0 0;color:var(--t3);font-size:12px}
+.ph .acts{margin-left:auto;display:flex;gap:6px}
+.gh{font-size:12px;font-weight:600;color:var(--t2);margin:22px 4px 7px;display:flex;align-items:center;gap:8px}
+.gh .aside{margin-left:auto;font-weight:400;color:var(--t4)}
+.group{background:var(--bg-elevated);border:1px solid var(--separator);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;min-height:44px;padding:9px 14px}
+.row+.row{border-top:1px solid var(--separator)}
+.row .l{flex:1;min-width:0}.row .l b{font-weight:400;display:block}.row .l small{display:block;color:var(--t3);font-size:11px;margin-top:1px}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11.5px}
+.btn{font:600 12px/1 -apple-system,sans-serif;border:1px solid var(--stroke);background:var(--bg-content);color:var(--t1);border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--accent-fill);border-color:transparent;color:var(--on-accent)}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--t3)}
+.select{display:flex;align-items:center;gap:6px;border:1px solid var(--stroke);background:var(--bg-content);border-radius:6px;padding:4px 8px;font-size:12px;min-width:150px;justify-content:space-between}
+.field{border:1px solid var(--stroke);background:var(--bg-content);border-radius:6px;padding:5px 8px;font-size:12px;min-width:220px;color:var(--t1)}
+.seg{display:flex;background:var(--fill-control);border-radius:7px;padding:2px;gap:2px}
+.seg span{padding:4px 10px;border-radius:5px;font-size:12px;color:var(--t2);cursor:pointer}
+.seg span.on{background:var(--bg-content);color:var(--t1);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.tog{width:32px;height:18px;border-radius:9px;background:var(--fill-control);position:relative;flex:none;cursor:pointer;border:1px solid var(--stroke)}
+.tog::after{content:"";position:absolute;top:1px;left:1px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.tog.on{background:var(--accent-fill);border-color:transparent}.tog.on::after{left:15px}
+.pill{font-size:10.5px;font-weight:600;border-radius:5px;padding:2px 6px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.del{background:var(--del-soft);color:var(--del)}.pill.gray{background:var(--gray-soft);color:var(--t3)}.pill.info{background:var(--info-soft);color:var(--info)}
+.themes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:14px}
+.th{cursor:pointer;text-align:center;font-size:12px;color:var(--t2)}
+.th .pv{height:74px;border-radius:9px;border:2px solid transparent;overflow:hidden;display:flex;margin-bottom:6px;outline:1px solid var(--separator)}
+.th.on .pv{border-color:var(--accent-fill)}.th.on{color:var(--t1);font-weight:600}
+.pv .s{width:30%;padding:8px 5px;display:flex;flex-direction:column;gap:4px}.pv .c{flex:1;padding:8px;display:flex;flex-direction:column;gap:5px}
+.pv i{display:block;height:5px;border-radius:3px}
+.swatches{display:flex;gap:10px}
+.sw{width:22px;height:22px;border-radius:50%;cursor:pointer;position:relative}
+.sw.on::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--t3)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.card{background:var(--bg-elevated);border:1px solid var(--separator);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.add{border-style:dashed;align-items:center;justify-content:center;color:var(--t3);cursor:pointer;min-height:132px;background:transparent}
+.who{display:flex;align-items:center;gap:10px}
+.av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:12px;flex:none}
+.who b{display:block;font-size:13px}.who small{display:block;color:var(--t3);font-size:11px}
+.who .more{margin-left:auto;color:var(--t4);cursor:pointer;padding:2px 6px;border-radius:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;border-radius:5px;padding:2px 7px;background:var(--fill-control);color:var(--t2)}
+.hero{background:var(--bg-elevated);border:1px solid var(--separator);border-radius:12px;overflow:hidden}
+.hero .top{display:flex;align-items:center;gap:12px;padding:14px}
+.banner{display:flex;align-items:center;gap:10px;border-radius:10px;padding:10px 12px;margin-bottom:6px;font-size:12px}
+.banner.warn{background:var(--warn-soft);color:var(--warn)}.banner.info{background:var(--accent-soft);color:var(--t1)}
+.banner .grow{flex:1}
+.acct{display:flex;align-items:center;gap:10px}
+.inst{display:flex;align-items:center;gap:8px;padding:10px 14px;background:transparent;font-size:12px}
+.inst b{font-size:13px}
+.repo-row{display:flex;align-items:center;gap:10px;min-height:36px;padding:6px 14px}
+.repo-row+.repo-row{border-top:1px solid var(--separator)}
+.repo-row .hov{opacity:0;transition:opacity .1s}.repo-row:hover .hov{opacity:1}
+.mono-av{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:9.5px;font-weight:700;flex:none}
+.disc{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;color:var(--t2)}
+.disc .chev{transition:transform .15s}.disc.open .chev{transform:rotate(90deg)}
+.hint{color:var(--t4);font-size:11px;margin:8px 4px 0;display:flex;gap:6px;align-items:flex-start}
+.pane[hidden]{display:none}
+.diffpv{display:flex;gap:10px}
+.dv{width:96px;cursor:pointer;text-align:center;font-size:11px;color:var(--t3)}
+.dv .b{height:44px;border-radius:7px;outline:1px solid var(--separator);border:2px solid transparent;padding:6px;display:flex;gap:4px;background:var(--bg-content)}
+.dv.on .b{border-color:var(--accent-fill)}.dv.on{color:var(--t1);font-weight:600}
+.dv .b .col{flex:1;display:flex;flex-direction:column;gap:3px}.dv .b i{display:block;height:4px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="bar">
+  <span>Maqueta del rediseño de Ajustes (datos de ejemplo)</span>
+  <button id="mode">Cambiar a oscuro</button>
+</div>
+<div class="stage">
+<div class="win">
+  <aside class="side">
+    <div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+    <button class="back" title="Volver (⌘[)">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 2.5 4 6l3.5 3.5"/></svg>
+      Volver a <span class="repo">nimbus-api</span>
+    </button>
+    <div class="sideTitle">Ajustes</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sideFoot"><span>gitForge 1.6.0</span><a>Novedades</a></div>
+  </aside>
+  <section class="main">
+    <div class="tool">
+      <div class="t"><b>Ajustes</b><span id="sub">General</span></div>
+      <div class="search">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5.2" cy="5.2" r="3.6"/><path d="m8 8 2.6 2.6" stroke-linecap="round"/></svg>
+        Buscar o ejecutar un comando<span class="kbd">⌘K</span>
+      </div>
+    </div>
+    <div class="scroll" id="scroll">
+
+      <div class="pane" data-pane="general">
+        <div class="ph"><div class="tile" data-tile="general"></div><div><h1>General</h1><p>Idioma y actualizaciones de gitForge.</p></div></div>
+        <div class="gh">Idioma</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>Idioma de la app</b><small>«Predeterminado del sistema» sigue a Ajustes del Sistema.</small></div><div class="select">Predeterminado del sistema <span>⌄</span></div></div>
+        </div>
+        <div class="gh">Actualizaciones</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>gitForge 1.6.0</b><small>Al día. Última comprobación hace 2 h.</small></div><button class="btn">Buscar ahora</button></div>
+          <div class="row"><div class="l"><b>Instalar automáticamente</b><small>Descarga en segundo plano e instala al salir. Si lo desactivas, gitForge pregunta antes.</small></div><div class="tog on"></div></div>
+          <div class="row"><div class="l"><b>Novedades de la 1.6.0</b><small>Lo que trajo esta versión.</small></div><button class="btn">Ver novedades</button></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="appearance" hidden>
+        <div class="ph"><div class="tile" data-tile="appearance"></div><div><h1>Apariencia</h1><p>Tema, color y cómo se ven los textos y los diffs.</p></div></div>
+        <div class="gh">Tema</div>
+        <div class="group">
+          <div class="themes">
+            <div class="th"><div class="pv"><div class="s" style="background:#E8E8ED"><i style="background:#c9c9d1;width:80%"></i><i style="background:#c9c9d1"></i></div><div class="c" style="background:#18181C"><i style="background:#3a3a42;width:70%"></i><i style="background:#3a3a42"></i><i style="background:#56B497;width:40%"></i></div></div>Sistema</div>
+            <div class="th on"><div class="pv"><div class="s" style="background:#E8E8ED"><i style="background:#c9c9d1;width:80%"></i><i style="background:#c9c9d1"></i></div><div class="c" style="background:#fff"><i style="background:#e4e4ea;width:70%"></i><i style="background:#e4e4ea"></i><i style="background:#56B497;width:40%"></i></div></div>Claro</div>
+            <div class="th"><div class="pv"><div class="s" style="background:#141418"><i style="background:#33333b;width:80%"></i><i style="background:#33333b"></i></div><div class="c" style="background:#18181C"><i style="background:#2c2c34;width:70%"></i><i style="background:#2c2c34"></i><i style="background:#56B497;width:40%"></i></div></div>Oscuro</div>
+          </div>
+          <div class="row"><div class="l"><b>Color de acento</b><small>Selección, botones principales y marcas.</small></div>
+            <div class="swatches"><div class="sw" style="background:#7C5CFF" title="Violeta"></div><div class="sw on" style="background:#56B497" title="Verde"></div><div class="sw" style="background:#FF7E6B" title="Coral"></div><div class="sw" style="background:#5DA4FF" title="Azul"></div></div></div>
+          <div class="row"><div class="l"><b>Densidad</b><small>Altura de filas en listas y tablas.</small></div><div class="seg"><span class="on">Compacta</span><span>Normal</span></div></div>
+        </div>
+        <div class="gh">Texto</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>Fuente monoespaciada</b><small>Hashes, rutas y diffs.</small></div><div class="select">SF Mono <span>⌄</span></div></div>
+          <div class="row"><div class="l"><b>Fechas</b></div><div class="seg"><span class="on">Relativas · hace 2 h</span><span>Absolutas · 9 may 14:32</span></div></div>
+        </div>
+        <div class="gh">Diffs</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>Vista</b></div>
+            <div class="diffpv">
+              <div class="dv on"><div class="b"><div class="col"><i style="background:var(--del-soft)"></i><i style="background:var(--del-soft);width:70%"></i><i style="background:var(--ok-soft)"></i><i style="background:var(--ok-soft);width:60%"></i></div></div>Unificada</div>
+              <div class="dv"><div class="b"><div class="col"><i style="background:var(--del-soft)"></i><i style="background:var(--del-soft);width:70%"></i></div><div class="col"><i style="background:var(--ok-soft)"></i><i style="background:var(--ok-soft);width:60%"></i></div></div>Dividida</div>
+            </div></div>
+          <div class="row"><div class="l"><b>Líneas de contexto</b><small>Alrededor de cada cambio.</small></div><div class="select" style="min-width:110px">3 líneas <span>⌄</span></div></div>
+          <div class="row"><div class="l"><b>Ajustar líneas largas</b><small>Partirlas en varias filas en vez de desplazar en horizontal.</small></div><div class="tog"></div></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="identities" hidden>
+        <div class="ph"><div class="tile" data-tile="identities"></div><div><h1>Identidades</h1><p>Quién firma tus commits: la identidad global y tus perfiles.</p></div></div>
+        <div class="gh">Identidad global <span class="aside mono">~/.gitconfig</span></div>
+        <div class="hero">
+          <div class="top"><div class="av" style="background:var(--accent-soft);color:var(--accent)">AL</div>
+            <div class="who"><div><b>Ada Lovelace</b><small>Se usa en los repositorios sin identidad propia.</small></div></div></div>
+          <div class="row"><div class="l"><b>Nombre</b></div><input class="field" value="Ada Lovelace"></div>
+          <div class="row"><div class="l"><b>Correo</b></div><input class="field mono" value="ada@example.com"></div>
+          <div class="row"><div class="l"><b>Clave de firma</b><small>GPG o SSH. Opcional.</small></div><input class="field mono" placeholder="Sin clave"></div>
+          <div class="row"><div class="l"><b>Firmar commits por defecto</b><small>Activa commit.gpgsign. Necesita una clave de firma.</small></div><div class="tog"></div></div>
+        </div>
+        <div class="gh">Perfiles <span class="aside">Cámbialos en cada repo desde tu tarjeta de la barra lateral</span></div>
+        <div class="cards">
+          <div class="card"><div class="who"><div class="av" style="background:var(--violet-soft);color:var(--violet)">P</div><div><b>Personal</b><small class="mono">ada@example.com</small></div><span class="more">•••</span></div>
+            <div class="chips"><span class="chip">GitHub · ada</span><span class="chip">Firma SSH</span></div></div>
+          <div class="card"><div class="who"><div class="av" style="background:var(--info-soft);color:var(--info)">T</div><div><b>Trabajo</b><small class="mono">ada@acme.dev</small></div><span class="more">•••</span></div>
+            <div class="chips"><span class="chip">GitLab · gitlab.acme.dev</span></div></div>
+          <div class="card add"><span style="font-size:20px">+</span>Nuevo perfil</div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="accounts" hidden>
+        <div class="ph"><div class="tile" data-tile="accounts"></div><div><h1>Cuentas</h1><p>GitHub y GitLab: push por HTTPS y pull requests.</p></div>
+          <div class="acts"><button class="btn">Añadir instancia…</button><button class="btn primary">Conectar cuenta…</button></div></div>
+        <div class="banner warn"><span>●</span><span class="grow">1 cuenta ha dejado de funcionar y hay que volver a conectarla.</span></div>
+        <div class="gh">GitHub <span class="aside mono">github.com</span></div>
+        <div class="group">
+          <div class="row"><div class="av" style="width:28px;height:28px;background:var(--violet-soft);color:var(--violet)">a</div>
+            <div class="l"><b>ada</b><small>OAuth · repo, workflow · Perfil Personal</small></div><span class="pill ok">Conectada</span><span class="btn quiet">•••</span></div>
+        </div>
+        <div class="gh">GitLab <span class="aside mono">gitlab.com</span></div>
+        <div class="group">
+          <div class="row"><div class="av" style="width:28px;height:28px;background:var(--gray-soft);color:var(--t3)">?</div>
+            <div class="l"><b>Token personal</b><small>Rechazado por gitlab.com</small></div><span class="pill del">Rechazada</span><button class="btn">Volver a conectar…</button></div>
+        </div>
+        <div class="gh">GitLab autoalojado <span class="aside mono">gitlab.acme.dev</span></div>
+        <div class="group">
+          <div class="row"><div class="av" style="width:28px;height:28px;background:var(--info-soft);color:var(--info)">AL</div>
+            <div class="l"><b>ada.lovelace</b><small>Token · api, write_repository · caduca el 10 nov 2026 · Perfil Trabajo</small></div><span class="pill ok">Conectada</span><span class="btn quiet">•••</span></div>
+        </div>
+        <div class="gh">Avanzado</div>
+        <div class="group">
+          <div class="disc"><span class="chev">›</span>Certificados de confianza <span class="pill gray" style="margin-left:auto">1</span></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="git" hidden>
+        <div class="ph"><div class="tile" data-tile="git"></div><div><h1>Git</h1><p>Cómo trabaja git en todos tus repositorios.</p></div></div>
+        <div class="gh">Ramas y sincronización</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>Rama por defecto</b><small>Para los repositorios nuevos (init.defaultBranch).</small></div><input class="field mono" style="min-width:150px" value="main"></div>
+          <div class="row"><div class="l"><b>Estrategia de pull</b></div><div class="select">Rebase <span>⌄</span></div></div>
+          <div class="row"><div class="l"><b>Fetch automático</b><small>Trae cambios del remoto en segundo plano.</small></div><div class="select">Cada 5 min <span>⌄</span></div></div>
+        </div>
+        <div class="gh">Seguridad</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>Confirmar force push</b><small>Pregunta antes de un push con --force-with-lease.</small></div><div class="tog on"></div></div>
+          <div class="row"><div class="l"><b>Guardar archivos nuevos en el stash</b><small>Incluye los archivos sin seguimiento (--include-untracked).</small></div><div class="tog on"></div></div>
+        </div>
+        <div class="gh">Avanzado</div>
+        <div class="group">
+          <div class="row"><div class="l"><b>Commits por página</b><small>Más commits, menos recargas en repos grandes.</small></div><div class="select" style="min-width:110px">500 <span>⌄</span></div></div>
+          <div class="row"><div class="l"><b>Tiempo límite de git</b><small>Para un proceso de git atascado.</small></div><div class="select" style="min-width:110px">1 minuto <span>⌄</span></div></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="pulls" hidden>
+        <div class="ph"><div class="tile" data-tile="pulls"></div><div><h1>Pull requests</h1><p>Repositorios cuyas pull requests salen en Equipo y Mías.</p></div>
+          <div class="acts"><button class="btn primary">Seguir repositorio…</button></div></div>
+        <div class="banner info"><span class="grow"><b>Propuesta:</b> seguir <span class="mono">ada/*</span> en github.com (12 repositorios)</span><button class="btn">Seguir</button><button class="btn quiet">Ahora no</button></div>
+        <div class="gh">Repositorios que sigues <span class="aside">34 de 100</span></div>
+        <div class="group">
+          <div class="row" style="padding:8px 10px"><input class="field" style="width:100%;min-width:0" placeholder="Filtrar repositorios"></div>
+          <div class="disc open" data-disc><span class="chev">›</span><b style="color:var(--t1)">github.com</b><span class="pill gray">20</span></div>
+          <div data-list>
+            <div class="repo-row"><div class="mono-av" style="background:var(--violet-soft);color:var(--violet)">NA</div><div class="l" style="flex:1"><b style="font-weight:400">ada/nimbus-api</b></div><span class="pill gray">Patrón</span><button class="btn hov">Ocultar</button></div>
+            <div class="repo-row"><div class="mono-av" style="background:var(--coral-soft);color:var(--coral)">EN</div><div class="l" style="flex:1"><b style="font-weight:400">ada/engine-notes</b></div><span class="pill gray">Patrón</span><button class="btn hov">Ocultar</button></div>
+            <div class="repo-row"><div class="mono-av" style="background:var(--info-soft);color:var(--info)">AD</div><div class="l" style="flex:1"><b style="font-weight:400">analytical/difference</b></div><span class="pill info">Actividad</span><button class="btn hov">Dejar de seguir</button></div>
+          </div>
+          <div class="disc" style="border-top:1px solid var(--separator)"><span class="chev">›</span><b style="color:var(--t1)">gitlab.acme.dev</b><span class="pill gray">14</span></div>
+        </div>
+        <div class="gh">Patrones</div>
+        <div class="group">
+          <div class="row"><div class="l"><b class="mono">ada/*</b><small>github.com · 12 repositorios</small></div><button class="btn">Editar</button><button class="btn quiet">Quitar</button></div>
+        </div>
+        <div class="gh">Ocultos</div>
+        <div class="group"><div class="disc"><span class="chev">›</span>3 repositorios ocultos</div></div>
+      </div>
+
+    </div>
+  </section>
+</div>
+</div>
+<script>
+const ICONS={
+  general:'<path d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Z"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/>',
+  appearance:'<path d="M8 1.8a6.2 6.2 0 1 0 0 12.4c.9 0 1.3-.6 1.3-1.2 0-.9-.8-1.2-.8-2 0-.7.5-1.2 1.3-1.2h1.5a3 3 0 0 0 2.9-3C14.2 4 11.5 1.8 8 1.8Z"/><circle cx="5" cy="7" r=".7"/><circle cx="7.4" cy="4.6" r=".7"/><circle cx="10.5" cy="5.2" r=".7"/>',
+  identities:'<circle cx="8" cy="5.4" r="2.6"/><path d="M2.8 14c.6-2.6 2.7-4.2 5.2-4.2s4.6 1.6 5.2 4.2"/>',
+  accounts:'<circle cx="5.6" cy="10.4" r="3"/><path d="m7.8 8.2 5.6-5.6M11.6 4.4l1.6 1.6M10 6l1.2 1.2"/>',
+  git:'<circle cx="4.5" cy="3.5" r="1.6"/><circle cx="4.5" cy="12.5" r="1.6"/><circle cx="11.5" cy="5.5" r="1.6"/><path d="M4.5 5.1v5.8M11.5 7.1c0 2.6-2.4 3-5.5 4.2"/>',
+  pulls:'<circle cx="4.5" cy="3.5" r="1.6"/><circle cx="4.5" cy="12.5" r="1.6"/><circle cx="11.5" cy="12.5" r="1.6"/><path d="M4.5 5.1v5.8M11.5 10.9V6.5a2 2 0 0 0-2-2H7.5M8.8 3.2 7.5 4.5l1.3 1.3"/>'
+};
+const PANES=[
+  {id:'general',label:'General',fg:'var(--t2)',bg:'var(--gray-soft)',extra:''},
+  {id:'appearance',label:'Apariencia',fg:'var(--violet)',bg:'var(--violet-soft)',extra:''},
+  {id:'identities',label:'Identidades',fg:'var(--pink)',bg:'var(--pink-soft)',extra:''},
+  {id:'accounts',label:'Cuentas',fg:'var(--info)',bg:'var(--info-soft)',extra:'<span class="badge warn">1</span>'},
+  {id:'git',label:'Git',fg:'var(--coral)',bg:'var(--coral-soft)',extra:''},
+  {id:'pulls',label:'Pull requests',fg:'var(--warn)',bg:'var(--warn-soft)',extra:''}
+];
+const svg=id=>'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">'+ICONS[id]+'</svg>';
+const nav=document.getElementById('nav');
+PANES.forEach(p=>{
+  const b=document.createElement('button');b.className='item';b.dataset.id=p.id;
+  b.innerHTML='<span class="tile" style="background:'+p.bg+';color:'+p.fg+'">'+svg(p.id)+'</span><span class="lbl">'+p.label+'</span>'+p.extra;
+  b.onclick=()=>show(p.id);nav.appendChild(b);
+});
+document.querySelectorAll('[data-tile]').forEach(t=>{const p=PANES.find(x=>x.id===t.dataset.tile);t.style.background=p.bg;t.style.color=p.fg;t.innerHTML=svg(p.id)});
+function show(id){
+  document.querySelectorAll('.item').forEach(i=>i.classList.toggle('sel',i.dataset.id===id));
+  document.querySelectorAll('.pane').forEach(p=>p.hidden=p.dataset.pane!==id);
+  document.getElementById('sub').textContent=PANES.find(p=>p.id===id).label;
+  document.getElementById('scroll').scrollTop=0;
+}
+show('general');
+document.querySelectorAll('.tog').forEach(t=>t.onclick=()=>t.classList.toggle('on'));
+document.querySelectorAll('.seg').forEach(s=>s.querySelectorAll('span').forEach(x=>x.onclick=()=>{s.querySelectorAll('span').forEach(y=>y.classList.remove('on'));x.classList.add('on')}));
+document.querySelectorAll('.themes .th').forEach(t=>t.onclick=()=>{document.querySelectorAll('.themes .th').forEach(y=>y.classList.remove('on'));t.classList.add('on')});
+document.querySelectorAll('.swatches .sw').forEach(t=>t.onclick=()=>{document.querySelectorAll('.swatches .sw').forEach(y=>y.classList.remove('on'));t.classList.add('on')});
+document.querySelectorAll('.diffpv .dv').forEach(t=>t.onclick=()=>{document.querySelectorAll('.diffpv .dv').forEach(y=>y.classList.remove('on'));t.classList.add('on')});
+document.querySelectorAll('[data-disc]').forEach(d=>d.onclick=()=>{d.classList.toggle('open');const l=d.nextElementSibling;l.style.display=d.classList.contains('open')?'':'none'});
+const m=document.getElementById('mode');
+m.onclick=()=>{const dark=document.documentElement.dataset.mode==='dark';document.documentElement.dataset.mode=dark?'':'dark';m.textContent=dark?'Cambiar a oscuro':'Cambiar a claro'};
+</script>
+</body>
+</html>

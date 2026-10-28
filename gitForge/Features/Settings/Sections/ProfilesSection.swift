@@ -20,6 +20,16 @@ struct ProfilesSection: View {
         ) {
             content
         }
+        // "New Profile…" from ⌘K. A task keyed by the request, not an
+        // `onChange`, so it also reaches a section that mounts after the
+        // request was made (Settings opened on another pane), and clearing
+        // it here ends the request: it opens the editor once, and not over
+        // one that is open already (`ProfileDraft.requested(over:)`).
+        .task(id: appState.ui.newProfileRequest) {
+            guard appState.ui.newProfileRequest != nil else { return }
+            draft = ProfileDraft.requested(over: draft)
+            appState.ui.newProfileRequest = nil
+        }
     }
 
     @ViewBuilder
@@ -104,7 +114,7 @@ struct ProfilesSection: View {
 
 // MARK: Draft + Editor
 
-private struct ProfileDraft: Equatable {
+struct ProfileDraft: Equatable {
     var id: UUID
     var isNew: Bool
     var name: String
@@ -114,6 +124,13 @@ private struct ProfileDraft: Equatable {
 
     static func new() -> ProfileDraft {
         ProfileDraft(id: UUID(), isNew: true, name: "", userName: "", userEmail: "", signingKey: "")
+    }
+
+    /// The draft once "New Profile…" (⌘K) asked for one: the one already
+    /// open, an edit of a saved profile or a new profile half typed, because
+    /// what the user typed is never discarded; a new, empty one otherwise.
+    static func requested(over current: ProfileDraft?) -> ProfileDraft {
+        current ?? .new()
     }
 
     init(_ profile: GitProfile) {

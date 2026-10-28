@@ -29,7 +29,7 @@ struct PullsRepositoryPane: View {
                     onAddInstance: { suggestion in
                         appState.ui.addInstanceRequest = AddInstanceRequest(kind: suggestion.kind, url: "https://\(suggestion.host)")
                     },
-                    onOpenSettings: { appState.ui.openSettings(at: .accounts) }
+                    onOpenAccounts: { appState.ui.openSettings(.accounts) }
                 )
             }
         }

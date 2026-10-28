@@ -6,78 +6,26 @@ import AppKit
 /// every store to wire it.
 struct SidebarHost: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pendingProfile: PendingProfileApply?
     @State private var remotes: [GitRemoteURL] = []
+    /// Folded branch folders. Here rather than in `Sidebar`, which the
+    /// Settings sidebar replaces and which would lose them.
+    @State private var collapsedFolders: Set<String> = []
 
+    /// The column shows the workspace sidebar, or the one of the Settings
+    /// mode (settings-redesign §4.1). Both sit in a `Group` so the modifiers
+    /// below stay in place whichever is showing.
     var body: some View {
-        let identitySnapshot = resolveIdentity()
-        Sidebar(
-            repositories: appState.catalog.repositories,
-            activeRepository: appState.catalog.activeRepository,
-            statusFor: statusFor,
-            activeSection: appState.ui.workspaceSection,
-            order: appState.ui.sidebarOrder,
-            unstagedBadge: appState.catalog.activeViewModel?.workingCopy.status.unstagedFiles.count ?? 0,
-            stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
-            pullsBadge: appState.reviews.badgeCount,
-            conflictsBadge: appState.catalog.activeViewModel?.conflicts.files.filter { !$0.resolved }.count ?? 0,
-            refs: appState.catalog.activeViewModel?.refs ?? [],
-            identity: identitySnapshot.identity,
-            scopeTag: identitySnapshot.scopeTag,
-            online: appState.network.isOnline,
-            profiles: appState.profiles.profiles,
-            activeProfileId: identitySnapshot.activeProfileId,
-            canResetIdentityToGlobal: identitySnapshot.canResetToGlobal,
-            identityMenuEnabled: appState.catalog.activeViewModel != nil,
-            onSelectRepo: { repo in Task { await appState.activate(repo) } },
-            onRemoveRepo: { repo in Task { await appState.catalog.remove(repo.url) } },
-            onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
-            onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
-            onCloneNew: { appState.ui.requestClone() },
-            onOpenSettings: { appState.ui.workspaceSection = .settings },
-            onSelectSection: { appState.ui.workspaceSection = $0 },
-            onRevealBranch: { ref in
-                guard let vm = appState.catalog.activeViewModel else { return }
-                appState.ui.workspaceSection = .history
-                if !vm.history.revealInHistory(ref) {
-                    appState.ui.activeToast = ToastMessage(
-                        message: String(localized: "“\(ref.name)” isn’t in the loaded history"),
-                        kind: .warn
-                    )
-                }
-            },
-            onCheckoutBranch: { ref in
-                guard let vm = appState.catalog.activeViewModel else { return }
-                Task { appState.ui.emitToast(for: await vm.checkout(.branch(ref))) }
-            },
-            onApplyProfile: { profile in
-                guard let vm = appState.catalog.activeViewModel else { return }
-                if let diff = Self.identityDiff(from: vm.repoIdentity, to: profile) {
-                    pendingProfile = PendingProfileApply(profile: profile, diff: diff)
-                } else {
-                    Task {
-                        do { try await vm.applyProfile(profile) }
-                        catch { appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t switch identity")) }
-                    }
-                }
-            },
-            onResetToGlobal: {
-                guard let vm = appState.catalog.activeViewModel else { return }
-                Task { await vm.clearLocalIdentity() }
-            },
-            onManageProfiles: {
-                appState.ui.workspaceSection = .settings
-            },
-            hostingSections: hostingSections(identitySnapshot.activeProfileId),
-            onHostingEntry: handleHostingEntry,
-            onReorder: { edit in
-                // Without a repository the list is Pull requests alone, so
-                // an edit that lands as the repository closes does nothing
-                // (pulls-unified §4.7, Ruling 6).
-                guard appState.catalog.activeRepository != nil else { return }
-                appState.ui.sidebarOrder.apply(edit)
+        Group {
+            if isInSettings {
+                settingsSidebar.transition(.opacity)
+            } else {
+                workspaceSidebar.transition(.opacity)
             }
-        )
+        }
+        // A fade, and none with Reduce Motion.
+        .animation(reduceMotion ? nil : Motion.standard, value: isInSettings)
         // Remotes live in `.git/config`, which the watcher doesn't follow:
         // read them again when a new remote's branches show up, and when the
         // app comes back to the front (a remote added in a terminal).
@@ -109,6 +57,91 @@ struct SidebarHost: View {
         } message: { pending in
             Text(pending.diff.message)
         }
+    }
+
+    private var isInSettings: Bool { appState.ui.workspaceSection == .settings }
+
+    private var settingsSidebar: some View {
+        SettingsSidebar(
+            selection: appState.ui.settingsPane,
+            repositoryName: appState.catalog.activeRepository?.name,
+            version: WhatsNewController.bundleVersion,
+            canShowWhatsNew: appState.whatsNew.canShowFromMenu,
+            onSelect: { appState.ui.settingsPane = $0 },
+            onBack: { appState.ui.closeSettings() },
+            onWhatsNew: { appState.whatsNew.showFromMenu() }
+        )
+    }
+
+    private var workspaceSidebar: some View {
+        let identitySnapshot = resolveIdentity()
+        return Sidebar(
+            repositories: appState.catalog.repositories,
+            activeRepository: appState.catalog.activeRepository,
+            statusFor: statusFor,
+            activeSection: appState.ui.workspaceSection,
+            order: appState.ui.sidebarOrder,
+            unstagedBadge: appState.catalog.activeViewModel?.workingCopy.status.unstagedFiles.count ?? 0,
+            stashesBadge: appState.catalog.activeViewModel?.stashes.count ?? 0,
+            pullsBadge: appState.reviews.badgeCount,
+            conflictsBadge: appState.catalog.activeViewModel?.conflicts.files.filter { !$0.resolved }.count ?? 0,
+            refs: appState.catalog.activeViewModel?.refs ?? [],
+            identity: identitySnapshot.identity,
+            scopeTag: identitySnapshot.scopeTag,
+            online: appState.network.isOnline,
+            profiles: appState.profiles.profiles,
+            activeProfileId: identitySnapshot.activeProfileId,
+            canResetIdentityToGlobal: identitySnapshot.canResetToGlobal,
+            identityMenuEnabled: appState.catalog.activeViewModel != nil,
+            onSelectRepo: { repo in Task { await appState.activate(repo) } },
+            onRemoveRepo: { repo in Task { await appState.catalog.remove(repo.url) } },
+            onRevealRepo: { repo in NSWorkspace.shared.activateFileViewerSelecting([repo.url]) },
+            onOpenExisting: { Task { await appState.presentOpenRepositoryPanel() } },
+            onCloneNew: { appState.ui.requestClone() },
+            onOpenSettings: { appState.ui.openSettings() },
+            onSelectSection: { appState.ui.workspaceSection = $0 },
+            onRevealBranch: { ref in
+                guard let vm = appState.catalog.activeViewModel else { return }
+                appState.ui.workspaceSection = .history
+                if !vm.history.revealInHistory(ref) {
+                    appState.ui.activeToast = ToastMessage(
+                        message: String(localized: "“\(ref.name)” isn’t in the loaded history"),
+                        kind: .warn
+                    )
+                }
+            },
+            onCheckoutBranch: { ref in
+                guard let vm = appState.catalog.activeViewModel else { return }
+                Task { appState.ui.emitToast(for: await vm.checkout(.branch(ref))) }
+            },
+            onApplyProfile: { profile in
+                guard let vm = appState.catalog.activeViewModel else { return }
+                if let diff = Self.identityDiff(from: vm.repoIdentity, to: profile) {
+                    pendingProfile = PendingProfileApply(profile: profile, diff: diff)
+                } else {
+                    Task {
+                        do { try await vm.applyProfile(profile) }
+                        catch { appState.ui.presentedError = PresentedError(error: error, title: String(localized: "Couldn’t switch identity")) }
+                    }
+                }
+            },
+            onResetToGlobal: {
+                guard let vm = appState.catalog.activeViewModel else { return }
+                Task { await vm.clearLocalIdentity() }
+            },
+            onEditIdentities: { appState.ui.openSettings(.identities) },
+            onManageAccounts: { appState.ui.openSettings(.accounts) },
+            hostingSections: hostingSections(identitySnapshot.activeProfileId),
+            onHostingEntry: handleHostingEntry,
+            onReorder: { edit in
+                // Without a repository the list is Pull requests alone, so
+                // an edit that lands as the repository closes does nothing
+                // (pulls-unified §4.7, Ruling 6).
+                guard appState.catalog.activeRepository != nil else { return }
+                appState.ui.sidebarOrder.apply(edit)
+            },
+            collapsedFolders: $collapsedFolders
+        )
     }
 
     private struct RemotesKey: Hashable {
@@ -180,7 +213,7 @@ struct SidebarHost: View {
     /// in the menu and to label the chip.
     private func resolveIdentity() -> IdentitySnapshot {
         // No active repo → fall back to the global identity, no scope chip,
-        // no menu actions beyond "Manage profiles…".
+        // no menu actions beyond "Edit Identities…" and "Manage Accounts…".
         guard let vm = appState.catalog.activeViewModel else {
             let global = appState.gitEnvironment.globalConfig.identity
             return IdentitySnapshot(
@@ -264,4 +297,12 @@ struct SidebarHost: View {
     SidebarHost()
         .previewAppState(.preview)
         .frame(width: 280, height: 720)
+}
+
+#Preview("Sidebar — settings") {
+    @Previewable @State var state = AppState.previewWithActive
+    SidebarHost()
+        .previewAppState(state)
+        .frame(width: 280, height: 720)
+        .onAppear { state.ui.workspaceSection = .settings }
 }

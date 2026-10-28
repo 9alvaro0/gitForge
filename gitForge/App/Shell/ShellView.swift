@@ -12,9 +12,17 @@ struct ShellView: View {
     @Environment(\.openURL) private var openURL
     /// The What's New sheet this window took from `appState.whatsNew`.
     @State private var whatsNewSheet: WhatsNewPresentation?
+    /// The sidebar column's fold, bound to the split view so Settings can
+    /// open it (`SidebarFoldState`).
+    @State private var fold = SidebarFoldState()
+    /// Whether the user left the sidebar folded, saved with the window so a
+    /// relaunch restores it: an `.all` that every launch started from would
+    /// unfold it. Set from `fold.isFolded`, which says folded while Settings
+    /// holds a folded sidebar open.
+    @SceneStorage("sidebar.folded") private var sidebarFolded = false
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $fold.visibility) {
             SidebarHost()
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } detail: {
@@ -22,7 +30,9 @@ struct ShellView: View {
                 .navigationSubtitle(subtitle)
                 .toolbar {
                     ShellToolbar(
-                        viewModel: appState.catalog.activeViewModel,
+                        // Settings is about the app, not the repository: no
+                        // Fetch, Pull or Push there.
+                        viewModel: isInSettings ? nil : appState.catalog.activeViewModel,
                         online: appState.network.isOnline,
                         readyUpdate: updater?.readyUpdate,
                         onOpenPalette: { appState.ui.commandPaletteOpen = true },
@@ -35,6 +45,20 @@ struct ShellView: View {
         // `.titleAndIcon` also titles the system sidebar toggle, which then
         // no longer fits and drops into the toolbar overflow menu.
         .tint(theme.colors.accentFill)
+        // Without the sidebar there is no way to pick a pane, so Settings
+        // unfolds it, and leaving puts it back as it was. What the user does
+        // with it meanwhile is theirs: the flag only records what we did.
+        .onChange(of: appState.ui.workspaceSection) { old, new in
+            if new == .settings, old != .settings {
+                fold.enterSettings()
+            } else if old == .settings, new != .settings {
+                fold.leaveSettings()
+            }
+        }
+        // The fold the user chose is the one that is saved, never the one
+        // Settings forced, and it comes back at launch.
+        .onChange(of: fold.isFolded) { _, folded in sidebarFolded = folded }
+        .onAppear { fold.restore(folded: sidebarFolded) }
         .overlay {
             if appState.ui.commandPaletteOpen {
                 paletteOverlay.transition(.opacity)
@@ -48,7 +72,7 @@ struct ShellView: View {
                     case .reconnectAccount(let instanceId, let accountId):
                         appState.ui.connectAccountRequest = ConnectAccountRequest(instanceId: instanceId, replacing: accountId)
                     case .openAccounts:
-                        appState.ui.openSettings(at: .accounts)
+                        appState.ui.openSettings(.accounts)
                     case .openURL(let url):
                         openURL(url)
                     case .copyText(let text):
@@ -152,11 +176,15 @@ struct ShellView: View {
         whatsNewSheet = presentation
     }
 
+    private var isInSettings: Bool { appState.ui.workspaceSection == .settings }
+
     /// Branch and ahead/behind (the old status bar's left half), or the
     /// section's own context. Empty without an active repository. On Pull
-    /// requests, Team and Mine show none; Open and Closed, the host.
+    /// requests, Team and Mine show none; Open and Closed, the host. Settings
+    /// shows the name of its pane, repository or not.
     private var subtitle: String {
-        appState.catalog.activeViewModel?.toolbarSubtitle(
+        if isInSettings { return appState.ui.settingsPane.label }
+        return appState.catalog.activeViewModel?.toolbarSubtitle(
             for: appState.ui.workspaceSection,
             pullsTab: PullsTab.shown(appState.reviews.tab, hasRepository: true)) ?? ""
     }

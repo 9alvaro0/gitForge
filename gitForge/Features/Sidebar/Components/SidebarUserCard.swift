@@ -4,7 +4,8 @@ import SwiftUI
 /// When there's an active repo, the card surfaces that repo's *effective*
 /// identity (local override → global fallback) plus a menu to switch
 /// between saved profiles. Without a repo selected, the menu collapses to
-/// "Manage profiles…" and the global identity is shown instead.
+/// "Edit Identities…" and "Manage Accounts…" and the global identity is shown
+/// instead.
 struct SidebarUserCard: View {
     let identity: GitIdentity
     /// Tag rendered next to the email — "Personal", "Work", "Custom",
@@ -24,7 +25,10 @@ struct SidebarUserCard: View {
 
     let onApplyProfile: (GitProfile) -> Void
     let onResetToGlobal: () -> Void
-    let onManageProfiles: () -> Void
+    /// "Edit Identities…": opens Settings on the Identities pane.
+    let onEditIdentities: () -> Void
+    /// "Manage Accounts…": opens Settings on the Accounts pane.
+    let onManageAccounts: () -> Void
     /// "Hosting account" sections for the active repo (P4 spec §5.4).
     var hostingSections: [RepoAccountSection] = []
     var onHostingEntry: (RepoAccountSection, RepoAccountSection.Entry) -> Void = { _, _ in }
@@ -56,8 +60,7 @@ struct SidebarUserCard: View {
         .menuStyle(.button)
         .menuIndicator(.hidden)
         .buttonStyle(.plain)
-        .disabled(!menuEnabled && profiles.isEmpty)
-        .help(menuEnabled ? String(localized: "Switch git identity for this repository") : String(localized: "Manage git profiles"))
+        .help(menuEnabled ? String(localized: "Switch git identity for this repository") : String(localized: "Edit identities and accounts"))
     }
 
     private var cardContent: some View {
@@ -135,7 +138,8 @@ struct SidebarUserCard: View {
             }
             Divider()
         }
-        Button("Manage profiles…") { onManageProfiles() }
+        Button("Edit Identities…") { onEditIdentities() }
+        Button("Manage Accounts…") { onManageAccounts() }
     }
 
     @ViewBuilder
@@ -175,7 +179,8 @@ struct SidebarUserCard: View {
         menuEnabled: true,
         onApplyProfile: { _ in },
         onResetToGlobal: {},
-        onManageProfiles: {}
+        onEditIdentities: {},
+        onManageAccounts: {}
     )
     .frame(width: 256)
     .padding(.vertical, Spacing.s12)
@@ -195,7 +200,8 @@ struct SidebarUserCard: View {
         menuEnabled: true,
         onApplyProfile: { _ in },
         onResetToGlobal: {},
-        onManageProfiles: {}
+        onEditIdentities: {},
+        onManageAccounts: {}
     )
     .frame(width: 256)
     .padding(.vertical, Spacing.s12)
@@ -215,7 +221,8 @@ struct SidebarUserCard: View {
         menuEnabled: true,
         onApplyProfile: { _ in },
         onResetToGlobal: {},
-        onManageProfiles: {}
+        onEditIdentities: {},
+        onManageAccounts: {}
     )
     .frame(width: 256)
     .padding(.vertical, Spacing.s12)
@@ -235,7 +242,8 @@ struct SidebarUserCard: View {
         menuEnabled: false,
         onApplyProfile: { _ in },
         onResetToGlobal: {},
-        onManageProfiles: {}
+        onEditIdentities: {},
+        onManageAccounts: {}
     )
     .frame(width: 256)
     .padding(.vertical, Spacing.s12)
