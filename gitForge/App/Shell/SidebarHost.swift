@@ -48,16 +48,7 @@ struct SidebarHost: View {
             },
             onCheckoutBranch: { ref in
                 guard let vm = appState.catalog.activeViewModel else { return }
-                Task {
-                    switch await vm.checkoutBranch(ref) {
-                    case .success:
-                        appState.ui.activeToast = ToastMessage(message: String(localized: "Checked out \(ref.displayName)"), kind: .ok)
-                    case .failure(let err):
-                        appState.ui.activeToast = ToastMessage(
-                            message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
-                            kind: .error)
-                    }
-                }
+                Task { appState.ui.emitToast(for: await vm.checkout(.branch(ref))) }
             },
             onApplyProfile: { profile in
                 guard let vm = appState.catalog.activeViewModel else { return }

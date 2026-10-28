@@ -19,7 +19,7 @@ struct ContentRouter: View {
                           store: viewModel.pullRequests,
                           localActions: .repository(
                               integrate: { await viewModel.attemptLocalMergeForPullRequest() },
-                              checkout: { await viewModel.checkoutPullRequestBranch() })))
+                              checkout: { await viewModel.checkoutSelectedPullRequest() })))
         case .conflict: ConflictView(viewModel: viewModel)
         case .settings: SettingsView()
         }

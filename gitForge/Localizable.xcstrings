@@ -2639,6 +2639,22 @@
         }
       }
     },
+    "Before checking out %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes de hacer checkout de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes do checkout de %@"
+          }
+        }
+      }
+    },
     "Behavior" : {
       "localizations" : {
         "es" : {
@@ -2987,6 +3003,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Explore os seus repositórios e clone-os em dois cliques."
+          }
+        }
+      }
+    },
+    "Checking out %@ would overwrite them. Stash them to get them back later, or discard them:" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El checkout de %@ los sobrescribiría. Guárdalos en un stash para recuperarlos después, o descártalos:"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O checkout de %@ iria substituí-las. Guarde-as num stash para as recuperar mais tarde, ou descarte-as:"
           }
         }
       }
@@ -6461,6 +6493,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Descartar todas as alterações…"
+          }
+        }
+      }
+    },
+    "Discard and Check Out" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar y hacer checkout"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar e fazer checkout"
           }
         }
       }
@@ -16440,6 +16488,22 @@
         }
       }
     },
+    "Stash and Check Out" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar en stash y hacer checkout"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar no stash e fazer checkout"
+          }
+        }
+      }
+    },
     "Stash applied with conflicts — resolve to continue" : {
       "localizations" : {
         "es" : {
@@ -19344,6 +19408,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A sua conta (%1$@ em %2$@) não pode resolver conversas neste pull request."
+          }
+        }
+      }
+    },
+    "Your changes are in Stashes." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus cambios están en Stashes."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As suas alterações estão em Stashes."
+          }
+        }
+      }
+    },
+    "Your changes to %lld files block checking out %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus cambios en %lld archivos impiden hacer checkout de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As suas alterações em %lld ficheiros impedem o checkout de %@"
+          }
+        }
+      }
+    },
+    "Your changes to 1 file block checking out %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus cambios en 1 archivo impiden hacer checkout de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As suas alterações em 1 ficheiro impedem o checkout de %@"
           }
         }
       }

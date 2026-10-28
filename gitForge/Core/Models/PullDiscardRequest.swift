@@ -16,9 +16,6 @@ nonisolated struct PullDiscardRequest: Sendable, Equatable, Identifiable {
     let rebase: Bool
     let ffOnly: Bool
 
-    /// Files named in `message`; the rest are only counted.
-    static let listedFiles = 10
-
     var title: String {
         files.count == 1
             ? String(localized: "Discard changes to 1 file and pull?")
@@ -30,9 +27,6 @@ nonisolated struct PullDiscardRequest: Sendable, Equatable, Identifiable {
         let intro = refusedByRebase
             ? String(localized: "Pull and rebase needs every tracked change out of the way. These files will lose their local changes:")
             : String(localized: "The pull would overwrite these files. Their local changes will be lost:")
-        var lines = [intro] + files.prefix(Self.listedFiles).map(\.path)
-        let rest = files.count - Self.listedFiles
-        if rest > 0 { lines.append(String(localized: "…and \(rest) more")) }
-        return lines.joined(separator: "\n")
+        return ([intro] + DiscardFileList.lines(files)).joined(separator: "\n")
     }
 }
