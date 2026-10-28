@@ -16,10 +16,13 @@ enum CommandPaletteSections {
         var id: CommandPaletteItem.Kind { kind }
     }
 
-    /// Rows per group in All, without a query (actions are all shown) and
-    /// with one; and in a single-group scope, either way.
+    /// Rows per group in All, without a query (actions are all shown, bar the
+    /// search-only ones) and with one; and in a single-group scope, either
+    /// way. Actions get more room while searching: "settings" alone matches
+    /// the item that opens Settings and one per pane.
     static let browseLimit = 5
     static let searchLimit = 6
+    static let commandSearchLimit = 8
     static let scopedLimit = 50
 
     /// `pinned` rows (a pasted pull request link's) lead the Pull requests
@@ -46,10 +49,13 @@ enum CommandPaletteSections {
             let ofKind = items.filter { $0.kind == kind }
             let found: [Row]
             if searching {
-                found = ranked(ofKind, query: query, limit: scope == .all ? searchLimit : scopedLimit)
+                let limit = scope == .all ? (kind == .command ? commandSearchLimit : searchLimit) : scopedLimit
+                found = ranked(ofKind, query: query, limit: limit)
             } else {
+                // Browsing lists what is worth a row in the first screen of
+                // ⌘K; the search-only items wait for a query that matches.
                 let limit = scope == .all && kind != .command ? browseLimit : scopedLimit
-                found = ofKind.prefix(limit).map { Row(item: $0, match: nil) }
+                found = ofKind.filter { !$0.searchOnly }.prefix(limit).map { Row(item: $0, match: nil) }
             }
             let rows = kind == .pull ? pinnedRows + found : found
             return rows.isEmpty ? nil : Section(kind: kind, rows: rows)

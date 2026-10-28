@@ -63,8 +63,78 @@ struct CommandPaletteSectionsTests {
         #expect(inPane.map(\.action) == [.connectNewAccount, .newProfile, .followRepository])
         #expect(inPane.map(\.label) == ["Connect account…", "New Profile…", "Follow Repository…"])
 
+        // Only "Settings" is worth a row while browsing; the nine below it are found by searching.
+        #expect(!commands[settings].searchOnly)
+        #expect(panes.allSatisfy { $0.searchOnly })
+        #expect(inPane.allSatisfy { $0.searchOnly })
+        #expect(commands.filter { $0.searchOnly }.count == SettingsPane.allCases.count + 3)
+
         // Settings is a mode now: nothing selects it as a section any more.
         #expect(!commands.map(\.action).contains(.selectSection(.settings)))
+    }
+
+    // MARK: Search-only actions
+
+    private static func searchOnlyItem(_ label: String) -> CommandPaletteItem {
+        CommandPaletteItem(kind: .command, label: label, hint: nil, action: .noop, searchOnly: true)
+    }
+
+    private static func labels(_ sections: [CommandPaletteSections.Section], of kind: CommandPaletteItem.Kind = .command) -> [String] {
+        sections.first { $0.kind == kind }?.rows.map(\.item.label) ?? []
+    }
+
+    @Test("A search-only action is left out while browsing, blank query included, and listed once the query matches it")
+    func searchOnlyRows() {
+        let items = [Self.item(.command, "Fetch all"), Self.searchOnlyItem("Settings: Git"), Self.item(.command, "Push")]
+        for query in ["", "   "] {
+            #expect(Self.labels(CommandPaletteSections.build(items: items, query: query)) == ["Fetch all", "Push"])
+            #expect(Self.labels(CommandPaletteSections.build(items: items, query: query, scope: .only(.command))) == ["Fetch all", "Push"])
+        }
+        #expect(Self.labels(CommandPaletteSections.build(items: items, query: "git")) == ["Settings: Git"])
+        #expect(Self.labels(CommandPaletteSections.build(items: items, query: "git", scope: .only(.command))) == ["Settings: Git"])
+    }
+
+    @Test("A search-only row leaves an otherwise empty group out while browsing")
+    func searchOnlyAloneLeavesNoGroup() {
+        let sections = CommandPaletteSections.build(items: [Self.searchOnlyItem("Settings: Git")], query: "")
+        #expect(sections.isEmpty)
+    }
+
+    @Test("Browsing ⌘K lists Settings and the other seven built-in actions, none of the nine that only a search shows")
+    func browsingBuiltIns() {
+        let labels = Self.labels(CommandPaletteSections.build(items: CommandPaletteBuilder.builtInCommands, query: ""))
+        #expect(labels == ["Open repository…", "Clone repository…", "Fetch all", "Pull", "Push", "New branch…",
+                           "Stash changes", "Settings"])
+    }
+
+    @Test("Searching 'settings' lists Settings and all six panes, none cut by the group's limit")
+    func searchingSettings() {
+        let labels = Self.labels(CommandPaletteSections.build(items: CommandPaletteBuilder.builtInCommands, query: "settings"))
+        #expect(labels.first == "Settings")
+        #expect(Set(labels) == Set(["Settings"] + SettingsPane.allCases.map { "Settings: \($0.label)" }))
+        #expect(labels.count == SettingsPane.allCases.count + 1)
+    }
+
+    @Test("A pane's name, or what an in-pane action opens, finds it while searching")
+    func searchFindsSearchOnly() {
+        func found(_ query: String) -> [String] {
+            Self.labels(CommandPaletteSections.build(items: CommandPaletteBuilder.builtInCommands, query: query))
+        }
+        #expect(found("Appearance").contains("Settings: Appearance"))
+        #expect(found("identities").contains("Settings: Identities"))
+        #expect(found("connect").contains("Connect account…"))
+        #expect(found("profile").contains("New Profile…"))
+        #expect(found("follow").contains("Follow Repository…"))
+    }
+
+    @Test("The Actions group shows up to eight rows while searching, the other groups six")
+    func searchLimits() {
+        let items = (0..<10).map { Self.item(.command, "Run \($0)") } + (0..<10).map { Self.item(.branch, "run-\($0)") }
+        let sections = CommandPaletteSections.build(items: items, query: "run")
+        #expect(Self.labels(sections).count == CommandPaletteSections.commandSearchLimit)
+        #expect(CommandPaletteSections.commandSearchLimit == 8)
+        #expect(Self.labels(sections, of: .branch).count == CommandPaletteSections.searchLimit)
+        #expect(CommandPaletteSections.searchLimit == 6)
     }
 
     // MARK: Scopes

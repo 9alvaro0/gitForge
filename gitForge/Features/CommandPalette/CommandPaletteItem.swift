@@ -57,6 +57,10 @@ struct CommandPaletteItem: Identifiable, Hashable {
     var symbol: String? = nil
     /// A spinner in place of the symbol: the host is being searched.
     var isLoading = false
+    /// Left out while browsing (no query) and listed only when the query
+    /// matches it: an action worth finding, not worth a row in the first
+    /// screen of ⌘K.
+    var searchOnly = false
 }
 
 /// What happens when a palette item is selected.
