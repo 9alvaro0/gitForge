@@ -7,9 +7,17 @@ struct ToastMessage: Equatable, Identifiable {
     var kind: Kind = .ok
     var action: ToastAction? = nil
 
-    /// Redesign spec §5: toasts leave after 4 s, errors stay until dismissed.
-    var autoDismissAfter: Duration? {
-        kind == .error ? nil : .seconds(4)
+    /// Redesign spec §5: toasts leave after 4 s; errors after 10 s, so the
+    /// remedy at their end can be read.
+    var autoDismissAfter: Duration {
+        kind == .error ? .seconds(10) : .seconds(4)
+    }
+
+    /// How long until the toast leaves on its own: never while the pointer
+    /// rests on it (someone reading or selecting it), the full lifetime again
+    /// once it leaves.
+    func dismissDelay(isHovered: Bool) -> Duration? {
+        isHovered ? nil : autoDismissAfter
     }
 
     /// Errors carry the remedy at the end ("…run `ssh-add -l`"), so they wrap
@@ -33,7 +41,7 @@ nonisolated struct ToastAction: Equatable, Sendable {
 }
 
 /// Bottom-centre glass toast (redesign spec §5): shape-coded glyph plus
-/// message. Click dismisses it.
+/// message. The X or a click on the toast dismisses it.
 struct ToastView: View {
     let toast: ToastMessage
     var onDismiss: () -> Void = {}
@@ -56,6 +64,12 @@ struct ToastView: View {
             if let action = toast.action {
                 GFButton(title: action.title, size: .small) { onAction(action) }
             }
+            // The message is selectable, so a click on it may select text
+            // rather than dismiss: the X is the sure way out. VoiceOver has
+            // the "Dismiss" action below.
+            IconButton(symbol: "xmark", size: 11, accessibilityLabel: String(localized: "Dismiss"), action: onDismiss)
+                .help(String(localized: "Dismiss"))
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, Spacing.s16)
         .padding(.vertical, Spacing.s8)
