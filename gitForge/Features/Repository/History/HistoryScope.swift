@@ -13,10 +13,10 @@ nonisolated struct HistoryScope: Sendable, Equatable {
     let remoteTips: [String: String]
     let includesAllRemotes: Bool
 
-    /// HEAD goes first so its tip anchors the top of the topo-ordered log. Local branches
-    /// merged into HEAD ride along via its ancestry. A remote branch is in scope when a local
-    /// branch is behind it (it is that branch's upstream, not gone) or it stands in for a
-    /// missing trunk (`remoteTrunks`); with `includesAllRemotes`, every remote branch is.
+    /// HEAD goes first. Local branches merged into HEAD ride along via its ancestry. A
+    /// remote branch is in scope when a local branch is behind it (it is that branch's
+    /// upstream, not gone) or it stands in for a missing trunk (`remoteTrunks`); with
+    /// `includesAllRemotes`, every remote branch is.
     static func make(refs: [GitRef], unmergedLocalBranchRefs: [String], stashes: [Stash],
                      remoteTrunks: [String: Int], includesAllRemotes: Bool) -> HistoryScope {
         let remotes = Dictionary(refs.filter(\.isRemoteBranch).map { ($0.name, $0.targetSha) },

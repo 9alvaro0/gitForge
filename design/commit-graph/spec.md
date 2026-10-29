@@ -81,6 +81,7 @@ Que el grafo del historial sea el mejor de cualquier cliente git: muy visual, f�
   - Mientras llega la recarga, el grafo sigue dibujando cada remota donde estaba al cargarse el log. Si no, sus commits fantasma se verían un momento como sólidos en otra columna.
 - **Con el interruptor activado:** además, todas las ramas remotas (`--remotes`).
 - Las stashes siguen sin sus commits internos (`dropStashInternals`).
+- **(Decidido después de G5) Orden:** `git log --date-order`, que deja cada padre debajo de sus hijos y por lo demás ordena por fecha de commit. Con `--topo-order`, en un gitflow con una rama sacada de develop y aún sin mergear, git bajaba por los primeros padres de main hasta el final antes de sacar nada de develop. Cada merge de release dejaba abierta una pista hasta su release, páginas más abajo, y el grafo ganaba una columna por release.
 
 ### 3.2 Líneas y dueños
 
