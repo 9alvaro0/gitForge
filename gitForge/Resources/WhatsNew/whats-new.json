@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "version": "1.7.1",
+      "highlights": [],
+      "fixes": [
+        {
+          "en": "Error messages now go away on their own after 10 seconds, every message has a close button, and a message stays put while the pointer rests on it.",
+          "es": "Los mensajes de error se van solos a los 10 segundos, cada mensaje tiene un botón para cerrarlo y se queda en pantalla mientras tengas el puntero encima.",
+          "pt-PT": "As mensagens de erro desaparecem sozinhas ao fim de 10 segundos, cada mensagem tem um botão para a fechar e fica no ecrã enquanto tiver o ponteiro por cima."
+        },
+        {
+          "en": "In History, the graph no longer opens a new column for every release merge in repositories that use gitflow.",
+          "es": "En Historial, el grafo ya no abre una columna nueva por cada merge de release en repositorios que usan gitflow.",
+          "pt-PT": "No Histórico, o grafo já não abre uma coluna nova por cada merge de release em repositórios que usam gitflow."
+        }
+      ],
+      "improvements": []
+    },
+    {
       "version": "1.7.0",
       "highlights": [
         {
