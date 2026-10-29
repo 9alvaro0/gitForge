@@ -12,8 +12,15 @@ extension GitCLI {
     /// simultaneously open tip in dense histories.
     /// Pass `refs: ["--branches", "HEAD", stashSha1, "origin/develop", ...]` to
     /// override or extend the scope.
+    ///
+    /// `--date-order` keeps parents below their children and otherwise goes by
+    /// commit date, so concurrent branches interleave as they happened.
+    /// `--topo-order` followed one line down as far as it could: in a gitflow repo
+    /// with a branch forked from develop and not merged yet, it emitted every
+    /// release merge on main before any of develop, and each one kept a column
+    /// open down to its release, pages below.
     func log(limit: Int = 200, skip: Int = 0, refs: [String] = ["--branches", "HEAD"]) async throws -> [Commit] {
-        var args: [String] = ["log", "--topo-order", "--format=\(Self.logFormat)", "-n", String(limit)]
+        var args: [String] = ["log", "--date-order", "--format=\(Self.logFormat)", "-n", String(limit)]
         if skip > 0 {
             args.append("--skip")
             args.append(String(skip))

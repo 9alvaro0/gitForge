@@ -96,14 +96,15 @@ struct GitTestRepo: Sendable {
         try git(args)
     }
 
+    /// `extraEnvironment` is added on top, e.g. `GIT_COMMITTER_DATE` for a dated commit.
     @available(*, noasync, message: "Blocks on git; use gitAsync or perform from async code")
     @discardableResult
-    func git(_ args: [String], allowFailure: Bool = false) throws -> String {
+    func git(_ args: [String], allowFailure: Bool = false, extraEnvironment: [String: String] = [:]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git"] + args
         process.currentDirectoryURL = url
-        var environment = ProcessInfo.processInfo.environment
+        var environment = ProcessInfo.processInfo.environment.merging(extraEnvironment) { _, extra in extra }
         environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
         environment["GIT_CONFIG_NOSYSTEM"] = "1"
         environment["GIT_TERMINAL_PROMPT"] = "0"
