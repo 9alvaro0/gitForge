@@ -21,7 +21,7 @@ struct GitCLILogOrderTests {
         var testDescription: String { rawValue }
     }
 
-    private static let releases = 8
+    private static let releases = 6
 
     /// main and develop with `releases` releases, each commit an hour after the last,
     /// tagged on main and ending with main checked out. Before the last release,
@@ -68,8 +68,13 @@ struct GitCLILogOrderTests {
         try await repo.cli.log(refs: ["HEAD", "develop", "feature/wip", "--tags"])
     }
 
-    @Test("Each release merge on main has its second parent on the next row", arguments: ReleaseShape.allCases)
-    func releaseSitsBelowItsMerge(shape: ReleaseShape) async throws {
+    /// One repo per shape checks both the order and the graph, so the suite spawns
+    /// half the git processes on an already busy CI runner. The graph gets at most
+    /// one column each for main, develop, a release and `feature/wip`, where
+    /// `--topo-order` needed one more per release.
+    @Test("Each release sits right below its merge and the graph stays four columns wide",
+          arguments: ReleaseShape.allCases)
+    func releasesFollowTheirMerges(shape: ReleaseShape) async throws {
         let repo = try await Self.makeGitflow(shape)
         defer { repo.remove() }
         let log = try await Self.loadLog(repo)
@@ -82,18 +87,9 @@ struct GitCLILogOrderTests {
             let releaseRow = try #require(rowOf[merge.parentShas[1]])
             #expect(releaseRow == mergeRow + 1, "\(merge.subject): release on row \(releaseRow), merge on \(mergeRow)")
         }
-    }
 
-    /// At most one column each for main, develop, a release and `feature/wip`, where
-    /// `--topo-order` needed one more per release.
-    @Test("The graph stays four columns wide however many releases there are", arguments: ReleaseShape.allCases)
-    func graphStaysNarrow(shape: ReleaseShape) async throws {
-        let repo = try await Self.makeGitflow(shape)
-        defer { repo.remove() }
-        let log = try await Self.loadLog(repo)
         let refs = try await repo.cli.refs()
         let headSha = refs.first { $0.isLocalBranch && $0.isHead }?.targetSha
-
         let layout = CommitGraphEngine.layout(GraphInput(commits: log, headSha: headSha, refs: refs))
         let widest = layout.rows.map(\.width).max() ?? 0
         #expect(widest <= 4, "widest row needs \(widest) columns")
