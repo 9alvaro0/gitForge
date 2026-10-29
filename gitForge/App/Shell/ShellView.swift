@@ -20,6 +20,14 @@ struct ShellView: View {
     /// unfold it. Set from `fold.isFolded`, which says folded while Settings
     /// holds a folded sidebar open.
     @SceneStorage("sidebar.folded") private var sidebarFolded = false
+    /// The toast the pointer rests on, which waits until it leaves.
+    @State private var hoveredToastID: UUID?
+
+    /// Restarts the toast's countdown when the toast or its hover changes.
+    private struct ToastTimer: Equatable {
+        let toastID: UUID
+        let paused: Bool
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $fold.visibility) {
@@ -80,11 +88,16 @@ struct ShellView: View {
                         NSPasteboard.general.setString(text, forType: .string)
                     }
                 })
+                    // Keyed by toast: a hover that never saw the pointer leave
+                    // (the toast went first) can't hold the next one.
+                    .onHover { hoveredToastID = $0 ? toast.id : nil }
                     .padding(.bottom, Spacing.s16)
                     .transition(.opacity)
-                    .task(id: toast.id) {
-                        guard let lifetime = toast.autoDismissAfter else { return }
-                        try? await Task.sleep(for: lifetime)
+                    .task(id: ToastTimer(toastID: toast.id, paused: hoveredToastID == toast.id)) {
+                        guard let delay = toast.dismissDelay(isHovered: hoveredToastID == toast.id) else { return }
+                        // Cancelled: the pointer came in or another toast took
+                        // over. Either way this countdown is over.
+                        do { try await Task.sleep(for: delay) } catch { return }
                         // A newer toast may have replaced this one while we slept.
                         guard appState.ui.activeToast?.id == toast.id else { return }
                         withAnimation { appState.ui.activeToast = nil }
