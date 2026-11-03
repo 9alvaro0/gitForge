@@ -50,6 +50,10 @@ extension RepositoryViewModel {
         guard BranchValidator.isValidName(newName) else {
             return .failure(BranchOpError.invalidName(newName))
         }
+        // Caught here so the toast says it plainly instead of quoting git.
+        if newName != oldName, localBranches.contains(where: { $0.name == newName }) {
+            return .failure(BranchOpError.nameTaken(newName))
+        }
         return await runRefMutation {
             try await cli.renameBranch(from: oldName, to: newName)
             await refreshAfterRefMutation(reloadLog: false)
@@ -115,6 +119,7 @@ extension RepositoryViewModel {
 
 enum BranchOpError: LocalizedError {
     case invalidName(String)
+    case nameTaken(String)
     case notALocalBranch
     case cannotMoveCurrentBranch
 
@@ -122,6 +127,8 @@ enum BranchOpError: LocalizedError {
         switch self {
         case .invalidName(let name):
             String(localized: "Invalid branch name “\(name)”.")
+        case .nameTaken(let name):
+            String(localized: "A branch named “\(name)” already exists.")
         case .notALocalBranch:
             String(localized: "Only local branches can be moved.")
         case .cannotMoveCurrentBranch:

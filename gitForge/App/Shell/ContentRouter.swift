@@ -8,6 +8,12 @@ struct ContentRouter: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        section
+            .branchRenameSheet(viewModel: viewModel)
+    }
+
+    @ViewBuilder
+    private var section: some View {
         switch appState.ui.workspaceSection {
         case .history:  HistoryView(viewModel: viewModel)
         case .changes:  StagingView(viewModel: viewModel)

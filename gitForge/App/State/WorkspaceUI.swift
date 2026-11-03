@@ -67,6 +67,10 @@ final class WorkspaceUI {
     /// the matching sheet/alert; menus only flip the bool.
     var newBranchSheetVisible: Bool = false
     var discardAllConfirmVisible: Bool = false
+    /// The local branch the "Rename branch" sheet is open for. Every entry
+    /// point (sidebar, Branches & Tags, the Repository menu) sets it;
+    /// `ContentRouter` presents the sheet, so no section switch is needed.
+    var renameBranchTarget: GitRef?
     /// "Connect account" sheet (P4 spec §5.2); `ShellView` presents it.
     var connectAccountRequest: ConnectAccountRequest?
     /// "Clone a repository" sheet; `ShellView` presents it.
