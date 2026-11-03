@@ -1373,6 +1373,22 @@
         }
       }
     },
+    "A branch named “%@” already exists." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya existe una rama llamada “%@”."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já existe um ramo chamado “%@”."
+          }
+        }
+      }
+    },
     "A local merge is already running." : {
       "localizations" : {
         "es" : {
@@ -13636,6 +13652,22 @@
         }
       }
     },
+    "Rename Current Branch…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renombrar la rama actual…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mudar o nome do ramo atual…"
+          }
+        }
+      }
+    },
     "Renamed" : {
       "localizations" : {
         "es" : {
@@ -13648,6 +13680,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renomeado"
+          }
+        }
+      }
+    },
+    "Renamed %@ to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ renombrada a %2$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ passou a chamar-se %2$@"
           }
         }
       }

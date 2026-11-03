@@ -49,6 +49,11 @@ struct RepositoryCommands: Commands {
             .keyboardShortcut("c", modifiers: [.command, .shift])
             .disabled(appState.catalog.activeViewModel == nil)
 
+            Button("Rename Current Branch…") {
+                appState.ui.renameBranchTarget = currentBranch
+            }
+            .disabled(currentBranch == nil)
+
             Button("Stash All Changes") {
                 guard let viewModel = appState.catalog.activeViewModel else { return }
                 Task {
@@ -71,6 +76,13 @@ struct RepositoryCommands: Commands {
             }
             .disabled(appState.catalog.activeViewModel?.workingCopy.status.isClean ?? true)
         }
+    }
+
+    /// The checked-out local branch; `nil` with no repository or a detached HEAD.
+    private var currentBranch: GitRef? {
+        guard let viewModel = appState.catalog.activeViewModel,
+              let name = viewModel.currentBranchName else { return nil }
+        return viewModel.localBranches.first { $0.name == name }
     }
 
     private var remoteBusy: Bool {

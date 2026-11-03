@@ -114,6 +114,7 @@ struct SidebarHost: View {
                 guard let vm = appState.catalog.activeViewModel else { return }
                 Task { appState.ui.emitToast(for: await vm.checkout(.branch(ref))) }
             },
+            onRenameBranch: { appState.ui.renameBranchTarget = $0 },
             onApplyProfile: { profile in
                 guard let vm = appState.catalog.activeViewModel else { return }
                 if let diff = Self.identityDiff(from: vm.repoIdentity, to: profile) {

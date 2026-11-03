@@ -8,6 +8,7 @@ struct SidebarBranchRow: View {
     let onToggleFolder: (String) -> Void
     let onReveal: (GitRef) -> Void
     let onCheckout: (GitRef) -> Void
+    var onRename: (GitRef) -> Void = { _ in }
     let onShowInBranches: () -> Void
 
     @Environment(\.appTheme) private var theme
@@ -63,11 +64,13 @@ struct SidebarBranchRow: View {
             Button("Reveal in History") { onReveal(ref) }
             Button("Check Out") { onCheckout(ref) }
                 .disabled(ref.isHead)
+            Button("Rename…") { onRename(ref) }
             Divider()
             Button("Show in Branches") { onShowInBranches() }
         }
         .accessibilityLabel(ref.isHead ? String(localized: "\(ref.name), current branch") : ref.name)
         .accessibilityAction(named: "Check out") { if !ref.isHead { onCheckout(ref) } }
+        .accessibilityAction(named: "Rename") { onRename(ref) }
     }
 
     private func branchLabel(_ ref: GitRef) -> some View {

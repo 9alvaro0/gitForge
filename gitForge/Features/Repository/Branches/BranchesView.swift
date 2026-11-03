@@ -12,8 +12,6 @@ struct BranchesView: View {
     /// Driven by `WorkspaceUI.newBranchSheetVisible` so the File ▸ New Branch (⌘B)
     /// menu and the local "+" button share one presentation path.
     @State private var newBranchName: String = ""
-    @State private var renameTarget: GitRef?
-    @State private var renameDraft: String = ""
     @State private var deleteTarget: GitRef?
     @State private var mergeRequest: MergeRequest?
     @State private var rebaseTarget: GitRef?
@@ -122,22 +120,6 @@ struct BranchesView: View {
         .onChange(of: ui.newBranchSheetVisible) { _, isVisible in
             if isVisible { newBranchName = "" }
         }
-        .sheet(item: $renameTarget) { ref in
-            BranchInputSheet(
-                title: String(localized: "Rename \(ref.name)"),
-                placeholder: ref.name,
-                confirmTitle: String(localized: "Rename"),
-                text: $renameDraft,
-                confirmDisabled: renameDraft.isEmpty || renameDraft == ref.name,
-                onCancel: { renameTarget = nil },
-                onConfirm: { newName in
-                    Task {
-                        _ = await viewModel.renameBranch(from: ref.name, to: newName)
-                        renameTarget = nil
-                    }
-                }
-            )
-        }
         .modifier(BranchDialogs(
             deleteTarget: $deleteTarget,
             mergeRequest: $mergeRequest,
@@ -240,7 +222,7 @@ struct BranchesView: View {
             push: { ref in Task { await runPush(ref) } },
             merge: { source, target in mergeRequest = MergeRequest(source: source, target: target) },
             rebase: { rebaseTarget = $0 },
-            rename: { renameTarget = $0; renameDraft = $0.name },
+            rename: { appState.ui.renameBranchTarget = $0 },
             delete: { deleteTarget = $0 },
             pushTag: { ref in Task { await runPushTag(ref) } },
             deleteTag: { deleteTargetTag = $0 }

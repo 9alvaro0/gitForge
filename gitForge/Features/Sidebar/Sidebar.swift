@@ -35,6 +35,7 @@ struct Sidebar: View {
     let onSelectSection: (WorkspaceSection) -> Void
     let onRevealBranch: (GitRef) -> Void
     let onCheckoutBranch: (GitRef) -> Void
+    var onRenameBranch: (GitRef) -> Void = { _ in }
     let onApplyProfile: (GitProfile) -> Void
     let onResetToGlobal: () -> Void
     let onEditIdentities: () -> Void
@@ -97,6 +98,7 @@ struct Sidebar: View {
                             onToggleFolder: toggleFolder,
                             onReveal: onRevealBranch,
                             onCheckout: onCheckoutBranch,
+                            onRename: onRenameBranch,
                             onShowInBranches: { onSelectSection(.branches) }
                         )
                     }
