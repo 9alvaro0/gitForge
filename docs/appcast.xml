@@ -120,5 +120,17 @@
                        type="application/octet-stream"
                        sparkle:edSignature="h2QUwaOamecDQfZlmm9o5JKMqZySF1WRpOBK8dA3f7WCuZ9Hrh3GDulH+3UG0WReaq3P0baFUOvgsYXdUBQ5BA==" />
         </item>
+        <item>
+            <title>gitForge 1.8.0</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.8.0.html</sparkle:releaseNotesLink>
+            <pubDate>Wed, 04 Nov 2026 09:15:24 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.8.0/gitForge-1.8.0.dmg"
+                       sparkle:version="1.8.0"
+                       sparkle:shortVersionString="1.8.0"
+                       length="18387205"
+                       type="application/octet-stream"
+                       sparkle:edSignature="qcoi3oPqvSC/NseqlmNCcrpUu5Rut2gagX7QNriN8hArgA4P+il2dB0QQkv+yl+DwVzmZsXL98fM2AEN89sQAQ==" />
+        </item>
     </channel>
 </rss>
