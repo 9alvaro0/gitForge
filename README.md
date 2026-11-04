@@ -42,9 +42,22 @@ Opinionated and focused. Like Fork but native and modern, like GitKraken without
   </tr>
 </table>
 
+## Why gitForge
+
+- **Native.** Built with SwiftUI, not Electron, and it follows macOS conventions (menus, shortcuts, VoiceOver, Increase Contrast, Reduce Motion).
+- **Free and open source.** MIT licensed, no account, no subscription.
+- **Private by design.** No backend, no telemetry, no analytics. It drives the system `git` CLI, so it behaves exactly like `git` does in your terminal.
+- **Focused.** The everyday workflow done well: a readable commit graph, line-level staging, a visual conflict resolver and a `⌘K` palette for everything else.
+
 ## Download
 
 **[Download the latest version](https://github.com/9alvaro0/gitForge/releases/latest)** (DMG, macOS 26.1 or later, Apple silicon and Intel).
+
+Or with [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask 9alvaro0/tap/gitforge
+```
 
 1. Open the DMG and drag **gitForge** to **Applications**.
 2. Open it. It is signed and notarized by Apple, so it opens without security warnings.
@@ -142,6 +155,7 @@ The suite (Swift Testing) uses real `git` against throwaway repositories in the 
 | `audits/BITACORA.md` | Log of the code-quality audits (in Spanish): findings, fixes and open follow-ups |
 | `design/` | Original HTML/CSS design prototype (v1 reference) |
 | `scripts/` | Release pipeline — see [`scripts/RELEASE.md`](scripts/RELEASE.md) |
+| `packaging/homebrew/` | Homebrew cask, published to the `9alvaro0/homebrew-tap` tap |
 
 ## Updates
 
@@ -159,6 +173,10 @@ links to the download.
 
 Turn automatic installs off in **Settings → Updates**. Manual check:
 **Help → Check for Updates…**
+
+## Support the project
+
+If gitForge is useful to you, a ⭐ on GitHub helps other Mac developers find it. Bug reports and feature ideas are just as welcome in [Issues](https://github.com/9alvaro0/gitForge/issues).
 
 ## License
 
