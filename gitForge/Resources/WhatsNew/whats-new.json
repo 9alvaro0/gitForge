@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "version": "1.8.0",
+      "highlights": [
+        {
+          "symbol": "pencil",
+          "title": {
+            "en": "Rename branches from anywhere",
+            "es": "Renombra ramas desde cualquier sitio",
+            "pt-PT": "Mude o nome de ramos em qualquer lado"
+          },
+          "body": {
+            "en": "Rename a branch from its menu in the sidebar or with Repository > Rename Current Branch…, and gitForge tells you whether it worked or why it didn't.",
+            "es": "Renombra una rama desde su menú en la barra lateral o con Repositorio > Renombrar la rama actual…, y gitForge te avisa de si ha funcionado o de por qué no.",
+            "pt-PT": "Mude o nome de um ramo a partir do respetivo menu na barra lateral ou com Repositório > Mudar o nome do ramo atual…, e o gitForge avisa-o se funcionou ou porque não."
+          }
+        }
+      ],
+      "fixes": [],
+      "improvements": []
+    },
+    {
       "version": "1.7.1",
       "highlights": [],
       "fixes": [
