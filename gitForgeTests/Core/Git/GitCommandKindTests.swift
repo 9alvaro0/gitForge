@@ -52,7 +52,8 @@ struct GitCommandKindTests {
         for kind in [GitCommandKind.runsHooks, .local] {
             let message = kind.timeoutMessage(after: 1800)
             #expect(!message.localizedCaseInsensitiveContains("remote"))
-            #expect(message.contains("1800"))
+            // `String(localized:)` formats the number for the locale ("1,800" in en_US).
+            #expect(message.contains("1800") || message.contains(1800.formatted()))
             #expect(RemoteFailure(stderr: message) != .network)
         }
     }
