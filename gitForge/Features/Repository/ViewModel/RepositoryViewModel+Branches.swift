@@ -37,9 +37,12 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Offers its undo: the branch back at its tip, with its upstream config.
     func deleteBranch(_ ref: GitRef, force: Bool = false) async -> Result<Void, Error> {
         return await runRefMutation {
+            let restore = await cli.captureBranchDeletion(ref.name)
             try await cli.deleteBranch(ref.name, force: force)
+            undo.record(restore)
             await refreshAfterRefMutation(reloadLog: false)
         } onFailure: {
             await loadRefs()
@@ -65,7 +68,7 @@ extension RepositoryViewModel {
     /// Move a non-current local branch tip to `sha` via `git branch -f`.
     /// Reloads the log because moving a tip changes graph topology. Route
     /// HEAD moves through `reset(to:mode:)` — git refuses `branch -f` on the
-    /// checked-out branch.
+    /// checked-out branch. Offers its undo: the tip back where it was.
     func moveBranch(_ ref: GitRef, to sha: String) async -> Result<Void, Error> {
         guard ref.isLocalBranch else {
             return .failure(BranchOpError.notALocalBranch)
@@ -74,7 +77,12 @@ extension RepositoryViewModel {
             return .failure(BranchOpError.cannotMoveCurrentBranch)
         }
         return await runRefMutation {
+            let branchRef = "refs/heads/\(ref.name)"
+            let previous = await cli.resolvedSha(branchRef)
             try await cli.forceUpdateBranch(ref.name, to: sha)
+            if let previous, let movedTo = await cli.resolvedSha(branchRef), movedTo != previous {
+                undo.record(.moveBranch(name: ref.name, movedTo: movedTo, previous: previous))
+            }
             await refreshAfterRefMutation(reloadLog: true)
         } onFailure: {
             await loadRefs()

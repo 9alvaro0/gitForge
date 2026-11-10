@@ -116,7 +116,7 @@ struct StagingView: View {
                 Task { await viewModel.discardChanges(viewModel.workingCopy.status.files) }
             }
         } message: {
-            Text("All uncommitted changes will be lost — staged, unstaged, and untracked files included. This can't be undone.")
+            Text("Every unstaged change is discarded and untracked files go to the Trash; staged changes stay. Undo (⌘Z) brings the discarded changes back.")
         }
     }
 

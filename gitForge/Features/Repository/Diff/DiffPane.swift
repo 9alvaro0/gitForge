@@ -95,7 +95,7 @@ struct DiffPane: View {
                 pendingDiscard = nil
             }
         } message: {
-            Text("These changes will be lost from the working tree. This can't be undone.")
+            Text("These changes will be removed from the working tree. Undo (⌘Z) brings them back.")
         }
         .onChange(of: preferences.diffIgnoreWhitespace) { onWhitespaceChange?() }
     }

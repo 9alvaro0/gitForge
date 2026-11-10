@@ -13,6 +13,8 @@ extension RepositoryViewModel {
         await runStageOperation { try await self.cli.unstage(paths: files.flatMap(\.allPaths)) }
     }
 
+    /// Offers its undo for the tracked changes (from a snapshot taken just
+    /// before); untracked files go to the Trash, and the toast says so.
     func discardChanges(_ files: [WorkingCopyFile]) async {
         // `git restore --` refuses unmerged paths, so they need a separate
         // command (`git checkout HEAD --`) that overwrites both index and
@@ -27,11 +29,24 @@ extension RepositoryViewModel {
         }
         let renameRestores = detectedRenames.compactMap(\.originalPath)
         let renameDeletes = detectedRenames.map(\.path)
-        await runStageOperation {
-            try await self.cli.discardChanges(paths: tracked.map(\.path) + renameRestores)
+        let restored = tracked.map(\.path) + renameRestores
+        var removal = UntrackedRemoval()
+        let done = await runStageOperation {
+            // Before anything goes. git can't snapshot unmerged paths: the
+            // discard then runs without an undo.
+            var snapshot: WorkingTreeSnapshot?
+            if !restored.isEmpty { snapshot = try? await self.cli.snapshotWorkingTree() }
+            try await self.cli.discardChanges(paths: restored)
             try await self.cli.discardUnmerged(paths: unmerged.map(\.path))
-            try await self.cli.deleteUntracked(paths: untracked.map(\.path) + renameDeletes)
+            try await self.cli.deleteUntracked(paths: renameDeletes)
+            removal = try await self.cli.deleteUntracked(paths: untracked.map(\.path))
+            if unmerged.isEmpty {
+                self.undo.record(await self.cli.discardUndo(snapshot: snapshot, paths: restored))
+            }
         }
+        guard done else { return }
+        operationSuccess = .discard(files: tracked.count + detectedRenames.count + unmerged.count,
+                                    removal: removal, undoID: undo.pending?.id)
     }
 
     // MARK: Bulk selection
@@ -54,18 +69,22 @@ extension RepositoryViewModel {
         workingCopy.deselect(toUnstage)
     }
 
-    func runStageOperation(_ block: () async throws -> Void) async {
-        guard !isMutating else { return }
+    /// Whether `block` ran and succeeded.
+    @discardableResult
+    func runStageOperation(_ block: () async throws -> Void) async -> Bool {
+        guard !isMutating else { return false }
         isMutating = true
         defer { isMutating = false }
         do {
             try await block()
             await workingCopy.refreshStatus()
+            return true
         } catch {
             commitError = error.userMessage
             // Multi-step ops (discardChanges) may have committed half their work
             // to disk before throwing — refresh so the UI mirrors actual state.
             await workingCopy.refreshStatus()
+            return false
         }
     }
 
@@ -126,7 +145,7 @@ extension RepositoryViewModel {
         case stage
         /// Index change → back to the worktree only.
         case unstage
-        /// Worktree change → gone. Not undoable.
+        /// Worktree change → gone. Offers its undo.
         case discard
     }
 
@@ -147,11 +166,20 @@ extension RepositoryViewModel {
         guard canApplyHunks(to: file),
               let patch = HunkPatch.make(path: file.path, hunk: hunk, selectedLineIds: lineIds, reverse: reverse)
         else { return }
-        await runStageOperation {
-            try await self.cli.apply(patch: patch, cached: action != .discard, reverse: reverse)
+        let discard = action == .discard
+        let done = await runStageOperation {
+            var snapshot: WorkingTreeSnapshot?
+            if discard { snapshot = try? await self.cli.snapshotWorkingTree() }
+            try await self.cli.apply(patch: patch, cached: !discard, reverse: reverse)
+            if discard {
+                self.undo.record(await self.cli.discardUndo(snapshot: snapshot, paths: [file.path]))
+            }
         }
         // The file can stay in the same state (still modified on both sides),
         // in which case the status refresh didn't reload its diff.
         await workingCopy.reloadSelectedDiff()
+        if done, discard {
+            operationSuccess = .discardHunk(lines: lineIds != nil, undoID: undo.pending?.id)
+        }
     }
 }

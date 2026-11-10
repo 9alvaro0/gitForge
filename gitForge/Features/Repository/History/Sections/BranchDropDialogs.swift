@@ -79,7 +79,7 @@ struct BranchDropDialogs: ViewModifier {
 
                 • Soft: commits after the target stay as staged changes.
                 • Mixed: commits after the target stay as unstaged changes.
-                • Hard: every commit and uncommitted change after the target is DISCARDED. Recoverable only via `git reflog` for a limited time.
+                • Hard: every commit and uncommitted change after the target is DISCARDED. Undo (⌘Z) brings them back until your next operation.
                 """)
             }
             .modifier(MergeRebaseDialog(request: $mergeRebaseRequest, onMerge: onMerge, onRebase: onRebase))

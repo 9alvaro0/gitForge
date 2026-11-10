@@ -131,11 +131,12 @@ final class WorkspaceUI {
     /// `IntegrationOutcome` (merge / rebase / cherry-pick / revert / reset /
     /// stash apply). `.conflicts` also routes the user to the conflict
     /// resolver. Avoids copy-pasting the same switch in every action runner.
+    /// `undo`: the entry a clean outcome offers (a reset), shown as Undo.
     func emitToast(for outcome: RepositoryViewModel.IntegrationOutcome,
-                   success: String, conflicts: String) {
+                   success: String, conflicts: String, undo: UndoEntry? = nil) {
         switch outcome {
         case .clean:
-            activeToast = ToastMessage(message: success, kind: .ok)
+            activeToast = ToastMessage(message: success, kind: .ok, action: .undo(undo?.id))
         case .conflicts:
             workspaceSection = .conflict
             activeToast = ToastMessage(message: conflicts, kind: .warn)

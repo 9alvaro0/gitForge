@@ -197,6 +197,23 @@
         }
       }
     },
+    "%@ is back at %@" : {
+      "comment" : "branch or HEAD, short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ vuelve a estar en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ voltou a %@"
+          }
+        }
+      }
+    },
     "%@ is connected" : {
       "localizations" : {
         "es" : {
@@ -467,6 +484,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, resolvido"
+          }
+        }
+      }
+    },
+    "%@/%@ is back at %@" : {
+      "comment" : "remote, branch, short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%@ vuelve a estar en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%@ voltou a %@"
           }
         }
       }
@@ -1999,22 +2033,6 @@
         }
       }
     },
-    "All uncommitted changes will be lost — staged, unstaged, and untracked files included. This can't be undone." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se perderán todos los cambios sin commit, incluidos los archivos preparados, sin preparar y sin seguimiento. No se puede deshacer."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todas as alterações sem commit serão perdidas — incluindo ficheiros preparados, não preparados e não seguidos. Esta ação não pode ser desfeita."
-          }
-        }
-      }
-    },
     "Already exists — choose another folder" : {
       "localizations" : {
         "es" : {
@@ -3035,6 +3053,134 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Explore os seus repositórios e clone-os em dois cliques."
+          }
+        }
+      }
+    },
+    "Can't undo the discard: those files have changed since." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer el descarte: esos archivos han cambiado desde entonces."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer o descarte: esses ficheiros mudaram entretanto."
+          }
+        }
+      }
+    },
+    "Can't undo the reset: %@ has moved since." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer el reset: %@ se ha movido desde entonces."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer o reset: %@ mudou entretanto."
+          }
+        }
+      }
+    },
+    "Can't undo the reset: commit, stash or discard the changes you made since." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer el reset: haz commit, stash o descarta los cambios que hiciste después."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer o reset: faz commit, stash ou descarta as alterações que fizeste depois."
+          }
+        }
+      }
+    },
+    "Can't undo: %@ has changed since your force-push." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer: %@ ha cambiado desde tu force-push."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer: %@ mudou desde o teu force-push."
+          }
+        }
+      }
+    },
+    "Can't undo: %@ has moved since." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer: %@ se ha movido desde entonces."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer: %@ mudou entretanto."
+          }
+        }
+      }
+    },
+    "Can't undo: %@ is checked out now." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer: %@ es ahora la rama activa."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer: %@ é agora o ramo ativo."
+          }
+        }
+      }
+    },
+    "Can't undo: a branch named %@ exists again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer: vuelve a existir una rama llamada %@."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer: voltou a existir um ramo chamado %@."
+          }
+        }
+      }
+    },
+    "Can't undo: git no longer has those commits." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer: git ya no tiene esos commits."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível desfazer: o git já não tem esses commits."
           }
         }
       }
@@ -6145,6 +6291,23 @@
         }
       }
     },
+    "Deleted %@" : {
+      "comment" : "branch name",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ eliminada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ eliminado"
+          }
+        }
+      }
+    },
     "Deleted %@ (local + remote)" : {
       "localizations" : {
         "es" : {
@@ -6173,6 +6336,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ eliminada (local)"
+          }
+        }
+      }
+    },
+    "Deleted %lld untracked files (their disk has no Trash)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld archivos sin seguimiento eliminados (su disco no tiene Papelera)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ficheiros não seguidos eliminados (o disco não tem Lixo)"
+          }
+        }
+      }
+    },
+    "Deleted 1 untracked file (its disk has no Trash)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 archivo sin seguimiento eliminado (su disco no tiene Papelera)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 ficheiro não seguido eliminado (o disco não tem Lixo)"
           }
         }
       }
@@ -6801,18 +6996,82 @@
         }
       }
     },
-    "Discards the stash. This can't be undone." : {
+    "Discarded changes in %lld files" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descarta el stash. No se puede deshacer."
+            "value" : "Cambios descartados en %lld archivos"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descarta o stash. Esta ação não pode ser desfeita."
+            "value" : "Alterações descartadas em %lld ficheiros"
+          }
+        }
+      }
+    },
+    "Discarded changes in 1 file" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios descartados en 1 archivo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterações descartadas em 1 ficheiro"
+          }
+        }
+      }
+    },
+    "Discarded the hunk" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hunk descartado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hunk descartado"
+          }
+        }
+      }
+    },
+    "Discarded the selected lines" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Líneas seleccionadas descartadas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linhas selecionadas descartadas"
+          }
+        }
+      }
+    },
+    "Discards the stash. Undo (⌘Z) brings it back." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarta el stash. Deshacer (⌘Z) lo recupera."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarta o stash. Desfazer (⌘Z) recupera-o."
           }
         }
       }
@@ -7294,6 +7553,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A cada 5 min"
+          }
+        }
+      }
+    },
+    "Every unstaged change is discarded and untracked files go to the Trash; staged changes stay. Undo (⌘Z) brings the discarded changes back." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se descartan todos los cambios sin preparar y los archivos sin seguimiento van a la Papelera; los cambios preparados se mantienen. Deshacer (⌘Z) recupera los cambios descartados."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas as alterações não preparadas são descartadas e os ficheiros não seguidos vão para o Lixo; as alterações preparadas mantêm-se. Desfazer (⌘Z) recupera as alterações descartadas."
           }
         }
       }
@@ -9519,34 +9794,34 @@
         }
       }
     },
-    "Local changes will be lost and untracked files deleted. This can't be undone." : {
+    "Local changes will be discarded and untracked files moved to the Trash. Undo (⌘Z) brings the changes back." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se perderán los cambios locales y se eliminarán los archivos sin seguimiento. No se puede deshacer."
+            "value" : "Se descartarán los cambios locales y los archivos sin seguimiento irán a la Papelera. Deshacer (⌘Z) recupera los cambios."
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "As alterações locais serão perdidas e os ficheiros não seguidos serão eliminados. Esta ação não pode ser desfeita."
+            "value" : "As alterações locais serão descartadas e os ficheiros não seguidos irão para o Lixo. Desfazer (⌘Z) recupera as alterações."
           }
         }
       }
     },
-    "Local changes will be reverted to the last committed version. This can't be undone." : {
+    "Local changes will be reverted to the last committed version. Undo (⌘Z) brings them back." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Los cambios locales se revertirán a la última versión con commit. No se puede deshacer."
+            "value" : "Los cambios locales se revertirán a la última versión con commit. Deshacer (⌘Z) los recupera."
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "As alterações locais serão revertidas para a última versão com commit. Esta ação não pode ser desfeita."
+            "value" : "As alterações locais serão revertidas para a última versão com commit. Desfazer (⌘Z) recupera-as."
           }
         }
       }
@@ -10305,34 +10580,66 @@
         }
       }
     },
-    "Moves %@ and HEAD to %@.\n\n• Soft: commits after the target stay as staged changes.\n• Mixed: commits after the target stay as unstaged changes.\n• Hard: every commit and uncommitted change after the target is DISCARDED. Recoverable only via `git reflog` for a limited time." : {
+    "Moved %lld untracked files to the Trash" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mueve %@ y HEAD a %@.\n\n• Soft: los commits posteriores al destino quedan como cambios preparados.\n• Mixed: los commits posteriores al destino quedan como cambios sin preparar.\n• Hard: todos los commits y cambios sin confirmar posteriores al destino se DESCARTAN. Solo se pueden recuperar con `git reflog` durante un tiempo limitado."
+            "value" : "%lld archivos sin seguimiento movidos a la Papelera"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Move %@ e o HEAD para %@.\n\n• Soft: os commits posteriores ao destino ficam como alterações preparadas.\n• Mixed: os commits posteriores ao destino ficam como alterações não preparadas.\n• Hard: todos os commits e alterações sem commit posteriores ao destino são DESCARTADOS. Só são recuperáveis via `git reflog` durante um tempo limitado."
+            "value" : "%lld ficheiros não seguidos movidos para o Lixo"
           }
         }
       }
     },
-    "Moves HEAD to %@ and DISCARDS every commit and uncommitted change after it. Recoverable only via `git reflog` for a limited time. This cannot be undone from the UI." : {
+    "Moved 1 untracked file to the Trash" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mueve HEAD a %@ y DESCARTA todos los commits y cambios sin confirmar posteriores. Solo se puede recuperar con `git reflog` durante un tiempo limitado. Esto no se puede deshacer desde la interfaz."
+            "value" : "1 archivo sin seguimiento movido a la Papelera"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Move o HEAD para %@ e DESCARTA todos os commits e alterações sem commit posteriores. Só é recuperável via `git reflog` durante um tempo limitado. Não é possível anular isto a partir da interface."
+            "value" : "1 ficheiro não seguido movido para o Lixo"
+          }
+        }
+      }
+    },
+    "Moves %@ and HEAD to %@.\n\n• Soft: commits after the target stay as staged changes.\n• Mixed: commits after the target stay as unstaged changes.\n• Hard: every commit and uncommitted change after the target is DISCARDED. Undo (⌘Z) brings them back until your next operation." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mueve %@ y HEAD a %@.\n\n• Soft: los commits posteriores al destino quedan como cambios preparados.\n• Mixed: los commits posteriores al destino quedan como cambios sin preparar.\n• Hard: todos los commits y cambios sin confirmar posteriores al destino se DESCARTAN. Deshacer (⌘Z) los recupera hasta tu siguiente operación."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move %@ e o HEAD para %@.\n\n• Soft: os commits posteriores ao destino ficam como alterações preparadas.\n• Mixed: os commits posteriores ao destino ficam como alterações não preparadas.\n• Hard: todos os commits e alterações sem commit posteriores ao destino são DESCARTADOS. Desfazer (⌘Z) recupera-os até à tua próxima operação."
+          }
+        }
+      }
+    },
+    "Moves HEAD to %@ and DISCARDS every commit and uncommitted change after it. Undo (⌘Z) brings them back until your next operation in this repository." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mueve HEAD a %@ y DESCARTA todos los commits y cambios sin confirmar posteriores. Deshacer (⌘Z) los recupera hasta tu siguiente operación en este repositorio."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move o HEAD para %@ e DESCARTA todos os commits e alterações sem commit posteriores. Desfazer (⌘Z) recupera-os até à tua próxima operação neste repositório."
           }
         }
       }
@@ -11453,6 +11760,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nada impede a integração."
+          }
+        }
+      }
+    },
+    "Nothing to discard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada que descartar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada a descartar"
           }
         }
       }
@@ -13331,6 +13654,23 @@
         }
       }
     },
+    "Redo" : {
+      "comment" : "Edit menu item",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rehacer"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refazer"
+          }
+        }
+      }
+    },
     "Ref" : {
       "localizations" : {
         "es" : {
@@ -14647,6 +14987,70 @@
         }
       }
     },
+    "Restored branch %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rama %@ restaurada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ramo %@ reposto"
+          }
+        }
+      }
+    },
+    "Restored the discarded changes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios descartados restaurados"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterações descartadas repostas"
+          }
+        }
+      }
+    },
+    "Restored the discarded changes in %lld files" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios descartados restaurados en %lld archivos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterações descartadas repostas em %lld ficheiros"
+          }
+        }
+      }
+    },
+    "Restored the stash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stash restaurado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stash reposto"
+          }
+        }
+      }
+    },
     "Result" : {
       "localizations" : {
         "es" : {
@@ -14871,6 +15275,22 @@
         }
       }
     },
+    "Safe delete refuses to drop the branch if it has commits not merged into HEAD. Force-delete drops it anyway. Either way, Undo (⌘Z) brings the branch back." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La eliminación segura no borra la rama si tiene commits sin fusionar en HEAD. Forzar la elimina igualmente. En ambos casos, Deshacer (⌘Z) recupera la rama."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A eliminação segura recusa apagar o ramo se tiver commits não integrados em HEAD. Forçar apaga-o mesmo assim. Em ambos os casos, Desfazer (⌘Z) repõe o ramo."
+          }
+        }
+      }
+    },
     "SSH authentication failed" : {
       "localizations" : {
         "es" : {
@@ -14915,22 +15335,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "PREPARADOS"
-          }
-        }
-      }
-    },
-    "Safe delete refuses to drop the branch if it has commits not merged into HEAD. Force-delete drops it anyway — those commits stay recoverable via `git reflog` only." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La eliminación segura no borra la rama si tiene commits sin fusionar en HEAD. Forzar la elimina igualmente: esos commits solo se podrán recuperar con `git reflog`."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A eliminação segura recusa apagar o ramo se tiver commits não integrados em HEAD. Forçar apaga-o mesmo assim — esses commits só ficam recuperáveis via `git reflog`."
           }
         }
       }
@@ -17033,6 +17437,54 @@
         }
       }
     },
+    "That can no longer be undone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eso ya no se puede deshacer."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isso já não pode ser desfeito."
+          }
+        }
+      }
+    },
+    "That stash is already in the list." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese stash ya está en la lista."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse stash já está na lista."
+          }
+        }
+      }
+    },
+    "The file will be moved to the Trash." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El archivo se moverá a la Papelera."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ficheiro será movido para o Lixo."
+          }
+        }
+      }
+    },
     "THEIRS ▶" : {
       "localizations" : {
         "es" : {
@@ -17045,6 +17497,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "DELES ▶"
+          }
+        }
+      }
+    },
+    "These changes will be removed from the working tree. Undo (⌘Z) brings them back." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estos cambios se eliminarán de la copia de trabajo. Deshacer (⌘Z) los recupera."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estas alterações serão removidas da cópia de trabalho. Desfazer (⌘Z) recupera-as."
           }
         }
       }
@@ -17365,22 +17833,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O ficheiro foi movido sem alterações de conteúdo."
-          }
-        }
-      }
-    },
-    "The file will be removed from disk. This can't be undone from the app." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El archivo se eliminará del disco. No se puede deshacer desde la app."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O ficheiro será removido do disco. Não é possível desfazer a partir da app."
           }
         }
       }
@@ -17881,22 +18333,6 @@
         }
       }
     },
-    "These changes will be lost from the working tree. This can't be undone." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Estos cambios se perderán de la copia de trabajo. No se puede deshacer."
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Estas alterações serão perdidas da cópia de trabalho. Não é possível anular."
-          }
-        }
-      }
-    },
     "This branch conflicts with its target." : {
       "localizations" : {
         "es" : {
@@ -18261,6 +18697,120 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tipo"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "comment" : "Toast button and Edit menu item",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer"
+          }
+        }
+      }
+    },
+    "Undo Delete of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer eliminación de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer eliminação de %@"
+          }
+        }
+      }
+    },
+    "Undo Discard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer descarte"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer descarte"
+          }
+        }
+      }
+    },
+    "Undo Drop Stash" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer eliminación del stash"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer eliminação do stash"
+          }
+        }
+      }
+    },
+    "Undo Force-Push to %@/%@" : {
+      "comment" : "remote, branch",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer force-push a %@/%@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer force-push para %@/%@"
+          }
+        }
+      }
+    },
+    "Undo Move of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer movimiento de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer movimento de %@"
+          }
+        }
+      }
+    },
+    "Undo Reset of %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer reset de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer reset de %@"
           }
         }
       }

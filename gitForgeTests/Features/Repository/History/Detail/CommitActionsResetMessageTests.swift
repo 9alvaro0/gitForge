@@ -35,8 +35,8 @@ struct CommitActionsResetMessageTests {
         #expect(message.contains(sha))
         #expect(message.contains("DISCARDS"))
         #expect(message.contains("uncommitted"))
-        #expect(message.contains("reflog"))
-        #expect(message.contains("cannot be undone"))
+        // Undo brings them back now (#59): the message says how.
+        #expect(message.contains("Undo (⌘Z)"))
     }
 
     @Test("All non-nil modes embed the sha")

@@ -35,9 +35,17 @@ nonisolated struct ToastAction: Equatable, Sendable {
         case openURL(URL)
         /// Puts the text on the pasteboard (a comment that didn't post).
         case copyText(String)
+        /// Runs the active repository's undo, if `entryID` is still the one
+        /// on offer (`UndoStore`).
+        case undo(entryID: UUID)
     }
     let title: String
     let route: Route
+
+    /// "Undo" for the entry an operation just offered; `nil` without one.
+    static func undo(_ entryID: UUID?) -> ToastAction? {
+        entryID.map { ToastAction(title: String(localized: "Undo"), route: .undo(entryID: $0)) }
+    }
 }
 
 /// Bottom-centre glass toast (redesign spec §5): shape-coded glyph plus

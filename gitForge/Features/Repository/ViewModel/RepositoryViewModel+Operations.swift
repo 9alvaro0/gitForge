@@ -1,6 +1,7 @@
 import Foundation
 
-/// Cherry-pick / revert / reset wired into `RepositoryViewModel`.
+/// Cherry-pick / revert / reset wired into `RepositoryViewModel`. A reset
+/// offers its undo (`undo.pending`).
 /// Each method returns an `IntegrationOutcome` so the view can decide whether
 /// to celebrate, route to the conflict resolver, or surface the error.
 extension RepositoryViewModel {
@@ -53,8 +54,12 @@ extension RepositoryViewModel {
         commitError = nil
         isMutating = true
         defer { isMutating = false }
+        // Read before the reset: HEAD, its branch, and the index and
+        // worktree a mixed or hard reset is about to drop.
+        let capture = await cli.captureReset(mode: mode)
         do {
             try await cli.reset(to: sha, mode: mode)
+            if let capture { undo.record(await cli.resetUndo(after: capture)) }
             await refreshAfterIntegration()
             return .clean
         } catch {
