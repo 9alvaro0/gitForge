@@ -71,6 +71,9 @@ final class WorkspaceUI {
     /// point (sidebar, Branches & Tags, the Repository menu) sets it;
     /// `ContentRouter` presents the sheet, so no section switch is needed.
     var renameBranchTarget: GitRef?
+    /// "Recover lost commits…" (the Repository menu, ⌘K); `ContentRouter`
+    /// presents the sheet over whatever section is showing.
+    var recoverCommitsVisible: Bool = false
     /// "Connect account" sheet (P4 spec §5.2); `ShellView` presents it.
     var connectAccountRequest: ConnectAccountRequest?
     /// "Clone a repository" sheet; `ShellView` presents it.

@@ -160,7 +160,8 @@ enum CommandPaletteBuilder {
     /// opens it on the last pane, one "Settings: <pane>" item per pane in
     /// the sidebar's order, and the three actions that open something
     /// inside one. Only "Settings" shows while browsing; those nine are
-    /// search-only, or they would fill the first screen of ⌘K.
+    /// search-only, or they would fill the first screen of ⌘K. So is
+    /// "Recover lost commits…", found by "recover", "lost" or "reflog".
     static let builtInCommands: [CommandPaletteItem] = [
         CommandPaletteItem(kind: .command, label: String(localized: "Open repository…"),  hint: "⌘O",  action: .openRepository),
         CommandPaletteItem(kind: .command, label: String(localized: "Clone repository…"), hint: "⌥⌘C", action: .cloneRepository),
@@ -169,6 +170,8 @@ enum CommandPaletteBuilder {
         CommandPaletteItem(kind: .command, label: String(localized: "Push"),            hint: "⌘⇧P", action: .push),
         CommandPaletteItem(kind: .command, label: String(localized: "New branch…"),     hint: "⌘⇧B", action: .selectSection(.branches)),
         CommandPaletteItem(kind: .command, label: String(localized: "Stash changes"),   hint: nil,   action: .stash),
+        CommandPaletteItem(kind: .command, label: String(localized: "Recover lost commits…"), hint: nil, action: .recoverCommits,
+                           keywords: ["reflog", "undo", "reset", "amend", "rebase"], searchOnly: true),
         CommandPaletteItem(kind: .command, label: String(localized: "Settings"),        hint: "⌘,",  action: .openSettings(nil)),
     ] + SettingsPane.allCases.map { pane in
         CommandPaletteItem(kind: .command, label: String(localized: "Settings: \(pane.label)"), hint: nil,
