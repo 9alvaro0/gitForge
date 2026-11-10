@@ -140,6 +140,7 @@ actor GitCLI {
             } else {
                 let trimmedStderr = Self.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
                 Self.logger.error("✗ git \(safeArgsString, privacy: .public) exited \(result.exitCode) in \(durationMs, privacy: .public) ms: \(trimmedStderr, privacy: .public)")
+                AppLog.shared.gitFailure(args: args, exitCode: result.exitCode, stderr: stderr, duration: duration)
                 throw GitError.commandFailed(
                     args: args,
                     exitCode: result.exitCode,

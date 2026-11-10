@@ -136,6 +136,7 @@ The suite (Swift Testing) uses real `git` against throwaway repositories in the 
 | `gitForge/Core/Watchers` | FSEvents-based repository watcher, auto-fetcher |
 | `gitForge/Core/RemoteHosting` | GitHub / GitLab API clients, token storage (Keychain), pinned TLS trust |
 | `gitForge/Core/Graph` | Commit graph layout engine |
+| `gitForge/Core/Logging` | Local error log (`AppLog`): sanitizing, size-based rotation, export |
 | `gitForge/App` | App entry point, shell, app-wide stores (`AppState`, `RepositoryCatalog`, preferences) |
 | `gitForge/Features` | One folder per screen; `Repository/ViewModel` is the per-repository session plus feature stores (`PullRequestStore`, `StashDetailStore`, `ConflictStore`) |
 | `gitForge/DesignSystem` | Tokens (spacing, type scale, colours), theme, shared components, icons |
@@ -159,6 +160,17 @@ links to the download.
 
 Turn automatic installs off in **Settings → Updates**. Manual check:
 **Help → Check for Updates…**
+
+## Logs
+
+gitForge keeps a local log of the errors it shows and the git commands that
+fail, in `~/Library/Logs/gitForge/gitForge.log` (rotated, at most 5 MB). Tokens,
+passwords and credentials in URLs are removed before anything is written, and
+paths in your home folder appear as `~`. Nothing is sent anywhere.
+
+To attach it to a bug report, use **Help → Export Logs…**: it saves one file
+with the app, macOS and git versions on top. **Help → Open Log Folder** shows
+the folder in Finder.
 
 ## License
 
