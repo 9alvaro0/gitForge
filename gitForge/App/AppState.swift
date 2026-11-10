@@ -189,6 +189,10 @@ final class AppState {
     /// Spins up the app: probes git, reads global config, loads recents,
     /// reopens the last active repo, and starts the status poller.
     func bootstrap() async {
+        // Marks each launch in the local log, so entries can be told apart
+        // by session.
+        let environment = LogExport.currentEnvironment(gitVersion: "")
+        AppLog.shared.info("gitForge \(environment.appVersion) (\(environment.appBuild)) launched on macOS \(environment.macOSVersion)", category: "app")
         async let gitCheck: Void = gitEnvironment.refreshGitInstallation()
         async let configRead: Void = gitEnvironment.refreshGlobalConfig()
         await catalog.load()

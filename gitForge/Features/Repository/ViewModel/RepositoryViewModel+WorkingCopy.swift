@@ -94,7 +94,12 @@ extension RepositoryViewModel {
         workingCopy.amendMode && upstream != nil && aheadCount == 0
     }
 
-    func commit(confirmedAmendOfPublished: Bool = false) async -> Bool {
+    /// `pushAfterwards` only matters if a hook stops the commit: the hook
+    /// sheet's Retry then pushes too, like "Commit & push" would have.
+    /// `skipHooks` commits with `--no-verify`. The subject and body are only
+    /// cleared on success, so a failed commit keeps the message.
+    func commit(confirmedAmendOfPublished: Bool = false, pushAfterwards: Bool = false,
+                skipHooks: Bool = false) async -> Bool {
         guard !isMutating else { return false }
         commitError = nil
         let subject = workingCopy.commitSubject.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -119,7 +124,8 @@ extension RepositoryViewModel {
                 subject: subject,
                 body: body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : body,
                 amend: amend,
-                signOff: workingCopy.signOff
+                signOff: workingCopy.signOff,
+                skipHooks: skipHooks
             )
             workingCopy.resetComposer()
             // Single shared cluster — same helper used by +Operations /
@@ -131,8 +137,39 @@ extension RepositoryViewModel {
             operationSuccess = .commit(shortSha: shortSha, subject: subject, amend: amend)
             return true
         } catch {
-            commitError = error.userMessage
+            let operation = HookFailure.Operation.commit(pushAfterwards: pushAfterwards,
+                                                         confirmedAmendOfPublished: confirmedAmendOfPublished)
+            if let failure = await detectHookFailure(in: error, operation: operation) {
+                hookFailure = failure
+                commitError = failure.summary
+            } else {
+                commitError = error.userMessage
+            }
             return false
+        }
+    }
+
+    /// The hook failure behind `error`, if a commit hook is installed and the
+    /// failure isn't one git reports itself.
+    func detectHookFailure(in error: Error, operation: HookFailure.Operation) async -> HookFailure? {
+        guard case GitError.commandFailed(_, _, let stderr) = error else { return nil }
+        let installed = await cli.installedHooks(HookFailure.commitHooks)
+        return HookFailure(stderr: stderr, operation: operation, installedHooks: installed)
+    }
+
+    /// The hook sheet's Retry (`skipHooks: false`) and "Commit without hooks"
+    /// (`skipHooks: true`, commits only). Runs the same operation again; a
+    /// new failure raises a new sheet.
+    func retry(_ failure: HookFailure, skipHooks: Bool = false) async {
+        if hookFailure?.id == failure.id { hookFailure = nil }
+        switch failure.operation {
+        case .commit(let pushAfterwards, let confirmed):
+            let committed = await commit(confirmedAmendOfPublished: confirmed,
+                                         pushAfterwards: pushAfterwards,
+                                         skipHooks: skipHooks)
+            if committed, pushAfterwards { _ = await push() }
+        case .continueIntegration:
+            await continueMerge()
         }
     }
 }

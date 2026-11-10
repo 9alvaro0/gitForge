@@ -187,14 +187,17 @@ nonisolated final class ProcessExit: @unchecked Sendable {
 /// cancellation — both end with `terminationReason == .uncaughtSignal`.
 nonisolated final class GitWatchdog: @unchecked Sendable {
     let timeout: TimeInterval
+    /// Picks the timeout message: only network commands blame the remote.
+    let kind: GitCommandKind
     private let pollInterval: Duration
     private let lock = NSLock()
     private var lastProgressAt = Date()
     private var didTimeOut = false
     private var task: Task<Void, Never>?
 
-    init(timeout: TimeInterval, pollInterval: Duration = .seconds(5)) {
+    init(timeout: TimeInterval, kind: GitCommandKind = .network, pollInterval: Duration = .seconds(5)) {
         self.timeout = timeout
+        self.kind = kind
         self.pollInterval = pollInterval
     }
 
@@ -210,10 +213,10 @@ nonisolated final class GitWatchdog: @unchecked Sendable {
     }
 
     /// The message surfaced when the watchdog killed a command that printed
-    /// nothing useful. Phrased so `RemoteFailure(stderr:)` routes it to
-    /// `.network`.
+    /// nothing useful. For `.network` it's phrased so `RemoteFailure(stderr:)`
+    /// routes it to `.network`; local commands never mention the remote.
     var timeoutMessage: String {
-        "connection timed out after \(Int(timeout))s — the remote may be unreachable, or git is stuck on something the app can't drive non-interactively."
+        kind.timeoutMessage(after: timeout)
     }
 
     func start(watching process: Process, label: String, logger: Logger) {

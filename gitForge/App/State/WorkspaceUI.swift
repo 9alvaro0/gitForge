@@ -60,8 +60,20 @@ final class WorkspaceUI {
     var theme: AppTheme = AppTheme()
     var preferences: AppPreferences = AppPreferences()
     var commandPaletteOpen: Bool = false
-    var activeToast: ToastMessage?
-    var presentedError: PresentedError?
+    /// Error toasts and alerts also go to the local log (issue #1), so a
+    /// bug report carries what the user saw.
+    var activeToast: ToastMessage? {
+        didSet {
+            guard let toast = activeToast, toast.kind == .error, toast.id != oldValue?.id else { return }
+            AppLog.shared.error(toast.message, category: "toast")
+        }
+    }
+    var presentedError: PresentedError? {
+        didSet {
+            guard let error = presentedError, error.id != oldValue?.id else { return }
+            AppLog.shared.error("\(error.title): \(error.message)", category: "alert")
+        }
+    }
 
     /// Flags driven by global menu commands. Views observe these and present
     /// the matching sheet/alert; menus only flip the bool.

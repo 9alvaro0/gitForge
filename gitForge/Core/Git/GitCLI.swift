@@ -34,10 +34,16 @@ actor GitCLI {
     /// uses the system's credential helpers.
     nonisolated let credentials: GitCredentialProvider?
 
-    init(workingDirectory: URL, executablePath: String = "/usr/bin/env", credentials: GitCredentialProvider? = nil) {
+    /// The user's idle timeout in seconds, read per command. Tests inject a
+    /// short one instead of writing to the shared `UserDefaults`.
+    private let configuredTimeoutSeconds: @Sendable () -> Int
+
+    init(workingDirectory: URL, executablePath: String = "/usr/bin/env", credentials: GitCredentialProvider? = nil,
+         configuredTimeoutSeconds: @escaping @Sendable () -> Int = { GitPreferences.gitTimeoutSeconds }) {
         self.workingDirectory = workingDirectory
         self.executablePath = executablePath
         self.credentials = credentials
+        self.configuredTimeoutSeconds = configuredTimeoutSeconds
     }
 
     @discardableResult
@@ -68,8 +74,10 @@ actor GitCLI {
         let safeArgsString = Self.redacted(args.joined(separator: " "))
         // Resolve once per invocation so the watchdog and the synthesized
         // timeout message use a consistent value even if the user flips the
-        // setting mid-fetch.
-        let watchdog = GitWatchdog(timeout: TimeInterval(GitPreferences.gitTimeoutSeconds))
+        // setting mid-fetch. Commands that run local hooks get a much longer
+        // ceiling than network ones (#58).
+        let kind = GitCommandKind(arguments: args)
+        let watchdog = GitWatchdog(timeout: kind.idleTimeout(configured: TimeInterval(configuredTimeoutSeconds())), kind: kind)
         if Diagnostics.traceGitCommands {
             Self.logger.debug("→ git \(safeArgsString, privacy: .public)")
         }
@@ -119,7 +127,8 @@ actor GitCLI {
             let capturedStderr = GitProcess.decode(stderrBytes)
             // Watchdog killed us → captured stderr is usually empty and the
             // generic "exit 15 / no message" toast is useless. Synthesize a
-            // message that routes through `RemoteFailure(stderr:)` as `.network`.
+            // message (network commands route through `RemoteFailure(stderr:)`
+            // as `.network`; local ones don't mention the remote).
             let stderr: String = {
                 let trimmed = capturedStderr.trimmingCharacters(in: .whitespacesAndNewlines)
                 return watchdog.timedOut && trimmed.isEmpty ? watchdog.timeoutMessage : capturedStderr
@@ -140,6 +149,7 @@ actor GitCLI {
             } else {
                 let trimmedStderr = Self.redacted(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
                 Self.logger.error("✗ git \(safeArgsString, privacy: .public) exited \(result.exitCode) in \(durationMs, privacy: .public) ms: \(trimmedStderr, privacy: .public)")
+                AppLog.shared.gitFailure(args: args, exitCode: result.exitCode, stderr: stderr, duration: duration)
                 throw GitError.commandFailed(
                     args: args,
                     exitCode: result.exitCode,

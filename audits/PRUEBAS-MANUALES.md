@@ -163,6 +163,62 @@ crea en `~/gitforge-manual-test`) con:
       gancho).
       El primer arrastre ya trae la vista previa.
 
+## Log local y exportación (#1)
+Rama `feat/local-logging-1`. El logger, la rotación y la limpieza tienen
+tests; esto es lo que solo se ve en la app.
+- [ ] Compila sin warnings y la suite pasa (`xcodebuild test`).
+- [ ] Al abrir la app aparece `~/Library/Logs/gitForge/gitForge.log` con una
+      línea `INFO [app] gitForge … launched on macOS …`. Carpeta `drwx------`,
+      fichero `-rw-------` (`ls -la ~/Library/Logs/gitForge`).
+- [ ] Un push sin permiso o un fetch sin red: el toast de error y el comando
+      fallido (`ERROR [git] git push … exited 128 …`, con el stderr debajo,
+      sangrado) quedan en el log. Con un remoto `https://usuario:token@host/…`
+      el token sale como `****`; las rutas del home, como `~/…`.
+- [ ] Un error bajo el composer (p. ej. commit con un hook que falla) queda
+      como `ERROR [operation] …`; el alert "Couldn’t open repository" (abrir
+      una carpeta que no es un repo), como `ERROR [alert] …`.
+- [ ] El uso normal (History, Changes, refrescos) no llena el log: las
+      consultas que git responde con "no" (`config --get` sin valor,
+      `rev-parse --verify --quiet`) no se apuntan.
+- [ ] Help › Export Logs…: panel de guardado con el texto de qué contiene,
+      nombre `gitForge-logs-AAAA-MM-DD-HHMM.log`; el fichero empieza con las
+      versiones de gitForge, macOS y git y el párrafo "What this file
+      contains". Toast "Logs exported." Probar en es y pt-PT (panel y toast
+      traducidos; el contenido del fichero va en inglés a propósito).
+- [ ] Exportar a una carpeta sin permiso de escritura: toast de error, la app
+      no se cuelga.
+- [ ] Help › Open Log Folder: Finder con `gitForge.log` seleccionado. Con la
+      carpeta borrada, la crea y la abre vacía; el siguiente error vuelve a
+      crear el fichero.
+- [ ] Rotación real: en Debug, bajar `AppLog.maxFileBytes` a 10 KB,
+      provocar errores (p. ej. fetch sin red varias veces) y ver aparecer
+      `gitForge.1.log` … `gitForge.4.log`; nunca un `gitForge.5.log`.
+      Exportar entonces: las entradas salen en orden cronológico.
+- [ ] Ni la escritura del log ni la exportación bloquean la UI (exportar con
+      el log lleno, ~5 MB, mientras se hace scroll en History).
+
+
+## Hooks locales (#58)
+Antes: en el repo de pruebas, `mkdir -p .git/hooks` y deja el timeout de
+Settings ▸ Behavior en 60 s.
+- [ ] `pre-commit` con `sleep 90; exit 0` (sin imprimir nada): el commit
+      termina a los ~90 s y sale el toast de éxito.
+- [ ] `pre-commit` que imprime un informe largo (p. ej. `seq 1 300; exit 1`):
+      se abre la hoja "The pre-commit hook failed" con toda la salida, con
+      scroll, seleccionable y "Copy output" copia el texto completo.
+- [ ] Con la hoja abierta, el asunto y la descripción siguen en el composer;
+      al cerrar queda debajo "The pre-commit hook failed. Nothing was committed."
+- [ ] Retry vuelve a ejecutar el hook (la hoja reaparece si sigue fallando);
+      cambiando el hook a `exit 0`, Retry hace el commit.
+- [ ] "Commit without hooks" hace el commit con el hook fallando todavía.
+- [ ] Desde "Commit & push" con el hook fallando: tras Retry con éxito, también hace push.
+- [ ] Con un merge en conflicto resuelto y el mismo hook fallando, "Continue":
+      sale la hoja sin "Commit without hooks"; el merge sigue en pausa.
+- [ ] Ningún texto de error de un commit o un continue dice "remote".
+- [ ] Hoja en claro y oscuro, VoiceOver lee el título, la salida y los botones;
+      Esc cierra y ↵ es Retry.
+- [ ] Textos en es y pt-PT.
+
 
 ## Deshacer operaciones destructivas (#59)
 Compilado y probado en Linux solo lo que no es vista (capa Git, `UndoStore`,

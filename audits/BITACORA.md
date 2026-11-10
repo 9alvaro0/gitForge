@@ -709,6 +709,71 @@ Las propiedades conservan sus nombres (`viewModel.history.commits`, `viewModel.w
 
 ---
 
+## #1 — Log local de errores y exportación desde Help
+
+**Fecha:** 2026-11-10
+**Rama:** `feat/local-logging-1`
+**Alcance:** issue #1 (roadmap 1.9). Un fichero de log local que el usuario puede adjuntar a un bug report.
+
+### Qué hace
+
+- **Fichero:** `~/Library/Logs/gitForge/gitForge.log` (la app no está en sandbox, así que es la carpeta real que lista Console.app). Rota por tamaño: 1 MB por fichero, `gitForge.1.log` … `gitForge.4.log`, así que nunca pasa de 5 MB. Carpeta `0700`, ficheros `0600`.
+- **Qué se apunta:**
+  - Cada comando git que falla: comando, código de salida, duración y stderr (o el mensaje sintetizado del watchdog si lo mató por tiempo). Una sola llamada en `GitCLI.run`, en la rama de `commandFailed`, para no chocar con el arreglo del watchdog (#58).
+  - Todo error que ve el usuario: toasts de tipo `.error` y `presentedError` (`didSet` en `WorkspaceUI`), y `commitError` del VM (el texto bajo el composer). Así se cubren también los fallos de red, cuentas y PRs que llegan por esas vías.
+  - Una línea `INFO [app]` en cada arranque con versión de la app y de macOS, para separar sesiones.
+- **Help › Export Logs…** guarda un único fichero con cabecera (versión y build de gitForge, macOS, `git --version`, y un párrafo de qué contiene) y después los ficheros en orden cronológico. El panel de guardado explica en el idioma del usuario qué lleva; el fichero va en inglés porque lo lee quien hace el triaje.
+- **Help › Open Log Folder** abre Finder con el log seleccionado (crea la carpeta si no existe).
+
+### Privacidad
+
+- Todo pasa por `LogSanitizer` antes de escribirse: `GitCLI.redacted` (userinfo de URLs y tokens registrados en `SecretRedactor`), más formas de token conocidas (`ghp_…`, `github_pat_…`, `glpat-…`), cabeceras `Authorization`/`Bearer`, pares `password=`/`token=`, y la ruta del home como `~`. Se quitan secuencias ANSI y caracteres de control.
+- La exportación vuelve a limpiar todo el texto, por si un token se registró después de escribir una entrada antigua.
+- Nada sale del Mac salvo el fichero que el usuario exporta.
+
+### Decisiones
+
+- **Sin bloqueo:** las entradas se fechan en el momento y se limpian y escriben en una cola serie propia (`utility`). `GitCLI.run` solo encola. La exportación lee y escribe fuera del main actor (`GitProcess.offPool`).
+- **Consultas que no son errores:** salida 1 con stderr vacío no se apunta. Es git respondiendo "no" (`config --get` de una clave sin valor, `rev-parse --verify --quiet`, `diff --quiet`), que la app pregunta continuamente; apuntarlo enterraría los fallos de verdad.
+- **Tamaño por entrada:** 8 KB como mucho (un stderr enorme no se come un fichero entero).
+- **Tests:** el `AppLog.shared` se desactiva en el proceso que hospeda XCTest, para que los fallos que provoca la suite a propósito no acaben en el log real del desarrollador.
+- **Fuera del fichero:** los ~34 `logger.error` de OSLog repartidos por Core siguen solo en OSLog. Los que el usuario llega a ver ya entran por el toast/alert; los fallos de lanzamiento de git y de `outputTooLarge` en `GitCLI.run` no se duplican en el fichero para mantener el cambio ahí en una sola llamada (si llegan a la UI, entran por el toast).
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor`, `NonisolatedNonsendingByDefault`, `InferIsolatedConformances`, `MemberImportVisibility`): compilan `Core/Logging`, `GitCLI` y sus dependencias con un stub de `os.Logger`; 26 tests nuevos (`LogSanitizer`, `RotatingLogFile`, `AppLog`, `LogExport`) en verde, 0 warnings. Una prueba de extremo a extremo (solo en el arnés, no en el repo) con un `ls-remote` real a una URL con credenciales dejó el fichero `0600` con la URL como `https://****@…` y sin la consulta `config --get`.
+- **Pendiente en macOS:** compilar `LogActions` (AppKit), `HelpCommands`, `WorkspaceUI`, `RepositoryViewModel` y `AppState`, pasar la suite y el recorrido de [`PRUEBAS-MANUALES.md`](PRUEBAS-MANUALES.md) (sección "Log local y exportación").
+
+## #58 — Hooks locales y el watchdog de red
+
+**Fecha:** 2026-11-10
+**Alcance:** issue #58. Todos los git compartían el watchdog de inactividad de red (`gitTimeoutSeconds`, 60 s por defecto), también `commit` y los `--continue`, que ejecutan hooks locales.
+
+### Reproducción
+
+Con git real en un repo desechable: durante un `pre-commit` que duerme sin imprimir, git no escribe nada ni en stdout ni en stderr, así que el watchdog cuenta todo ese tiempo como inactividad y mata el commit; el mensaje sintetizado era "connection timed out … the remote may be unreachable". También comprobado: git manda el stdout del hook a stderr (stderr lleva las dos salidas del hook) y no imprime nada propio que diga qué hook falló. El test `GitCLIHooksTests.slowSilentPreCommitCommits` reproduce el caso con un timeout de 1 s inyectado y un hook de 7 s.
+
+### Cambios
+
+- **`GitCommandKind`** (nuevo) clasifica cada invocación por su subcomando: red (`fetch`, `pull`, `push`, `ls-remote`, `clone`, `remote update/prune/show`) conserva el timeout configurado; los que crean commits y ejecutan hooks (`commit`, `merge`, `rebase`, `cherry-pick`, `revert`, `am`, con o sin `--continue`) tienen un techo de 30 min (o el ajuste del usuario si es mayor); el resto, el timeout configurado. Se mantiene un techo en vez de quitarlo para que un hook atascado en un prompt no bloquee el repo para siempre.
+- **Mensaje de timeout**: solo los comandos de red hablan del remoto (y siguen yendo a `RemoteFailure.network`); los locales dicen que git no imprimió nada y que un hook puede estar atascado. `GitWatchdog` recibe el `kind`.
+- **`GitCLI.run`**: cambio mínimo (dos líneas) para elegir timeout y mensaje por `GitCommandKind`. `GitCLI.init` acepta `configuredTimeoutSeconds` para que los tests no escriban en el `UserDefaults` compartido.
+- **Hoja de hook fallido** (`HookFailureSheet`, presentada desde el shell con `hookFailurePrompt()`): nombre del hook si sale en la salida (husky, lefthook…) o si solo hay uno instalado; salida completa en monoespaciada, con scroll y seleccionable, y "Copy output"; **Retry**; y solo para commit, **Commit without hooks** (`--no-verify`) con su explicación. La hoja sale solo si hay instalado un hook que pueda parar el commit (`pre-commit`, `pre-merge-commit`, `prepare-commit-msg`, `commit-msg`, buscados con `rev-parse --git-path`, que respeta `core.hooksPath`) y el error no es de git (nada que commitear, `index.lock`, conflictos sin resolver, gpg…). Si no, el error sigue debajo del composer como antes.
+- **Composer**: ya conservaba asunto y cuerpo tras un commit fallido (`resetComposer()` solo en éxito); ahora hay test. Retry desde "Commit & push" también hace el push.
+- `continueMerge` limpia `commitError` al empezar, como `commit`.
+
+### Verificación
+
+- Sin toolchain de Swift en este contenedor (Linux): no se ha compilado ni pasado la suite. Comportamiento de git comprobado a mano con git 2.43 (hook silencioso, salida a stderr, `--git-path` con `core.hooksPath` relativo y absoluto, `merge --continue` ejecuta `pre-commit`).
+- Tests nuevos: `GitCommandKindTests`, `GitCLIHooksTests` (hooks reales), `HookFailureTests`, `RepositoryViewModelHookFailureTests` (commit, Retry, sin hooks, error de git sin hoja, `merge --continue`).
+- **Pendiente en macOS:** compilar, pasar la suite y el recorrido de `PRUEBAS-MANUALES.md` → "Hooks locales (#58)".
+
+### Queda fuera
+
+- Cuando el watchdog mata git, el hook hijo sigue vivo y mantiene abierta la tubería de stderr, así que `run` no vuelve hasta que el hook termina. Matar el grupo de procesos lo resolvería; afecta también a red y no es de este issue.
+- `pull` sigue siendo comando de red: un hook silencioso del merge de un pull puede seguir cortándose a los 60 s.
+- `checkout`/`switch` (hook `post-checkout`) mantienen el timeout corto, con el mensaje local.
+
 ## #59 — Deshacer operaciones destructivas (⌘Z)
 
 **Fecha:** 2026-11-10
