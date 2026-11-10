@@ -706,3 +706,35 @@ Las propiedades conservan sus nombres (`viewModel.history.commits`, `viewModel.w
 
 - Typecheck en Linux (Swift 6.2, con el mismo aislamiento por defecto `MainActor` y las mismas *upcoming features* que el proyecto) de Core, el VM, los cinco almacenes y los tests del VM y de Staging, con stubs para las APIs exclusivas de Apple (Keychain, FSEvents, `os.Logger`). 0 errores y 0 warnings en esa parte.
 - **Pendiente en macOS:** compilar las vistas (SwiftUI no compila en Linux; sus cambios son mecánicos, `viewModel.X` → `viewModel.history.X` / `viewModel.workingCopy.X`), pasar la suite y un recorrido rápido: History (selección, diff, paginación), Changes (stage por lotes, diff, commit y amend) y el refresco tras editar fuera de la app.
+
+---
+
+## #58 — Hooks locales y el watchdog de red
+
+**Fecha:** 2026-11-10
+**Alcance:** issue #58. Todos los git compartían el watchdog de inactividad de red (`gitTimeoutSeconds`, 60 s por defecto), también `commit` y los `--continue`, que ejecutan hooks locales.
+
+### Reproducción
+
+Con git real en un repo desechable: durante un `pre-commit` que duerme sin imprimir, git no escribe nada ni en stdout ni en stderr, así que el watchdog cuenta todo ese tiempo como inactividad y mata el commit; el mensaje sintetizado era "connection timed out … the remote may be unreachable". También comprobado: git manda el stdout del hook a stderr (stderr lleva las dos salidas del hook) y no imprime nada propio que diga qué hook falló. El test `GitCLIHooksTests.slowSilentPreCommitCommits` reproduce el caso con un timeout de 1 s inyectado y un hook de 7 s.
+
+### Cambios
+
+- **`GitCommandKind`** (nuevo) clasifica cada invocación por su subcomando: red (`fetch`, `pull`, `push`, `ls-remote`, `clone`, `remote update/prune/show`) conserva el timeout configurado; los que crean commits y ejecutan hooks (`commit`, `merge`, `rebase`, `cherry-pick`, `revert`, `am`, con o sin `--continue`) tienen un techo de 30 min (o el ajuste del usuario si es mayor); el resto, el timeout configurado. Se mantiene un techo en vez de quitarlo para que un hook atascado en un prompt no bloquee el repo para siempre.
+- **Mensaje de timeout**: solo los comandos de red hablan del remoto (y siguen yendo a `RemoteFailure.network`); los locales dicen que git no imprimió nada y que un hook puede estar atascado. `GitWatchdog` recibe el `kind`.
+- **`GitCLI.run`**: cambio mínimo (dos líneas) para elegir timeout y mensaje por `GitCommandKind`. `GitCLI.init` acepta `configuredTimeoutSeconds` para que los tests no escriban en el `UserDefaults` compartido.
+- **Hoja de hook fallido** (`HookFailureSheet`, presentada desde el shell con `hookFailurePrompt()`): nombre del hook si sale en la salida (husky, lefthook…) o si solo hay uno instalado; salida completa en monoespaciada, con scroll y seleccionable, y "Copy output"; **Retry**; y solo para commit, **Commit without hooks** (`--no-verify`) con su explicación. La hoja sale solo si hay instalado un hook que pueda parar el commit (`pre-commit`, `pre-merge-commit`, `prepare-commit-msg`, `commit-msg`, buscados con `rev-parse --git-path`, que respeta `core.hooksPath`) y el error no es de git (nada que commitear, `index.lock`, conflictos sin resolver, gpg…). Si no, el error sigue debajo del composer como antes.
+- **Composer**: ya conservaba asunto y cuerpo tras un commit fallido (`resetComposer()` solo en éxito); ahora hay test. Retry desde "Commit & push" también hace el push.
+- `continueMerge` limpia `commitError` al empezar, como `commit`.
+
+### Verificación
+
+- Sin toolchain de Swift en este contenedor (Linux): no se ha compilado ni pasado la suite. Comportamiento de git comprobado a mano con git 2.43 (hook silencioso, salida a stderr, `--git-path` con `core.hooksPath` relativo y absoluto, `merge --continue` ejecuta `pre-commit`).
+- Tests nuevos: `GitCommandKindTests`, `GitCLIHooksTests` (hooks reales), `HookFailureTests`, `RepositoryViewModelHookFailureTests` (commit, Retry, sin hooks, error de git sin hoja, `merge --continue`).
+- **Pendiente en macOS:** compilar, pasar la suite y el recorrido de `PRUEBAS-MANUALES.md` → "Hooks locales (#58)".
+
+### Queda fuera
+
+- Cuando el watchdog mata git, el hook hijo sigue vivo y mantiene abierta la tubería de stderr, así que `run` no vuelve hasta que el hook termina. Matar el grupo de procesos lo resolvería; afecta también a red y no es de este issue.
+- `pull` sigue siendo comando de red: un hook silencioso del merge de un pull puede seguir cortándose a los 60 s.
+- `checkout`/`switch` (hook `post-checkout`) mantienen el timeout corto, con el mensaje local.

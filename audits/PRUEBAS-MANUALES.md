@@ -163,3 +163,24 @@ crea en `~/gitforge-manual-test`) con:
       gancho).
       El primer arrastre ya trae la vista previa.
 
+
+## Hooks locales (#58)
+Antes: en el repo de pruebas, `mkdir -p .git/hooks` y deja el timeout de
+Settings ▸ Behavior en 60 s.
+- [ ] `pre-commit` con `sleep 90; exit 0` (sin imprimir nada): el commit
+      termina a los ~90 s y sale el toast de éxito.
+- [ ] `pre-commit` que imprime un informe largo (p. ej. `seq 1 300; exit 1`):
+      se abre la hoja "The pre-commit hook failed" con toda la salida, con
+      scroll, seleccionable y "Copy output" copia el texto completo.
+- [ ] Con la hoja abierta, el asunto y la descripción siguen en el composer;
+      al cerrar queda debajo "The pre-commit hook failed. Nothing was committed."
+- [ ] Retry vuelve a ejecutar el hook (la hoja reaparece si sigue fallando);
+      cambiando el hook a `exit 0`, Retry hace el commit.
+- [ ] "Commit without hooks" hace el commit con el hook fallando todavía.
+- [ ] Desde "Commit & push" con el hook fallando: tras Retry con éxito, también hace push.
+- [ ] Con un merge en conflicto resuelto y el mismo hook fallando, "Continue":
+      sale la hoja sin "Commit without hooks"; el merge sigue en pausa.
+- [ ] Ningún texto de error de un commit o un continue dice "remote".
+- [ ] Hoja en claro y oscuro, VoiceOver lee el título, la salida y los botones;
+      Esc cierra y ↵ es Retry.
+- [ ] Textos en es y pt-PT.

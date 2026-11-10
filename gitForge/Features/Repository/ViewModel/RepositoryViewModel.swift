@@ -71,6 +71,9 @@ final class RepositoryViewModel {
     }
     /// Last failed local operation, shown under the commit composer.
     var commitError: String?
+    /// A commit or `--continue` a local hook stopped; `ShellView` shows its
+    /// output in a sheet with Retry and clears it.
+    var hookFailure: HookFailure?
 
     // MARK: Remote
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }
