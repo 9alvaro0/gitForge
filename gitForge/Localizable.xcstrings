@@ -5456,6 +5456,22 @@
         }
       }
     },
+    "Couldn’t export the logs: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se han podido exportar los registros: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível exportar os registos: %@"
+          }
+        }
+      }
+    },
     "Couldn’t open repository" : {
       "localizations" : {
         "es" : {
@@ -7406,6 +7422,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Expira em breve"
+          }
+        }
+      }
+    },
+    "Export" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar"
+          }
+        }
+      }
+    },
+    "Export Logs" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar registros"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar registos"
+          }
+        }
+      }
+    },
+    "Export Logs…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar registros…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportar registos…"
           }
         }
       }
@@ -9583,6 +9647,22 @@
         }
       }
     },
+    "Logs exported." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registros exportados."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registos exportados."
+          }
+        }
+      }
+    },
     "Make it yours" : {
       "localizations" : {
         "es" : {
@@ -11710,6 +11790,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abrir paleta de comandos…"
+          }
+        }
+      }
+    },
+    "Open Log Folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir carpeta de registros"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir pasta de registos"
           }
         }
       }
@@ -17029,6 +17125,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Predefinição do sistema"
+          }
+        }
+      }
+    },
+    "The file lists the errors gitForge showed and the git commands that failed, with the app, macOS and git versions. Tokens, passwords and the user name in your paths are removed. Nothing is sent: share the file only if you want to." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El archivo recoge los errores que ha mostrado gitForge y los comandos de git que han fallado, con las versiones de la app, de macOS y de git. Se eliminan los tokens, las contraseñas y el nombre de usuario de tus rutas. No se envía nada: comparte el archivo solo si quieres."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ficheiro lista os erros que o gitForge mostrou e os comandos git que falharam, com as versões da app, do macOS e do git. Os tokens, as palavras-passe e o nome de utilizador nos seus caminhos são removidos. Nada é enviado: partilhe o ficheiro só se quiser."
           }
         }
       }

@@ -69,8 +69,14 @@ final class RepositoryViewModel {
             if isMutating { watcher?.suspend() } else { watcher?.resume() }
         }
     }
-    /// Last failed local operation, shown under the commit composer.
-    var commitError: String?
+    /// Last failed local operation, shown under the commit composer. Also
+    /// written to the local log (issue #1).
+    var commitError: String? {
+        didSet {
+            guard let commitError, commitError != oldValue else { return }
+            AppLog.shared.error(commitError, category: "operation")
+        }
+    }
 
     // MARK: Remote
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }

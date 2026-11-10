@@ -30,6 +30,15 @@ struct HelpCommands: Commands {
             Button("Report Issue") {
                 NSWorkspace.shared.open(Self.issuesURL)
             }
+
+            Divider()
+
+            Button("Export Logs…") {
+                Task { await LogActions.exportLogs(ui: appState.ui) }
+            }
+            Button("Open Log Folder") {
+                LogActions.openLogFolder()
+            }
         }
     }
 }
