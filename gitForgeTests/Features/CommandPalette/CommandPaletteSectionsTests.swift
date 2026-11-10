@@ -67,7 +67,8 @@ struct CommandPaletteSectionsTests {
         #expect(!commands[settings].searchOnly)
         #expect(panes.allSatisfy { $0.searchOnly })
         #expect(inPane.allSatisfy { $0.searchOnly })
-        #expect(commands.filter { $0.searchOnly }.count == SettingsPane.allCases.count + 3)
+        // Plus "Recover lost commits…", before Settings.
+        #expect(commands.filter { $0.searchOnly }.count == SettingsPane.allCases.count + 4)
 
         // Settings is a mode now: nothing selects it as a section any more.
         #expect(!commands.map(\.action).contains(.selectSection(.settings)))
@@ -125,6 +126,20 @@ struct CommandPaletteSectionsTests {
         #expect(found("connect").contains("Connect account…"))
         #expect(found("profile").contains("New Profile…"))
         #expect(found("follow").contains("Follow Repository…"))
+    }
+
+    @Test("Recover lost commits is found by its words and by reflog, and opens a sheet")
+    func recoverCommits() throws {
+        func found(_ query: String) -> [String] {
+            Self.labels(CommandPaletteSections.build(items: CommandPaletteBuilder.builtInCommands, query: query))
+        }
+        for query in ["recover", "lost commits", "reflog", "Recover lost"] {
+            #expect(found(query).contains("Recover lost commits…"), "\(query)")
+        }
+        let item = try #require(CommandPaletteBuilder.builtInCommands.first { $0.action == .recoverCommits })
+        #expect(item.searchOnly)
+        #expect(PaletteAction.recoverCommits.presentsUI)
+        #expect(!PaletteAction.keepOpen(.recoverCommits, commandHeld: true))
     }
 
     @Test("The Actions group shows up to eight rows while searching, the other groups six")

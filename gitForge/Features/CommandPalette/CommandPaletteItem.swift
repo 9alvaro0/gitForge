@@ -87,6 +87,8 @@ enum PaletteAction: Hashable {
     case pull
     case push
     case stash
+    /// The sheet that lists HEAD's reflog to recover lost commits.
+    case recoverCommits
     case noop
     /// Searches the whole of an instance for the trimmed query (R3 Ruling 12).
     case searchHost(instanceId: UUID, query: String)
@@ -113,7 +115,7 @@ enum PaletteAction: Hashable {
     var presentsUI: Bool {
         switch self {
         case .openRepository, .cloneRepository, .addInstance, .openPullLink, .openFoundRepo, .connectAccount,
-             .newProfile, .followRepository, .connectNewAccount: true
+             .newProfile, .followRepository, .connectNewAccount, .recoverCommits: true
         default: false
         }
     }

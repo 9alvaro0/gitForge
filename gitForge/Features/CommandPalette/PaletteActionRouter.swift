@@ -80,6 +80,10 @@ struct PaletteActionRouter {
             runRemote { vm in await vm.push() }
         case .stash:
             runStash()
+        case .recoverCommits:
+            // Needs a repository: `ContentRouter` hosts the sheet.
+            guard appState.catalog.activeViewModel != nil else { return }
+            appState.ui.recoverCommitsVisible = true
         case .searchHost(let instanceId, let query):
             // The palette stays open: the row turns into what the search finds.
             Task { await appState.reviews.searchHost(instanceId, query: query) }

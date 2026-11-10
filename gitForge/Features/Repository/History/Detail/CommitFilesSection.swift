@@ -2,41 +2,59 @@ import SwiftUI
 import AppKit
 
 /// The commit's changed files under its header: a count that stays put
-/// and the list, which scrolls on its own (audit M5).
+/// and the list, which scrolls on its own (audit M5). Reads and writes
+/// History's selection; `CommitFileList` is the list itself, for views that
+/// keep their own (Recover lost commits).
 struct CommitFilesSection: View {
     let commit: Commit
     @Bindable var viewModel: RepositoryViewModel
 
+    var body: some View {
+        CommitFileList(
+            files: viewModel.history.detailCache[commit.sha]?.files,
+            repositoryURL: viewModel.repository.url,
+            selection: viewModel.history.selectedCommitFile
+        ) { viewModel.history.selectedCommitFile = $0 }
+    }
+}
+
+/// A commit's changed files: the count, then the rows (with arrow-key
+/// navigation), or a skeleton while `files` is `nil`.
+struct CommitFileList: View {
+    /// `nil` while the commit's detail is loading.
+    let files: [CommitFileChange]?
+    let repositoryURL: URL
+    let selection: String?
+    let onSelect: (String) -> Void
+
     @Environment(\.appTheme) private var theme
     @FocusState private var listFocused: Bool
-
-    private var detail: CommitDetail? { viewModel.history.detailCache[commit.sha] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s4) {
             header
             InspectorScrollArea {
-                if let detail {
+                if let files {
                     ScrollViewReader { proxy in
                         LazyVStack(spacing: 1) {
-                            ForEach(detail.files) { f in
+                            ForEach(files) { f in
                                 FileMiniRow(
                                     file: f,
-                                    absoluteURL: viewModel.repository.url.appendingPathComponent(f.path),
-                                    isActive: viewModel.history.selectedCommitFile == f.path
+                                    absoluteURL: repositoryURL.appendingPathComponent(f.path),
+                                    isActive: selection == f.path
                                 ) {
-                                    viewModel.history.selectedCommitFile = f.path
+                                    onSelect(f.path)
                                     listFocused = true
                                 }
                                 .id(f.path)
                             }
                         }
                         .listKeyboardNavigation(
-                            ids: detail.files.map(\.path),
-                            selection: viewModel.history.selectedCommitFile,
+                            ids: files.map(\.path),
+                            selection: selection,
                             isFocused: $listFocused,
                             scrollProxy: proxy
-                        ) { viewModel.history.selectedCommitFile = $0 }
+                        ) { onSelect($0) }
                     }
                 } else {
                     placeholder
@@ -46,7 +64,7 @@ struct CommitFilesSection: View {
         }
     }
 
-    private var fileCount: Int { detail?.files.count ?? 0 }
+    private var fileCount: Int { files?.count ?? 0 }
 
     private var header: some View {
         HStack(spacing: Spacing.s4) {
