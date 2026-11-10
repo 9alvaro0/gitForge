@@ -10,6 +10,7 @@ struct ContentRouter: View {
     var body: some View {
         section
             .branchRenameSheet(viewModel: viewModel)
+            .recoverCommitsSheet(viewModel: viewModel)
     }
 
     @ViewBuilder

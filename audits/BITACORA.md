@@ -774,6 +774,35 @@ Con git real en un repo desechable: durante un `pre-commit` que duerme sin impri
 - `pull` sigue siendo comando de red: un hook silencioso del merge de un pull puede seguir cortándose a los 60 s.
 - `checkout`/`switch` (hook `post-checkout`) mantienen el timeout corto, con el mensaje local.
 
+## #60 — Recuperar commits perdidos (reflog)
+
+**Fecha:** 2026-11-10
+**Alcance:** issue #60 (épica #53, roadmap 1.9). Vista "Recover lost commits…" en el menú Repository y en ⌘K.
+
+### Qué hace
+
+- Hoja sobre cualquier sección (la monta `ContentRouter`, como la de renombrar rama) con el reflog de `HEAD`, del más reciente al más antiguo, y un selector para ver el de una rama local.
+- Cada entrada dice qué pasó y cuándo, no `HEAD@{n}`: "Before reset to `abc1234`", "Before amend", "Before rebase onto main", "Rebase finished", "Checked out feature", "Merged topic", "Cherry-pick"… y el tiempo relativo del movimiento (la hora del reflog, no la del commit).
+- Los movimientos que dejan trabajo atrás (reset, amend, inicio de rebase, `branch -f`) ofrecen el commit **de antes**; el resto, el de después. Así, tras `reset --hard HEAD~3` la primera entrada ya es el commit perdido.
+- Se marca cuántos commits trae cada entrada que no están en ninguna ref ("3 commits not on any branch"), con un `rev-list --parents <shas> --not --all` y un recorrido en memoria.
+- Al seleccionar: cabecera del commit, ficheros (`CommitFileList`, sacado de `CommitFilesSection` para que History y Recover compartan la lista) y `DiffPane`.
+- Acciones: **Create branch here…** (nombre sugerido `recovered-<sha>`, crea sin hacer checkout), **Checkout (detached)** (cierra la hoja y va a History) y **Reset current branch here** (soft / mixed / hard con la confirmación de siempre, `CommitActionsMenu.resetConfirmMessage`). Undo (#59) aún no está en `main`, así que el reset no lo ofrece.
+- Criterio de "dos clics": al abrir, la entrada más reciente queda seleccionada; "Create branch here…" y Return/"Create branch".
+
+### Decisiones
+
+- Parseo de `git log -g -z --date=unix --format=…` con separador de unidad entre campos y NUL entre entradas; la hora sale del selector (`HEAD@{1794341196}`). Se pide una entrada más del límite (300) para que la última sepa de dónde venía. `--no-show-signature` para que `log.showSignature` no ensucie la salida.
+- El "de dónde venía" de cada entrada es el commit de la siguiente más antigua: git no tiene placeholder para el valor viejo del reflog.
+- Un ref sin reflog, un `HEAD` sin commits o una rama borrada mientras la hoja está abierta se leen como lista vacía, no como error.
+- `RecoverStore` propio por hoja (patrón de `StashDetailStore`, con tokens de generación): no toca la selección ni las cachés de History. Tras una acción recarga la lista y mantiene la selección en la misma entrada aunque cambien los índices.
+- En ⌘K es una acción *search-only* ("recover", "lost", "reflog"…): la primera pantalla del palette queda igual.
+- `CommitBranchSheet` acepta el título del botón y ahora Return / Esc confirman / cancelan (también en History).
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor` y las *upcoming features* del proyecto): compilan Core y `RecoverStore` sin errores ni warnings, y pasan 28 tests: `GitCLIReflogTests` (reset, amend, rebase, checkout, detached, merge ff y no ff, merge tras conflicto, cherry-pick, revert, reflog de rama, casos límite, hora y límite), `ReflogActionTests` (asuntos reales de git, incluidos `pull --rebase` y formas antiguas) y `RecoverStoreTests`.
+- **Pendiente en macOS:** compilar las vistas (SwiftUI no compila en Linux), pasar la suite completa (incluye el test nuevo de ⌘K) y el recorrido de `PRUEBAS-MANUALES.md` (#60).
+
 ## #59 — Deshacer operaciones destructivas (⌘Z)
 
 **Fecha:** 2026-11-10

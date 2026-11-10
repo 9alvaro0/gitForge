@@ -667,6 +667,22 @@
         }
       }
     },
+    "%lld commits not on any branch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld commits fuera de cualquier rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld commits fora de qualquer ramo"
+          }
+        }
+      }
+    },
     "%lld conflicts" : {
       "localizations" : {
         "es" : {
@@ -1147,6 +1163,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 commit"
+          }
+        }
+      }
+    },
+    "1 commit not on any branch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 commit fuera de cualquier rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 commit fora de qualquer ramo"
           }
         }
       }
@@ -2721,6 +2753,23 @@
         }
       }
     },
+    "Before branch moved to %@" : {
+      "comment" : "Reflog entry: the branch before branch -f",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes de mover la rama a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes de mover o ramo para %@"
+          }
+        }
+      }
+    },
     "Before checking out %@" : {
       "localizations" : {
         "es" : {
@@ -2733,6 +2782,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Antes do checkout de %@"
+          }
+        }
+      }
+    },
+    "Before rebase onto %@" : {
+      "comment" : "Reflog entry: the branch before a rebase",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes del rebase sobre %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes do rebase sobre %@"
+          }
+        }
+      }
+    },
+    "Before reset to %@" : {
+      "comment" : "Reflog entry: the commit before a reset; %@ is where it moved",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes del reset a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes do reset para %@"
           }
         }
       }
@@ -2929,6 +3012,23 @@
         }
       }
     },
+    "Branch created from %@" : {
+      "comment" : "Reflog entry",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rama creada desde %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ramo criado a partir de %@"
+          }
+        }
+      }
+    },
     "Branch is protected" : {
       "localizations" : {
         "es" : {
@@ -2941,6 +3041,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O ramo está protegido"
+          }
+        }
+      }
+    },
+    "Branch moved to %@" : {
+      "comment" : "Reflog entry",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rama movida a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ramo movido para %@"
           }
         }
       }
@@ -3213,6 +3330,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não é possível desfazer: o git já não tem esses commits."
+          }
+        }
+      }
+    },
+    "Check out %@ (detached HEAD) and go to History." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hace checkout de %@ (HEAD separado) y va al Historial."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faz checkout de %@ (HEAD desanexado) e vai para o Histórico."
           }
         }
       }
@@ -5698,6 +5831,22 @@
         }
       }
     },
+    "Couldn’t read the reflog" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el reflog"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o reflog"
+          }
+        }
+      }
+    },
     "Couldn’t save defaults" : {
       "localizations" : {
         "es" : {
@@ -5906,6 +6055,22 @@
         }
       }
     },
+    "Create a branch at %@ so its commits are kept. HEAD stays where it is." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea una rama en %@ para conservar sus commits. HEAD se queda donde está."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cria um ramo em %@ para manter os commits. O HEAD fica onde está."
+          }
+        }
+      }
+    },
     "Create a new branch starting at %@." : {
       "localizations" : {
         "es" : {
@@ -5950,6 +6115,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cria uma etiqueta que aponta para %@."
+          }
+        }
+      }
+    },
+    "Create branch" : {
+      "comment" : "Confirm button of the new-branch sheet in Recover lost commits",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Criar ramo"
+          }
+        }
+      }
+    },
+    "Create branch here…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear rama aquí…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Criar ramo aqui…"
           }
         }
       }
@@ -6014,6 +6212,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ criado"
+          }
+        }
+      }
+    },
+    "Created %@ at %@" : {
+      "comment" : "%1$@ is a branch, %2$@ a short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ creada en %2$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ criado em %2$@"
           }
         }
       }
@@ -7653,6 +7868,23 @@
         }
       }
     },
+    "Every move of %@, newest first. Commits a reset, an amend or a rebase left behind are still here." : {
+      "comment" : "%@ is HEAD or a branch",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada movimiento de %@, del más reciente al más antiguo. Los commits que un reset, un amend o un rebase dejaron atrás siguen aquí."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada movimento de %@, do mais recente para o mais antigo. Os commits que um reset, um amend ou um rebase deixaram para trás continuam aqui."
+          }
+        }
+      }
+    },
     "Everything here lives in Settings later." : {
       "localizations" : {
         "es" : {
@@ -7841,6 +8073,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apenas fast-forward"
+          }
+        }
+      }
+    },
+    "Fast-forwarded to %@" : {
+      "comment" : "Reflog entry: %@ is a branch",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avance rápido a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanço rápido para %@"
           }
         }
       }
@@ -8864,6 +9113,22 @@
         }
       }
     },
+    "Git records each move here once there are commits." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Git registra aquí cada movimiento en cuanto hay commits."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Git regista aqui cada movimento assim que houver commits."
+          }
+        }
+      }
+    },
     "GitHub and GitLab are supported. Add an `origin` remote pointing to one of them, or add its server in Settings › Accounts." : {
       "localizations" : {
         "es" : {
@@ -8940,6 +9205,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Verde"
+          }
+        }
+      }
+    },
+    "HEAD" : {
+      "comment" : "Git's HEAD; not translated",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEAD"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEAD"
           }
         }
       }
@@ -9616,6 +9898,22 @@
         }
       }
     },
+    "Its commit and changes appear here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí aparecerán su commit y sus cambios."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O commit e as alterações aparecem aqui."
+          }
+        }
+      }
+    },
     "Its detail and changes appear here." : {
       "localizations" : {
         "es" : {
@@ -9869,6 +10167,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A carregar assunto do commit…"
+          }
+        }
+      }
+    },
+    "Loading commit…" : {
+      "comment" : "Skeleton filler",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cargando commit…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A carregar commit…"
           }
         }
       }
@@ -10656,6 +10971,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mover"
+          }
+        }
+      }
+    },
+    "Move %@ to %@. Soft / mixed / hard control how the working tree is affected — hard discards uncommitted changes." : {
+      "comment" : "%1$@ is the current branch, %2$@ a short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mueve %1$@ a %2$@. Soft / mixed / hard controlan cómo se ve afectada la copia de trabajo; hard descarta los cambios sin confirmar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move %1$@ para %2$@. Soft / mixed / hard controlam como a cópia de trabalho é afetada — hard descarta as alterações sem commit."
           }
         }
       }
@@ -11892,6 +12224,22 @@
         }
       }
     },
+    "Nothing recorded yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay nada registrado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não há nada registado"
+          }
+        }
+      }
+    },
     "Nothing staged" : {
       "localizations" : {
         "es" : {
@@ -12064,6 +12412,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sem ligação"
+          }
+        }
+      }
+    },
+    "On a branch or tag already" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya está en una rama o etiqueta"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já está num ramo ou etiqueta"
           }
         }
       }
@@ -13766,6 +14130,23 @@
         }
       }
     },
+    "Rebase step (%@)" : {
+      "comment" : "Reflog entry: %@ is git's word (pick, squash…)",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paso del rebase (%@)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passo do rebase (%@)"
+          }
+        }
+      }
+    },
     "Rebased %@ onto %@" : {
       "localizations" : {
         "es" : {
@@ -13879,6 +14260,57 @@
         }
       }
     },
+    "Recover Lost Commits…" : {
+      "comment" : "Repository menu",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperar commits perdidos…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperar commits perdidos…"
+          }
+        }
+      }
+    },
+    "Recover lost commits" : {
+      "comment" : "Sheet title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperar commits perdidos"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperar commits perdidos"
+          }
+        }
+      }
+    },
+    "Recover lost commits…" : {
+      "comment" : "Command palette action",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperar commits perdidos…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuperar commits perdidos…"
+          }
+        }
+      }
+    },
     "Ref" : {
       "localizations" : {
         "es" : {
@@ -13891,6 +14323,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ref."
+          }
+        }
+      }
+    },
+    "Reflog of" : {
+      "comment" : "Label before the HEAD / branch picker",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reflog de"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reflog de"
+          }
+        }
+      }
+    },
+    "Reflog of %@" : {
+      "comment" : "Accessibility label of the HEAD / branch picker",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reflog de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reflog de %@"
           }
         }
       }
@@ -14244,6 +14710,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ passou a chamar-se %2$@"
+          }
+        }
+      }
+    },
+    "Renamed from %@" : {
+      "comment" : "Reflog entry: a branch rename",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renombrada desde %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome anterior: %@"
           }
         }
       }
@@ -14763,6 +15246,22 @@
         }
       }
     },
+    "Reset current branch here" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer reset de la rama actual aquí"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fazer reset do ramo atual aqui"
+          }
+        }
+      }
+    },
     "Reset has conflicts — resolve to continue" : {
       "localizations" : {
         "es" : {
@@ -14807,6 +15306,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reset em pausa devido a conflitos — resolva-os para continuar"
+          }
+        }
+      }
+    },
+    "Reset to %@" : {
+      "comment" : "Reflog entry",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset a %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset para %@"
           }
         }
       }
@@ -15511,6 +16027,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Falha na autenticação SSH"
+          }
+        }
+      }
+    },
+    "Select an entry" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona una entrada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecione uma entrada"
+          }
+        }
+      }
+    },
+    "Show what HEAD did, or the moves of one branch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra lo que hizo HEAD o los movimientos de una rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o que o HEAD fez ou os movimentos de um ramo"
           }
         }
       }
@@ -22834,6 +23382,328 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "a fazer rebase de %@"
+          }
+        }
+      }
+    },
+    "reflog.amend" : {
+      "comment" : "Reflog entry: an amend with nothing older read",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amended commit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit modificado (amend)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit alterado (amend)"
+          }
+        }
+      }
+    },
+    "reflog.beforeAmend" : {
+      "comment" : "Reflog entry: the commit before an amend",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before amend"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes del amend"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes do amend"
+          }
+        }
+      }
+    },
+    "reflog.beforePullRebase" : {
+      "comment" : "Reflog entry: the branch before pull --rebase",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before pull with rebase"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes del pull con rebase"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes do pull com rebase"
+          }
+        }
+      }
+    },
+    "reflog.cherryPick" : {
+      "comment" : "Reflog entry: a cherry-pick",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cherry-pick"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cherry-pick"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cherry-pick"
+          }
+        }
+      }
+    },
+    "reflog.clone" : {
+      "comment" : "Reflog entry: the clone",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cloned"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clonado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clonado"
+          }
+        }
+      }
+    },
+    "reflog.commit" : {
+      "comment" : "Reflog entry: a commit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit"
+          }
+        }
+      }
+    },
+    "reflog.initialCommit" : {
+      "comment" : "Reflog entry: the first commit",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initial commit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit inicial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit inicial"
+          }
+        }
+      }
+    },
+    "reflog.mergeCommit" : {
+      "comment" : "Reflog entry: a merge committed after conflicts",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge commit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit de fusión"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit de integração"
+          }
+        }
+      }
+    },
+    "reflog.pull" : {
+      "comment" : "Reflog entry: a pull",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull"
+          }
+        }
+      }
+    },
+    "reflog.pullRebaseFinished" : {
+      "comment" : "Reflog entry",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull with rebase finished"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull con rebase terminado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull com rebase concluído"
+          }
+        }
+      }
+    },
+    "reflog.rebaseAborted" : {
+      "comment" : "Reflog entry",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase aborted"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase cancelado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase cancelado"
+          }
+        }
+      }
+    },
+    "reflog.rebaseFinished" : {
+      "comment" : "Reflog entry",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase finished"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase terminado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase concluído"
+          }
+        }
+      }
+    },
+    "reflog.rebaseStarted" : {
+      "comment" : "Reflog entry: a rebase start with nothing older read",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase started"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase iniciado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase iniciado"
+          }
+        }
+      }
+    },
+    "reflog.revert" : {
+      "comment" : "Reflog entry: a revert",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revert"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revert"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revert"
           }
         }
       }

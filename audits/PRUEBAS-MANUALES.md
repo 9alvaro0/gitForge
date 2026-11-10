@@ -21,6 +21,38 @@ crea en `~/gitforge-manual-test`) con:
 - ramas `main` y `feature` con commits propios en cada una, y un remoto
   (vale un repo bare local) para los push.
 
+## #60 · Recuperar commits perdidos (reflog)
+Repo de pruebas con 5 commits en `main` y una rama `feature`.
+- [ ] Repository → Recover Lost Commits…: se abre la hoja; ⌘K "recover",
+      "lost" o "reflog" también la abre. Sin repo abierto, el menú sale
+      deshabilitado.
+- [ ] Desde History, "Reset to here" → hard sobre `HEAD~3`. Abrir la hoja:
+      la primera entrada dice "Before reset to `<sha>`", con "3 commits not
+      on any branch", y está seleccionada con su commit, ficheros y diff.
+- [ ] Criterio de aceptación: "Create branch here…" → "Create branch"
+      (o Return). Toast y línea verde en la hoja; el aviso pasa a "On a
+      branch or tag already"; en la barra lateral aparece
+      `recovered-<sha>` con los tres commits. HEAD no se ha movido.
+- [ ] Hacer un amend y un rebase de `feature` sobre `main` en la terminal:
+      salen "Before amend", "Before rebase onto main", "Rebase step (pick)"
+      y "Rebase finished", con tiempo relativo ("1 min. ago") y la hora
+      exacta en el tooltip.
+- [ ] Flechas ↑/↓ recorren las entradas; la lista tiene el foco al abrir.
+      Clic en otro fichero cambia el diff; Split / Unified y Hide
+      whitespace funcionan.
+- [ ] "Checkout (detached)": la hoja se cierra, va a History con HEAD
+      separado en ese commit y seleccionado. Con cambios locales que
+      estorban, sale la pregunta de stash / descartar de siempre.
+- [ ] "Reset current branch here" → soft / mixed / hard: el diálogo es el
+      de History ("Reset `main` to `<sha>`?", el hard en rojo); tras
+      confirmar, la hoja sigue abierta, aparece la nueva entrada arriba y
+      la selección sigue en la misma entrada.
+- [ ] Selector "Reflog of": cambiar a `feature` muestra "Branch created
+      from …", sus commits y el rebase; volver a HEAD.
+- [ ] Repo recién creado sin commits: "Nothing recorded yet".
+- [ ] Modo claro y oscuro, VoiceOver en las filas (lee título, hora, commit
+      y aviso de commits perdidos), y es / pt-PT.
+
 ## A04-bis · stores de historial y working copy (#99)
 - [x] History: seleccionar varios commits; el diff cambia con cada clic.
 - [x] History: hacer scroll hasta que se carguen más commits (paginación).

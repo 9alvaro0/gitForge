@@ -67,6 +67,11 @@ struct RepositoryCommands: Commands {
 
             Divider()
 
+            Button("Recover Lost Commits…") {
+                appState.ui.recoverCommitsVisible = true
+            }
+            .disabled(appState.catalog.activeViewModel == nil)
+
             Button("Discard All Changes…") {
                 // Switch to Changes first so StagingView is mounted to host
                 // the confirmation dialog — both entry points (this menu and

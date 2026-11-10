@@ -1,8 +1,11 @@
 import SwiftUI
 
+/// Names a branch to create at a commit. History creates and checks it
+/// out; Recover lost commits only creates it (`confirmTitle`).
 struct CommitBranchSheet: View {
     let commitShortSha: String
     @Binding var name: String
+    var confirmTitle = String(localized: "Create & checkout")
     let onCancel: () -> Void
     let onConfirm: () -> Void
 
@@ -14,10 +17,10 @@ struct CommitBranchSheet: View {
                 .textRole(.headline)
             GFTextField(placeholder: "feat/awesome", text: $name)
             HStack {
-                GFButton(title: String(localized: "Cancel"), action: onCancel)
+                GFButton(title: String(localized: "Cancel"), shortcut: .cancelAction, action: onCancel)
                 Spacer()
-                GFButton(title: String(localized: "Create & checkout"), style: .primary,
-                         disabled: name.isEmpty, action: onConfirm)
+                GFButton(title: confirmTitle, style: .primary,
+                         disabled: name.isEmpty, shortcut: .defaultAction, action: onConfirm)
             }
         }
         .padding(Spacing.s20)
