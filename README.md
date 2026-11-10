@@ -64,12 +64,12 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 - **Stashes** — stash (optionally with untracked files), apply, pop, drop, browse a stash's files and diffs
 - **Conflicts** — visual resolver for merge / rebase / cherry-pick / revert / stash conflicts: pick ours / theirs / both per hunk, or resolve whole files
 - **Remotes** — fetch, pull (merge / rebase / fast-forward only), push, force-push with lease, optional background auto-fetch, categorised errors (auth, network, rejected, protected branch…)
-- **Pull / merge requests** — read-only list and detail for GitHub and GitLab (including self-hosted), with CI status; integrate a PR locally to resolve its conflicts
+- **Pull / merge requests** — GitHub and GitLab (including self-hosted): Team / Mine / Open / Closed tabs across the repositories you follow, no clone needed; approve, request changes, comment on any line, reply to and resolve review threads, and merge; approve or merge straight from the list; CI status; integrate a PR locally to resolve its conflicts
 - **Clone** — from a URL or by browsing your GitHub / GitLab repositories, optionally shallow or with submodules; or start a new repository
 - **Identity profiles** — switch the repo's `user.name` / `user.email` / signing key between saved profiles
 - Command palette, native menus and keyboard shortcuts; light / dark themes and accessibility support (VoiceOver, Increase Contrast, Reduce Motion)
 
-Not supported (yet): interactive rebase, LFS, submodule management, creating or reviewing PRs.
+Not supported (yet): interactive rebase, LFS, submodule management, creating PRs.
 
 ## Keyboard Shortcuts
 
