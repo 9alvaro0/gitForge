@@ -37,7 +37,7 @@ extension GitCLI {
 
     /// Runs `command` once per batch of `paths`, in order; stops at the
     /// first failure.
-    private func runInBatches(_ command: [String], paths: [String]) async throws {
+    func runInBatches(_ command: [String], paths: [String]) async throws {
         for batch in Self.pathBatches(paths) {
             try await run(command + batch)
         }
@@ -64,13 +64,16 @@ extension GitCLI {
     }
 
     /// Sends untracked files to the Trash when the volume has one, so a
-    /// misclick on "Discard" is usually recoverable; volumes without a Trash
-    /// (network shares, some external disks) fall back to deleting — the UI
-    /// copy already says the action can't be undone. Paths already gone are
-    /// skipped. Files that could be neither trashed nor deleted are reported
-    /// together at the end instead of silently staying on disk.
-    func deleteUntracked(paths: [String]) async throws {
-        guard !paths.isEmpty else { return }
+    /// misclick on "Discard" is recoverable from Finder (Undo covers tracked
+    /// changes only); volumes without a Trash (network shares, some external
+    /// disks) fall back to deleting, and the result says how many went each
+    /// way so the toast can tell. Paths already gone are skipped. Files that
+    /// could be neither trashed nor deleted are reported together at the end
+    /// instead of silently staying on disk.
+    @discardableResult
+    func deleteUntracked(paths: [String]) async throws -> UntrackedRemoval {
+        var removal = UntrackedRemoval()
+        guard !paths.isEmpty else { return removal }
         let fm = FileManager.default
         let base = workingDirectory.path(percentEncoded: false)
         var failures: [String] = []
@@ -79,9 +82,11 @@ extension GitCLI {
             guard fm.fileExists(atPath: full.path(percentEncoded: false)) else { continue }
             do {
                 try fm.trashItem(at: full, resultingItemURL: nil)
+                removal.trashed += 1
             } catch {
                 do {
                     try fm.removeItem(at: full)
+                    removal.deleted += 1
                 } catch {
                     failures.append(path)
                 }
@@ -90,6 +95,7 @@ extension GitCLI {
         if !failures.isEmpty {
             throw DeleteUntrackedError(paths: failures)
         }
+        return removal
     }
 
     /// Applies a patch built by `HunkPatch` — to the index (`cached`) or the
@@ -124,6 +130,13 @@ extension GitCLI {
         }
         try await run(args)
     }
+}
+
+/// How many untracked files `deleteUntracked` sent to the Trash, and how
+/// many it had to delete because their volume has none.
+nonisolated struct UntrackedRemoval: Sendable, Equatable {
+    var trashed = 0
+    var deleted = 0
 }
 
 /// Untracked files that survived `deleteUntracked` (permissions, locks).

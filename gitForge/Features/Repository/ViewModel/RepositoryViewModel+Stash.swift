@@ -48,7 +48,7 @@ extension RepositoryViewModel {
     }
 
     /// Apply (and optionally drop) a stash. Returns an `IntegrationOutcome` so
-    /// the view can route conflicts to the resolver UI an  d surface friendly
+    /// the view can route conflicts to the resolver UI and surface friendly
     /// messages for the common pre-flight abort cases (dirty worktree).
     func applyStash(_ stash: Stash, drop: Bool) async -> IntegrationOutcome {
         guard !isMutating else { return .failed(String(localized: "Another operation is in progress.")) }
@@ -94,12 +94,14 @@ extension RepositoryViewModel {
         }
     }
 
+    /// Offers its undo: `git stash store` of the same commit and message.
     func dropStash(_ stash: Stash) async -> Result<Void, Error> {
         guard !isMutating else { return .failure(GitError.busy) }
         isMutating = true
         defer { isMutating = false }
         do {
             try await cli.stashDrop(sha: stash.sha)
+            undo.record(.dropStash(sha: stash.sha, message: stash.subject))
             // Dropping a stash leaves its dashed-dot row in `commits` until
             // a reloadLog runs — `refreshAfterIntegration` does that, so
             // the phantom row disappears immediately.

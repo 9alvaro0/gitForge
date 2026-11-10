@@ -273,10 +273,10 @@ struct StagingFilesColumn: View {
     private func discardMessage(_ files: [WorkingCopyFile]) -> String {
         if files.count == 1, let file = files.first {
             return file.isUntracked
-                ? String(localized: "The file will be removed from disk. This can't be undone from the app.")
-                : String(localized: "Local changes will be reverted to the last committed version. This can't be undone.")
+                ? String(localized: "The file will be moved to the Trash.")
+                : String(localized: "Local changes will be reverted to the last committed version. Undo (⌘Z) brings them back.")
         }
-        return String(localized: "Local changes will be lost and untracked files deleted. This can't be undone.")
+        return String(localized: "Local changes will be discarded and untracked files moved to the Trash. Undo (⌘Z) brings the changes back.")
     }
 }
 

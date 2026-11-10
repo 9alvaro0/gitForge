@@ -68,6 +68,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 - **Pull / merge requests** — GitHub and GitLab (including self-hosted): Team / Mine / Open / Closed tabs across the repositories you follow, no clone needed; approve, request changes, comment on any line, reply to and resolve review threads, and merge; approve or merge straight from the list; CI status; integrate a PR locally to resolve its conflicts
 - **Clone** — from a URL or by browsing your GitHub / GitLab repositories, optionally shallow or with submodules; or start a new repository
 - **Identity profiles** — switch the repo's `user.name` / `user.email` / signing key between saved profiles
+- **Undo** — reset, discard, delete branch, drop stash, move a branch tip and force-push can be undone from the success toast or with `⌘Z`, until the next operation; undo refuses if the repository changed in between
 - Command palette, native menus and keyboard shortcuts; light / dark themes and accessibility support (VoiceOver, Increase Contrast, Reduce Motion)
 
 Not supported (yet): interactive rebase, LFS, submodule management, creating PRs.
@@ -84,6 +85,7 @@ Not supported (yet): interactive rebase, LFS, submodule management, creating PRs
 | `⇧⌘W` | Close Repository |
 | `⌘B` | New Branch… |
 | `⌘1` … `⌘6` | Show the sidebar sections in the order they have in the sidebar (History, Changes, Branches, Pull Requests, Stashes, Conflicts by default) |
+| `⌘Z` | Undo the last reset, discard, branch delete or move, stash drop or force-push (Edit ▸ Undo names it) |
 | `⌘K` | Command palette |
 | `⌘F` | Filter history (History tab) |
 | `⌘R` | Refresh |
@@ -98,7 +100,7 @@ Not supported (yet): interactive rebase, LFS, submodule management, creating PRs
 
 </details>
 
-The full action set is also exposed through the native menu bar (File / View / Repository / Help).
+The full action set is also exposed through the native menu bar (File / Edit / View / Repository / Help).
 
 ## Requirements
 

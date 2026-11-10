@@ -126,7 +126,7 @@ struct BranchesView: View {
             rebaseTarget: $rebaseTarget,
             deleteTargetTag: $deleteTargetTag,
             currentBranchName: currentBranchName,
-            confirmDelete: { ref, force in Task { _ = await viewModel.deleteBranch(ref, force: force) } },
+            confirmDelete: { ref, force in Task { await runDeleteBranch(ref, force: force) } },
             confirmMerge: { req in Task { await runMerge(request: req) } },
             confirmRebase: { ref in Task { await runRebase(ref: ref) } },
             confirmDeleteTag: { ref, alsoRemote in Task { await runDeleteTag(ref, alsoOnRemote: alsoRemote) } }
@@ -302,6 +302,18 @@ struct BranchesView: View {
 
     private func runPushAllTags() async {
         toast(await viewModel.pushAllTags(), success: String(localized: "Pushed all tags"))
+    }
+
+    private func runDeleteBranch(_ ref: GitRef, force: Bool) async {
+        switch await viewModel.deleteBranch(ref, force: force) {
+        case .success:
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Deleted \(ref.name)"), kind: .ok,
+                                                   action: .undo(viewModel.undo.pending?.id))
+        case .failure(let err) where err is CancellationError:
+            break
+        case .failure(let err):
+            toast(err.toastMessage, kind: .error)
+        }
     }
 
     private func runDeleteTag(_ ref: GitRef, alsoOnRemote: Bool) async {

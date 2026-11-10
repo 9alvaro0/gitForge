@@ -1,13 +1,15 @@
 import Foundation
 
-/// A commit / fetch / pull / push that finished cleanly, for the success
-/// toast. The view model publishes it; `ShellView` turns it into a toast,
-/// so every entry point (toolbar, menu, palette, commit box) gets the same
-/// feedback. The `id` makes two identical successes in a row still register
-/// as a change.
+/// A commit / fetch / pull / push / discard that finished cleanly, for the
+/// success toast. The view model publishes it; `ShellView` turns it into a
+/// toast, so every entry point (toolbar, menu, palette, commit box) gets the
+/// same feedback. The `id` makes two identical successes in a row still
+/// register as a change.
 nonisolated struct OperationSuccess: Sendable, Equatable, Identifiable {
     let id = UUID()
     let message: String
+    /// The `UndoEntry` the operation offers: the toast shows Undo for it.
+    var undoID: UUID? = nil
 
     static func commit(shortSha: String?, subject: String, amend: Bool) -> OperationSuccess {
         let message: String
@@ -41,7 +43,7 @@ nonisolated struct OperationSuccess: Sendable, Equatable, Identifiable {
     /// `ahead` is the count before the push. A first push (no upstream yet)
     /// has no count to report, so it names the new tracking branch instead.
     static func push(branch: String?, remote: String, ahead: Int,
-                     firstPush: Bool, forced: Bool) -> OperationSuccess {
+                     firstPush: Bool, forced: Bool, undoID: UUID? = nil) -> OperationSuccess {
         let target = branch.map { "\(remote)/\($0)" } ?? remote
         if firstPush {
             let name = branch ?? String(localized: "branch")
@@ -56,6 +58,30 @@ nonisolated struct OperationSuccess: Sendable, Equatable, Identifiable {
         case (true, _): message = String(localized: "Force-pushed \(ahead) commits to \(target)")
         case (false, _): message = String(localized: "Pushed \(ahead) commits to \(target)")
         }
-        return OperationSuccess(message: message)
+        return OperationSuccess(message: message, undoID: undoID)
+    }
+
+    /// `files`: tracked (and conflicted) files whose changes were discarded;
+    /// `removal`: untracked files sent to the Trash, or deleted where the
+    /// volume has none — said plainly, Undo doesn't bring those back.
+    static func discard(files: Int, removal: UntrackedRemoval, undoID: UUID?) -> OperationSuccess {
+        var parts: [String] = []
+        if files == 1 { parts.append(String(localized: "Discarded changes in 1 file")) }
+        if files > 1 { parts.append(String(localized: "Discarded changes in \(files) files")) }
+        let trashed = removal.trashed
+        if trashed == 1 { parts.append(String(localized: "Moved 1 untracked file to the Trash")) }
+        if trashed > 1 { parts.append(String(localized: "Moved \(trashed) untracked files to the Trash")) }
+        let deleted = removal.deleted
+        if deleted == 1 { parts.append(String(localized: "Deleted 1 untracked file (its disk has no Trash)")) }
+        if deleted > 1 { parts.append(String(localized: "Deleted \(deleted) untracked files (their disk has no Trash)")) }
+        if parts.isEmpty { parts.append(String(localized: "Nothing to discard")) }
+        return OperationSuccess(message: parts.joined(separator: ". "), undoID: undoID)
+    }
+
+    /// `lines`: only some lines of the hunk were discarded.
+    static func discardHunk(lines: Bool, undoID: UUID?) -> OperationSuccess {
+        OperationSuccess(message: lines ? String(localized: "Discarded the selected lines")
+                                        : String(localized: "Discarded the hunk"),
+                         undoID: undoID)
     }
 }

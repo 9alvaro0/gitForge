@@ -418,7 +418,8 @@ struct RecoverCommitsSheet: View {
         appState.ui.emitToast(
             for: outcome,
             success: String(localized: "Reset \(mode.rawValue) to \(shortSha)"),
-            conflicts: String(localized: "Reset has conflicts — resolve to continue")
+            conflicts: String(localized: "Reset has conflicts — resolve to continue"),
+            undo: viewModel.undo.pending
         )
         switch outcome {
         case .clean:

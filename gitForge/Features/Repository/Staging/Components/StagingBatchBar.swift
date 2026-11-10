@@ -41,7 +41,7 @@ struct StagingBatchBar: View {
                 .keyboardShortcut(.defaultAction)
             Button("Discard", role: .destructive, action: onDiscard)
         } message: {
-            Text("Local changes will be lost and untracked files deleted. This can't be undone.")
+            Text("Local changes will be discarded and untracked files moved to the Trash. Undo (⌘Z) brings the changes back.")
         }
     }
 }

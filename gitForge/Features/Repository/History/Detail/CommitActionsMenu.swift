@@ -102,7 +102,7 @@ struct CommitActionsMenu: View {
         case .mixed:
             return String(localized: "Moves HEAD to \(shortSha). Commits between current HEAD and this one stay as unstaged changes. Working tree is untouched.")
         case .hard:
-            return String(localized: "Moves HEAD to \(shortSha) and DISCARDS every commit and uncommitted change after it. Recoverable only via `git reflog` for a limited time. This cannot be undone from the UI.")
+            return String(localized: "Moves HEAD to \(shortSha) and DISCARDS every commit and uncommitted change after it. Undo (⌘Z) brings them back until your next operation in this repository.")
         }
     }
 
@@ -162,7 +162,8 @@ struct CommitActionsMenu: View {
         appState.ui.emitToast(
             for: await viewModel.reset(to: commit.sha, mode: mode),
             success: String(localized: "Reset \(mode.rawValue) to \(commit.shortSha)"),
-            conflicts: String(localized: "Reset has conflicts — resolve to continue")
+            conflicts: String(localized: "Reset has conflicts — resolve to continue"),
+            undo: viewModel.undo.pending
         )
     }
 }

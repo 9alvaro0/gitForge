@@ -250,3 +250,49 @@ Settings ▸ Behavior en 60 s.
 - [ ] Hoja en claro y oscuro, VoiceOver lee el título, la salida y los botones;
       Esc cierra y ↵ es Retry.
 - [ ] Textos en es y pt-PT.
+
+
+## Deshacer operaciones destructivas (#59)
+Compilado y probado en Linux solo lo que no es vista (capa Git, `UndoStore`,
+view model): las vistas, el menú Edit y el toast no se han compilado. Pasa
+antes la suite completa en Xcode.
+- [ ] Compila sin warnings; `CommitActionsResetMessageTests` pasa (no se pudo
+      ejecutar en Linux).
+- [ ] Reset hard desde History (menú de un commit) con cambios staged y sin
+      preparar: el toast "Reset hard to …" trae **Undo**. Pulsarlo devuelve
+      HEAD al commit de antes y los cambios, cada uno en su lado (staged /
+      sin preparar). El toast dice "main is back at abc1234".
+- [ ] Lo mismo con soft y mixed, y con el reset al soltar una rama sobre un
+      commit (Reset de la rama actual).
+- [ ] Mover la punta de `feature` arrastrándola a otro commit → Undo → vuelve.
+- [ ] Borrar `feature` desde Branches & Tags (ahora sale toast "Deleted
+      feature", antes no salía nada) → Undo → vuelve, con su upstream
+      (`git config branch.feature.merge`).
+- [ ] Drop de una stash → Undo → vuelve a la lista (arriba, como stash@{0})
+      con su mensaje.
+- [ ] Discard de un fichero, de varios (barra de lote) y Discard All: el toast
+      dice cuántos y, si había ficheros sin seguimiento, que fueron a la
+      Papelera (comprobar en Finder). Undo devuelve los cambios tracked; los
+      de la Papelera no.
+- [ ] Discard de un hunk y de líneas sueltas en el diff → toast con Undo → vuelve.
+- [ ] Force-push (con lease) tras un amend → toast con Undo → el remoto
+      vuelve al SHA anterior (`git ls-remote origin main`); la rama local
+      sigue con el amend (1 ahead / 1 behind).
+- [ ] Force-push, luego otro push al remoto desde otro clon, luego Undo:
+      "Can't undo: origin/main has changed since your force-push.", y el
+      remoto no cambia.
+- [ ] ⌘Z sin texto enfocado deshace la última operación; Edit ▸ Undo dice
+      qué ("Undo Reset of main", "Undo Discard"…). Sin nada que deshacer dice
+      "Undo".
+- [ ] ⌘Z / ⇧⌘Z escribiendo el mensaje de commit (y en la hoja de nueva rama)
+      deshacen / rehacen el texto, nunca la operación del repo.
+- [ ] Undo sigue disponible por ⌘Z después de que el toast se vaya; tras otra
+      operación (stage, commit, push…) ya no.
+- [ ] Mover la rama desde la terminal (`git branch -f feature HEAD~1`) y pulsar
+      Undo: se rechaza con "Can't undo: feature has moved since." y no toca nada.
+- [ ] Tras un reset hard, editar un fichero y Undo: se rechaza ("commit, stash
+      or discard the changes you made since") y el fichero queda como estaba.
+- [ ] Pulsar Undo en un toast viejo después de otra operación: "That can no
+      longer be undone."
+- [ ] Textos de confirmación (discard, drop, reset hard, borrar rama) ya no
+      dicen "can't be undone" y mencionan ⌘Z; revisar también en es y pt-PT.

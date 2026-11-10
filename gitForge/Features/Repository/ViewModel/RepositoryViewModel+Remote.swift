@@ -143,12 +143,15 @@ extension RepositoryViewModel {
                                   rebase: rebase, ffOnly: ffOnly)
     }
 
-    /// Same return contract as `fetch()`.
+    /// Same return contract as `fetch()`. A force-push that replaced the
+    /// remote branch offers its undo: the previous SHA pushed back, leased on
+    /// the one pushed here. Any push withdraws the undo on offer.
     @discardableResult
     func push(forceWithLease: Bool = false) async -> Bool {
         guard remoteOperation == nil else { return false }
         remoteOperation = .pushing
         remoteFailure = nil
+        undo.invalidate()
         defer { remoteOperation = nil }
         let setUpstream = upstream == nil
         let branch = currentBranchName
@@ -177,6 +180,14 @@ extension RepositoryViewModel {
         }
         // Read after the lease fetch so the count matches what this push sends.
         let pushedCount = aheadCount
+        // A forced push names the branch on both sides (`remote branch`):
+        // what the remote had, as of the lease fetch, and what replaces it.
+        var forceUndo: (previous: String, pushed: String)?
+        if forceWithLease, let branch,
+           let previous = await cli.resolvedSha("refs/remotes/\(resolvedRemote)/\(branch)"),
+           let pushed = await cli.resolvedSha("refs/heads/\(branch)"), previous != pushed {
+            forceUndo = (previous, pushed)
+        }
         do {
             try await cli.push(
                 setUpstream: setUpstream,
@@ -184,6 +195,10 @@ extension RepositoryViewModel {
                 branch: branch,
                 forceWithLease: forceWithLease
             )
+            if let forceUndo, let branch {
+                undo.record(.forcePush(remote: resolvedRemote, branch: branch,
+                                       pushed: forceUndo.pushed, previous: forceUndo.previous))
+            }
             if setUpstream { upstream = await cli.upstreamName() }
             // `loadRefs()` already calls `loadAheadBehind()` at its tail,
             // so a separate call here would just duplicate the rev-list.
@@ -192,7 +207,8 @@ extension RepositoryViewModel {
             // branch the graph loads.
             await reloadLogIfScopeMoved()
             operationSuccess = .push(branch: branch, remote: resolvedRemote, ahead: pushedCount,
-                                     firstPush: setUpstream, forced: forceWithLease)
+                                     firstPush: setUpstream, forced: forceWithLease,
+                                     undoID: undo.pending?.id)
             return true
         } catch {
             remoteFailure = RemoteFailure.from(error)

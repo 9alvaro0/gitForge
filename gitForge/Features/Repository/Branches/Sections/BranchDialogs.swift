@@ -28,7 +28,7 @@ struct BranchDialogs: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { deleteTarget = nil }
             } message: {
-                Text("Safe delete refuses to drop the branch if it has commits not merged into HEAD. Force-delete drops it anyway — those commits stay recoverable via `git reflog` only.")
+                Text("Safe delete refuses to drop the branch if it has commits not merged into HEAD. Force-delete drops it anyway. Either way, Undo (⌘Z) brings the branch back.")
             }
             .confirmationDialog(mergeTitle,
                                 isPresented: presence($mergeRequest),

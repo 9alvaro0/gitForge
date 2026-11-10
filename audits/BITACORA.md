@@ -802,3 +802,67 @@ Con git real en un repo desechable: durante un `pre-commit` que duerme sin impri
 
 - Linux (Swift 6.2, aislamiento por defecto `MainActor` y las *upcoming features* del proyecto): compilan Core y `RecoverStore` sin errores ni warnings, y pasan 28 tests: `GitCLIReflogTests` (reset, amend, rebase, checkout, detached, merge ff y no ff, merge tras conflicto, cherry-pick, revert, reflog de rama, casos límite, hora y límite), `ReflogActionTests` (asuntos reales de git, incluidos `pull --rebase` y formas antiguas) y `RecoverStoreTests`.
 - **Pendiente en macOS:** compilar las vistas (SwiftUI no compila en Linux), pasar la suite completa (incluye el test nuevo de ⌘K) y el recorrido de `PRUEBAS-MANUALES.md` (#60).
+
+## #59 — Deshacer operaciones destructivas (⌘Z)
+
+**Fecha:** 2026-11-10
+**Rama:** `feat/undo-destructive-ops-59` · épica #53.
+
+### Modelo
+
+Un único "deshacer" por repositorio, no una pila: `UndoStore` (en el view
+model, `viewModel.undo`) guarda la última operación destructiva como
+`UndoEntry`, cuyo `UndoOperation` describe la inversa con lo leído justo
+antes (y justo después) de la operación. `GitCLI.performUndo` la aplica y,
+antes de tocar nada, comprueba que el repo sigue donde la operación lo dejó;
+si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
+
+- Se retira al empezar cualquier otra mutación local (el `didSet` de
+  `isMutating`, por donde pasan todas) y al hacer push.
+- El toast de cada operación lleva **Undo** (`ToastAction.Route.undo(entryID)`:
+  solo deshace si esa entrada sigue en oferta). Edit ▸ Undo (⌘Z) lo hace
+  mientras esté en oferta, y su título dice qué ("Undo Reset of main").
+  Con un texto editable enfocado, ⌘Z/⇧⌘Z siguen siendo los del texto
+  (`UndoMenuRouting`).
+- Si el undo falla por algo pasajero (red, git), la entrada vuelve a quedar en oferta.
+- #66/#67 (reescritura de historial) pueden reutilizar `.reset` o `.moveBranch`.
+
+| Operación | Inversa | Rechazo si… |
+|---|---|---|
+| Reset (soft/mixed/hard) | soft: `reset --soft`; mixed: `reset --mixed` + `read-tree` del índice guardado; hard: `reset --hard` + `read-tree -u --reset` del árbol de trabajo + `read-tree` del índice | HEAD u otra rama activa; mixed con algo staged; hard con cambios tracked |
+| Mover punta | `update-ref` con valor viejo (CAS) | la rama se movió o es la activa |
+| Borrar rama | `update-ref <ref> <sha> ""` + `branch.<nombre>.*` | existe otra con ese nombre |
+| Drop stash | `stash store -m <mensaje> <sha>` | ya está en la lista |
+| Discard (fichero, lote, hunk, líneas) | `restore --source=<árbol> --worktree` de esas rutas | cambiaron sus entradas del índice o su diff |
+| Force-push | `push --force-with-lease=<ref>:<sha empujado> <remoto> <sha previo>:<ref>` | el remoto ya no está en lo que empujamos ("stale info") |
+
+### Notas
+
+- **Snapshot propio, no `git stash create`:** su árbol de trabajo conserva un
+  fichero nuevo staged y luego borrado del disco. `snapshotWorkingTree()`
+  escribe el índice con `write-tree` y el árbol de trabajo con `add -u` sobre
+  una copia del índice (`GIT_INDEX_FILE`); no toca ni índice ni disco. Con
+  rutas sin resolver no se puede: la operación sigue, sin undo.
+- Untracked: siguen yendo a la Papelera (o se borran si el volumen no tiene)
+  y el toast dice cuántos y dónde; Undo no los recupera. `deleteUntracked`
+  devuelve el recuento (`UntrackedRemoval`).
+- Discard ahora tiene toast (antes no decía nada), y borrar una rama desde
+  Branches & Tags también (antes ni el error).
+- "Discard All" decía que perdía también lo staged: `git restore --` lo deja.
+  El texto ahora dice lo que pasa.
+- "Checkout que mueve una rama": ningún checkout de la app mueve una rama
+  existente (no hay `checkout -B`); cubren ese caso reset y mover punta.
+- El stash restaurado vuelve arriba (stash@{0}), no a su índice anterior.
+- `git reset` de git 2.43 rechaza `--end-of-options` (el git de macOS lo
+  acepta); el undo de reset no lo usa y valida que el SHA sea hex.
+
+### Verificación
+
+- Linux (Swift 6.2, mismos ajustes de aislamiento que el proyecto, stubs para
+  Keychain/FSEvents/SwiftUI): compila sin errores ni warnings todo lo que no
+  es vista. 596 tests de 104 tipos; fallan 17, los mismos que en `main` en
+  este entorno (checkout con `--end-of-options` en git 2.43, rutas y CRLF de
+  Linux, señales, root). Nuevos: `GitCLIUndoTests` (15, git real),
+  `RepositoryViewModelUndoTests` (9), `UndoStoreTests` y afines (5).
+- **Pendiente en macOS:** compilar vistas, menú Edit y toast, pasar la suite
+  y el recorrido de `PRUEBAS-MANUALES.md` (#59).

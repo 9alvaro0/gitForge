@@ -86,6 +86,8 @@ struct ShellView: View {
                     case .copyText(let text):
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(text, forType: .string)
+                    case .undo(let entryID):
+                        Task { await appState.undoInActiveRepository(entryID: entryID) }
                     }
                 })
                     // Keyed by toast: a hover that never saw the pointer leave
@@ -155,11 +157,13 @@ struct ShellView: View {
             guard closed else { return }
             Task { await PaletteActionRouter(appState: appState).connectSheetClosed() }
         }
-        // Same idea for success: commit, fetch, pull and push confirm what
-        // landed, wherever they were started from.
+        // Same idea for success: commit, fetch, pull, push and discard
+        // confirm what landed, wherever they were started from, with Undo
+        // when the operation offers one.
         .onChange(of: appState.catalog.activeViewModel?.operationSuccess) { _, success in
             guard let success else { return }
-            appState.ui.activeToast = ToastMessage(message: success.message, kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: success.message, kind: .ok,
+                                                   action: .undo(success.undoID))
             appState.catalog.activeViewModel?.operationSuccess = nil
         }
     }

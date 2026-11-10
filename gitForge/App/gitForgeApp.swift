@@ -98,6 +98,7 @@ struct GitForgeApp: App {
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             FileCommands(appState: appState)
+            EditCommands(appState: appState)
             ViewCommands(appState: appState)
             RepositoryCommands(appState: appState)
             HelpCommands(updater: updater, appState: appState)

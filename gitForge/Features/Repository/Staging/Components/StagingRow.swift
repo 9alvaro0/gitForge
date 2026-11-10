@@ -19,8 +19,9 @@ struct StagingRow: View {
     @Environment(\.appTheme) private var theme
     @State private var hovering = false
     /// Drives a per-row confirmation when the user picks "Discard changes"
-    /// or "Delete file" on an untracked entry. Always confirms — there's no
-    /// undo for this and the all-files variant already gates behind a dialog.
+    /// or "Delete file" on an untracked entry. Always confirms, like the
+    /// all-files variant: Undo brings tracked changes back, but an untracked
+    /// file only comes back from the Trash.
     @State private var pendingDiscard = false
 
     var body: some View {
@@ -75,8 +76,8 @@ struct StagingRow: View {
             }
         } message: {
             Text(file.isUntracked
-                 ? String(localized: "The file will be removed from disk. This can't be undone from the app.")
-                 : String(localized: "Local changes will be reverted to the last committed version. This can't be undone."))
+                 ? String(localized: "The file will be moved to the Trash.")
+                 : String(localized: "Local changes will be reverted to the last committed version. Undo (⌘Z) brings them back."))
         }
     }
 

@@ -63,12 +63,22 @@ final class RepositoryViewModel {
     /// already-cleared subject/staged state and surfaces a spurious "Nothing
     /// staged" error after a successful first op. Also suspends the watcher
     /// so our own `.git/` writes don't bounce back as external-change events.
+    /// Starting one also withdraws the undo on offer: it undid the previous
+    /// operation, not this one (an operation that can be undone offers its
+    /// own once it's done).
     var isMutating: Bool = false {
         didSet {
             guard oldValue != isMutating else { return }
-            if isMutating { watcher?.suspend() } else { watcher?.resume() }
+            if isMutating {
+                watcher?.suspend()
+                undo.invalidate()
+            } else {
+                watcher?.resume()
+            }
         }
     }
+    /// The last destructive operation's undo (toast button, Edit ▸ Undo).
+    let undo = UndoStore()
     /// Last failed local operation, shown under the commit composer. Also
     /// written to the local log (issue #1).
     var commitError: String? {

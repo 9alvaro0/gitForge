@@ -104,7 +104,7 @@ struct StashesView: View {
             }
             Button("Cancel", role: .cancel) { dropTarget = nil }
         } message: {
-            Text("Discards the stash. This can't be undone.")
+            Text("Discards the stash. Undo (⌘Z) brings it back.")
         }
     }
 
@@ -148,7 +148,8 @@ struct StashesView: View {
         let reference = stash.reference
         switch await viewModel.dropStash(stash) {
         case .success:
-            appState.ui.activeToast = ToastMessage(message: String(localized: "Dropped \(reference)"), kind: .ok)
+            appState.ui.activeToast = ToastMessage(message: String(localized: "Dropped \(reference)"), kind: .ok,
+                                                   action: .undo(viewModel.undo.pending?.id))
         case .failure(let err):
             appState.ui.activeToast = ToastMessage(
                 message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,

@@ -71,7 +71,7 @@ extension HistoryView {
             case .success:
                 appState.ui.activeToast = ToastMessage(
                     message: String(localized: "Moved \(request.branch.displayName) to \(request.targetShortSha)"),
-                    kind: .ok)
+                    kind: .ok, action: .undo(viewModel.undo.pending?.id))
             case .failure(let err):
                 appState.ui.activeToast = ToastMessage(
                     message: (err as? LocalizedError)?.errorDescription ?? err.localizedDescription,
@@ -86,7 +86,8 @@ extension HistoryView {
             appState.ui.emitToast(
                 for: outcome,
                 success: String(localized: "Reset \(request.branchName) to \(request.targetShortSha) (\(mode.rawValue))"),
-                conflicts: String(localized: "Reset paused on conflicts — resolve to continue")
+                conflicts: String(localized: "Reset paused on conflicts — resolve to continue"),
+                undo: viewModel.undo.pending
             )
         }
     }
