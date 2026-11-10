@@ -216,7 +216,7 @@ struct StagingCommitBox: View {
     }
 
     private func commit(push: Bool, confirmedAmendOfPublished: Bool) async {
-        let ok = await viewModel.commit(confirmedAmendOfPublished: confirmedAmendOfPublished)
+        let ok = await viewModel.commit(confirmedAmendOfPublished: confirmedAmendOfPublished, pushAfterwards: push)
         if ok, push { await viewModel.push() }
     }
 }

@@ -174,8 +174,10 @@ extension RepositoryViewModel {
         guard !isMutating else { return }
         isMutating = true
         defer { isMutating = false }
+        commitError = nil
+        let state = mergeState
         do {
-            switch mergeState {
+            switch state {
             case .merging:        try await cli.mergeContinue()
             case .rebasing:       try await cli.rebaseContinue()
             case .cherryPicking:  try await cli.cherryPickContinue()
@@ -184,7 +186,12 @@ extension RepositoryViewModel {
             }
             await refreshAfterIntegration()
         } catch {
-            commitError = error.userMessage
+            if let failure = await detectHookFailure(in: error, operation: .continueIntegration(state)) {
+                hookFailure = failure
+                commitError = failure.summary
+            } else {
+                commitError = error.userMessage
+            }
         }
     }
 
