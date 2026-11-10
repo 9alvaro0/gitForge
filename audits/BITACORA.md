@@ -706,3 +706,40 @@ Las propiedades conservan sus nombres (`viewModel.history.commits`, `viewModel.w
 
 - Typecheck en Linux (Swift 6.2, con el mismo aislamiento por defecto `MainActor` y las mismas *upcoming features* que el proyecto) de Core, el VM, los cinco almacenes y los tests del VM y de Staging, con stubs para las APIs exclusivas de Apple (Keychain, FSEvents, `os.Logger`). 0 errores y 0 warnings en esa parte.
 - **Pendiente en macOS:** compilar las vistas (SwiftUI no compila en Linux; sus cambios son mecánicos, `viewModel.X` → `viewModel.history.X` / `viewModel.workingCopy.X`), pasar la suite y un recorrido rápido: History (selección, diff, paginación), Changes (stage por lotes, diff, commit y amend) y el refresco tras editar fuera de la app.
+
+---
+
+## #1 — Log local de errores y exportación desde Help
+
+**Fecha:** 2026-11-10
+**Rama:** `feat/local-logging-1`
+**Alcance:** issue #1 (roadmap 1.9). Un fichero de log local que el usuario puede adjuntar a un bug report.
+
+### Qué hace
+
+- **Fichero:** `~/Library/Logs/gitForge/gitForge.log` (la app no está en sandbox, así que es la carpeta real que lista Console.app). Rota por tamaño: 1 MB por fichero, `gitForge.1.log` … `gitForge.4.log`, así que nunca pasa de 5 MB. Carpeta `0700`, ficheros `0600`.
+- **Qué se apunta:**
+  - Cada comando git que falla: comando, código de salida, duración y stderr (o el mensaje sintetizado del watchdog si lo mató por tiempo). Una sola llamada en `GitCLI.run`, en la rama de `commandFailed`, para no chocar con el arreglo del watchdog (#58).
+  - Todo error que ve el usuario: toasts de tipo `.error` y `presentedError` (`didSet` en `WorkspaceUI`), y `commitError` del VM (el texto bajo el composer). Así se cubren también los fallos de red, cuentas y PRs que llegan por esas vías.
+  - Una línea `INFO [app]` en cada arranque con versión de la app y de macOS, para separar sesiones.
+- **Help › Export Logs…** guarda un único fichero con cabecera (versión y build de gitForge, macOS, `git --version`, y un párrafo de qué contiene) y después los ficheros en orden cronológico. El panel de guardado explica en el idioma del usuario qué lleva; el fichero va en inglés porque lo lee quien hace el triaje.
+- **Help › Open Log Folder** abre Finder con el log seleccionado (crea la carpeta si no existe).
+
+### Privacidad
+
+- Todo pasa por `LogSanitizer` antes de escribirse: `GitCLI.redacted` (userinfo de URLs y tokens registrados en `SecretRedactor`), más formas de token conocidas (`ghp_…`, `github_pat_…`, `glpat-…`), cabeceras `Authorization`/`Bearer`, pares `password=`/`token=`, y la ruta del home como `~`. Se quitan secuencias ANSI y caracteres de control.
+- La exportación vuelve a limpiar todo el texto, por si un token se registró después de escribir una entrada antigua.
+- Nada sale del Mac salvo el fichero que el usuario exporta.
+
+### Decisiones
+
+- **Sin bloqueo:** las entradas se fechan en el momento y se limpian y escriben en una cola serie propia (`utility`). `GitCLI.run` solo encola. La exportación lee y escribe fuera del main actor (`GitProcess.offPool`).
+- **Consultas que no son errores:** salida 1 con stderr vacío no se apunta. Es git respondiendo "no" (`config --get` de una clave sin valor, `rev-parse --verify --quiet`, `diff --quiet`), que la app pregunta continuamente; apuntarlo enterraría los fallos de verdad.
+- **Tamaño por entrada:** 8 KB como mucho (un stderr enorme no se come un fichero entero).
+- **Tests:** el `AppLog.shared` se desactiva en el proceso que hospeda XCTest, para que los fallos que provoca la suite a propósito no acaben en el log real del desarrollador.
+- **Fuera del fichero:** los ~34 `logger.error` de OSLog repartidos por Core siguen solo en OSLog. Los que el usuario llega a ver ya entran por el toast/alert; los fallos de lanzamiento de git y de `outputTooLarge` en `GitCLI.run` no se duplican en el fichero para mantener el cambio ahí en una sola llamada (si llegan a la UI, entran por el toast).
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor`, `NonisolatedNonsendingByDefault`, `InferIsolatedConformances`, `MemberImportVisibility`): compilan `Core/Logging`, `GitCLI` y sus dependencias con un stub de `os.Logger`; 26 tests nuevos (`LogSanitizer`, `RotatingLogFile`, `AppLog`, `LogExport`) en verde, 0 warnings. Una prueba de extremo a extremo (solo en el arnés, no en el repo) con un `ls-remote` real a una URL con credenciales dejó el fichero `0600` con la URL como `https://****@…` y sin la consulta `config --get`.
+- **Pendiente en macOS:** compilar `LogActions` (AppKit), `HelpCommands`, `WorkspaceUI`, `RepositoryViewModel` y `AppState`, pasar la suite y el recorrido de [`PRUEBAS-MANUALES.md`](PRUEBAS-MANUALES.md) (sección "Log local y exportación").
