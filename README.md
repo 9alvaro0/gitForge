@@ -65,12 +65,12 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 - **Stashes** — stash (optionally with untracked files), apply, pop, drop, browse a stash's files and diffs
 - **Conflicts** — visual resolver for merge / rebase / cherry-pick / revert / stash conflicts: pick ours / theirs / both per hunk, or resolve whole files
 - **Remotes** — fetch, pull (merge / rebase / fast-forward only), push, force-push with lease, optional background auto-fetch, categorised errors (auth, network, rejected, protected branch…)
-- **Pull / merge requests** — read-only list and detail for GitHub and GitLab (including self-hosted), with CI status; integrate a PR locally to resolve its conflicts
+- **Pull / merge requests** — GitHub and GitLab (including self-hosted): Team / Mine / Open / Closed tabs across the repositories you follow, no clone needed; approve, request changes, comment on any line, reply to and resolve review threads, and merge; approve or merge straight from the list; CI status; integrate a PR locally to resolve its conflicts
 - **Clone** — from a URL or by browsing your GitHub / GitLab repositories, optionally shallow or with submodules; or start a new repository
 - **Identity profiles** — switch the repo's `user.name` / `user.email` / signing key between saved profiles
 - Command palette, native menus and keyboard shortcuts; light / dark themes and accessibility support (VoiceOver, Increase Contrast, Reduce Motion)
 
-Not supported (yet): interactive rebase, LFS, submodule management, creating or reviewing PRs.
+Not supported (yet): interactive rebase, LFS, submodule management, creating PRs.
 
 ## Keyboard Shortcuts
 
@@ -137,6 +137,7 @@ The suite (Swift Testing) uses real `git` against throwaway repositories in the 
 | `gitForge/Core/Watchers` | FSEvents-based repository watcher, auto-fetcher |
 | `gitForge/Core/RemoteHosting` | GitHub / GitLab API clients, token storage (Keychain), pinned TLS trust |
 | `gitForge/Core/Graph` | Commit graph layout engine |
+| `gitForge/Core/Logging` | Local error log (`AppLog`): sanitizing, size-based rotation, export |
 | `gitForge/App` | App entry point, shell, app-wide stores (`AppState`, `RepositoryCatalog`, preferences) |
 | `gitForge/Features` | One folder per screen; `Repository/ViewModel` is the per-repository session plus feature stores (`PullRequestStore`, `StashDetailStore`, `ConflictStore`) |
 | `gitForge/DesignSystem` | Tokens (spacing, type scale, colours), theme, shared components, icons |
@@ -160,6 +161,17 @@ links to the download.
 
 Turn automatic installs off in **Settings → Updates**. Manual check:
 **Help → Check for Updates…**
+
+## Logs
+
+gitForge keeps a local log of the errors it shows and the git commands that
+fail, in `~/Library/Logs/gitForge/gitForge.log` (rotated, at most 5 MB). Tokens,
+passwords and credentials in URLs are removed before anything is written, and
+paths in your home folder appear as `~`. Nothing is sent anywhere.
+
+To attach it to a bug report, use **Help → Export Logs…**: it saves one file
+with the app, macOS and git versions on top. **Help → Open Log Folder** shows
+the folder in Finder.
 
 ## License
 
