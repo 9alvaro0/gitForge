@@ -403,7 +403,7 @@ struct RecoverCommitsSheet: View {
         let sha = entry.commit.sha
         appState.ui.recoverCommitsVisible = false
         appState.ui.workspaceSection = .history
-        let outcome = await viewModel.checkout(.commit(sha))
+        let outcome = await viewModel.checkout(.commit(sha: sha))
         appState.ui.emitToast(for: outcome)
         if case .done = outcome {
             viewModel.history.selectedCommitId = sha
