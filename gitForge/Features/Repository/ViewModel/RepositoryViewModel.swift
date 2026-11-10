@@ -77,6 +77,9 @@ final class RepositoryViewModel {
             AppLog.shared.error(commitError, category: "operation")
         }
     }
+    /// A commit or `--continue` a local hook stopped; `ShellView` shows its
+    /// output in a sheet with Retry and clears it.
+    var hookFailure: HookFailure?
 
     // MARK: Remote
     enum RemoteOperation: Sendable, Equatable { case fetching, pulling, pushing }

@@ -1421,6 +1421,38 @@
         }
       }
     },
+    "A Git hook failed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un hook de Git ha fallado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um hook do Git falhou"
+          }
+        }
+      }
+    },
+    "A Git hook failed. Nothing was committed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un hook de Git ha fallado. No se ha hecho ningún commit."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um hook do Git falhou. Não foi feito nenhum commit."
+          }
+        }
+      }
+    },
     "A local merge is already running." : {
       "localizations" : {
         "es" : {
@@ -4580,6 +4612,22 @@
         }
       }
     },
+    "Commit without hooks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer commit sin hooks"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fazer commit sem hooks"
+          }
+        }
+      }
+    },
     "Commit, stash, or discard your current changes before applying this stash." : {
       "localizations" : {
         "es" : {
@@ -5073,6 +5121,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Token copiado"
+          }
+        }
+      }
+    },
+    "Copy output" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar salida"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar saída"
           }
         }
       }
@@ -8566,6 +8630,22 @@
         }
       }
     },
+    "git printed nothing for %lld s and was stopped. A hook or another program git started may be stuck or waiting for input the app can't provide." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git no mostró nada durante %lld s y se detuvo. Puede que un hook u otro programa que git lanzó esté atascado o esperando una respuesta que la app no puede dar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O git não mostrou nada durante %lld s e foi parado. Um hook ou outro programa que o git iniciou pode estar bloqueado ou à espera de uma resposta que a app não consegue dar."
+          }
+        }
+      }
+    },
     "GPG / SSH key id" : {
       "localizations" : {
         "es" : {
@@ -8915,6 +8995,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O HEAD ficará desanexado de qualquer ramo. Os novos commits não pertencerão a nenhum ramo — crie um primeiro se pretender mantê-los."
+          }
+        }
+      }
+    },
+    "Hook output" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salida del hook"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saída do hook"
           }
         }
       }
@@ -11897,6 +11993,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nada por preparar"
+          }
+        }
+      }
+    },
+    "Nothing was committed. Your message and staged changes are kept: fix what the hook reports, then retry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha hecho ningún commit. Tu mensaje y los cambios preparados se mantienen: corrige lo que indica el hook y vuelve a intentarlo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi feito nenhum commit. A sua mensagem e as alterações preparadas mantêm-se: corrija o que o hook indica e tente novamente."
           }
         }
       }
@@ -17673,6 +17785,118 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Predefinição do sistema"
+          }
+        }
+      }
+    },
+    "The %@ hook failed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El hook %@ ha fallado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O hook %@ falhou"
+          }
+        }
+      }
+    },
+    "The %@ hook failed. Nothing was committed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El hook %@ ha fallado. No se ha hecho ningún commit."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O hook %@ falhou. Não foi feito nenhum commit."
+          }
+        }
+      }
+    },
+    "The cherry-pick is still paused. Fix what the hook reports, then retry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cherry-pick sigue en pausa. Corrige lo que indica el hook y vuelve a intentarlo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O cherry-pick continua em pausa. Corrija o que o hook indica e tente novamente."
+          }
+        }
+      }
+    },
+    "The hook printed nothing." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El hook no mostró nada."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O hook não mostrou nada."
+          }
+        }
+      }
+    },
+    "The merge is still paused. Fix what the hook reports, then retry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El merge sigue en pausa. Corrige lo que indica el hook y vuelve a intentarlo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O merge continua em pausa. Corrija o que o hook indica e tente novamente."
+          }
+        }
+      }
+    },
+    "The rebase is still paused. Fix what the hook reports, then retry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El rebase sigue en pausa. Corrige lo que indica el hook y vuelve a intentarlo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O rebase continua em pausa. Corrija o que o hook indica e tente novamente."
+          }
+        }
+      }
+    },
+    "The revert is still paused. Fix what the hook reports, then retry." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revert sigue en pausa. Corrige lo que indica el hook y vuelve a intentarlo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O revert continua em pausa. Corrija o que o hook indica e tente novamente."
           }
         }
       }
@@ -23632,6 +23856,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“%@” não está no histórico carregado"
+          }
+        }
+      }
+    },
+    "“Commit without hooks” runs git commit --no-verify: pre-commit and commit-msg don’t run, so the checks they enforce are skipped for this commit." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Hacer commit sin hooks» ejecuta git commit --no-verify: pre-commit y commit-msg no se ejecutan, así que las comprobaciones que imponen se saltan en este commit."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Fazer commit sem hooks» executa git commit --no-verify: pre-commit e commit-msg não são executados, por isso as verificações que impõem são ignoradas neste commit."
           }
         }
       }

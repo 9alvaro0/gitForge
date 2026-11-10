@@ -109,10 +109,13 @@ extension GitCLI {
     }
 
     /// `signOff` adds the `Signed-off-by:` trailer (`--signoff`).
-    func commit(subject: String, body: String? = nil, amend: Bool = false, signOff: Bool = false) async throws {
+    /// `skipHooks` passes `--no-verify`: `pre-commit` and `commit-msg` don't run.
+    func commit(subject: String, body: String? = nil, amend: Bool = false, signOff: Bool = false,
+                skipHooks: Bool = false) async throws {
         var args: [String] = ["commit"]
         if amend { args.append("--amend") }
         if signOff { args.append("--signoff") }
+        if skipHooks { args.append("--no-verify") }
         args.append("-m")
         args.append(subject)
         if let body, !body.isEmpty {
