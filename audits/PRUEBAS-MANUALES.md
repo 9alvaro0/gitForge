@@ -296,3 +296,45 @@ antes la suite completa en Xcode.
       longer be undone."
 - [ ] Textos de confirmación (discard, drop, reset hard, borrar rama) ya no
       dicen "can't be undone" y mencionan ⌘Z; revisar también en es y pt-PT.
+
+## Búsqueda en History hecha por git (#62)
+Compilado y probado en Linux solo lo que no es vista (`GitCLI.searchLog`,
+`HistorySearchStore`, `HistoryStore.revealCommit`). Usa un repo con historia
+larga (p. ej. un clon de un proyecto grande) y, en Settings, una página de
+commits pequeña para que lo viejo no esté cargado.
+- [ ] Compila sin warnings; la suite pasa (`GitCLISearchTests`,
+      `HistorySearchStoreTests`, `V1TokensGoneTests`).
+- [ ] Barra de filtros: "Search history ▾" junto a Focus y Remote branches,
+      con el mismo aspecto que los botones pequeños; en claro y oscuro.
+- [ ] Message: añadir el chip, escribir una palabra de un commit muy antiguo
+      (fuera de las páginas cargadas), Return → lista plana sin grafo, con
+      ese commit; el inspector lo muestra (ficheros y diff).
+- [ ] Con texto en el filtro instantáneo, añadir Message: el chip lo trae
+      y el filtro se vacía.
+- [ ] Author por nombre y por email, sin distinguir mayúsculas.
+- [ ] Content sin `.*` (`-S`): una cadena que se añadió y luego se quitó
+      da los dos commits. Con `.*` (`-G`) una regex; una regex inválida
+      muestra el error de git, no una lista vacía.
+- [ ] Path: al escribir salen sugerencias de ficheros y carpetas
+      (`Sources/` antes que `Sources/App/main.swift`); elegir una la completa.
+      Lista los commits que tocan esa ruta.
+- [ ] Dos o más chips a la vez: se combinan (AND). Quitar uno relanza sin
+      él; quitar el último vuelve al grafo.
+- [ ] Bajar al final de la lista carga más resultados ("N+ found" mientras
+      queden).
+- [ ] En un repo grande con Content (`-S`), mientras busca: la app responde
+      (scroll, cambiar de sección); "Stop" la corta y deja lo encontrado
+      ("Stopped"). Lanzar otra búsqueda durante una larga la sustituye.
+      Esc en un chip corta la búsqueda; con ella parada, Esc la termina.
+- [ ] ↑/↓ recorren los resultados; Return o doble clic en uno viejo carga el
+      grafo hasta él, lo selecciona y lo centra; la búsqueda termina y el
+      scroll hacia abajo sigue paginando desde ahí.
+- [ ] "Clear" vuelve al grafo con el commit que estaba seleccionado antes de
+      buscar (y a la fila Uncommitted changes si era esa).
+- [ ] Con "Remote branches" activo, la búsqueda encuentra commits que solo
+      están en una rama remota; al cambiar el conmutador se relanza.
+- [ ] VoiceOver: los chips se leen con su nombre, el `.*` como conmutador,
+      la "x" como "Remove Message"; los resultados tienen la acción
+      "Show in graph".
+- [ ] Textos en es y pt-PT (barra, chips, estados vacíos, toast "Couldn’t
+      show … in the graph").
