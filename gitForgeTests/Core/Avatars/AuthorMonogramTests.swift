@@ -57,10 +57,4 @@ struct AuthorMonogramTests {
         #expect(author.displayName == " Ana@Forge.DEV")
         #expect(CommitAuthor(name: "Ana", email: "a@b").displayName == "Ana")
     }
-
-    @Test("History's author filter uses the email when there is one, else the name")
-    func historySearchText() {
-        #expect(HistoryAuthorFilter.searchText(for: CommitAuthor(name: "Ana", email: " ana@forge.dev ")) == "ana@forge.dev")
-        #expect(HistoryAuthorFilter.searchText(for: CommitAuthor(name: " Ana ", email: "")) == "Ana")
-    }
 }

@@ -867,6 +867,41 @@ si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
 - **Pendiente en macOS:** compilar vistas, menú Edit y toast, pasar la suite
   y el recorrido de `PRUEBAS-MANUALES.md` (#59).
 
+## #62 — Búsqueda en History hecha por git
+
+**Fecha:** 2026-11-11
+**Alcance:** issue #62 (épica #54, roadmap 1.9). ⌘F solo atenuaba los commits ya cargados; ahora git busca en todo el log.
+**Rama:** `feat/history-git-search-62`.
+
+### Qué hace
+
+- El filtro instantáneo de ⌘F sigue igual (atenúa lo cargado). Al lado, **Search history ▾** añade criterios como chips en una segunda línea de la barra de filtros: **Message** (`--grep`), **Author** (`--author`), **Content** (`-S`, o `-G` con el conmutador `.*`) y **Path** (`-- <ruta>`, con autocompletado de ficheros y carpetas del índice, `git ls-files -z`). Se combinan con AND.
+- Si el filtro instantáneo tenía texto, el chip nuevo (salvo Path) arranca con él y el filtro se vacía.
+- Return en un chip (o **Search**) lanza la búsqueda; **Stop** la corta y deja lo encontrado; Esc corta si está buscando y si no termina la búsqueda; **Clear** o quitar el último chip vuelve al grafo con la selección de antes (también la fila Uncommitted changes si era esa). Quitar un chip con la búsqueda activa la relanza sin él.
+- Resultados: el primero queda seleccionado y el inspector lo muestra aunque no esté en las páginas cargadas (`HistoryStore.selectedCommit` cae a `search.resultsById`). ↑/↓ los recorre; Return o doble clic lo **muestra en el grafo**: se cargan las páginas hasta la suya, se selecciona y la búsqueda termina.
+- La barra dice "Searching…", "N found" o "N+ found" si quedan páginas.
+
+### Decisiones
+
+- **Lista plana y grafo oculto.** Un recorrido filtrado se salta los commits entre dos coincidencias: las líneas y carriles que se dibujaran serían inventados. El grafo vuelve al terminar la búsqueda, y Return lleva a cada resultado en el grafo de verdad.
+- **Mismo recorrido y paginación que el log.** Se busca sobre el scope del log publicado (`HistoryStore.searchScope()` = `loadedScope`), con el mismo tamaño de página y `--skip`; así cualquier resultado se puede revelar en el grafo. Al cambiar "Remote branches" el log se recarga y la búsqueda se relanza.
+- **Sin stashes.** Se buscan las revisiones del scope menos las stashes: sus commits internos (índice, sin seguimiento) no se distinguen en un recorrido filtrado y el grafo los oculta. Las stashes tienen su sección.
+- **Mayúsculas y literales.** `--regexp-ignore-case` en todo; git lo aplica también a `-S`/`-G` (probado), así que Content tampoco distingue mayúsculas. `--fixed-strings` hace literales Message y Author (`fix(ui)`, `a.b`), sin tocar `-S` (siempre literal) ni `-G` (siempre regex extendida). Author casa como subcadena de "Nombre <email>".
+- **Sin inyección.** Lo escrito nunca va suelto: `--grep=`, `--author=`, `-S`/`-G` van pegados a su valor y la ruta va después de `--`. No se puede poner `--end-of-options` antes de las revisiones porque el scope incluye `--tags`; las revisiones son de la app. La ruta admite pathspecs de git (`*.swift`, `:!dir`): es un filtro de lectura.
+- **Path sin `--follow`:** un fichero renombrado se busca por cada nombre.
+- **Cancelación:** una sola tarea en vuelo (primera página o siguiente). Una consulta nueva, Stop o Clear la cancelan (`GitCLI.run` termina el proceso) y un token de generación descarta lo que llegue tarde.
+- **Revelar en el grafo** (`HistoryStore.revealCommit(_:)`): pide a git bloques de 5.000 commits desde `loadedRawCount` hasta encontrarlo (tope 200.000), se queda con páginas enteras hasta la que lo contiene y las añade con `HistoryLog.appending`, como si el usuario hubiera hecho scroll: las filas ya dibujadas no se mueven y la paginación sigue desde ahí.
+- **Punto de entrada para #65** (avatares, "Only commits by …"): `viewModel.history.search.showCommits(byAuthor:)` pone el criterio Author (los demás se quedan) y busca. Mejor pasar el email: casa exacto. Quien lo llame debe llevar a History si no está ahí (`appState.ui.workspaceSection = .history`).
+
+### Rendimiento
+
+Repo sintético de 50.000 commits lineales (Linux, git 2.43), una página de 200: `--grep` 0,24 s, `--author` 0,22 s, ruta 0,56 s, `-S` 0,71 s, `-G` 1,06 s; un bloque de revelado con `--skip 45000` 0,25 s. Todo en el proceso de git, fuera del hilo principal. Cada página siguiente recorre de nuevo desde arriba (`--skip`), como el log. El autocompletado de rutas filtra en el hilo principal en cada pulsación: en un índice de cientos de miles de ficheros podría notarse.
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor` y las *upcoming features* del proyecto; stubs para `os.Logger` y lo de hosting): compilan Core, `HistoryStore` y `HistorySearchStore` sin errores ni warnings, y pasan 27 tests nuevos con git real: `GitCLISearchTests` (argumentos, no-inyección con valores tipo `--all`, `--`, `--end-of-options`, mayúsculas, literales, `-S`/`-G`, ruta con guion, AND, paginación, regex inválida, `trackedFiles`) y `HistorySearchStoreTests` (commit fuera de las páginas cargadas por los cuatro criterios, paginación, consulta nueva que sustituye a la anterior, Stop, Clear que restaura la selección, quitar criterio, `showCommits(byAuthor:)`, revelar cargando páginas, stashes excluidas, regex inválida, rutas).
+- **Pendiente en macOS:** compilar las vistas (`HistorySearchChips`, `HistorySearchResults`, cambios en `HistoryFiltersBar` y `HistoryView`; `textInputSuggestions` para el autocompletado), pasar la suite completa y el recorrido de `PRUEBAS-MANUALES.md` (#62).
+
 ## #65 — Avatares de autor y "Only commits by …"
 
 **Fecha:** 2026-11-11
@@ -916,10 +951,10 @@ si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
 - **"Only commits by …"**: clic en el autor de una fila (menú `NSMenu` creado al
   clic, más barato que un `Menu` por fila), en el autor del detalle (`Menu`), o
   en el menú contextual de la fila de History o de Branches (que salta a
-  History). Todo pasa por **`HistoryStore.showOnlyCommits(by:)`**. Como #62 aún
-  no está en `main`, `HistoryView.applyAuthorFilter()` lo aplica con el filtro
-  ⌘F sobre los commits cargados (pone el email; el nombre si no hay email).
-  Cuando llegue la búsqueda con campo Author de #62, basta cambiar esa función.
+  History). Todo pasa por **`HistoryStore.showOnlyCommits(by:)`**, que lanza la
+  búsqueda de #62 con el campo Author (el email; el nombre si no hay email), así
+  que encuentra también commits fuera de las páginas cargadas. Al integrarlo con
+  #62 se quitó el paso intermedio por el filtro ⌘F (`HistoryAuthorFilter`).
 - VoiceOver: la fila sigue siendo un elemento con el nombre del autor en su
   resumen y gana la acción "Only commits by …"; `AuthorAvatar` suelto lee el
   nombre, nunca "imagen". En Branches la fila dice "por <autor>".
@@ -943,4 +978,3 @@ si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
 - GitLab self-hosted con avatares en un CDN o almacenamiento de objetos en otro
   dominio: se rechazan (iniciales). Ampliar la lista exigiría saber que ese
   dominio es del host.
-- El filtro por autor de ⌘F solo ve los commits cargados (hasta #62).
