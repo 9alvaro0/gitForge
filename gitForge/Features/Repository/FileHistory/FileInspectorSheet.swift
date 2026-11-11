@@ -225,6 +225,26 @@ struct FileInspectorSheet: View {
         }
     }
 
+    /// `entry`'s change to the file. Built outside `detailColumn`, with the
+    /// optional closures typed up front, so the type checker doesn't give up
+    /// on the whole column.
+    private func diffPane(for entry: FileHistoryEntry) -> DiffPane {
+        let store = history
+        let status: StatusTag.Kind? = entry.status.map { StatusTag.Kind(commitFile: $0) }
+        let loadNewSide: (() async -> [String]?)? = entry.isDeletion ? nil : { await store.newSideLines() }
+        return DiffPane(
+            file: entry.path,
+            status: status,
+            hunks: store.fileDiff,
+            loading: store.isLoadingFileDiff,
+            emptyState: store.fileDiffEmptyState,
+            onWhitespaceChange: { Task { await store.reloadFileDiff() } },
+            loadNewSide: loadNewSide,
+            onBlameLine: blameLine(in: entry),
+            viewMode: diffMode
+        )
+    }
+
     @ViewBuilder
     private var detailColumn: some View {
         if let entry = history.selectedEntry {
@@ -234,18 +254,8 @@ struct FileInspectorSheet: View {
                     .padding(.top, Spacing.s12)
                     .padding(.bottom, Spacing.s12)
                 separator
-                DiffPane(
-                    file: entry.path,
-                    status: entry.status.map { StatusTag.Kind(commitFile: $0) },
-                    hunks: history.fileDiff,
-                    loading: history.isLoadingFileDiff,
-                    emptyState: history.fileDiffEmptyState,
-                    onWhitespaceChange: { Task { await history.reloadFileDiff() } },
-                    loadNewSide: entry.isDeletion ? nil : { () async -> [String]? in await history.newSideLines() },
-                    onBlameLine: blameLine(in: entry),
-                    viewMode: diffMode
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                diffPane(for: entry)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else if history.hasLoaded, !history.entries.isEmpty {
             EmptyState(symbol: "clock", title: String(localized: "Select a commit"),
