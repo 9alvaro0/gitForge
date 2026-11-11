@@ -34,6 +34,9 @@ struct HistoryView: View {
     /// Drives both the right detail panel (working-copy file list) and the
     /// bottom diff pane (working-copy diff for the selected file).
     @State private var isUncommittedSelected: Bool = false
+    /// The Uncommitted changes row was selected when the git-backed search started:
+    /// clearing the search selects it again.
+    @State private var uncommittedSelectedBeforeSearch = false
     /// The diff fills the pane instead of sitting under the detail.
     @State private var isDiffExpanded = false
     /// The inspector shows next to the table (persisted).
@@ -117,6 +120,18 @@ struct HistoryView: View {
         .onChange(of: hasSelection) { _, has in
             if !has { isDiffExpanded = false }
         }
+        // The search selects its results; clearing it gives the graph its selection back.
+        .onChange(of: viewModel.history.search.isActive) { _, active in
+            if active {
+                uncommittedSelectedBeforeSearch = isUncommittedSelected
+                isUncommittedSelected = false
+            } else {
+                if uncommittedSelectedBeforeSearch, viewModel.history.selectedCommitId == nil {
+                    isUncommittedSelected = true
+                }
+                uncommittedSelectedBeforeSearch = false
+            }
+        }
         .modifier(BranchDropDialogs(
             moveRequest: $moveBranchRequest,
             resetRequest: $resetHeadRequest,
@@ -146,7 +161,9 @@ struct HistoryView: View {
                 canFocus: viewModel.history.selectedCommit != nil,
                 onToggleFocus: toggleFocus,
                 showsRemoteBranches: viewModel.history.showsRemoteBranches,
-                onToggleRemoteBranches: toggleRemoteBranches
+                onToggleRemoteBranches: toggleRemoteBranches,
+                historySearch: viewModel.history.search,
+                onAddSearchField: addSearchField
             )
             HistorySplitLayout(table: tableColumn(matcher: matcher), isInspectorVisible: $isInspectorVisible) {
                 HistoryInspector(
@@ -175,7 +192,14 @@ struct HistoryView: View {
 
     private func tableColumn(matcher: ((Commit) -> Bool)?) -> some View {
         ZStack(alignment: .bottom) {
-            if viewModel.history.commits.isEmpty && !viewModel.history.hasLoadedLogForCurrentScope {
+            if viewModel.history.search.isActive {
+                HistorySearchResults(
+                    search: viewModel.history.search,
+                    selectedSha: viewModel.history.selectedCommitId,
+                    onSelect: { sha in selectCommit(sha) },
+                    onJump: { sha in jumpToGraph(sha) }
+                )
+            } else if viewModel.history.commits.isEmpty && !viewModel.history.hasLoadedLogForCurrentScope {
                 HistorySkeleton()
             } else {
                 CommitGraphTable(
@@ -203,7 +227,8 @@ struct HistoryView: View {
                     }
                 )
             }
-            if viewModel.history.isLoadingMore && !viewModel.history.commits.isEmpty {
+            if viewModel.history.isLoadingMore && !viewModel.history.commits.isEmpty
+                && !viewModel.history.search.isActive {
                 LoadingMoreFooter()
             }
         }
@@ -262,6 +287,36 @@ struct HistoryView: View {
                 || commit.authorName.range(of: query, options: .caseInsensitive) != nil
                 || commit.authorEmail.range(of: query, options: .caseInsensitive) != nil
                 || commit.sha.hasPrefix(query)
+        }
+    }
+
+    // MARK: Git-backed search
+
+    /// Shows `field`'s chip. A message, author or content chip starts with what the
+    /// instant filter holds, which then clears: the search takes over from it.
+    private func addSearchField(_ field: HistorySearchQuery.Field) {
+        let history = viewModel.history
+        let typed = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        if field != .path, !typed.isEmpty, history.search.draft[field].isEmpty {
+            history.search.draft[field] = typed
+            search = ""
+        }
+        history.search.show(field)
+    }
+
+    /// Reveals a search result in the graph, loading the pages above it, and ends the search.
+    private func jumpToGraph(_ sha: String) {
+        let history = viewModel.history
+        Task {
+            if await history.search.jumpToGraph(sha) {
+                isUncommittedSelected = false
+            } else {
+                let shortSha = String(sha.prefix(7))
+                appState.ui.activeToast = ToastMessage(
+                    message: String(localized: "Couldn’t show \(shortSha) in the graph"),
+                    kind: .warn
+                )
+            }
         }
     }
 

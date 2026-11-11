@@ -91,16 +91,26 @@ final class HistoryStore {
             loadingCommitFileDiff = false
             guard
                 let id = selectedCommitId,
-                let commit = commitsById[id]
+                let commit = knownCommit(id)
             else { return }
             tasks.track { [weak self] in await self?.selectFirstFile(for: commit) }
         }
     }
 
+    /// The selected commit: a row of the log, or a search result that isn't loaded yet.
     var selectedCommit: Commit? {
         guard let id = selectedCommitId else { return nil }
-        return commitsById[id]
+        return knownCommit(id)
     }
+
+    /// The commit `id` names in the loaded log or in the search results.
+    private func knownCommit(_ id: Commit.ID) -> Commit? {
+        commitsById[id] ?? search.resultsById[id]
+    }
+
+    // MARK: Search
+    /// Git-backed search over the whole log (#62).
+    let search: HistorySearchStore
 
     // MARK: Detail
     private(set) var detailCache: [String: CommitDetail] = [:]
@@ -207,6 +217,8 @@ final class HistoryStore {
         self.repositoryURL = repositoryURL
         self.defaults = defaults
         showsRemoteBranches = defaults.bool(forKey: Self.remoteBranchesKey(for: repositoryURL))
+        search = HistorySearchStore(cli: cli)
+        search.history = self
     }
 
     /// Drops the heavy caches (log, graph, details, diff) when the session
@@ -232,6 +244,7 @@ final class HistoryStore {
         detailCacheOrder.removeAll()
         inFlightDetails.removeAll()
         commitFileDiff = []
+        search.purge()
     }
 
     /// Selects `ref`'s tip. Returns `false`, leaving the selection alone,
@@ -263,6 +276,8 @@ final class HistoryStore {
         showsRemoteBranches = on
         defaults.set(on, forKey: Self.remoteBranchesKey(for: repositoryURL))
         await reloadLog()
+        // The search walks the graph's scope: the one it ran over just changed.
+        search.rerun()
     }
 
     /// The scope the next first page is fetched with, from the refs as they
@@ -283,6 +298,12 @@ final class HistoryStore {
     /// `currentScope().revisions`.
     func graphScope() -> [String] {
         currentScope().revisions
+    }
+
+    /// What a search walks: the scope of the published log, so every result can be
+    /// revealed in it (`revealCommit(_:)`); the current one before the first log.
+    func searchScope() -> HistoryScope {
+        loadedScope ?? currentScope()
     }
 
     /// The published log no longer loads what the current refs ask for: a
@@ -446,7 +467,8 @@ final class HistoryStore {
             guard gen == logGen else { return }
             await publish(stage(log, scope: scope, logGen: gen, baseRevision: nil)) {
                 hasMore = fetched.isFull
-                if let prev = previousSelection, commitsById[prev] == nil {
+                // A selected search result stays selected while the search shows it.
+                if let prev = previousSelection, knownCommit(prev) == nil {
                     selectedCommitId = commits.first?.id
                 }
                 hasLoadedLogForCurrentScope = true
@@ -511,6 +533,85 @@ final class HistoryStore {
         let staged = stageNextPage(next, scopeStashShas: scope.stashShas, logGen: gen, baseRevision: base)
         guard await publish(staged, then: { hasMore = next.count == pageSize }) else { return nil }
         return next
+    }
+
+    /// Raw commits `revealCommit(_:)` asks git for at a time, and the most it walks below
+    /// the loaded log before giving up.
+    static let revealChunk = 5_000
+    static let revealCap = 200_000
+
+    /// Selects `sha` in the graph. A commit below the loaded pages is fetched with the
+    /// pages above it, in a few big walks instead of one per page, and published as if the
+    /// user had scrolled down to it (`HistoryLog.appending` page by page, so every row
+    /// already drawn stays where it was). The log keeps whole pages, down to the one
+    /// holding `sha`; the rest of what was walked is fetched again by pagination.
+    ///
+    /// False, changing nothing, when `sha` isn't in the log's walk (or not within
+    /// `revealCap` commits), when a page is already loading, or when a reload replaced
+    /// the log meanwhile.
+    @discardableResult
+    func revealCommit(_ sha: String) async -> Bool {
+        if commitsById[sha] != nil {
+            selectedCommitId = sha
+            return true
+        }
+        guard hasMore, !isLoadingMore, let scope = loadedScope else { return false }
+        let gen = logGen
+        let base = logRevision
+        isLoadingMore = true
+        loadError = nil
+        defer { isLoadingMore = false }
+        let pageSize = max(self.pageSize(), 1)
+        let chunk = max(pageSize, Self.revealChunk)
+        var fetched: [Commit] = []
+        var isFull = true
+        var found: Int?
+        do {
+            while isFull, found == nil, fetched.count < Self.revealCap {
+                let next = try await cli.log(limit: chunk, skip: loadedRawCount + fetched.count, refs: scope.revisions)
+                guard gen == logGen, base == logRevision else { return false }
+                if let index = next.firstIndex(where: { $0.sha == sha }) {
+                    found = fetched.count + index
+                }
+                fetched += next
+                isFull = next.count == chunk
+            }
+        } catch {
+            guard gen == logGen else { return false }
+            loadError = error.userMessage
+            return false
+        }
+        guard let found else { return false }
+        let kept = min(fetched.count, (found / pageSize + 1) * pageSize)
+        let pages = Array(fetched.prefix(kept))
+        let more = kept < fetched.count || isFull
+        let start = loadedLog
+        let stashShas = scope.stashShas
+        let log = await Task.detached {
+            var log = start
+            var index = 0
+            while index < pages.count {
+                let end = min(index + pageSize, pages.count)
+                log = log.appending(Array(pages[index..<end]), scopeStashShas: stashShas)
+                index = end
+            }
+            return log
+        }.value
+        guard gen == logGen, base == logRevision else { return false }
+        return await publish(stage(log, scope: scope, logGen: gen, baseRevision: base)) {
+            hasMore = more
+            selectedCommitId = sha
+        }
+    }
+
+    /// Selects `previous` again when a search ends (`HistorySearchStore.clear()`): the
+    /// first commit if it left the log meanwhile, nothing if nothing was selected.
+    func restoreSelection(_ previous: Commit.ID?) {
+        guard let previous else {
+            selectedCommitId = nil
+            return
+        }
+        selectedCommitId = commitsById[previous] != nil ? previous : commits.first?.id
     }
 
     // MARK: Graph
