@@ -866,3 +866,81 @@ si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
   `RepositoryViewModelUndoTests` (9), `UndoStoreTests` y afines (5).
 - **Pendiente en macOS:** compilar vistas, menú Edit y toast, pasar la suite
   y el recorrido de `PRUEBAS-MANUALES.md` (#59).
+
+## #65 — Avatares de autor y "Only commits by …"
+
+**Fecha:** 2026-11-11
+**Rama:** `feat/author-avatars-65` · épica #54 (roadmap 1.9, parte 2).
+
+### Qué hace
+
+- Avatares en las filas de History, la cabecera del detalle del commit, la hoja
+  de Recover y Branches (fila e inspector). Por defecto, iniciales sobre un
+  color estable por email (`AuthorMonogram`: email normalizado, hash fijo, sin
+  red). `Avatar` sigue existiendo para lo que no es un autor de commit.
+- Con una cuenta conectada para el host del repo, la foto que devuelve ese host
+  para el autor del commit (`AuthorAvatar` → `AuthorAvatarStore` →
+  `HostAvatarLookup`):
+  - **GitHub**: `GET /repos/{owner}/{repo}/commits?sha=<sha>&per_page=1`, el
+    `author.avatar_url` del commit (la lista y no `/commits/{sha}`, que trae
+    ficheros y parches). El email no sale del Mac: lo identifica el commit. Si
+    el host no tiene el commit (sin push), se prueba con otro del mismo autor,
+    hasta 3. Emails `id+login@users.noreply.github.com` en github.com: URL
+    directa sin llamada a la API.
+  - **GitLab**: `GET /avatar?email=…&size=64` (sus commits no traen avatar), al
+    host de la cuenta, que ya conoce esos emails.
+  - **Nunca Gravatar**: solo se acepta una URL del propio host, sus subdominios
+    (`avatars.<host>` en Enterprise), su host de API o `avatars.githubusercontent.com`
+    en github.com. GitLab responde Gravatar o su `no_avatar` cuando no hay
+    usuario: se leen como "sin avatar". La descarga de la imagen va sin token y
+    no sigue una redirección a un host fuera de esa lista (`AvatarRedirectGuard`,
+    delegado por petición; el de la sesión sigue resolviendo el trust de
+    certificados). Mismo `HostingHTTP` que las cuentas.
+- **Sin cuenta, ninguna petición**: la única puerta es
+  `AccountPullRequestAuth.avatarAccess` (resolución de cuenta de siempre, sin
+  preguntar nunca, `interactive: false`). Sin cuenta devuelve `nil` antes de
+  tocar red o disco. Se vuelve a mirar cada 30 s (comprobación local), así que
+  conectar una cuenta surte efecto sin reiniciar.
+- **Sin frenar el scroll**: el store no es `@Observable`; cada `AuthorAvatar`
+  espera su propia respuesta y solo se redibuja él (la fila sigue `Equatable`).
+  Una fila pide solo tras 150 ms en pantalla (el barrido rápido no pide nada),
+  4 peticiones a la vez como mucho, una por autor (deduplicadas), y lo ya
+  cargado sale en el primer frame (memoria + `NSCache` de imágenes decodificadas).
+- **Caché en disco**: `~/Library/Caches/gitForge/Avatars`, un JSON por
+  host+email con URL, imagen y fecha. Foto: 7 días; "sin avatar": 1 día. Nombre
+  de fichero FNV-1a de la clave, que va dentro del JSON (una colisión es un
+  fallo de caché, no la foto de otro). Se poda lo caducado al abrir un repo.
+- **Errores**: 401 → renueva el token una vez y reintenta; 403/429 → 10 min sin
+  pedir; 3 fallos seguidos (red, 5xx) → 10 min. Nada se muestra al usuario:
+  siguen las iniciales.
+- **"Only commits by …"**: clic en el autor de una fila (menú `NSMenu` creado al
+  clic, más barato que un `Menu` por fila), en el autor del detalle (`Menu`), o
+  en el menú contextual de la fila de History o de Branches (que salta a
+  History). Todo pasa por **`HistoryStore.showOnlyCommits(by:)`**. Como #62 aún
+  no está en `main`, `HistoryView.applyAuthorFilter()` lo aplica con el filtro
+  ⌘F sobre los commits cargados (pone el email; el nombre si no hay email).
+  Cuando llegue la búsqueda con campo Author de #62, basta cambiar esa función.
+- VoiceOver: la fila sigue siendo un elemento con el nombre del autor en su
+  resumen y gana la acción "Only commits by …"; `AuthorAvatar` suelto lee el
+  nombre, nunca "imagen". En Branches la fila dice "por <autor>".
+- `for-each-ref` lee también el autor de la punta (el del commit en tags
+  anotados, con `%(if)%(*objectname)…`); `GitRef.tipAuthor`.
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor` y las mismas upcoming
+  features): compila todo `Core` sin warnings, y pasan 80 tests de 8 suites:
+  nuevos `AuthorMonogramTests`, `HostAvatarLookupTests` (peticiones y
+  respuestas contra `StubServer`, sin red), `AvatarDiskCacheTests`,
+  `AuthorAvatarStoreTests` (incluye "sin cuenta no hay petición" con un
+  `AccountPullRequestAuth` real y un repo con `origin` en github.com), más los
+  de parseo de refs y `GitCLIRefsTrackingTests.tipAuthor` con git real.
+- **Pendiente en macOS:** compilar las vistas, pasar la suite y el recorrido de
+  `PRUEBAS-MANUALES.md` (#65).
+
+### Queda fuera
+
+- GitLab self-hosted con avatares en un CDN o almacenamiento de objetos en otro
+  dominio: se rechazan (iniciales). Ampliar la lista exigiría saber que ese
+  dominio es del host.
+- El filtro por autor de ⌘F solo ve los commits cargados (hasta #62).

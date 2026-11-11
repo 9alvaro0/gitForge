@@ -296,3 +296,46 @@ antes la suite completa en Xcode.
       longer be undone."
 - [ ] Textos de confirmación (discard, drop, reset hard, borrar rama) ya no
       dicen "can't be undone" y mencionan ⌘Z; revisar también en es y pt-PT.
+
+## Avatares de autor y "Only commits by …" (#65)
+Compilado y probado en Linux solo lo que no es vista (`AuthorMonogram`,
+`HostAvatarLookup`, `AvatarDiskCache`, `AuthorAvatarStore`, lectura de refs):
+`AuthorAvatar`, `AuthorMenu` y los cambios en History, el detalle y Branches no
+se han compilado. Pasa antes la suite completa en Xcode.
+- [ ] Compila sin warnings; `AvatarHashTests` y `V1TokensGoneTests` pasan.
+- [ ] **Sin cuentas** (Settings › Accounts vacío): History, el detalle del
+      commit y Branches muestran iniciales sobre un color; el mismo autor tiene
+      el mismo color en las tres vistas y tras reiniciar. Con Little Snitch,
+      Proxyman o `nettop -p gitForge` abiertos, recorrer History no hace
+      ninguna petición (tampoco a gravatar.com ni a avatars.githubusercontent.com).
+- [ ] **Con cuenta de GitHub** y un repo con `origin` en github.com: tras un
+      momento, las filas de History cambian las iniciales por la foto del autor.
+      Un autor cuyo email no está en ninguna cuenta de GitHub sigue con iniciales.
+      Commits con `12345+login@users.noreply.github.com` salen con foto.
+- [ ] Scroll rápido de arriba abajo en un repo grande (miles de commits): sin
+      tirones; las fotos aparecen al parar, no durante el barrido. Volver a
+      subir: las que ya cargaron salen al instante, sin parpadeo de iniciales.
+- [ ] Cerrar y abrir la app: las fotos salen sin peticiones nuevas (caché en
+      `~/Library/Caches/gitForge/Avatars`, un JSON por autor).
+- [ ] **Con cuenta de GitLab** (gitlab.com o self-hosted): las fotos de los
+      usuarios con email público salen; los demás, iniciales (GitLab responde
+      Gravatar y no se carga).
+- [ ] Instancia self-hosted con certificado propio confiado en Settings: las
+      fotos cargan (mismo trust que Pull requests; la descarga lleva además un
+      delegado propio para las redirecciones, comprobar que no rompe el trust).
+- [ ] Repo con varias cuentas en el mismo host sin elegir: no aparece el
+      selector de cuenta por los avatares (siguen las iniciales).
+- [ ] Un clic en el autor de una fila de History abre un menú: **Only commits
+      by Ana**, Copy author name, Copy author email. "Only commits by" rellena
+      el filtro (⌘F) con el email y atenúa el resto; Esc en el campo lo quita.
+      El menú contextual de la fila trae también "Only commits by …".
+- [ ] En el detalle del commit, clic en avatar + nombre: el mismo menú.
+- [ ] Branches & Tags: cada fila lleva el avatar del autor del último commit
+      junto al asunto, y el inspector "avatar · nombre · fecha". El menú
+      contextual de una rama trae "Only commits by …", que salta a History
+      con el filtro puesto.
+- [ ] VoiceOver: en una fila de History lee "asunto, Ana Pérez, hace 2 h,
+      commit abc1234…" (nunca "imagen"); el rotor de acciones trae "Only commits
+      by Ana Pérez". En el detalle, el botón del autor lee el nombre y la pista.
+      En Branches la fila dice "… por Ana Pérez …" (en español).
+- [ ] Textos en es y pt-PT: "Solo commits de …" / "Só commits de …".
