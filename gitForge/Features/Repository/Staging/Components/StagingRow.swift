@@ -17,6 +17,7 @@ struct StagingRow: View {
     /// context menu then acts on all of them, like the batch bar.
     var batch: StagingRowBatch? = nil
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
     @State private var hovering = false
     /// Drives a per-row confirmation when the user picks "Discard changes"
     /// or "Delete file" on an untracked entry. Always confirms, like the
@@ -128,6 +129,11 @@ struct StagingRow: View {
         Divider()
         Button("Copy path") { copyToPasteboard(file.path) }
         Button("Copy filename") { copyToPasteboard(filename) }
+        // An untracked file has no history yet.
+        if !file.isUntracked {
+            FileInspectorMenuItems(action: fileInspector, path: file.path,
+                                   isDeleted: file.unstagedStatus == .deleted || file.stagedStatus == .deleted)
+        }
     }
 
     /// The file whose diff is open takes the accent; ticked and hovered rows

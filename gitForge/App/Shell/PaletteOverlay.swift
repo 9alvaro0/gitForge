@@ -21,6 +21,13 @@ struct PaletteOverlay: View {
     /// palette or ⌘↵ on an action that doesn't present a panel or sheet.
     let onPick: (PaletteAction, _ keepOpen: Bool) -> Void
     let onClose: () -> Void
+    /// Reads the open repository's tracked files for their history rows;
+    /// `nil` without a repository.
+    var loadTrackedFiles: (() async -> [String])? = nil
+
+    /// Read once each time the palette opens: `git ls-files` is quick, and
+    /// files added since the last time show up.
+    @State private var trackedFiles: [String] = []
 
     var body: some View {
         let items = CommandPaletteBuilder.build(
@@ -29,7 +36,8 @@ struct PaletteOverlay: View {
             commits: commits,
             workingFiles: workingFiles,
             pulls: pulls,
-            unclonedRepos: unclonedRepos
+            unclonedRepos: unclonedRepos,
+            trackedFiles: trackedFiles
         )
         CommandPaletteView(
             items: items,
@@ -40,6 +48,10 @@ struct PaletteOverlay: View {
             },
             onClose: onClose
         )
+        .task {
+            guard let loadTrackedFiles else { return }
+            trackedFiles = await loadTrackedFiles()
+        }
     }
 }
 

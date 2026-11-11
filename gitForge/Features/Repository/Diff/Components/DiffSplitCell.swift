@@ -44,6 +44,7 @@ struct DiffSplitCell: View {
             }
         }
         .modifier(DiffRowCommentButton(onAdd: onAddComment, leading: DiffGutter.splitNumber + DiffGutter.numberTrailing))
+        .modifier(DiffLineBlameMenu(line: line))
     }
 
     private var number: Int? {

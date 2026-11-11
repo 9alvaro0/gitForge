@@ -29,14 +29,15 @@ actor GitCLI {
     static let stderrByteCap = 1_048_576
 
     let workingDirectory: URL
-    private let executablePath: String
+    /// Internal, not private: `runStreaming` spawns git the same way.
+    let executablePath: String
     /// Signs network commands with the repo's hosting account; `nil` = git
     /// uses the system's credential helpers.
     nonisolated let credentials: GitCredentialProvider?
 
     /// The user's idle timeout in seconds, read per command. Tests inject a
     /// short one instead of writing to the shared `UserDefaults`.
-    private let configuredTimeoutSeconds: @Sendable () -> Int
+    let configuredTimeoutSeconds: @Sendable () -> Int
 
     init(workingDirectory: URL, executablePath: String = "/usr/bin/env", credentials: GitCredentialProvider? = nil,
          configuredTimeoutSeconds: @escaping @Sendable () -> Int = { GitPreferences.gitTimeoutSeconds }) {

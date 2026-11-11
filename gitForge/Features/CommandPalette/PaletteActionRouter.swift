@@ -59,6 +59,10 @@ struct PaletteActionRouter {
                let file = workingCopy.status.files.first(where: { $0.path == path }) {
                 workingCopy.select(file, side: file.isUnstaged ? .unstaged : .staged)
             }
+        case .showFileHistory(let path):
+            // Needs a repository: `ContentRouter` hosts the sheet.
+            guard appState.catalog.activeViewModel != nil else { return }
+            appState.ui.fileInspectorRequest = FileInspectorRequest(path: path)
         case .openPull(let id):
             appState.ui.workspaceSection = .pulls
             appState.reviews.reveal(id)

@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct StashFileRow: View {
     let file: StashFileChange
@@ -6,6 +7,7 @@ struct StashFileRow: View {
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
     @State private var hovering = false
 
     private var directory: String {
@@ -47,6 +49,16 @@ struct StashFileRow: View {
         .onHover { hovering = $0 }
         .accessibilityLabel("\(file.path), \(file.additions) additions, \(file.deletions) deletions")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contextMenu {
+            Button("Copy path") { copyToPasteboard(file.path) }
+            Button("Copy filename") { copyToPasteboard(fileName) }
+            FileInspectorMenuItems(action: fileInspector, path: file.path)
+        }
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 }
 

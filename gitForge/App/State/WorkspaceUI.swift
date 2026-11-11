@@ -86,6 +86,9 @@ final class WorkspaceUI {
     /// "Recover lost commits…" (the Repository menu, ⌘K); `ContentRouter`
     /// presents the sheet over whatever section is showing.
     var recoverCommitsVisible: Bool = false
+    /// "Show file history" (a file row's context menu, ⌘K): `ContentRouter`
+    /// presents the File history sheet over whatever section is showing.
+    var fileInspectorRequest: FileInspectorRequest?
     /// "Connect account" sheet (P4 spec §5.2); `ShellView` presents it.
     var connectAccountRequest: ConnectAccountRequest?
     /// "Clone a repository" sheet; `ShellView` presents it.

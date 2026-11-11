@@ -45,6 +45,7 @@ struct DiffRow: View {
         .modifier(DiffRowCommentButton(onAdd: onAddComment,
                                        leading: (DiffGutter.unifiedNumber + DiffGutter.numberTrailing) * 2))
         .modifier(DiffRowPick(isSelected: isSelected, onToggle: onToggle))
+        .modifier(DiffLineBlameMenu(line: line))
     }
 }
 

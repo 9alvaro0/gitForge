@@ -8,6 +8,7 @@ struct StagingDiffColumn: View {
     @Binding var diffMode: DiffPane.ViewMode
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
 
     var body: some View {
         Group {
@@ -24,6 +25,7 @@ struct StagingDiffColumn: View {
                     onWhitespaceChange: { Task { await viewModel.workingCopy.reloadSelectedDiff() } },
                     hunkActions: .workingCopy(viewModel, file: file),
                     loadNewSide: { await viewModel.workingCopy.newSideLines(for: file) },
+                    onBlameLine: blameLine(of: file),
                     viewMode: $diffMode
                 )
             } else if hasFiles {
@@ -40,7 +42,17 @@ struct StagingDiffColumn: View {
         .background(theme.colors.bgCode)
     }
 
-    private func openInEditor(file: WorkingCopyFile) {
+    /// "Blame this line": the working tree's blame, or HEAD's for a removed line.
+    private func blameLine(of file: WorkingCopyFile) -> (@MainActor (DiffLine) -> Void)? {
+        guard let open = fileInspector else { return nil }
+        return { line in
+            guard let request = FileInspectorRequest.blame(line: line, workingPath: file.path,
+                                                           originalPath: file.originalPath) else { return }
+            open(request)
+        }
+    }
+
+        private func openInEditor(file: WorkingCopyFile) {
         let absolute = viewModel.repository.url.appendingPathComponent(file.path)
         ExternalURL.openFile(absolute)
     }

@@ -41,8 +41,12 @@ struct GitCLIHooksTests {
         let repo = try await Self.makeRepo()
         defer { repo.remove() }
         // `checkout` is local but doesn't commit, so it keeps the short
-        // timeout; its post-checkout hook stays silent past it.
-        try await repo.installHookAsync("post-checkout", script: "sleep 7")
+        // timeout; its post-checkout hook stays silent past it. The watchdog
+        // polls every few seconds and a loaded runner delays it further, so
+        // the hook outlasts any delay. `exec` with its output sent elsewhere:
+        // once git is killed nothing holds git's pipes open, and the test
+        // ends with the kill rather than with the sleep.
+        try await repo.installHookAsync("post-checkout", script: "exec sleep 60 >/dev/null 2>&1")
 
         let error = await #expect(throws: GitError.self) {
             try await Self.cli(repo).run(["checkout", "-q", "-b", "side"])
