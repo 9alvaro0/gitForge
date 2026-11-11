@@ -8,16 +8,28 @@ enum AuthorMenu {
     static func show(for author: CommitAuthor, onlyCommitsBy: @escaping (CommitAuthor) -> Void) {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(ActionMenuItem(title: String(localized: "Only commits by \(author.displayName)")) {
+        menu.addItem(item(String(localized: "Only commits by \(author.displayName)")) {
             onlyCommitsBy(author)
         })
         menu.addItem(.separator())
-        menu.addItem(ActionMenuItem(title: String(localized: "Copy author name")) { copy(author.name) })
+        menu.addItem(item(String(localized: "Copy author name")) { copy(author.name) })
         if !author.email.isEmpty {
-            menu.addItem(ActionMenuItem(title: String(localized: "Copy author email")) { copy(author.email) })
+            menu.addItem(item(String(localized: "Copy author email")) { copy(author.email) })
         }
         // No view: the point is in screen coordinates, under the pointer that clicked.
         _ = menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    /// A plain `NSMenuItem` that runs `handler`. Not a subclass: `NSMenuItem`'s
+    /// initializers are nonisolated, and overriding them from this main-actor
+    /// target doesn't compile. `target` is weak, so the item keeps its
+    /// `MenuAction` alive through `representedObject`.
+    private static func item(_ title: String, handler: @escaping () -> Void) -> NSMenuItem {
+        let action = MenuAction(handler)
+        let item = NSMenuItem(title: title, action: #selector(MenuAction.fire), keyEquivalent: "")
+        item.target = action
+        item.representedObject = action
+        return item
     }
 
     private static func copy(_ string: String) {
@@ -26,23 +38,15 @@ enum AuthorMenu {
     }
 }
 
-/// A menu item that runs a closure. It is its own target; the menu keeps it
-/// alive while it's open.
-final class ActionMenuItem: NSMenuItem {
+/// The target of an `AuthorMenu` item: runs its closure when chosen.
+private final class MenuAction: NSObject {
     private let handler: () -> Void
 
-    init(title: String, handler: @escaping () -> Void) {
+    init(_ handler: @escaping () -> Void) {
         self.handler = handler
-        super.init(title: title, action: #selector(fire), keyEquivalent: "")
-        target = self
     }
 
-    @available(*, unavailable)
-    required init(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
-    }
-
-    @objc private func fire() {
+    @objc func fire() {
         handler()
     }
 }
