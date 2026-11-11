@@ -12,26 +12,20 @@ struct HistoryFiltersBar: View {
     /// Every remote branch is in the graph, not only the ones local branches track.
     var showsRemoteBranches = false
     var onToggleRemoteBranches: () -> Void = {}
+    /// The git-backed search (#62): its menu, and its chips on a second line once a
+    /// criterion is added. `nil` hides both (previews).
+    var historySearch: HistorySearchStore? = nil
+    var onAddSearchField: (HistorySearchQuery.Field) -> Void = { _ in }
 
     @Environment(\.appTheme) private var theme
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        HStack(spacing: Spacing.s12) {
-            GFTextField(placeholder: String(localized: "Search subject, author, sha…"), text: $search)
-                .frame(maxWidth: 320)
-                .focused($searchFocused)
-                .onKeyPress(.escape) {
-                    if !search.isEmpty {
-                        search = ""
-                        return .handled
-                    }
-                    return .ignored
-                }
-            focusButton
-            remoteBranchesButton
-            Spacer()
-            MonoText(summary, dim: true)
+        VStack(alignment: .leading, spacing: Spacing.s8) {
+            filtersRow
+            if let historySearch, !historySearch.visibleFields.isEmpty {
+                HistorySearchChips(search: historySearch)
+            }
         }
         .padding(.horizontal, Spacing.s16)
         .padding(.vertical, Spacing.s8)
@@ -48,6 +42,28 @@ struct HistoryFiltersBar: View {
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
         )
+    }
+
+    private var filtersRow: some View {
+        HStack(spacing: Spacing.s12) {
+            GFTextField(placeholder: String(localized: "Search subject, author, sha…"), text: $search)
+                .frame(maxWidth: 320)
+                .focused($searchFocused)
+                .onKeyPress(.escape) {
+                    if !search.isEmpty {
+                        search = ""
+                        return .handled
+                    }
+                    return .ignored
+                }
+            focusButton
+            remoteBranchesButton
+            if let historySearch {
+                HistorySearchMenu(search: historySearch, onAdd: onAddSearchField)
+            }
+            Spacer()
+            MonoText(summary, dim: true)
+        }
     }
 
     /// "Focus" while off; the focused name with a close mark while on.
@@ -105,6 +121,9 @@ struct HistoryFiltersBar: View {
     }
 
     private var summary: String {
+        if let historySearch, historySearch.isActive {
+            return searchSummary(historySearch)
+        }
         let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty, let focusLabel {
             return String(localized: "\(matchCount) of \(totalCount) in \(focusLabel)")
@@ -113,6 +132,18 @@ struct HistoryFiltersBar: View {
             return String(localized: "\(totalCount) commits")
         }
         return String(localized: "\(matchCount) of \(totalCount) match")
+    }
+
+    /// While the git-backed search shows: how many commits it found so far.
+    private func searchSummary(_ search: HistorySearchStore) -> String {
+        let count = search.results.count
+        if search.isSearching && count == 0 {
+            return String(localized: "Searching…")
+        }
+        if search.hasMore {
+            return String(localized: "\(count)+ found")
+        }
+        return count == 1 ? String(localized: "1 found") : String(localized: "\(count) found")
     }
 }
 

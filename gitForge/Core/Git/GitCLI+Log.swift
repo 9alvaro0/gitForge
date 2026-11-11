@@ -2,7 +2,7 @@ import Foundation
 
 extension GitCLI {
     private static let logSeparator = "\u{1F}"
-    private static let logFormat = "%H\u{1F}%P\u{1F}%an\u{1F}%ae\u{1F}%aI\u{1F}%s"
+    static let logFormat = "%H\u{1F}%P\u{1F}%an\u{1F}%ae\u{1F}%aI\u{1F}%s"
 
     /// Loads commits visible in the graph. The default scope mirrors GitKraken's
     /// out-of-the-box view: every local branch (`--branches`), the current HEAD
