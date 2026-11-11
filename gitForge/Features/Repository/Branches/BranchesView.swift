@@ -225,7 +225,11 @@ struct BranchesView: View {
             rename: { appState.ui.renameBranchTarget = $0 },
             delete: { deleteTarget = $0 },
             pushTag: { ref in Task { await runPushTag(ref) } },
-            deleteTag: { deleteTargetTag = $0 }
+            deleteTag: { deleteTargetTag = $0 },
+            onlyCommitsBy: { author in
+                viewModel.history.showOnlyCommits(by: author)
+                appState.ui.workspaceSection = .history
+            }
         )
     }
 

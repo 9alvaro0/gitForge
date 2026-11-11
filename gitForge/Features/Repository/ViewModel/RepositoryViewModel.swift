@@ -121,6 +121,11 @@ final class RepositoryViewModel {
     /// UI spinner — auto-fetch stays silent by design.
     var autoFetchInFlight: Bool = false
 
+    // MARK: Author avatars
+    /// The host's pictures of commit authors (#65); initials only, and no
+    /// request at all, while the repository has no connected account.
+    let avatars: AuthorAvatarStore
+
     // MARK: Pull / merge requests
     /// List + detail of the repo's PRs/MRs. Local integration of a PR stays
     /// on the view model (`attemptLocalMergeForPullRequest`).
@@ -182,6 +187,13 @@ final class RepositoryViewModel {
         } else {
             self.pullRequests = PullRequestStore(cli: cli)
         }
+        if let pullRequestAuth {
+            let avatars = AuthorAvatarStore(authorize: pullRequestAuth.avatarAccess(cli: cli, repoPath: repoPath))
+            avatars.pruneDiskCache()
+            self.avatars = avatars
+        } else {
+            self.avatars = .offline()
+        }
         self.stashDetail = StashDetailStore(cli: cli)
         self.conflicts = ConflictStore(repositoryURL: repository.url)
         let tasks = OwnedTasks()
@@ -235,6 +247,7 @@ final class RepositoryViewModel {
         stashDetail.close()
         conflicts.clear()
         pullRequests.reset()
+        avatars.reset()
         repoIdentity = nil
         upstream = nil
         aheadCount = 0

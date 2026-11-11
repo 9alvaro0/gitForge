@@ -22,6 +22,16 @@ nonisolated struct GitRef: Sendable, Equatable, Identifiable, Hashable {
     var subject: String? = nil
     /// Committer date of the tip (tagger date for annotated tags).
     var date: Date? = nil
+    /// Author of the tip commit (of the tagged commit for annotated tags);
+    /// Branches shows their avatar.
+    var authorName: String? = nil
+    var authorEmail: String? = nil
+
+    /// The tip's author, when the read carried one.
+    var tipAuthor: CommitAuthor? {
+        guard let authorName, let authorEmail else { return nil }
+        return CommitAuthor(name: authorName, email: authorEmail)
+    }
 
     var id: String {
         switch kind {

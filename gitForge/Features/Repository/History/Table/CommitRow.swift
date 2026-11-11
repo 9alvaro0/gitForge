@@ -40,8 +40,8 @@ struct CommitRow: View, Equatable {
     let onSelect: () -> Void
     let onDoubleClick: () -> Void
     let onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)?
-    /// `nil` disables the click-to-filter affordance on the author cell.
-    var onFilterByAuthor: ((String) -> Void)? = nil
+    /// "Only commits by …" (#65); `nil` makes the author cell plain text.
+    var onFilterByAuthor: ((CommitAuthor) -> Void)? = nil
 
     /// The subject's colour: a ghost, a commit that only exists on the server
     /// (graph v3 spec §4.3), reads as quietly as its date and sha.
@@ -141,6 +141,11 @@ struct CommitRow: View, Equatable {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction { onSelect() }
         .accessibilityAction(named: "Check out", onDoubleClick)
+        .accessibilityActions {
+            if let onFilterByAuthor {
+                Button("Only commits by \(commit.author.displayName)") { onFilterByAuthor(commit.author) }
+            }
+        }
         .modifier(RowDropModifier(
             enabled: onBranchDrop != nil,
             targetSha: commit.sha,
@@ -159,20 +164,21 @@ struct CommitRow: View, Equatable {
             Button("Copy author email") { copy(commit.authorEmail) }
             if let onFilterByAuthor {
                 Divider()
-                Button("Filter by \(commit.authorName)") {
-                    onFilterByAuthor(commit.authorName)
+                Button("Only commits by \(commit.author.displayName)") {
+                    onFilterByAuthor(commit.author)
                 }
             }
         }
     }
 
-    /// Author column. When the host wires `onFilterByAuthor`, clicking the
-    /// cell prefills the History search with the author's name — common
-    /// shortcut to scope the log to one person without typing.
+    /// Author column: the avatar (the host's picture when the repository has
+    /// an account, else initials) and the name. With `onFilterByAuthor`, a
+    /// click opens the author's menu ("Only commits by …"); the row's own
+    /// accessibility actions offer the same to VoiceOver.
     @ViewBuilder
     private var authorCell: some View {
         let row = HStack(spacing: Spacing.s6) {
-            Avatar(name: commit.authorName, size: 16, colorSeed: commit.authorEmail)
+            AuthorAvatar(author: commit.author, sha: commit.sha, size: 16)
             Text(commit.authorName)
                 .textRole(.callout)
                 .foregroundStyle(theme.colors.textSecondary)
@@ -180,13 +186,14 @@ struct CommitRow: View, Equatable {
                 .truncationMode(.tail)
         }
         if let onFilterByAuthor {
+            let author = commit.author
             Button {
-                onFilterByAuthor(commit.authorName)
+                AuthorMenu.show(for: author, onlyCommitsBy: onFilterByAuthor)
             } label: {
                 row.contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .help("Filter history by \(commit.authorName)")
+            .help(Text(verbatim: commit.authorEmail))
         } else {
             row
         }

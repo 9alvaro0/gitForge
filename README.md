@@ -58,7 +58,7 @@ In active development. See [Issues](https://github.com/9alvaro0/gitForge/issues)
 
 ## Features
 
-- **History** — interactive commit graph (branches, tags, stashes as dashed lanes) with a focus mode for one branch's history, search of the whole history by message, author, content (`-S` / `-G`) or path, commit detail with per-file diffs, unified or side-by-side, syntax highlighted; wrap lines, hide whitespace and expand hidden context lines
+- **History** — interactive commit graph (branches, tags, stashes as dashed lanes) with a focus mode for one branch's history, search of the whole history by message, author, content (`-S` / `-G`) or path, commit detail with per-file diffs, unified or side-by-side, syntax highlighted; wrap lines, hide whitespace and expand hidden context lines; author avatars (initials, or the picture from your connected GitHub / GitLab account — never Gravatar) and "Only commits by …" from any author
 - **Changes** — stage / unstage / discard by file, hunk or selected lines; stash by file (with batch selection and a file filter); commit (optionally with sign-off) and amend
 - **Branches & tags** — create, checkout, rename, delete, push any local branch, move a branch tip; see which branches are merged and how each compares with `main`; drag a branch onto a commit or another branch to move / merge / rebase; create, push and delete tags
 - **Recover lost commits** — Repository → Recover Lost Commits… (or ⌘K) lists HEAD's reflog, or one branch's, newest first and in plain words ("Before reset to `abc1234`", "Before amend", "Rebase finished"), with the commit's files and diff, how many commits aren't on any branch, and Create branch here / Checkout / Reset current branch here

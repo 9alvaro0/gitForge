@@ -224,7 +224,8 @@ struct HistoryView: View {
                     },
                     onBranchDrop: { dropped, context in
                         resolveDrop(dropped, context: context)
-                    }
+                    },
+                    onFilterByAuthor: { author in viewModel.history.showOnlyCommits(by: author) }
                 )
             }
             if viewModel.history.isLoadingMore && !viewModel.history.commits.isEmpty

@@ -11,6 +11,8 @@ struct ContentRouter: View {
         section
             .branchRenameSheet(viewModel: viewModel)
             .recoverCommitsSheet(viewModel: viewModel)
+            // Commit authors' avatars in History, Branches and the sheets (#65).
+            .environment(\.authorAvatars, viewModel.avatars)
     }
 
     @ViewBuilder

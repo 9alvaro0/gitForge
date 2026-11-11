@@ -256,6 +256,18 @@ final class HistoryStore {
         return true
     }
 
+    // MARK: Author filter
+
+    /// Shows only `author`'s commits in History (#65): the one entry point for
+    /// rows, the commit detail and Branches. Runs the git-backed search (#62)
+    /// with its Author field set to the email, or the name when there is none.
+    /// Callers outside History switch to it themselves.
+    func showOnlyCommits(by author: CommitAuthor) {
+        let email = author.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = author.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        search.showCommits(byAuthor: email.isEmpty ? name : email)
+    }
+
     // MARK: Scope
 
     private var stashes: [Stash] { refsSource?.stashes ?? [] }
