@@ -7,18 +7,24 @@ enum CommandPaletteBuilder {
     static let commitLimit = 300
     static let branchLimit = 300
     static let fileLimit = 300
+    /// Tracked files offered for their history. Found by searching only, so
+    /// more than `fileLimit`: a file deep in a big repository still shows.
+    static let trackedFileLimit = 10_000
     static let pullLimit = 300
 
     /// `pulls` are the inbox's, already in the order ⌘K keeps them in
     /// (`ReviewsStore.searchablePulls`); `unclonedRepos` are the followed
-    /// repos with no clone, listed after the local ones.
+    /// repos with no clone, listed after the local ones. `trackedFiles` are
+    /// the repository's files, each a row that opens its history once the
+    /// query finds it.
     @MainActor
     static func build(repositories: [Repository],
                       branches: [GitRef],
                       commits: [Commit],
                       workingFiles: [WorkingCopyFile],
                       pulls: [InboxPull] = [],
-                      unclonedRepos: [ReviewRepo] = []) -> [CommandPaletteItem] {
+                      unclonedRepos: [ReviewRepo] = [],
+                      trackedFiles: [String] = []) -> [CommandPaletteItem] {
         var items: [CommandPaletteItem] = []
 
         for repo in repositories {
@@ -67,6 +73,16 @@ enum CommandPaletteBuilder {
                 label: f.path,
                 hint: f.unstagedStatus.displayLetter == " " ? f.stagedStatus.displayLetter : f.unstagedStatus.displayLetter,
                 action: .revealFile(path: f.path)
+            ))
+        }
+
+        for path in trackedFiles.prefix(trackedFileLimit) {
+            items.append(CommandPaletteItem(
+                kind: .file,
+                label: path,
+                hint: String(localized: "File history"),
+                action: .showFileHistory(path: path),
+                searchOnly: true
             ))
         }
 

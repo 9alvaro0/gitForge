@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct PullRequestFileRow: View {
     let file: PullRequestFileChange
@@ -8,6 +9,7 @@ struct PullRequestFileRow: View {
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
     @State private var hovering = false
 
     private var directory: String {
@@ -51,6 +53,18 @@ struct PullRequestFileRow: View {
         .onHover { hovering = $0 }
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contextMenu {
+            Button("Copy path") { copyToPasteboard(file.path) }
+            Button("Copy filename") { copyToPasteboard(fileName) }
+            // Only for a pull request of the open repository: the history is
+            // the local HEAD's.
+            FileInspectorMenuItems(action: fileInspector, path: file.path)
+        }
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 }
 

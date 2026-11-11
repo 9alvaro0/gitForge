@@ -75,6 +75,8 @@ enum PaletteAction: Hashable {
     case revealBranch(GitRef)
     /// Changes, with this file's diff open.
     case revealFile(path: String)
+    /// The File history sheet on this file.
+    case showFileHistory(path: String)
     /// Reviews, with this pull request selected.
     case openPull(id: InboxPull.ID)
     /// Reviews, narrowed to this followed repo (a key of `ReviewRepo.id`).
@@ -115,7 +117,7 @@ enum PaletteAction: Hashable {
     var presentsUI: Bool {
         switch self {
         case .openRepository, .cloneRepository, .addInstance, .openPullLink, .openFoundRepo, .connectAccount,
-             .newProfile, .followRepository, .connectNewAccount, .recoverCommits: true
+             .newProfile, .followRepository, .connectNewAccount, .recoverCommits, .showFileHistory: true
         default: false
         }
     }

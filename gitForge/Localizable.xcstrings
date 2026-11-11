@@ -4454,6 +4454,23 @@
         }
       }
     },
+    "Close this and select %@ in History" : {
+      "comment" : "%@ is a short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar esto y seleccionar %@ en Historial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fechar isto e selecionar %@ no Histórico"
+          }
+        }
+      }
+    },
     "Code font" : {
       "localizations" : {
         "es" : {
@@ -5255,6 +5272,23 @@
         }
       }
     },
+    "Copied from %@" : {
+      "comment" : "File history row: the commit copied the file from this path",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado de %@"
+          }
+        }
+      }
+    },
     "Copied token" : {
       "localizations" : {
         "es" : {
@@ -5827,6 +5861,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível abrir o repositório"
+          }
+        }
+      }
+    },
+    "Couldn’t read the history" : {
+      "comment" : "File history: git log failed",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el historial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o histórico"
           }
         }
       }
@@ -8335,6 +8386,23 @@
         }
       }
     },
+    "File history" : {
+      "comment" : "Sheet title; ⌘K hint on a file row that opens it",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial del archivo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Histórico do ficheiro"
+          }
+        }
+      }
+    },
     "File mode changed" : {
       "localizations" : {
         "es" : {
@@ -8901,6 +8969,124 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Totalmente em %1$@ · %2$lld atrás"
+          }
+        }
+      }
+    },
+    "Its changes to this file appear here." : {
+      "comment" : "File history: empty detail before a commit is selected",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí aparecen sus cambios en este archivo."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As alterações deste ficheiro aparecem aqui."
+          }
+        }
+      }
+    },
+    "No commit on HEAD touched this file. A new file has history once it’s committed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún commit de HEAD ha tocado este archivo. Un archivo nuevo tiene historial en cuanto se hace commit."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum commit de HEAD alterou este ficheiro. Um ficheiro novo tem histórico assim que é feito commit."
+          }
+        }
+      }
+    },
+    "No history on this branch" : {
+      "comment" : "File history: no commit on HEAD touched the file",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin historial en esta rama"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sem histórico neste ramo"
+          }
+        }
+      }
+    },
+    "Open in History" : {
+      "comment" : "Button: close the sheet and select the commit in History",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir en Historial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir no Histórico"
+          }
+        }
+      }
+    },
+    "Previously %@" : {
+      "comment" : "File history header: the names the file had before its renames, newest first, comma-separated",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes: %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes: %@"
+          }
+        }
+      }
+    },
+    "Show file history" : {
+      "comment" : "File row context menu item",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar historial del archivo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar histórico do ficheiro"
+          }
+        }
+      }
+    },
+    "That commit isn’t in the history shown" : {
+      "comment" : "Toast: Open in History couldn't find the commit in History's log",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese commit no está en el historial que se muestra"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse commit não está no histórico mostrado"
           }
         }
       }

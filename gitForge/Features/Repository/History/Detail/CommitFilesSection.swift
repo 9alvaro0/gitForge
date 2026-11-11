@@ -13,7 +13,8 @@ struct CommitFilesSection: View {
         CommitFileList(
             files: viewModel.history.detailCache[commit.sha]?.files,
             repositoryURL: viewModel.repository.url,
-            selection: viewModel.history.selectedCommitFile
+            selection: viewModel.history.selectedCommitFile,
+            revision: commit.sha
         ) { viewModel.history.selectedCommitFile = $0 }
     }
 }
@@ -25,6 +26,8 @@ struct CommitFileList: View {
     let files: [CommitFileChange]?
     let repositoryURL: URL
     let selection: String?
+    /// The commit the files belong to: "Show file history" selects it.
+    var revision: String? = nil
     let onSelect: (String) -> Void
 
     @Environment(\.appTheme) private var theme
@@ -41,7 +44,8 @@ struct CommitFileList: View {
                                 FileMiniRow(
                                     file: f,
                                     absoluteURL: repositoryURL.appendingPathComponent(f.path),
-                                    isActive: selection == f.path
+                                    isActive: selection == f.path,
+                                    revision: revision
                                 ) {
                                     onSelect(f.path)
                                     listFocused = true
@@ -107,9 +111,11 @@ private struct FileMiniRow: View {
     let file: CommitFileChange
     let absoluteURL: URL
     let isActive: Bool
+    let revision: String?
     let onSelect: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
 
     var body: some View {
         Button(action: onSelect) {
@@ -143,6 +149,7 @@ private struct FileMiniRow: View {
             Divider()
             Button("Copy path") { copyToPasteboard(file.path) }
             Button("Copy filename") { copyToPasteboard((file.path as NSString).lastPathComponent) }
+            FileInspectorMenuItems(action: fileInspector, path: file.path, revision: revision)
         }
     }
 

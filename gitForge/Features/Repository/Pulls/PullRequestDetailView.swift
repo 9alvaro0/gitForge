@@ -22,6 +22,7 @@ struct PullRequestDetailView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
     @State private var tab: Tab = .checks
     @State private var showLocalMergeConfirm = false
     @State private var showMergeSheet = false
@@ -173,6 +174,9 @@ struct PullRequestDetailView: View {
                     PullRequestCommitsTab(commits: store.commits, loading: store.isLoadingDetail)
                 case .files:
                     PullRequestFilesTab(store: store)
+                        // A file's history is the open repository's: none for
+                        // a pull request of another one.
+                        .environment(\.fileInspector, resolvesLocally ? fileInspector : nil)
                 }
             }
         }

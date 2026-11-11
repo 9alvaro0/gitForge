@@ -13,6 +13,8 @@ struct RecoverCommitsSheetModifier: ViewModifier {
         content
             .sheet(isPresented: Bindable(appState.ui).recoverCommitsVisible) {
                 RecoverCommitsSheet(viewModel: viewModel)
+                    // File history is a sheet too, presented under this one.
+                    .environment(\.fileInspector, nil)
             }
     }
 }

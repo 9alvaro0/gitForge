@@ -11,6 +11,7 @@ struct ContentRouter: View {
         section
             .branchRenameSheet(viewModel: viewModel)
             .recoverCommitsSheet(viewModel: viewModel)
+            .fileInspectorSheet(viewModel: viewModel)
     }
 
     @ViewBuilder

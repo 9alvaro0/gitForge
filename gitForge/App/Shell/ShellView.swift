@@ -244,8 +244,16 @@ struct ShellView: View {
                 if !keepOpen { appState.ui.commandPaletteOpen = false }
                 router.route(action)
             },
-            onClose: { appState.ui.commandPaletteOpen = false }
+            onClose: { appState.ui.commandPaletteOpen = false },
+            loadTrackedFiles: trackedFilesLoader
         )
+    }
+
+    /// The open repository's tracked files for ⌘K's history rows. An error
+    /// (the folder went away) just leaves them out.
+    private var trackedFilesLoader: (() async -> [String])? {
+        guard let cli = appState.catalog.activeViewModel?.cli else { return nil }
+        return { (try? await cli.trackedFiles(limit: CommandPaletteBuilder.trackedFileLimit)) ?? [] }
     }
 }
 

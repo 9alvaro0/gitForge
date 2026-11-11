@@ -14,6 +14,7 @@ struct ConflictFileRow: View {
     let onDiscard: () -> Void
 
     @Environment(\.appTheme) private var theme
+    @Environment(\.fileInspector) private var fileInspector
     @State private var confirmDiscard = false
     @State private var hovering = false
 
@@ -88,6 +89,7 @@ struct ConflictFileRow: View {
         Divider()
         Button("Copy path") { copy(file.path) }
         Button("Copy filename") { copy(fileName) }
+        FileInspectorMenuItems(action: fileInspector, path: file.path)
     }
 
     private func copy(_ string: String) {
