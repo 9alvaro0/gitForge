@@ -132,5 +132,17 @@
                        type="application/octet-stream"
                        sparkle:edSignature="qcoi3oPqvSC/NseqlmNCcrpUu5Rut2gagX7QNriN8hArgA4P+il2dB0QQkv+yl+DwVzmZsXL98fM2AEN89sQAQ==" />
         </item>
+        <item>
+            <title>gitForge 1.9.0</title>
+            <sparkle:releaseNotesLink>https://9alvaro0.github.io/gitForge/releases/v1.9.0.html</sparkle:releaseNotesLink>
+            <pubDate>Wed, 11 Nov 2026 09:45:29 +0000</pubDate>
+            <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/9alvaro0/gitForge/releases/download/v1.9.0/gitForge-1.9.0.dmg"
+                       sparkle:version="1.9.0"
+                       sparkle:shortVersionString="1.9.0"
+                       length="19527213"
+                       type="application/octet-stream"
+                       sparkle:edSignature="5KnZssRBxftvoflVFJyAlXMYj1frLmRHOCUeOFo7pKt2wICXcsx5KB62o36ClQsNGPieNaURCsKOUFfn02xCAQ==" />
+        </item>
     </channel>
 </rss>
