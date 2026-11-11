@@ -867,6 +867,118 @@ si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
 - **Pendiente en macOS:** compilar vistas, menú Edit y toast, pasar la suite
   y el recorrido de `PRUEBAS-MANUALES.md` (#59).
 
+## #62 — Búsqueda en History hecha por git
+
+**Fecha:** 2026-11-11
+**Alcance:** issue #62 (épica #54, roadmap 1.9). ⌘F solo atenuaba los commits ya cargados; ahora git busca en todo el log.
+**Rama:** `feat/history-git-search-62`.
+
+### Qué hace
+
+- El filtro instantáneo de ⌘F sigue igual (atenúa lo cargado). Al lado, **Search history ▾** añade criterios como chips en una segunda línea de la barra de filtros: **Message** (`--grep`), **Author** (`--author`), **Content** (`-S`, o `-G` con el conmutador `.*`) y **Path** (`-- <ruta>`, con autocompletado de ficheros y carpetas del índice, `git ls-files -z`). Se combinan con AND.
+- Si el filtro instantáneo tenía texto, el chip nuevo (salvo Path) arranca con él y el filtro se vacía.
+- Return en un chip (o **Search**) lanza la búsqueda; **Stop** la corta y deja lo encontrado; Esc corta si está buscando y si no termina la búsqueda; **Clear** o quitar el último chip vuelve al grafo con la selección de antes (también la fila Uncommitted changes si era esa). Quitar un chip con la búsqueda activa la relanza sin él.
+- Resultados: el primero queda seleccionado y el inspector lo muestra aunque no esté en las páginas cargadas (`HistoryStore.selectedCommit` cae a `search.resultsById`). ↑/↓ los recorre; Return o doble clic lo **muestra en el grafo**: se cargan las páginas hasta la suya, se selecciona y la búsqueda termina.
+- La barra dice "Searching…", "N found" o "N+ found" si quedan páginas.
+
+### Decisiones
+
+- **Lista plana y grafo oculto.** Un recorrido filtrado se salta los commits entre dos coincidencias: las líneas y carriles que se dibujaran serían inventados. El grafo vuelve al terminar la búsqueda, y Return lleva a cada resultado en el grafo de verdad.
+- **Mismo recorrido y paginación que el log.** Se busca sobre el scope del log publicado (`HistoryStore.searchScope()` = `loadedScope`), con el mismo tamaño de página y `--skip`; así cualquier resultado se puede revelar en el grafo. Al cambiar "Remote branches" el log se recarga y la búsqueda se relanza.
+- **Sin stashes.** Se buscan las revisiones del scope menos las stashes: sus commits internos (índice, sin seguimiento) no se distinguen en un recorrido filtrado y el grafo los oculta. Las stashes tienen su sección.
+- **Mayúsculas y literales.** `--regexp-ignore-case` en todo; git lo aplica también a `-S`/`-G` (probado), así que Content tampoco distingue mayúsculas. `--fixed-strings` hace literales Message y Author (`fix(ui)`, `a.b`), sin tocar `-S` (siempre literal) ni `-G` (siempre regex extendida). Author casa como subcadena de "Nombre <email>".
+- **Sin inyección.** Lo escrito nunca va suelto: `--grep=`, `--author=`, `-S`/`-G` van pegados a su valor y la ruta va después de `--`. No se puede poner `--end-of-options` antes de las revisiones porque el scope incluye `--tags`; las revisiones son de la app. La ruta admite pathspecs de git (`*.swift`, `:!dir`): es un filtro de lectura.
+- **Path sin `--follow`:** un fichero renombrado se busca por cada nombre.
+- **Cancelación:** una sola tarea en vuelo (primera página o siguiente). Una consulta nueva, Stop o Clear la cancelan (`GitCLI.run` termina el proceso) y un token de generación descarta lo que llegue tarde.
+- **Revelar en el grafo** (`HistoryStore.revealCommit(_:)`): pide a git bloques de 5.000 commits desde `loadedRawCount` hasta encontrarlo (tope 200.000), se queda con páginas enteras hasta la que lo contiene y las añade con `HistoryLog.appending`, como si el usuario hubiera hecho scroll: las filas ya dibujadas no se mueven y la paginación sigue desde ahí.
+- **Punto de entrada para #65** (avatares, "Only commits by …"): `viewModel.history.search.showCommits(byAuthor:)` pone el criterio Author (los demás se quedan) y busca. Mejor pasar el email: casa exacto. Quien lo llame debe llevar a History si no está ahí (`appState.ui.workspaceSection = .history`).
+
+### Rendimiento
+
+Repo sintético de 50.000 commits lineales (Linux, git 2.43), una página de 200: `--grep` 0,24 s, `--author` 0,22 s, ruta 0,56 s, `-S` 0,71 s, `-G` 1,06 s; un bloque de revelado con `--skip 45000` 0,25 s. Todo en el proceso de git, fuera del hilo principal. Cada página siguiente recorre de nuevo desde arriba (`--skip`), como el log. El autocompletado de rutas filtra en el hilo principal en cada pulsación: en un índice de cientos de miles de ficheros podría notarse.
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor` y las *upcoming features* del proyecto; stubs para `os.Logger` y lo de hosting): compilan Core, `HistoryStore` y `HistorySearchStore` sin errores ni warnings, y pasan 27 tests nuevos con git real: `GitCLISearchTests` (argumentos, no-inyección con valores tipo `--all`, `--`, `--end-of-options`, mayúsculas, literales, `-S`/`-G`, ruta con guion, AND, paginación, regex inválida, `trackedFiles`) y `HistorySearchStoreTests` (commit fuera de las páginas cargadas por los cuatro criterios, paginación, consulta nueva que sustituye a la anterior, Stop, Clear que restaura la selección, quitar criterio, `showCommits(byAuthor:)`, revelar cargando páginas, stashes excluidas, regex inválida, rutas).
+- **Pendiente en macOS:** compilar las vistas (`HistorySearchChips`, `HistorySearchResults`, cambios en `HistoryFiltersBar` y `HistoryView`; `textInputSuggestions` para el autocompletado), pasar la suite completa y el recorrido de `PRUEBAS-MANUALES.md` (#62).
+
+## #65 — Avatares de autor y "Only commits by …"
+
+**Fecha:** 2026-11-11
+**Rama:** `feat/author-avatars-65` · épica #54 (roadmap 1.9, parte 2).
+
+### Qué hace
+
+- Avatares en las filas de History, la cabecera del detalle del commit, la hoja
+  de Recover y Branches (fila e inspector). Por defecto, iniciales sobre un
+  color estable por email (`AuthorMonogram`: email normalizado, hash fijo, sin
+  red). `Avatar` sigue existiendo para lo que no es un autor de commit.
+- Con una cuenta conectada para el host del repo, la foto que devuelve ese host
+  para el autor del commit (`AuthorAvatar` → `AuthorAvatarStore` →
+  `HostAvatarLookup`):
+  - **GitHub**: `GET /repos/{owner}/{repo}/commits?sha=<sha>&per_page=1`, el
+    `author.avatar_url` del commit (la lista y no `/commits/{sha}`, que trae
+    ficheros y parches). El email no sale del Mac: lo identifica el commit. Si
+    el host no tiene el commit (sin push), se prueba con otro del mismo autor,
+    hasta 3. Emails `id+login@users.noreply.github.com` en github.com: URL
+    directa sin llamada a la API.
+  - **GitLab**: `GET /avatar?email=…&size=64` (sus commits no traen avatar), al
+    host de la cuenta, que ya conoce esos emails.
+  - **Nunca Gravatar**: solo se acepta una URL del propio host, sus subdominios
+    (`avatars.<host>` en Enterprise), su host de API o `avatars.githubusercontent.com`
+    en github.com. GitLab responde Gravatar o su `no_avatar` cuando no hay
+    usuario: se leen como "sin avatar". La descarga de la imagen va sin token y
+    no sigue una redirección a un host fuera de esa lista (`AvatarRedirectGuard`,
+    delegado por petición; el de la sesión sigue resolviendo el trust de
+    certificados). Mismo `HostingHTTP` que las cuentas.
+- **Sin cuenta, ninguna petición**: la única puerta es
+  `AccountPullRequestAuth.avatarAccess` (resolución de cuenta de siempre, sin
+  preguntar nunca, `interactive: false`). Sin cuenta devuelve `nil` antes de
+  tocar red o disco. Se vuelve a mirar cada 30 s (comprobación local), así que
+  conectar una cuenta surte efecto sin reiniciar.
+- **Sin frenar el scroll**: el store no es `@Observable`; cada `AuthorAvatar`
+  espera su propia respuesta y solo se redibuja él (la fila sigue `Equatable`).
+  Una fila pide solo tras 150 ms en pantalla (el barrido rápido no pide nada),
+  4 peticiones a la vez como mucho, una por autor (deduplicadas), y lo ya
+  cargado sale en el primer frame (memoria + `NSCache` de imágenes decodificadas).
+- **Caché en disco**: `~/Library/Caches/gitForge/Avatars`, un JSON por
+  host+email con URL, imagen y fecha. Foto: 7 días; "sin avatar": 1 día. Nombre
+  de fichero FNV-1a de la clave, que va dentro del JSON (una colisión es un
+  fallo de caché, no la foto de otro). Se poda lo caducado al abrir un repo.
+- **Errores**: 401 → renueva el token una vez y reintenta; 403/429 → 10 min sin
+  pedir; 3 fallos seguidos (red, 5xx) → 10 min. Nada se muestra al usuario:
+  siguen las iniciales.
+- **"Only commits by …"**: clic en el autor de una fila (menú `NSMenu` creado al
+  clic, más barato que un `Menu` por fila), en el autor del detalle (`Menu`), o
+  en el menú contextual de la fila de History o de Branches (que salta a
+  History). Todo pasa por **`HistoryStore.showOnlyCommits(by:)`**, que lanza la
+  búsqueda de #62 con el campo Author (el email; el nombre si no hay email), así
+  que encuentra también commits fuera de las páginas cargadas. Al integrarlo con
+  #62 se quitó el paso intermedio por el filtro ⌘F (`HistoryAuthorFilter`).
+- VoiceOver: la fila sigue siendo un elemento con el nombre del autor en su
+  resumen y gana la acción "Only commits by …"; `AuthorAvatar` suelto lee el
+  nombre, nunca "imagen". En Branches la fila dice "por <autor>".
+- `for-each-ref` lee también el autor de la punta (el del commit en tags
+  anotados, con `%(if)%(*objectname)…`); `GitRef.tipAuthor`.
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor` y las mismas upcoming
+  features): compila todo `Core` sin warnings, y pasan 80 tests de 8 suites:
+  nuevos `AuthorMonogramTests`, `HostAvatarLookupTests` (peticiones y
+  respuestas contra `StubServer`, sin red), `AvatarDiskCacheTests`,
+  `AuthorAvatarStoreTests` (incluye "sin cuenta no hay petición" con un
+  `AccountPullRequestAuth` real y un repo con `origin` en github.com), más los
+  de parseo de refs y `GitCLIRefsTrackingTests.tipAuthor` con git real.
+- **Pendiente en macOS:** compilar las vistas, pasar la suite y el recorrido de
+  `PRUEBAS-MANUALES.md` (#65).
+
+### Queda fuera
+
+- GitLab self-hosted con avatares en un CDN o almacenamiento de objetos en otro
+  dominio: se rechazan (iniciales). Ampliar la lista exigiría saber que ese
+  dominio es del host.
+
 ## #63 y #64 — Historial de un fichero y blame
 
 **Fecha:** 2026-11-11

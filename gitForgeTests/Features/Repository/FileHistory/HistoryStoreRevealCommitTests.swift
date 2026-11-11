@@ -61,6 +61,7 @@ struct HistoryStoreRevealCommitTests {
 
         #expect(await !vm.history.revealCommit(String(repeating: "f", count: 40)))
         #expect(vm.history.selectedCommitId == selected)
-        #expect(vm.history.commits.count == 10)
+        // A failed reveal changes nothing: the pages it walked aren't published.
+        #expect(vm.history.commits.count == 3)
     }
 }

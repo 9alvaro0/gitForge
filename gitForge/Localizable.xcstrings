@@ -798,6 +798,22 @@
         }
       }
     },
+    "%lld found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld encontrados"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld encontrados"
+          }
+        }
+      }
+    },
     "%lld in progress" : {
       "localizations" : {
         "es" : {
@@ -1154,6 +1170,22 @@
         }
       }
     },
+    "%lld+ found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld+ encontrados"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld+ encontrados"
+          }
+        }
+      }
+    },
     "%llds" : {
       "localizations" : {
         "es" : {
@@ -1294,6 +1326,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 ficheiro selecionado"
+          }
+        }
+      }
+    },
+    "1 found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 encontrado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 encontrado"
           }
         }
       }
@@ -1502,6 +1550,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Já existe um ramo chamado “%@”."
+          }
+        }
+      }
+    },
+    "A commit has to match every criterion. Try removing one." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un commit tiene que cumplir todos los criterios. Prueba a quitar alguno."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um commit tem de cumprir todos os critérios. Experimente remover um."
           }
         }
       }
@@ -2805,6 +2869,22 @@
         }
       }
     },
+    "Back to the graph and the commit selected before the search" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve al grafo y al commit seleccionado antes de la búsqueda"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volta ao grafo e ao commit selecionado antes da pesquisa"
+          }
+        }
+      }
+    },
     "Bad signature" : {
       "localizations" : {
         "es" : {
@@ -3388,6 +3468,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Explore os seus repositórios e clone-os em dois cliques."
+          }
+        }
+      }
+    },
+    "by %@" : {
+      "comment" : "Spoken in a Branches row: the author of the branch's last commit",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "por %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "por %@"
           }
         }
       }
@@ -4300,6 +4397,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Escolher…"
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpar"
           }
         }
       }
@@ -5378,6 +5491,22 @@
         }
       }
     },
+    "Content" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contenido"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conteúdo"
+          }
+        }
+      }
+    },
     "Continue" : {
       "localizations" : {
         "es" : {
@@ -6144,6 +6273,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível guardar a identidade"
+          }
+        }
+      }
+    },
+    "Couldn’t show %@ in the graph" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo mostrar %@ en el grafo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível mostrar %@ no grafo"
           }
         }
       }
@@ -7736,6 +7881,22 @@
         }
       }
     },
+    "Double-click or press Return to show it in the graph" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doble clic o Retorno para mostrarlo en el grafo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplo clique ou Return para o mostrar no grafo"
+          }
+        }
+      }
+    },
     "Double-click to stage · ⌘-click or Shift-click to select several" : {
       "localizations" : {
         "es" : {
@@ -8669,6 +8830,22 @@
         }
       }
     },
+    "File or folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo o carpeta"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ficheiro ou pasta"
+          }
+        }
+      }
+    },
     "Files" : {
       "localizations" : {
         "es" : {
@@ -8701,22 +8878,6 @@
         }
       }
     },
-    "Filter by %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar por %@"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar por %@"
-          }
-        }
-      }
-    },
     "Filter by name or description…" : {
       "localizations" : {
         "es" : {
@@ -8745,22 +8906,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filtrar ficheiros"
-          }
-        }
-      }
-    },
-    "Filter history by %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar historial por %@"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar histórico por %@"
           }
         }
       }
@@ -11112,6 +11257,38 @@
         }
       }
     },
+    "Matching a regex against changed lines (git log -G)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca una regex en las líneas cambiadas (git log -G)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procura uma regex nas linhas alteradas (git log -G)"
+          }
+        }
+      }
+    },
+    "Matching text whose count changed (git log -S). Click to use a regex." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca texto cuyo número de apariciones cambió (git log -S). Haz clic para usar una regex."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procura texto cujo número de ocorrências mudou (git log -S). Clique para usar uma regex."
+          }
+        }
+      }
+    },
     "Merge" : {
       "localizations" : {
         "es" : {
@@ -11445,6 +11622,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A integração produziu conflitos. Resolva-os na cópia de trabalho e depois faça commit do resultado."
+          }
+        }
+      }
+    },
+    "Message" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensaje"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensagem"
           }
         }
       }
@@ -11883,6 +12076,22 @@
         }
       }
     },
+    "Name or email" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre o correo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome ou e-mail"
+          }
+        }
+      }
+    },
     "Name: %@ → %@" : {
       "localizations" : {
         "es" : {
@@ -12231,6 +12440,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nenhum CI reportou sobre o último commit deste pull request."
+          }
+        }
+      }
+    },
+    "No commits match" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún commit coincide"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum commit corresponde"
           }
         }
       }
@@ -12875,6 +13100,22 @@
         }
       }
     },
+    "Nothing matched before it stopped." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada coincidió antes de detenerla."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nada correspondeu antes de parar."
+          }
+        }
+      }
+    },
     "Nothing matches “%@”" : {
       "localizations" : {
         "es" : {
@@ -13143,6 +13384,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ligado"
+          }
+        }
+      }
+    },
+    "Only commits by %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo commits de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Só commits de %@"
           }
         }
       }
@@ -13912,6 +14169,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cole um URL HTTPS ou SSH de um repositório"
+          }
+        }
+      }
+    },
+    "Path" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruta"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caminho"
           }
         }
       }
@@ -15076,6 +15349,22 @@
         }
       }
     },
+    "Regex in a changed line" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regex en una línea cambiada"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regex numa linha alterada"
+          }
+        }
+      }
+    },
     "Register an application on that instance (non-confidential, scopes api, read_user, write_repository) and paste its Application ID." : {
       "localizations" : {
         "es" : {
@@ -15105,6 +15394,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Normal"
+          }
+        }
+      }
+    },
+    "Regular expression" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expresión regular"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expressão regular"
           }
         }
       }
@@ -15253,6 +15558,22 @@
         }
       }
     },
+    "Remove %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover %@"
+          }
+        }
+      }
+    },
     "Remove %@?" : {
       "localizations" : {
         "es" : {
@@ -15297,6 +15618,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Remover instância…"
+          }
+        }
+      }
+    },
+    "Remove this criterion" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar este criterio"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover este critério"
           }
         }
       }
@@ -16678,6 +17015,150 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A eliminação segura recusa apagar o ramo se tiver commits não integrados em HEAD. Forçar apaga-o mesmo assim. Em ambos os casos, Desfazer (⌘Z) repõe o ramo."
+          }
+        }
+      }
+    },
+    "Shows only this author’s commits, or copies their name or email" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra solo los commits de este autor, o copia su nombre o correo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra só os commits deste autor, ou copia o nome ou o e-mail"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar"
+          }
+        }
+      }
+    },
+    "Search every commit, not only the loaded ones, by message, author, content or path" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca en todos los commits, no solo en los cargados, por mensaje, autor, contenido o ruta"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisa em todos os commits, não só nos carregados, por mensagem, autor, conteúdo ou caminho"
+          }
+        }
+      }
+    },
+    "Search history" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en el historial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar no histórico"
+          }
+        }
+      }
+    },
+    "Search stopped" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Búsqueda detenida"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisa parada"
+          }
+        }
+      }
+    },
+    "Search the whole history (Return)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca en todo el historial (Retorno)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisa todo o histórico (Return)"
+          }
+        }
+      }
+    },
+    "Searching the whole history…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando en todo el historial…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A pesquisar todo o histórico…"
+          }
+        }
+      }
+    },
+    "Searching…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando…"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A pesquisar…"
+          }
+        }
+      }
+    },
+    "Show in graph" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en el grafo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar no grafo"
           }
         }
       }
@@ -18699,6 +19180,22 @@
         }
       }
     },
+    "Stop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parar"
+          }
+        }
+      }
+    },
     "Stop following" : {
       "localizations" : {
         "es" : {
@@ -18711,6 +19208,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Deixar de seguir"
+          }
+        }
+      }
+    },
+    "Stop the search; the results so far stay" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detiene la búsqueda; los resultados obtenidos se quedan"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para a pesquisa; os resultados obtidos ficam"
           }
         }
       }
@@ -18743,6 +19256,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Deixar de confiar no certificado"
+          }
+        }
+      }
+    },
+    "Stopped" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detenida"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parada"
           }
         }
       }
@@ -18856,6 +19385,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Predefinição do sistema"
+          }
+        }
+      }
+    },
+    "Text added or removed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto añadido o eliminado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto adicionado ou removido"
           }
         }
       }
@@ -19032,6 +19577,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "O ficheiro lista os erros que o gitForge mostrou e os comandos git que falharam, com as versões da app, do macOS e do git. Os tokens, as palavras-passe e o nome de utilizador nos seus caminhos são removidos. Nada é enviado: partilhe o ficheiro só se quiser."
+          }
+        }
+      }
+    },
+    "The search failed" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La búsqueda falló"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A pesquisa falhou"
           }
         }
       }
@@ -21301,6 +21862,22 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Words in the message" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palabras del mensaje"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palavras da mensagem"
           }
         }
       }

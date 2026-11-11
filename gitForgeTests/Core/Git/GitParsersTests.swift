@@ -37,10 +37,10 @@ struct GitParsersTests {
     @Test("parseRefs reads upstream, tracking, date and subject (tabs in the subject survive)")
     func refsTracking() {
         let out = """
-        aaa\t\trefs/heads/main\t*\torigin/main\t[ahead 2, behind 3]\t1760000000\tFix\tthing
-        bbb\t\trefs/heads/old\t\torigin/old\t[gone]\t1760000001\tOld work
-        ccc\t\trefs/heads/local-only\t\t\t\t1760000002\tWIP
-        ddd\t\trefs/remotes/origin/main\t\t\t\t1760000003\tRemote tip
+        aaa\t\trefs/heads/main\t*\torigin/main\t[ahead 2, behind 3]\t1760000000\tAna\t<ana@forge.dev>\tFix\tthing
+        bbb\t\trefs/heads/old\t\torigin/old\t[gone]\t1760000001\tAna\t<ana@forge.dev>\tOld work
+        ccc\t\trefs/heads/local-only\t\t\t\t1760000002\tAna\t<ana@forge.dev>\tWIP
+        ddd\t\trefs/remotes/origin/main\t\t\t\t1760000003\tLuis\t<luis@forge.dev>\tRemote tip
         """
         let refs = GitCLI.parseRefs(out)
         #expect(refs[0].upstream == "origin/main")
@@ -50,6 +50,20 @@ struct GitParsersTests {
         #expect(refs[1].upstreamGone)
         #expect(refs[2].upstream == nil && refs[2].ahead == nil && refs[2].behind == nil)
         #expect(refs[3].subject == "Remote tip" && refs[3].upstream == nil)
+    }
+
+    @Test("parseRefs reads the tip's author, without the email's angle brackets")
+    func refsAuthor() {
+        let out = """
+        aaa\t\trefs/heads/main\t*\t\t\t1760000000\tAna Pérez\t<ana@forge.dev>\tFix
+        tagobj\tcommitsha\trefs/tags/v1.0\t\t\t\t1760000001\tLuis\t<luis@forge.dev>\tRelease
+        bbb\t\trefs/heads/orphan\t\t\t\t1760000002\t\t\tNo author
+        """
+        let refs = GitCLI.parseRefs(out)
+        #expect(refs[0].tipAuthor == CommitAuthor(name: "Ana Pérez", email: "ana@forge.dev"))
+        #expect(refs[1].tipAuthor == CommitAuthor(name: "Luis", email: "luis@forge.dev"))
+        #expect(refs[1].subject == "Release")
+        #expect(refs[2].tipAuthor == nil && refs[2].subject == "No author")
     }
 
     @Test("parseRefs still reads the four-column format")

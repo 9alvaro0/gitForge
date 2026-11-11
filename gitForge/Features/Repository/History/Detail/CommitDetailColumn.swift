@@ -71,12 +71,7 @@ struct CommitDetailColumn: View {
 
     private var authorLine: some View {
         HStack(spacing: Spacing.s8) {
-            Avatar(name: commit.authorName, size: 22, colorSeed: commit.authorEmail)
-            Text(commit.authorName)
-                .textRole(.callout, weight: .medium)
-                .foregroundStyle(theme.colors.textPrimary)
-                .lineLimit(1)
-                .help(commit.authorEmail)
+            authorMenu
             Text("·").foregroundStyle(theme.colors.textQuaternary)
             Text(preferences.dateDisplayMode.format(commit.authorDate))
                 .textRole(.callout)
@@ -101,6 +96,43 @@ struct CommitDetailColumn: View {
             .help("Copy full SHA")
             .accessibilityLabel("Copy full SHA \(commit.shortSha)")
         }
+    }
+
+    /// The author's avatar and name; a click offers "Only commits by …"
+    /// (#65) and copying the name or email. VoiceOver reads the name.
+    private var authorMenu: some View {
+        let author = commit.author
+        return Menu {
+            Button("Only commits by \(author.displayName)") {
+                viewModel.history.showOnlyCommits(by: author)
+            }
+            Divider()
+            Button("Copy author name") { copy(author.name) }
+            if !author.email.isEmpty {
+                Button("Copy author email") { copy(author.email) }
+            }
+        } label: {
+            HStack(spacing: Spacing.s8) {
+                AuthorAvatar(author: author, sha: commit.sha, size: 22)
+                    .accessibilityHidden(true)
+                Text(commit.authorName)
+                    .textRole(.callout, weight: .medium)
+                    .foregroundStyle(theme.colors.textPrimary)
+                    .lineLimit(1)
+            }
+            .contentShape(.rect)
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .help(Text(verbatim: author.email))
+        .accessibilityLabel(Text(verbatim: author.displayName))
+        .accessibilityHint("Shows only this author’s commits, or copies their name or email")
+    }
+
+    private func copy(_ string: String) {
+        NSPasteboard.general.declareTypes([.string], owner: nil)
+        NSPasteboard.general.setString(string, forType: .string)
     }
 
     // MARK: Details

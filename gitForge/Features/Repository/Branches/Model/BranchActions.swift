@@ -13,6 +13,8 @@ struct BranchActions {
     let delete: (GitRef) -> Void
     let pushTag: (GitRef) -> Void
     let deleteTag: (GitRef) -> Void
+    /// "Only commits by …" for the tip's author: History, filtered (#65).
+    var onlyCommitsBy: (CommitAuthor) -> Void = { _ in }
 
     static let none = BranchActions(
         checkout: { _ in }, push: { _ in }, merge: { _, _ in }, rebase: { _ in }, rename: { _ in },

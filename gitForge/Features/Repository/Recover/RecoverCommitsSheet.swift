@@ -254,7 +254,8 @@ struct RecoverCommitsSheet: View {
                 .textSelection(.enabled)
                 .help(commit.subject)
             HStack(spacing: Spacing.s8) {
-                Avatar(name: commit.authorName, size: 22, colorSeed: commit.authorEmail)
+                AuthorAvatar(author: commit.author, sha: commit.sha, size: 22)
+                    .accessibilityHidden(true)
                 Text(commit.authorName)
                     .textRole(.callout, weight: .medium)
                     .foregroundStyle(theme.colors.textPrimary)

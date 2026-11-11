@@ -123,10 +123,26 @@ struct BranchInspector: View {
                     .foregroundStyle(theme.colors.textPrimary)
                     .lineLimit(3)
             }
-            if let date = ref.date {
-                Text(preferences.dateDisplayMode.format(date))
-                    .textRole(.caption)
-                    .foregroundStyle(theme.colors.textTertiary)
+            if ref.tipAuthor != nil || ref.date != nil {
+                HStack(spacing: Spacing.s6) {
+                    if let author = ref.tipAuthor {
+                        AuthorAvatar(author: author, sha: ref.targetSha, size: 16)
+                            .accessibilityHidden(true)
+                        Text(author.displayName)
+                            .textRole(.caption, weight: .medium)
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .lineLimit(1)
+                            .help(Text(verbatim: author.email))
+                    }
+                    if ref.tipAuthor != nil, ref.date != nil {
+                        Text("·").foregroundStyle(theme.colors.textQuaternary)
+                    }
+                    if let date = ref.date {
+                        Text(preferences.dateDisplayMode.format(date))
+                            .textRole(.caption)
+                            .foregroundStyle(theme.colors.textTertiary)
+                    }
+                }
             }
         }
     }

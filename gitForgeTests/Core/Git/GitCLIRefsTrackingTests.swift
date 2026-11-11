@@ -32,6 +32,23 @@ struct GitCLIRefsTrackingTests {
         #expect(remoteMain.subject == "shared")
     }
 
+    @Test("Each ref carries its tip's author; an annotated tag, its commit's author rather than the tagger")
+    func tipAuthor() async throws {
+        let repo = try await GitTestRepo.make { try $0.commit("base", files: ["a.txt": "1"]) }
+        defer { repo.remove() }
+        try await repo.gitAsync("-c", "user.name=Ana Pérez", "-c", "user.email=Ana@Forge.dev",
+                                "commit", "-q", "--allow-empty", "-m", "by Ana")
+        try await repo.gitAsync("-c", "user.name=Tagger", "-c", "user.email=tagger@forge.dev",
+                                "tag", "-a", "v1", "-m", "release")
+        let refs = try await repo.cli.refs()
+        let main = try #require(refs.first { $0.name == "main" })
+        #expect(main.tipAuthor == CommitAuthor(name: "Ana Pérez", email: "Ana@Forge.dev"))
+        #expect(main.subject == "by Ana")
+        let tag = try #require(refs.first { $0.isTag })
+        #expect(tag.tipAuthor == CommitAuthor(name: "Ana Pérez", email: "Ana@Forge.dev"))
+        #expect(tag.subject == "release")
+    }
+
     @Test("A branch without upstream has no counts")
     func noUpstream() async throws {
         let repo = try await GitTestRepo.make { try $0.commit("base", files: ["a.txt": "1"]) }

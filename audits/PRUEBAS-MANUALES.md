@@ -297,6 +297,92 @@ antes la suite completa en Xcode.
 - [ ] Textos de confirmación (discard, drop, reset hard, borrar rama) ya no
       dicen "can't be undone" y mencionan ⌘Z; revisar también en es y pt-PT.
 
+## Búsqueda en History hecha por git (#62)
+Compilado y probado en Linux solo lo que no es vista (`GitCLI.searchLog`,
+`HistorySearchStore`, `HistoryStore.revealCommit`). Usa un repo con historia
+larga (p. ej. un clon de un proyecto grande) y, en Settings, una página de
+commits pequeña para que lo viejo no esté cargado.
+- [ ] Compila sin warnings; la suite pasa (`GitCLISearchTests`,
+      `HistorySearchStoreTests`, `V1TokensGoneTests`).
+- [ ] Barra de filtros: "Search history ▾" junto a Focus y Remote branches,
+      con el mismo aspecto que los botones pequeños; en claro y oscuro.
+- [ ] Message: añadir el chip, escribir una palabra de un commit muy antiguo
+      (fuera de las páginas cargadas), Return → lista plana sin grafo, con
+      ese commit; el inspector lo muestra (ficheros y diff).
+- [ ] Con texto en el filtro instantáneo, añadir Message: el chip lo trae
+      y el filtro se vacía.
+- [ ] Author por nombre y por email, sin distinguir mayúsculas.
+- [ ] Content sin `.*` (`-S`): una cadena que se añadió y luego se quitó
+      da los dos commits. Con `.*` (`-G`) una regex; una regex inválida
+      muestra el error de git, no una lista vacía.
+- [ ] Path: al escribir salen sugerencias de ficheros y carpetas
+      (`Sources/` antes que `Sources/App/main.swift`); elegir una la completa.
+      Lista los commits que tocan esa ruta.
+- [ ] Dos o más chips a la vez: se combinan (AND). Quitar uno relanza sin
+      él; quitar el último vuelve al grafo.
+- [ ] Bajar al final de la lista carga más resultados ("N+ found" mientras
+      queden).
+- [ ] En un repo grande con Content (`-S`), mientras busca: la app responde
+      (scroll, cambiar de sección); "Stop" la corta y deja lo encontrado
+      ("Stopped"). Lanzar otra búsqueda durante una larga la sustituye.
+      Esc en un chip corta la búsqueda; con ella parada, Esc la termina.
+- [ ] ↑/↓ recorren los resultados; Return o doble clic en uno viejo carga el
+      grafo hasta él, lo selecciona y lo centra; la búsqueda termina y el
+      scroll hacia abajo sigue paginando desde ahí.
+- [ ] "Clear" vuelve al grafo con el commit que estaba seleccionado antes de
+      buscar (y a la fila Uncommitted changes si era esa).
+- [ ] Con "Remote branches" activo, la búsqueda encuentra commits que solo
+      están en una rama remota; al cambiar el conmutador se relanza.
+- [ ] VoiceOver: los chips se leen con su nombre, el `.*` como conmutador,
+      la "x" como "Remove Message"; los resultados tienen la acción
+      "Show in graph".
+- [ ] Textos en es y pt-PT (barra, chips, estados vacíos, toast "Couldn’t
+      show … in the graph").
+
+## Avatares de autor y "Only commits by …" (#65)
+Compilado y probado en Linux solo lo que no es vista (`AuthorMonogram`,
+`HostAvatarLookup`, `AvatarDiskCache`, `AuthorAvatarStore`, lectura de refs):
+`AuthorAvatar`, `AuthorMenu` y los cambios en History, el detalle y Branches no
+se han compilado. Pasa antes la suite completa en Xcode.
+- [ ] Compila sin warnings; `AvatarHashTests` y `V1TokensGoneTests` pasan.
+- [ ] **Sin cuentas** (Settings › Accounts vacío): History, el detalle del
+      commit y Branches muestran iniciales sobre un color; el mismo autor tiene
+      el mismo color en las tres vistas y tras reiniciar. Con Little Snitch,
+      Proxyman o `nettop -p gitForge` abiertos, recorrer History no hace
+      ninguna petición (tampoco a gravatar.com ni a avatars.githubusercontent.com).
+- [ ] **Con cuenta de GitHub** y un repo con `origin` en github.com: tras un
+      momento, las filas de History cambian las iniciales por la foto del autor.
+      Un autor cuyo email no está en ninguna cuenta de GitHub sigue con iniciales.
+      Commits con `12345+login@users.noreply.github.com` salen con foto.
+- [ ] Scroll rápido de arriba abajo en un repo grande (miles de commits): sin
+      tirones; las fotos aparecen al parar, no durante el barrido. Volver a
+      subir: las que ya cargaron salen al instante, sin parpadeo de iniciales.
+- [ ] Cerrar y abrir la app: las fotos salen sin peticiones nuevas (caché en
+      `~/Library/Caches/gitForge/Avatars`, un JSON por autor).
+- [ ] **Con cuenta de GitLab** (gitlab.com o self-hosted): las fotos de los
+      usuarios con email público salen; los demás, iniciales (GitLab responde
+      Gravatar y no se carga).
+- [ ] Instancia self-hosted con certificado propio confiado en Settings: las
+      fotos cargan (mismo trust que Pull requests; la descarga lleva además un
+      delegado propio para las redirecciones, comprobar que no rompe el trust).
+- [ ] Repo con varias cuentas en el mismo host sin elegir: no aparece el
+      selector de cuenta por los avatares (siguen las iniciales).
+- [ ] Un clic en el autor de una fila de History abre un menú: **Only commits
+      by Ana**, Copy author name, Copy author email. "Only commits by" abre la
+      búsqueda con el chip Author (el email) y lista sus commits de todo el
+      historial; Clear vuelve al grafo.
+      El menú contextual de la fila trae también "Only commits by …".
+- [ ] En el detalle del commit, clic en avatar + nombre: el mismo menú.
+- [ ] Branches & Tags: cada fila lleva el avatar del autor del último commit
+      junto al asunto, y el inspector "avatar · nombre · fecha". El menú
+      contextual de una rama trae "Only commits by …", que salta a History
+      con la búsqueda por autor.
+- [ ] VoiceOver: en una fila de History lee "asunto, Ana Pérez, hace 2 h,
+      commit abc1234…" (nunca "imagen"); el rotor de acciones trae "Only commits
+      by Ana Pérez". En el detalle, el botón del autor lee el nombre y la pista.
+      En Branches la fila dice "… por Ana Pérez …" (en español).
+- [ ] Textos en es y pt-PT: "Solo commits de …" / "Só commits de …".
+
 ## Historial de un fichero y blame (#63, #64)
 Compilado y probado en Linux solo lo que no es vista (capa Git, `FileHistoryStore`,
 `BlameStore`): las vistas, el palette y `HistoryStore.revealCommit` no se han
