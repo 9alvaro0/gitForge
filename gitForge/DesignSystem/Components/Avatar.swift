@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Hashed avatar with initials. Hashes over `colorSeed` (when provided) so
-/// distinct authors with the same initials still get distinguishable
-/// colours. Pass the email — or any stable identity string — when you have it.
+/// Hashed avatar with initials (`AuthorMonogram`). Hashes over `colorSeed`
+/// (when provided) so distinct authors with the same initials still get
+/// distinguishable colours. Pass the email — or any stable identity string —
+/// when you have it. A commit's author goes through `AuthorAvatar`, which
+/// swaps in the host's picture when there is one.
 struct Avatar: View {
     let size: CGFloat
     private let initials: String
@@ -10,10 +12,9 @@ struct Avatar: View {
 
     init(name: String, size: CGFloat = 18, colorSeed: String? = nil) {
         self.size = size
-        let parts = name.split(separator: " ")
-        self.initials = parts.prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
+        self.initials = AuthorMonogram.initials(name: name, email: colorSeed ?? "")
         let lanes = Self.colors
-        self.background = lanes[Self.paletteIndex(seed: colorSeed ?? name, count: lanes.count)]
+        self.background = lanes[AuthorMonogram.paletteIndex(seed: colorSeed ?? name, count: lanes.count)]
     }
 
     /// Avatar backgrounds; fixed so an author keeps their colour.
@@ -26,16 +27,13 @@ struct Avatar: View {
         Color(hex: 0xc976d9),
     ]
 
-    /// Stable palette slot for `seed`.
+    /// Stable palette slot for `seed` (`AuthorMonogram.paletteIndex`).
     static func paletteIndex(seed: String, count: Int) -> Int {
-        var hash = 0
-        for scalar in seed.unicodeScalars { hash = (hash &* 31) &+ Int(scalar.value) }
-        return paletteIndex(hash: hash, count: count)
+        AuthorMonogram.paletteIndex(seed: seed, count: count)
     }
 
-    /// `abs(Int.min)` traps; the magnitude doesn't.
     static func paletteIndex(hash: Int, count: Int) -> Int {
-        Int(hash.magnitude % UInt(count))
+        AuthorMonogram.paletteIndex(hash: hash, count: count)
     }
 
     var body: some View {

@@ -243,6 +243,25 @@ final class HistoryStore {
         return true
     }
 
+    // MARK: Author filter
+
+    /// "Only commits by …" (#65), waiting for History to apply it.
+    private(set) var authorFilterRequest: AuthorFilterRequest?
+
+    /// Shows only `author`'s commits in History. The one entry point for
+    /// rows, the commit detail and Branches: History applies it through its
+    /// filter field (`HistoryView.applyAuthorFilter`). When git-backed search
+    /// (#62) lands, this is the call to point at its Author field.
+    func showOnlyCommits(by author: CommitAuthor) {
+        authorFilterRequest = AuthorFilterRequest(author: author)
+    }
+
+    /// The pending request, cleared: History applies each one once.
+    func takeAuthorFilterRequest() -> CommitAuthor? {
+        defer { authorFilterRequest = nil }
+        return authorFilterRequest?.author
+    }
+
     // MARK: Scope
 
     private var stashes: [Stash] { refsSource?.stashes ?? [] }

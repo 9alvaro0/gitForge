@@ -61,6 +61,8 @@ struct CommitGraphTable: View {
     /// Host inspects `BranchDropContext` to decide between move / merge /
     /// rebase. `nil` disables drag-and-drop on this table.
     var onBranchDrop: ((DraggedBranch, BranchDropContext) -> Void)? = nil
+    /// "Only commits by …" from a row's author; `nil` turns it off.
+    var onFilterByAuthor: ((CommitAuthor) -> Void)? = nil
 
     @Environment(\.appTheme) private var theme
     /// Ghosts turn opaque with it (`GraphStyle.ghostOpacity`).
@@ -195,7 +197,8 @@ struct CommitGraphTable: View {
                                         onSelect(commit.sha)
                                     },
                                     onDoubleClick: { onDoubleClick?(commit.sha) },
-                                    onBranchDrop: onBranchDrop
+                                    onBranchDrop: onBranchDrop,
+                                    onFilterByAuthor: onFilterByAuthor
                                 )
                                 .equatable()
                             }

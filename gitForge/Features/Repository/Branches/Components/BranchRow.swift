@@ -43,11 +43,17 @@ struct BranchRow: View {
                     .frame(width: layout.commit, alignment: .leading)
             }
             if layout.subject > 0 {
-                Text(ref.subject ?? "")
-                    .textRole(.callout)
-                    .foregroundStyle(theme.colors.textSecondary)
-                    .lineLimit(1)
-                    .frame(width: layout.subject, alignment: .leading)
+                HStack(spacing: Spacing.s6) {
+                    if let author = ref.tipAuthor {
+                        AuthorAvatar(author: author, sha: ref.targetSha, size: 16)
+                            .help(Text(verbatim: author.displayName))
+                    }
+                    Text(ref.subject ?? "")
+                        .textRole(.callout)
+                        .foregroundStyle(theme.colors.textSecondary)
+                        .lineLimit(1)
+                }
+                .frame(width: layout.subject, alignment: .leading)
             }
             Text(updatedLabel)
                 .textRole(.callout)
@@ -154,6 +160,7 @@ struct BranchRow: View {
         if let behind = ref.behind, behind > 0 { parts.append(String(localized: "\(behind) behind")) }
         if ref.upstreamGone { parts.append(String(localized: "upstream gone")) }
         if let subject = ref.subject { parts.append(subject) }
+        if let author = ref.tipAuthor { parts.append(String(localized: "by \(author.displayName)")) }
         if !updatedLabel.isEmpty { parts.append(updatedLabel) }
         return parts.joined(separator: ", ")
     }
@@ -184,6 +191,10 @@ struct BranchRow: View {
             }
             if !isCurrent {
                 Button("Rebase \(currentBranchName ?? String(localized: "branch.current.fallback", defaultValue: "current")) onto this…") { actions.rebase(ref) }
+            }
+            if let author = ref.tipAuthor {
+                Divider()
+                Button("Only commits by \(author.displayName)") { actions.onlyCommitsBy(author) }
             }
             if ref.isLocalBranch {
                 Divider()

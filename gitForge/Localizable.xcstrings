@@ -3206,6 +3206,23 @@
         }
       }
     },
+    "by %@" : {
+      "comment" : "Spoken in a Branches row: the author of the branch's last commit",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "por %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "por %@"
+          }
+        }
+      }
+    },
     "Can't undo the discard: those files have changed since." : {
       "localizations" : {
         "es" : {
@@ -8383,22 +8400,6 @@
         }
       }
     },
-    "Filter by %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar por %@"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar por %@"
-          }
-        }
-      }
-    },
     "Filter by name or description…" : {
       "localizations" : {
         "es" : {
@@ -8427,22 +8428,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filtrar ficheiros"
-          }
-        }
-      }
-    },
-    "Filter history by %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar historial por %@"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filtrar histórico por %@"
           }
         }
       }
@@ -12480,6 +12465,22 @@
         }
       }
     },
+    "Only commits by %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo commits de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Só commits de %@"
+          }
+        }
+      }
+    },
     "Only local branches can be moved." : {
       "localizations" : {
         "es" : {
@@ -16011,6 +16012,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A eliminação segura recusa apagar o ramo se tiver commits não integrados em HEAD. Forçar apaga-o mesmo assim. Em ambos os casos, Desfazer (⌘Z) repõe o ramo."
+          }
+        }
+      }
+    },
+    "Shows only this author’s commits, or copies their name or email" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra solo los commits de este autor, o copia su nombre o correo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra só os commits deste autor, ou copia o nome ou o e-mail"
           }
         }
       }

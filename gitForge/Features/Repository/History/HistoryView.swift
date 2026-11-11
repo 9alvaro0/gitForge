@@ -93,6 +93,8 @@ struct HistoryView: View {
         .navigationTitle("History")
         // New pages bring more of the focused history; a reload may drop it.
         .onChange(of: focusRefreshKey) { refreshFocus() }
+        // "Only commits by …" from a row, the detail or Branches.
+        .onChange(of: viewModel.history.authorFilterRequest?.id, initial: true) { applyAuthorFilter() }
         .confirmationDialog(detachedCheckoutTitle,
                             isPresented: detachedCheckoutBinding,
                             titleVisibility: .visible) {
@@ -200,7 +202,8 @@ struct HistoryView: View {
                     },
                     onBranchDrop: { dropped, context in
                         resolveDrop(dropped, context: context)
-                    }
+                    },
+                    onFilterByAuthor: { author in viewModel.history.showOnlyCommits(by: author) }
                 )
             }
             if viewModel.history.isLoadingMore && !viewModel.history.commits.isEmpty {
@@ -263,6 +266,14 @@ struct HistoryView: View {
                 || commit.authorEmail.range(of: query, options: .caseInsensitive) != nil
                 || commit.sha.hasPrefix(query)
         }
+    }
+
+    /// Applies a pending "Only commits by …" (`HistoryStore.showOnlyCommits(by:)`)
+    /// through the filter field, over the commits already loaded. Git-backed
+    /// search (#62) will take it over with its Author field.
+    private func applyAuthorFilter() {
+        guard let author = viewModel.history.takeAuthorFilterRequest() else { return }
+        search = HistoryAuthorFilter.searchText(for: author)
     }
 
     // MARK: Focus
