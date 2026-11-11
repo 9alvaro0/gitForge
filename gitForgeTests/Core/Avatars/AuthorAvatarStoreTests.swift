@@ -90,8 +90,11 @@ struct AuthorAvatarStoreTests {
     func noAccountNoNetwork() async throws {
         let spy = SpyAvatarLookup()
         let access = Access(nil)
-        let disk = diskCache()
-        let store = AuthorAvatarStore(authorize: access.authorize, lookup: spy, disk: disk)
+        // A fixed clock: on a loaded runner the three lookups can be more than
+        // `accessRecheck` apart in real time, and "no account" would be asked again.
+        let clock = Clock()
+        let disk = diskCache(clock)
+        let store = AuthorAvatarStore(authorize: access.authorize, lookup: spy, disk: disk, now: { clock.now })
         for (index, email) in ["ana@forge.dev", "luis@forge.dev", "12345+ana@users.noreply.github.com"].enumerated() {
             #expect(await store.image(email: email, sha: "abc\(index)") == nil)
         }
