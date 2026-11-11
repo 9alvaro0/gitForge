@@ -1,6 +1,103 @@
 {
   "releases": [
     {
+      "version": "1.9.0",
+      "highlights": [
+        {
+          "symbol": "arrow.uturn.backward",
+          "title": {
+            "en": "Undo what you just did",
+            "es": "Deshaz lo que acabas de hacer",
+            "pt-PT": "Desfaça o que acabou de fazer"
+          },
+          "body": {
+            "en": "Reset, discard, delete a branch, drop a stash, move a branch or force-push, and the message that confirms it offers Undo, also with ⌘Z, until your next operation. If something changed in between, gitForge tells you instead of undoing on top of it.",
+            "es": "Haz un reset, descarta cambios, borra una rama, elimina un stash, mueve una rama o haz force-push, y el mensaje que lo confirma te ofrece Deshacer, también con ⌘Z, hasta tu siguiente operación. Si algo cambió entretanto, gitForge te avisa en vez de deshacer encima.",
+            "pt-PT": "Faça um reset, descarte alterações, apague um ramo, elimine um stash, mova um ramo ou faça force-push, e a mensagem que o confirma oferece Desfazer, também com ⌘Z, até à sua próxima operação. Se algo mudou entretanto, o gitForge avisa-o em vez de desfazer por cima."
+          }
+        },
+        {
+          "symbol": "magnifyingglass",
+          "title": {
+            "en": "Search the whole history",
+            "es": "Busca en todo el historial",
+            "pt-PT": "Pesquise em todo o histórico"
+          },
+          "body": {
+            "en": "In History, Search history finds commits by message, author, content or path across the whole repository, not only the ones already loaded, and Return shows the one you pick in the graph.",
+            "es": "En Historial, Buscar en el historial encuentra commits por mensaje, autor, contenido o ruta en todo el repositorio, no solo en los ya cargados, e Intro te muestra en el grafo el que elijas.",
+            "pt-PT": "No Histórico, Pesquisar no histórico encontra commits por mensagem, autor, conteúdo ou caminho em todo o repositório, não só nos já carregados, e Enter mostra no grafo o que escolher."
+          }
+        },
+        {
+          "symbol": "doc.text.magnifyingglass",
+          "title": {
+            "en": "History of any file",
+            "es": "Historial de cualquier archivo",
+            "pt-PT": "Histórico de qualquer ficheiro"
+          },
+          "body": {
+            "en": "Right-click a file anywhere and choose Show file history to see every commit that changed it, renames included, with just that file's diff.",
+            "es": "Haz clic derecho en un archivo en cualquier sitio y elige Mostrar historial del archivo para ver cada commit que lo cambió, renombres incluidos, con el diff solo de ese archivo.",
+            "pt-PT": "Clique com o botão direito num ficheiro em qualquer lado e escolha Mostrar histórico do ficheiro para ver cada commit que o alterou, incluindo mudanças de nome, só com o diff desse ficheiro."
+          }
+        },
+        {
+          "symbol": "person.text.rectangle",
+          "title": {
+            "en": "See who changed each line",
+            "es": "Mira quién cambió cada línea",
+            "pt-PT": "Veja quem alterou cada linha"
+          },
+          "body": {
+            "en": "Blame shows the commit, author and date next to every line, opens from any file or diff line, and Blame before this commit goes back one step at a time.",
+            "es": "Autoría muestra junto a cada línea su commit, autor y fecha, se abre desde cualquier archivo o línea de un diff, y Autoría antes de este commit retrocede un paso cada vez.",
+            "pt-PT": "Autoria mostra ao lado de cada linha o commit, o autor e a data, abre-se a partir de qualquer ficheiro ou linha de um diff, e Autoria antes deste commit recua um passo de cada vez."
+          }
+        },
+        {
+          "symbol": "lifepreserver",
+          "title": {
+            "en": "Get lost commits back",
+            "es": "Recupera commits perdidos",
+            "pt-PT": "Recupere commits perdidos"
+          },
+          "body": {
+            "en": "Repository > Recover Lost Commits… lists what your branches pointed to before each reset, amend or rebase, in plain words, and creates a branch on the one you need.",
+            "es": "Repositorio > Recuperar commits perdidos… lista a qué apuntaban tus ramas antes de cada reset, amend o rebase, en lenguaje claro, y crea una rama en el que necesites.",
+            "pt-PT": "Repositório > Recuperar commits perdidos… lista para onde apontavam os seus ramos antes de cada reset, amend ou rebase, em linguagem simples, e cria um ramo no que precisar."
+          }
+        },
+        {
+          "symbol": "person.crop.circle",
+          "title": {
+            "en": "Faces next to commits",
+            "es": "Caras junto a los commits",
+            "pt-PT": "Rostos junto aos commits"
+          },
+          "body": {
+            "en": "History, the commit detail and Branches show each author's avatar from your connected GitHub or GitLab account, or their initials, and clicking an author offers Only commits by….",
+            "es": "Historial, el detalle del commit y Ramas muestran el avatar de cada autor desde tu cuenta conectada de GitHub o GitLab, o sus iniciales, y al hacer clic en un autor puedes elegir Solo commits de….",
+            "pt-PT": "O Histórico, o detalhe do commit e os Ramos mostram o avatar de cada autor a partir da sua conta ligada do GitHub ou GitLab, ou as iniciais, e ao clicar num autor pode escolher Só commits de…."
+          }
+        }
+      ],
+      "fixes": [
+        {
+          "en": "Commits no longer fail when a pre-commit hook takes more than a minute, and a failing hook now shows its full output with Retry and Commit without hooks instead of a short message.",
+          "es": "Los commits ya no fallan cuando un hook pre-commit tarda más de un minuto, y si un hook falla ahora ves toda su salida con Reintentar y Hacer commit sin hooks, en vez de un mensaje corto.",
+          "pt-PT": "Os commits já não falham quando um hook pre-commit demora mais de um minuto, e quando um hook falha vê agora toda a saída com Tentar novamente e Fazer commit sem hooks, em vez de uma mensagem curta."
+        }
+      ],
+      "improvements": [
+        {
+          "en": "Help > Export Logs… saves a file with the errors gitForge showed, without tokens or passwords, to attach to a bug report.",
+          "es": "Ayuda > Exportar registros… guarda un archivo con los errores que mostró gitForge, sin tokens ni contraseñas, para adjuntarlo a un informe de error.",
+          "pt-PT": "Ajuda > Exportar registos… guarda um ficheiro com os erros que o gitForge mostrou, sem tokens nem palavras-passe, para anexar a um relatório de erro."
+        }
+      ]
+    },
+    {
       "version": "1.8.0",
       "highlights": [
         {
