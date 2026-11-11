@@ -12,6 +12,8 @@ struct HistoryDiffPane: View {
     var isExpanded = false
     var onToggleExpand: (() -> Void)? = nil
 
+    @Environment(\.fileInspector) private var fileInspector
+
     var body: some View {
         // Two branches, so each mode keeps a single `DiffPane` (and its
         // tokenisation cache) across selection changes.
@@ -32,6 +34,7 @@ struct HistoryDiffPane: View {
                 },
                 isExpanded: isExpanded,
                 onToggleExpand: onToggleExpand,
+                onBlameLine: workingCopyBlame,
                 viewMode: diffMode
             )
         } else {
@@ -46,6 +49,7 @@ struct HistoryDiffPane: View {
                 loadNewSide: commitFileLoader,
                 isExpanded: isExpanded,
                 onToggleExpand: onToggleExpand,
+                onBlameLine: commitFileBlame,
                 viewMode: diffMode
             )
         }
@@ -57,6 +61,30 @@ struct HistoryDiffPane: View {
               let path = viewModel.history.selectedCommitFile else { return nil }
         let cli = viewModel.cli
         return { await cli.fileLines(revision: sha, path: path) }
+    }
+
+    /// "Blame this line" on the working copy's diff.
+    private var workingCopyBlame: ((DiffLine) -> Void)? {
+        guard let open = fileInspector, let file = viewModel.workingCopy.selectedWorkingCopyFile else { return nil }
+        return { line in
+            guard let request = FileInspectorRequest.blame(line: line, workingPath: file.path,
+                                                           originalPath: file.originalPath) else { return }
+            open(request)
+        }
+    }
+
+    /// "Blame this line" on the selected commit's diff of the selected file.
+    private var commitFileBlame: ((DiffLine) -> Void)? {
+        guard let open = fileInspector,
+              let sha = viewModel.history.selectedCommit?.sha,
+              let path = viewModel.history.selectedCommitFile else { return nil }
+        let status = viewModel.history.detailCache[sha]?.files.first(where: { $0.path == path })?.status
+        let previousPath: String? = if case .renamed(let from) = status { from } else { nil }
+        return { line in
+            guard let request = FileInspectorRequest.blame(line: line, commit: sha, path: path,
+                                                           previousPath: previousPath) else { return }
+            open(request)
+        }
     }
 
     /// Badge for the commit file in the diff header, once the detail is loaded.

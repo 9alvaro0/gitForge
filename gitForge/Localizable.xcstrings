@@ -230,6 +230,23 @@
         }
       }
     },
+    "%@ is where the history starts: there is nothing before it" : {
+      "comment" : "%@ is a short SHA of a root commit",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ es donde empieza el historial: no hay nada antes"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ é onde começa o histórico: não há nada antes"
+          }
+        }
+      }
+    },
     "%@ isn't added yet" : {
       "localizations" : {
         "es" : {
@@ -344,6 +361,23 @@
         }
       }
     },
+    "%@ · %@ · %@\n%@\nClick to open in History" : {
+      "comment" : "Blame gutter tooltip: short SHA, author, date, then the commit subject",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ · %3$@\n%4$@\nHaz clic para abrirlo en Historial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ · %3$@\n%4$@\nClique para abrir no Histórico"
+          }
+        }
+      }
+    },
     "%@ · %lld unstaged, %lld staged" : {
       "localizations" : {
         "es" : {
@@ -388,6 +422,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ → %@. O conteúdo não foi alterado."
+          }
+        }
+      }
+    },
+    "%@, %@, %@" : {
+      "comment" : "VoiceOver: author, relative date, commit subject of a blame line",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@"
           }
         }
       }
@@ -2561,6 +2612,23 @@
         }
       }
     },
+    "At" : {
+      "comment" : "Blame toolbar: before the revision blamed, as in 'At abc1234'",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em"
+          }
+        }
+      }
+    },
     "Author" : {
       "localizations" : {
         "es" : {
@@ -2721,6 +2789,22 @@
         }
       }
     },
+    "Back to the blame before (⌘[)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a la autoría anterior (⌘[)"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voltar à autoria anterior (⌘[)"
+          }
+        }
+      }
+    },
     "Bad signature" : {
       "localizations" : {
         "es" : {
@@ -2864,6 +2948,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bisect em curso — termine-o no terminal com `git bisect reset`."
+          }
+        }
+      }
+    },
+    "Blame" : {
+      "comment" : "git blame: who last changed each line. File row menu item, sheet tab and title",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoría"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoria"
+          }
+        }
+      }
+    },
+    "Blame at this commit" : {
+      "comment" : "File history: blame the file as it was in the selected commit",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoría en este commit"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoria neste commit"
+          }
+        }
+      }
+    },
+    "Blame before this commit" : {
+      "comment" : "Blame of the parent revision of the commit that last changed the line",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoría antes de este commit"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoria antes deste commit"
+          }
+        }
+      }
+    },
+    "Blame the file as it was before %@, keeping this line in view" : {
+      "comment" : "%@ is a short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver la autoría del archivo tal como estaba antes de %@, con esta línea a la vista"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver a autoria do ficheiro tal como estava antes de %@, com esta linha à vista"
+          }
+        }
+      }
+    },
+    "Blame this line" : {
+      "comment" : "Diff row context menu item",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver autoría de esta línea"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver autoria desta linha"
+          }
+        }
+      }
+    },
+    "Blaming %lld of %lld lines" : {
+      "comment" : "Progress while git blame streams in",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoría de %lld de %lld líneas"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoria de %lld de %lld linhas"
           }
         }
       }
@@ -5305,6 +5491,22 @@
         }
       }
     },
+    "Copy line" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar línea"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar linha"
+          }
+        }
+      }
+    },
     "Copy output" : {
       "localizations" : {
         "es" : {
@@ -5829,6 +6031,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível verificar o anfitrião"
+          }
+        }
+      }
+    },
+    "Couldn’t blame this file" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo ver la autoría de este archivo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ver a autoria deste ficheiro"
           }
         }
       }
@@ -7775,6 +7993,22 @@
         }
       }
     },
+    "Empty file" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo vacío"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ficheiro vazio"
+          }
+        }
+      }
+    },
     "Enter the instance's address, like https://git.example.com." : {
       "localizations" : {
         "es" : {
@@ -8419,6 +8653,22 @@
         }
       }
     },
+    "File too large to blame" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo demasiado grande para ver la autoría"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ficheiro demasiado grande para ver a autoria"
+          }
+        }
+      }
+    },
     "Files" : {
       "localizations" : {
         "es" : {
@@ -8990,6 +9240,23 @@
         }
       }
     },
+    "Line %lld: %@. %@" : {
+      "comment" : "VoiceOver: line number, its text, then who changed it",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Línea %1$lld: %2$@. %3$@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linha %1$lld: %2$@. %3$@"
+          }
+        }
+      }
+    },
     "No commit on HEAD touched this file. A new file has history once it’s committed." : {
       "localizations" : {
         "es" : {
@@ -9019,6 +9286,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sem histórico neste ramo"
+          }
+        }
+      }
+    },
+    "Not blamed yet" : {
+      "comment" : "Blame gutter tooltip while git hasn't reached the line",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún sin autoría"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda sem autoria"
+          }
+        }
+      }
+    },
+    "Not committed yet" : {
+      "comment" : "Blame gutter: lines changed in the working tree",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin commit aún"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda sem commit"
+          }
+        }
+      }
+    },
+    "Open commit in History" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir commit en Historial"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir commit no Histórico"
           }
         }
       }
@@ -9074,6 +9391,40 @@
         }
       }
     },
+    "Show in file history" : {
+      "comment" : "Blame row menu: select the commit in the sheet's History tab",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en el historial del archivo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar no histórico do ficheiro"
+          }
+        }
+      }
+    },
+    "Show the history or the blame" : {
+      "comment" : "Accessibility label of the History / Blame switch",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar el historial o la autoría"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar o histórico ou a autoria"
+          }
+        }
+      }
+    },
     "That commit isn’t in the history shown" : {
       "comment" : "Toast: Open in History couldn't find the commit in History's log",
       "localizations" : {
@@ -9087,6 +9438,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Esse commit não está no histórico mostrado"
+          }
+        }
+      }
+    },
+    "The file isn’t in the working tree. Blame it at a commit from its history." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El archivo no está en el árbol de trabajo. Mira su autoría en un commit de su historial."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ficheiro não está na árvore de trabalho. Veja a autoria num commit do histórico."
+          }
+        }
+      }
+    },
+    "The file isn’t there at this revision." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El archivo no existe en esta revisión."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ficheiro não existe nesta revisão."
+          }
+        }
+      }
+    },
+    "There are no lines to blame." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay líneas de las que ver la autoría."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não há linhas de que ver a autoria."
+          }
+        }
+      }
+    },
+    "This file isn’t committed yet, so there is nothing to blame." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este archivo aún no tiene commits, así que no hay autoría que mostrar."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este ficheiro ainda não tem commits, por isso não há autoria a mostrar."
+          }
+        }
+      }
+    },
+    "This line isn’t blamed yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta línea aún no tiene autoría"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta linha ainda não tem autoria"
+          }
+        }
+      }
+    },
+    "Use git blame in a terminal for this one." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa git blame en un terminal para este."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use git blame num terminal para este."
+          }
+        }
+      }
+    },
+    "Who last changed each line of the file as it was in %@" : {
+      "comment" : "%@ is a short SHA",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quién cambió por última vez cada línea del archivo tal como estaba en %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quem alterou por último cada linha do ficheiro tal como estava em %@"
+          }
+        }
+      }
+    },
+    "Working tree" : {
+      "comment" : "Blame toolbar: the working tree's version of the file is blamed",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Árbol de trabajo"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Árvore de trabalho"
           }
         }
       }
@@ -23127,6 +23608,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "nenhum selecionado"
+          }
+        }
+      }
+    },
+    "not blamed yet" : {
+      "comment" : "VoiceOver: git hasn't reached the line yet",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "aún sin autoría"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ainda sem autoria"
+          }
+        }
+      }
+    },
+    "not committed yet" : {
+      "comment" : "VoiceOver: a blame line changed in the working tree",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sin commit aún"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ainda sem commit"
           }
         }
       }

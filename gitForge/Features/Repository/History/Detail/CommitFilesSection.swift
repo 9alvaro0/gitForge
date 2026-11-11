@@ -149,7 +149,8 @@ private struct FileMiniRow: View {
             Divider()
             Button("Copy path") { copyToPasteboard(file.path) }
             Button("Copy filename") { copyToPasteboard((file.path as NSString).lastPathComponent) }
-            FileInspectorMenuItems(action: fileInspector, path: file.path, revision: revision)
+            FileInspectorMenuItems(action: fileInspector, path: file.path, revision: revision,
+                                   isDeleted: file.status == .deleted)
         }
     }
 

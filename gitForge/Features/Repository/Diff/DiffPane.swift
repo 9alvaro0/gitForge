@@ -32,6 +32,9 @@ struct DiffPane: View {
     var isExpanded: Bool = false
     /// Expands or restores the pane. When `nil` there's no expand button.
     var onToggleExpand: (() -> Void)? = nil
+    /// Opens the blame of a line (its row's context menu). When `nil` rows
+    /// offer no blame: the diff isn't of this repository (pull requests).
+    var onBlameLine: ((DiffLine) -> Void)? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split
@@ -82,6 +85,7 @@ struct DiffPane: View {
             )
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .environment(\.diffLineBlame, onBlameLine.map { DiffLineBlameAction(open: $0) })
         }
         .background(theme.colors.bgCode)
         .task(id: tokenizeKey) { await tokenizeHunks() }

@@ -866,3 +866,35 @@ si no, lanza `UndoRefusal` con un mensaje claro y la entrada se descarta.
   `RepositoryViewModelUndoTests` (9), `UndoStoreTests` y afines (5).
 - **Pendiente en macOS:** compilar vistas, menú Edit y toast, pasar la suite
   y el recorrido de `PRUEBAS-MANUALES.md` (#59).
+
+## #63 y #64 — Historial de un fichero y blame
+
+**Fecha:** 2026-11-11
+**Rama:** `feat/file-history-blame-63-64` · épica #54 (roadmap 1.9, parte 2). Dos commits: historial y blame.
+
+### Qué hace
+
+- **Show file history** en el menú contextual de las filas de fichero de Changes, detalle de commit (selecciona ese commit), detalle de stash, pull requests del repo abierto y conflictos, y en ⌘K: cada fichero seguido (`git ls-files`, hasta 10.000) es una fila *search-only* del grupo Files con la pista "File history". Los ficheros cambiados siguen llevando a Changes.
+- Hoja sobre cualquier sección (la monta `ContentRouter`, como Recover) con dos pestañas, History y Blame.
+- **History:** `git log --follow` sobre HEAD, del más nuevo al más viejo, por páginas del tamaño de las de History. Cada entrada dice qué hizo el commit al fichero (A/M/D/R) y "Renamed from `old/path`"; la cabecera, los nombres anteriores. Al seleccionar, el diff de ese fichero solo en ese commit con el `DiffPane` de siempre (unified / split, wrap, hide whitespace, líneas ocultas). **Open in History** cierra la hoja y selecciona el commit, cargando páginas del log hasta encontrarlo (`HistoryStore.revealCommit`, en un fichero aparte para no tocar `HistoryStore`, que está cambiando #62). **Blame at this commit** abre el blame en esa revisión.
+- **Blame:** `git blame --incremental -M -C` (`-w` con Hide whitespace) leído en streaming: primero se pinta el fichero entero y el margen se rellena a medida que git encuentra cada tramo, con barra de progreso. Margen agrupado por líneas seguidas del mismo commit (fecha relativa, autor, asunto; tooltip con SHA y fecha), resaltado de sintaxis del diff (`DiffSyntaxHighlighter` por trozos de 200 líneas, mismo límite de 5.000 líneas que el diff). Las líneas sin commit se marcan ("Not committed yet", barra y fondo `warn`). Clic en un grupo: abre el commit en History. **Blame before this commit** (barra o menú de la línea) abre el padre por el que llegó la línea (`previous` de git) con el nombre que tenía allí y la línea a la vista; **Back** (⌘[) vuelve.
+- **Blame** también en el menú de las filas de fichero (working tree; en el detalle de commit, en ese commit; un fichero borrado, en el padre) y **Blame this line** en el menú contextual de cada línea de un diff (History, Changes, File history): líneas añadidas o de contexto en el commit / working tree, líneas quitadas en el padre / HEAD.
+
+### Decisiones
+
+- **Páginas sin `--skip`:** `--follow` solo detecta un renombrado en un commit que muestra, así que una página que se saltaba el renombrado seguía buscando el nombre nuevo y se cortaba ahí. Cada página vuelve a recorrer desde HEAD con un límite mayor y añade la cola, como la recarga de History que mantiene la profundidad. Un test fija el comportamiento de git, por si algún día `--skip` sirve.
+- Formato del log con separador de unidad entre campos y `-z`: tras cada registro, `\n<estado>\0<ruta>\0[<ruta nueva>\0]`; los merges no traen estado y heredan la ruta de la entrada de arriba. El estado se reutiliza de `parseNameStatus`.
+- El diff de un renombrado pasa las dos rutas en el pathspec (como `diffStaged`): con la nueva sola se veía el fichero entero como añadido.
+- `--follow` va por ruta: un fichero borrado y vuelto a crear con el mismo nombre enseña el borrado y después los commits del fichero viejo. Es lo que hace git y lo cubren los tests.
+- **Blame incremental** en vez de `--porcelain` a secas: es el mismo formato de registros, pero git lo escribe según los resuelve, y el contenido se lee aparte (`cat-file` o el fichero del disco) para pintar todo desde el principio. `BlameParser` entiende los dos formatos (tests de ambos) y se alimenta por trozos de bytes, cortados a mitad de línea o de carácter UTF-8.
+- `GitCLI.runStreaming`: como `run` (watchdog, cancelación, errores, log) pero entrega stdout por trozos. El parseo va en el hilo lector; al main actor solo llegan lotes ya parseados. `executablePath` y `configuredTimeoutSeconds` de `GitCLI` dejan de ser `private` para que lo use.
+- `blame` de git 2.43 rechaza `--end-of-options` (como `reset`): se rechaza antes cualquier revisión que empiece por `-`.
+- La línea de "Blame before this commit" se traslada con un `git diff -U0` del padre al commit (`BlameLineMapping`): sin cambio, mismo número desplazado; dentro de un cambio, el mismo sitio de lo que sustituyó. Para líneas sin commit, el diff de HEAD al working tree.
+- `BlameStore.run` deja una sola carga en vuelo; cerrar la hoja o navegar cancela la anterior y para git.
+- La acción de las filas va por el entorno (`\.fileInspector`); donde es `nil` (previews, PR de otro repo, la hoja de Recover, que ya es una hoja) no se ofrece nada. "Blame this line" también por entorno (`\.diffLineBlame`), para no cambiar las firmas de `DiffUnifiedContent` / `DiffSplitContent`.
+
+### Verificación
+
+- Linux (Swift 6.2, aislamiento por defecto `MainActor` y las *upcoming features* del proyecto; arnés con Core, los dos stores y stubs de `os.Logger` / `String(localized:)`): 0 errores y 0 warnings, 48 tests en verde (estables en tres pasadas): `GitCLIFileHistoryTests` (renombrados, borrado y recreado, fichero borrado, páginas, rutas con espacios y acentos, HEAD sin commits, parser con merge y copia), `FileHistoryStoreTests`, `BlameParserTests` (incremental, porcelain, trozos partidos, sin commit, SHA-256, mapeo de líneas), `GitCLIBlameTests` (boundary, sin commit, líneas movidas entre ficheros `-C` y dentro del fichero `-M`, renombrado, `-w`, 5.000 líneas en varios lotes, fuente binaria), `BlameStoreTests` (grupos, Blame before + Back, raíz, sin commit, sin seguimiento, carga reemplazada) y `FileInspectorRequestTests`.
+- Sin compilar en Linux (SwiftUI / view model): las vistas, `HistoryStoreRevealCommitTests` y `CommandPaletteFileHistoryTests`.
+- **Pendiente en macOS:** compilar, pasar la suite completa y el recorrido de `PRUEBAS-MANUALES.md` (#63, #64).

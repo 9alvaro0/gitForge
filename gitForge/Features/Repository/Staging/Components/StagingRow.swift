@@ -131,7 +131,8 @@ struct StagingRow: View {
         Button("Copy filename") { copyToPasteboard(filename) }
         // An untracked file has no history yet.
         if !file.isUntracked {
-            FileInspectorMenuItems(action: fileInspector, path: file.path)
+            FileInspectorMenuItems(action: fileInspector, path: file.path,
+                                   isDeleted: file.unstagedStatus == .deleted || file.stagedStatus == .deleted)
         }
     }
 

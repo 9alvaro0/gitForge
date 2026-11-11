@@ -296,3 +296,49 @@ antes la suite completa en Xcode.
       longer be undone."
 - [ ] Textos de confirmación (discard, drop, reset hard, borrar rama) ya no
       dicen "can't be undone" y mencionan ⌘Z; revisar también en es y pt-PT.
+
+## Historial de un fichero y blame (#63, #64)
+Compilado y probado en Linux solo lo que no es vista (capa Git, `FileHistoryStore`,
+`BlameStore`): las vistas, el palette y `HistoryStore.revealCommit` no se han
+compilado. Pasa antes la suite completa en Xcode. Prepara un fichero renombrado
+(`git mv`) con commits antes y después, y otro de 5.000+ líneas con varios autores.
+- [ ] Compila sin warnings; pasan `HistoryStoreRevealCommitTests` y
+      `CommandPaletteFileHistoryTests` (no se pudieron ejecutar en Linux).
+- [ ] "Show file history" y "Blame" en el menú contextual de una fila de: Changes
+      (staged y sin preparar; no en un fichero sin seguimiento), detalle de commit
+      en History, detalle de stash, Files de una PR del repo abierto (no en una PR
+      de otro repo seguido en Team / Mine) y Conflicts.
+- [ ] Desde el detalle de un commit, la hoja abre con ese commit seleccionado.
+- [ ] Fichero renombrado: la lista incluye los commits de antes del renombrado,
+      la entrada del renombrado dice "Renamed from …" y la cabecera "Previously …".
+      El diff del renombrado con cambios enseña solo los cambios.
+- [ ] Con más de una página (bajar el tamaño de página en Settings a 50): al
+      bajar se cargan más, sin repetidos ni huecos, también pasado el renombrado.
+- [ ] El diff de cada entrada: unified / split, wrap, hide whitespace (recarga) y
+      "Show N hidden lines".
+- [ ] "Open in History" cierra la hoja y selecciona el commit en History, también
+      uno viejo que no estaba cargado (la tabla baja hasta él).
+- [ ] ⌘K → escribir parte del nombre de un fichero sin cambios: sale en Files con
+      "File history" y abre la hoja. Sin escribir nada, Files solo lista los cambiados.
+- [ ] Blame del working tree de un fichero con cambios sin commit: esas líneas
+      dicen "Not committed yet" con la barra naranja; clic en ellas no hace nada.
+- [ ] Blame de un fichero de 5.000+ líneas: el fichero aparece enseguida, el margen
+      se rellena con progreso ("Blaming … of … lines") y se puede desplazar mientras;
+      la UI no se bloquea. Resaltado de sintaxis presente.
+- [ ] Grupos: una separación entre tramos de commits distintos; al pasar el ratón
+      se ilumina todo el grupo; tooltip con SHA, autor, fecha y asunto; clic abre el
+      commit en History.
+- [ ] Seleccionar una línea y "Blame before this commit": abre el padre con esa
+      línea centrada y marcada; tras un renombrado, con el nombre viejo en la barra.
+      "Back" (⌘[) vuelve a la línea de antes. En una línea del commit raíz el botón
+      está desactivado.
+- [ ] "Blame this line" en el menú de una línea del diff (History, Changes, File
+      history): una línea añadida abre el blame del commit en esa línea; una quitada,
+      el del padre en el número viejo.
+- [ ] Hide whitespace activado: el blame usa `-w` (un cambio solo de sangría se
+      atribuye al commit de antes) y al cambiarlo se recarga.
+- [ ] Fichero binario, fichero vacío, fichero sin seguimiento ("This file isn’t
+      committed yet…"): estado vacío con su texto, sin errores.
+- [ ] Cerrar la hoja a mitad de un blame largo para git (Monitor de Actividad).
+- [ ] Claro / oscuro, VoiceOver en las filas del blame (lee línea, texto y autor),
+      y los textos en es y pt-PT.

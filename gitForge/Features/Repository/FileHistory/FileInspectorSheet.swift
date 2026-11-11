@@ -26,9 +26,10 @@ extension View {
     }
 }
 
-/// One file's history on HEAD, newest first and across renames, with the
-/// selected commit's diff of that file alone and a way to open the commit
-/// in History.
+/// One file's history and blame, in two tabs. History: the commits on HEAD
+/// that touched it, newest first and across renames, with the selected
+/// commit's diff of that file alone. Blame: who last changed each line
+/// (`BlameView`). Either opens a commit in History.
 struct FileInspectorSheet: View {
     let viewModel: RepositoryViewModel
     let request: FileInspectorRequest
@@ -39,6 +40,9 @@ struct FileInspectorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var history: FileHistoryStore
+    /// Made the first time the Blame tab shows.
+    @State private var blame: BlameStore?
+    @State private var tab: FileInspectorRequest.Tab
     @State private var diffModeOverride: DiffPane.ViewMode?
     @FocusState private var listFocused: Bool
 
@@ -48,27 +52,55 @@ struct FileInspectorSheet: View {
         self.viewModel = viewModel
         self.request = request
         _history = State(initialValue: FileHistoryStore(cli: viewModel.cli, path: request.path))
+        _tab = State(initialValue: request.tab)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             separator
-            HStack(spacing: 0) {
-                entryList
-                    .frame(width: Self.listWidth)
-                    .frame(maxHeight: .infinity)
-                Rectangle().fill(theme.colors.separator).frame(width: 1)
-                detailColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            switch tab {
+            case .history:
+                HStack(spacing: 0) {
+                    entryList
+                        .frame(width: Self.listWidth)
+                        .frame(maxHeight: .infinity)
+                    Rectangle().fill(theme.colors.separator).frame(width: 1)
+                    detailColumn
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            case .blame:
+                if let blame {
+                    BlameView(store: blame, onOpenCommit: openInHistory, onShowInHistory: showInHistoryTab)
+                } else {
+                    Color.clear
+                }
             }
         }
         .frame(minWidth: 880, idealWidth: 1080, minHeight: 560, idealHeight: 700)
         .background(theme.colors.bgElevated)
         .task {
-            await history.load(selecting: request.revision)
-            listFocused = true
+            switch request.tab {
+            case .history:
+                await history.load(selecting: request.revision)
+                listFocused = true
+            case .blame:
+                showBlame(BlameStore.Location(revision: request.revision, path: request.path, line: request.line))
+            }
         }
+        .onChange(of: tab) { _, new in
+            switch new {
+            case .history:
+                guard !history.hasLoaded, !history.isLoading else { return }
+                let revision = blame?.location.revision
+                Task { await history.load(selecting: revision) }
+            case .blame:
+                guard blame == nil else { return }
+                showBlame(defaultBlameLocation)
+            }
+        }
+        // Closing the sheet stops a blame still running.
+        .onDisappear { blame?.stop() }
     }
 
     private var separator: some View {
@@ -80,7 +112,7 @@ struct FileInspectorSheet: View {
     private var header: some View {
         HStack(alignment: .center, spacing: Spacing.s12) {
             VStack(alignment: .leading, spacing: Spacing.s4) {
-                Text("File history")
+                Text(tab == .history ? String(localized: "File history") : String(localized: "Blame"))
                     .textRole(.headline)
                     .foregroundStyle(theme.colors.textPrimary)
                 FilePathText(path: request.path)
@@ -89,7 +121,7 @@ struct FileInspectorSheet: View {
                     .truncationMode(.head)
                     .textSelection(.enabled)
                     .help(request.path)
-                if let renames = renamesLine {
+                if tab == .history, let renames = renamesLine {
                     Text(renames)
                         .textRole(.caption)
                         .foregroundStyle(theme.colors.textTertiary)
@@ -98,6 +130,11 @@ struct FileInspectorSheet: View {
                 }
             }
             Spacer(minLength: Spacing.s12)
+            SegmentedControl([(FileInspectorRequest.Tab.history, String(localized: "History")),
+                              (FileInspectorRequest.Tab.blame, String(localized: "Blame"))],
+                             selection: $tab)
+                .fixedSize()
+                .accessibilityLabel("Show the history or the blame")
             GFButton(title: String(localized: "Done"), shortcut: .cancelAction) { dismiss() }
         }
         .padding(.horizontal, Spacing.s16)
@@ -195,6 +232,11 @@ struct FileInspectorSheet: View {
                     emptyState: history.fileDiffEmptyState,
                     onWhitespaceChange: { Task { await history.reloadFileDiff() } },
                     loadNewSide: entry.isDeletion ? nil : { () async -> [String]? in await history.newSideLines() },
+                    onBlameLine: { line in
+                        guard let target = FileInspectorRequest.blame(line: line, commit: entry.commit.sha, path: entry.path,
+                                                                      previousPath: entry.previousPath) else { return }
+                        showBlame(BlameStore.Location(revision: target.revision, path: target.path, line: target.line))
+                    },
                     viewMode: diffMode
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -237,6 +279,12 @@ struct FileInspectorSheet: View {
                     openInHistory(commit.sha)
                 }
                 .help("Close this and select \(commit.shortSha) in History")
+                GFButton(title: String(localized: "Blame at this commit"), systemImage: "text.alignleft") {
+                    // A deletion has no lines: blame the file just before it.
+                    let revision = entry.isDeletion ? "\(commit.sha)^" : commit.sha
+                    showBlame(BlameStore.Location(revision: revision, path: entry.path))
+                }
+                .help("Who last changed each line of the file as it was in \(commit.shortSha)")
                 Spacer(minLength: 0)
             }
         }
@@ -248,6 +296,31 @@ struct FileInspectorSheet: View {
     }
 
     // MARK: Actions
+
+    /// Blames `location` in the Blame tab, replacing what it showed.
+    private func showBlame(_ location: BlameStore.Location) {
+        let store = blame ?? BlameStore(cli: viewModel.cli, location: location)
+        blame = store
+        tab = .blame
+        store.run { await store.load(location) }
+    }
+
+    /// The working tree's file, or HEAD's when it isn't on disk any more.
+    private var defaultBlameLocation: BlameStore.Location {
+        let onDisk = FileManager.default.fileExists(
+            atPath: viewModel.repository.url.appendingPathComponent(request.path).path(percentEncoded: false))
+        return BlameStore.Location(revision: onDisk ? nil : "HEAD", path: request.path)
+    }
+
+    /// The History tab with `sha` selected, if it touched this file.
+    private func showInHistoryTab(_ sha: String) {
+        tab = .history
+        if let entry = history.entries.first(where: { $0.id == sha }) {
+            Task { await history.select(entry) }
+        } else {
+            Task { await history.load(selecting: sha) }
+        }
+    }
 
     /// Closes the sheet and selects `sha` in History, loading pages of the
     /// log until it's there.
