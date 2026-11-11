@@ -9,9 +9,11 @@ extension GitCLI {
         // %(*objectname) is the dereferenced commit for annotated tags; empty for
         // everything else. We prefer it over %(objectname) (which would be the tag
         // OBJECT, not the commit, for annotated tags).
-        // Upstream, track, date and subject feed the Branches table; the
-        // subject goes last so a tab inside it can't shift the columns.
-        let format = "%(objectname)%09%(*objectname)%09%(refname)%09%(HEAD)%09%(upstream:short)%09%(upstream:track)%09%(creatordate:unix)%09%(contents:subject)"
+        // Upstream, track, date, the tip's author and subject feed the
+        // Branches table; the subject goes last so a tab inside it can't
+        // shift the columns. An annotated tag's author is its commit's.
+        let author = "%(if)%(*objectname)%(then)%(*authorname)%09%(*authoremail)%(else)%(authorname)%09%(authoremail)%(end)"
+        let format = "%(objectname)%09%(*objectname)%09%(refname)%09%(HEAD)%09%(upstream:short)%09%(upstream:track)%09%(creatordate:unix)%09\(author)%09%(contents:subject)"
         let patterns = ["refs/heads", "refs/remotes"] + (includingTags ? ["refs/tags"] : [])
         let result = try await run(["for-each-ref", "--format=\(format)"] + patterns)
         return Self.parseRefs(result.stdout)
@@ -82,7 +84,9 @@ extension GitCLI {
             let upstream = parts.count >= 5 && !parts[4].isEmpty ? String(parts[4]) : nil
             let track = parts.count >= 6 ? UpstreamTrack.parse(String(parts[5])) : UpstreamTrack()
             let date = parts.count >= 7 ? TimeInterval(String(parts[6])).map { Date(timeIntervalSince1970: $0) } : nil
-            let subject = parts.count >= 8 ? parts[7...].joined(separator: "\t") : nil
+            let authorName = parts.count >= 10 ? Self.nonEmpty(parts[7]) : nil
+            let authorEmail = parts.count >= 10 ? Self.nonEmpty(parts[8].trimmingCharacters(in: CharacterSet(charactersIn: "<>"))) : nil
+            let subject = parts.count >= 10 ? parts[9...].joined(separator: "\t") : nil
 
             // Use dereferenced SHA when present (annotated tags); fall back to the direct SHA.
             let commitSha = dereferencedSha.isEmpty ? directSha : dereferencedSha
@@ -94,7 +98,8 @@ extension GitCLI {
                     ahead: upstream == nil ? nil : track.ahead,
                     behind: upstream == nil ? nil : track.behind,
                     upstreamGone: track.gone,
-                    subject: subject, date: date
+                    subject: subject, date: date,
+                    authorName: authorName, authorEmail: authorEmail
                 )
             }
             if let remoteFull = refname.removingPrefix("refs/remotes/") {
@@ -103,14 +108,20 @@ extension GitCLI {
                 }
                 let remote = remoteFull.split(separator: "/").first.map(String.init) ?? ""
                 return GitRef(name: remoteFull, kind: .remoteBranch(remote: remote), targetSha: commitSha, isHead: false,
-                              subject: subject, date: date)
+                              subject: subject, date: date, authorName: authorName, authorEmail: authorEmail)
             }
             if let tag = refname.removingPrefix("refs/tags/") {
                 return GitRef(name: tag, kind: .tag, targetSha: commitSha, isHead: false,
-                              subject: subject, date: date)
+                              subject: subject, date: date, authorName: authorName, authorEmail: authorEmail)
             }
             return nil
         }
+    }
+}
+
+extension GitCLI {
+    private nonisolated static func nonEmpty<S: StringProtocol>(_ value: S) -> String? {
+        value.isEmpty ? nil : String(value)
     }
 }
 
