@@ -231,7 +231,11 @@ struct FileInspectorSheet: View {
     private func diffPane(for entry: FileHistoryEntry) -> DiffPane {
         let store = history
         let status: StatusTag.Kind? = entry.status.map { StatusTag.Kind(commitFile: $0) }
-        let loadNewSide: (() async -> [String]?)? = entry.isDeletion ? nil : { await store.newSideLines() }
+        // A plain `if`: `cond ? nil : { async closure }` crashes the type checker.
+        var loadNewSide: (() async -> [String]?)? = nil
+        if !entry.isDeletion {
+            loadNewSide = { await store.newSideLines() }
+        }
         return DiffPane(
             file: entry.path,
             status: status,
