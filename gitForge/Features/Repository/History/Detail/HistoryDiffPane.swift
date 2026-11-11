@@ -64,7 +64,7 @@ struct HistoryDiffPane: View {
     }
 
     /// "Blame this line" on the working copy's diff.
-    private var workingCopyBlame: ((DiffLine) -> Void)? {
+    private var workingCopyBlame: (@MainActor (DiffLine) -> Void)? {
         guard let open = fileInspector, let file = viewModel.workingCopy.selectedWorkingCopyFile else { return nil }
         return { line in
             guard let request = FileInspectorRequest.blame(line: line, workingPath: file.path,
@@ -74,7 +74,7 @@ struct HistoryDiffPane: View {
     }
 
     /// "Blame this line" on the selected commit's diff of the selected file.
-    private var commitFileBlame: ((DiffLine) -> Void)? {
+    private var commitFileBlame: (@MainActor (DiffLine) -> Void)? {
         guard let open = fileInspector,
               let sha = viewModel.history.selectedCommit?.sha,
               let path = viewModel.history.selectedCommitFile else { return nil }

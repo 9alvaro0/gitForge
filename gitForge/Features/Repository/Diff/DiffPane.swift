@@ -34,7 +34,7 @@ struct DiffPane: View {
     var onToggleExpand: (() -> Void)? = nil
     /// Opens the blame of a line (its row's context menu). When `nil` rows
     /// offer no blame: the diff isn't of this repository (pull requests).
-    var onBlameLine: ((DiffLine) -> Void)? = nil
+    var onBlameLine: (@MainActor (DiffLine) -> Void)? = nil
 
     enum ViewMode: String, Hashable, CaseIterable, Identifiable {
         case unified, split

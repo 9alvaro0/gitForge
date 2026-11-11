@@ -215,6 +215,16 @@ struct FileInspectorSheet: View {
 
     // MARK: Detail
 
+    /// "Blame this line" on a line of `entry`'s diff: blames it at that
+    /// commit (or its parent for a removed line), under the right name.
+    private func blameLine(in entry: FileHistoryEntry) -> @MainActor (DiffLine) -> Void {
+        { line in
+            guard let target = FileInspectorRequest.blame(line: line, commit: entry.commit.sha, path: entry.path,
+                                                          previousPath: entry.previousPath) else { return }
+            showBlame(BlameStore.Location(revision: target.revision, path: target.path, line: target.line))
+        }
+    }
+
     @ViewBuilder
     private var detailColumn: some View {
         if let entry = history.selectedEntry {
@@ -232,11 +242,7 @@ struct FileInspectorSheet: View {
                     emptyState: history.fileDiffEmptyState,
                     onWhitespaceChange: { Task { await history.reloadFileDiff() } },
                     loadNewSide: entry.isDeletion ? nil : { () async -> [String]? in await history.newSideLines() },
-                    onBlameLine: { line in
-                        guard let target = FileInspectorRequest.blame(line: line, commit: entry.commit.sha, path: entry.path,
-                                                                      previousPath: entry.previousPath) else { return }
-                        showBlame(BlameStore.Location(revision: target.revision, path: target.path, line: target.line))
-                    },
+                    onBlameLine: blameLine(in: entry),
                     viewMode: diffMode
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -43,7 +43,7 @@ struct StagingDiffColumn: View {
     }
 
     /// "Blame this line": the working tree's blame, or HEAD's for a removed line.
-    private func blameLine(of file: WorkingCopyFile) -> ((DiffLine) -> Void)? {
+    private func blameLine(of file: WorkingCopyFile) -> (@MainActor (DiffLine) -> Void)? {
         guard let open = fileInspector else { return nil }
         return { line in
             guard let request = FileInspectorRequest.blame(line: line, workingPath: file.path,
